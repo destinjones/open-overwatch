@@ -22,6 +22,7 @@ export const LAYERS = [
   { id: 'lighthouses', group: 'Earth', name: 'Lighthouses of the world', color: '#ffe27a', on: !PHONE },
   { id: 'sun', group: 'Earth', name: 'Sun overhead and time zones', color: '#ffd45c', on: false },
   { id: 'buildings', group: 'Earth', name: '3D buildings (OpenStreetMap, close up)', color: '#c9d3e0', on: false },
+  { id: 'cctv', group: 'Earth', name: 'Mapped cameras and plate readers (OpenStreetMap, close up)', color: '#ff6fb5', on: false },
   { id: 'photoreal', group: 'Earth', name: 'Photoreal 3D cities (Google, with your free Cesium ion token)', color: '#9fe3ff', on: false },
   { id: 'volcanoes', group: 'Earth', name: 'Volcanoes of the world (Wikidata)', color: '#ff5a36', on: !PHONE },
   { id: 'companies', group: 'Earth', name: 'Big employers as towers (Wikidata)', color: '#ff9f5c', on: !PHONE },
