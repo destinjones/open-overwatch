@@ -13,11 +13,12 @@ export function setGeocoder(fn, credit = '') { custom = fn; customCredit = credi
 export const placesCredit = () => custom ? customCredit : 'Places: Photon (komoot) · © OpenStreetMap contributors';
 
 /** [{ name, sub, lon, lat, type, extent: [w, n, e, s] | null }] for a query (at most `limit`). */
-export async function findPlaces(q, limit = 5) {
-  const key = q.trim().toLowerCase() + '|' + limit; if (key.length < 3) return [];
+export async function findPlaces(q, limit = 5, near = null) {
+  const bias = near && Number.isFinite(near.lat) ? `&lat=${near.lat.toFixed(3)}&lon=${near.lon.toFixed(3)}` : '';   // prefer results near a point
+  const key = q.trim().toLowerCase() + '|' + limit + bias; if (key.length < 3) return [];
   if (cache.has(key)) return cache.get(key);
   if (custom) { const out = await custom(q.trim().slice(0, 80), limit); cache.set(key, out); return out; }
-  const lang = (navigator.language || 'en').slice(0, 2), url = `${API}?q=${encodeURIComponent(q.trim().slice(0, 80))}&limit=${limit}${['en', 'de', 'fr', 'it'].includes(lang) ? '&lang=' + lang : ''}`;
+  const lang = (navigator.language || 'en').slice(0, 2), url = `${API}?q=${encodeURIComponent(q.trim().slice(0, 80))}&limit=${limit}${bias}${['en', 'de', 'fr', 'it'].includes(lang) ? '&lang=' + lang : ''}`;
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 8000);
   try {
     const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) throw new Error('HTTP ' + r.status);

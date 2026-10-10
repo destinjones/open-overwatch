@@ -15,6 +15,7 @@ import { select, flyToObject, PRESETS } from './ui.js';
 import { ALIAS } from './search.js';
 import { findPlaces, flyToPlace } from './places.js';
 import { Ops } from './ops.js';
+import { Directions, resolvePair } from './directions.js';
 import { parse, EXAMPLES } from '../core/voicecmd.js';
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -132,6 +133,13 @@ async function run(cmd, heard) {
       if (places && places[0]) { hooks.closeCard?.(); flyToPlace(places[0]); return say(`${places[0].name}${places[0].sub ? ', ' + places[0].sub.split(' · ').pop() : ''}.`, heard); }
       return say(places === null ? 'The place search is unavailable right now.' : `I couldn't find ${q}.`, heard);
     }
+    case 'route': {
+      let a, b; try { [a, b] = await resolvePair(cmd.from, cmd.to); } catch (e) { return say(`I couldn't find ${e.message.replace(/^no place called /, '')}.`, heard); }
+      Directions.open({ from: a, to: b, mode: cmd.mode });
+      const r = await Directions.go(a, b, cmd.mode).catch(() => null);
+      return say(r ? `${{ walk: 'Walking', cycle: 'Cycling', drive: 'Driving' }[cmd.mode]}: ${r.distance >= 1000 ? (r.distance / 1000).toFixed(1) + ' kilometres' : Math.round(r.distance) + ' metres'}, about ${Math.max(1, Math.round(r.duration / 60))} minutes. Say "fly it" to ride along.` : 'No route between those places.', heard);
+    }
+    case 'flyroute': if (!Directions.route) return say('Ask for a route first, like: walking route from Big Ben to the Tower of London.', heard); Directions.fly(); return say('Flying the route.', heard);
     case 'help': return say(`Try: ${EXAMPLES.slice(0, 5).join(' · ')}.`, heard);
     default: return say(`Didn't catch a command. Try "take me to Tokyo" or "night vision".`, heard);
   }

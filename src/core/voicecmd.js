@@ -8,6 +8,7 @@
 //   { act: 'view', go }          "what's above me tonight", "open the solar system", "play the tour"
 //   { act: 'reset' | 'north' | 'topdown' | 'stop' | 'what' | 'help' | 'live' | 'pause' }
 //   { act: 'zoom', dir: 'in' | 'out' }   { act: 'faster' }   { act: 'count', what }   { act: 'unknown', text }
+//   { act: 'route', from, to, mode: 'drive' | 'walk' | 'cycle' }   { act: 'flyroute' }
 
 export const SENSORS = Object.freeze(['normal', 'nvg', 'flir', 'flirbh', 'iron', 'crt', 'noir']);
 
@@ -69,6 +70,10 @@ export function parse(text) {
   if (/^(what('s| is) (this|that|here|it|selected)|what am i looking at|where am i|where is this|identify( this| that)?|what('s| is) (down )?there)\b/.test(s)) return { act: 'what' };
   let m = s.match(/^how many (satellites|sats|planes|aircraft|flights|military( aircraft| planes| flights)?|earthquakes|quakes|things|objects|targets|contacts)\b/);
   if (m) return { act: 'count', what: /sat/.test(m[1]) ? 'sat' : /quake/.test(m[1]) ? 'quake' : /military/.test(m[1]) ? 'mil' : /plane|aircraft|flight/.test(m[1]) ? 'air' : 'all' };
+  if (/^(fly (it|the route|this route|that route|along the route|the path)|play the route)( |$)/.test(s)) return { act: 'flyroute' };
+  m = s.match(/^(?:show me |give me |get |find |draw |plot )?(?:the |a )?(?:(walking|walk|driving|drive|car|cycling|cycle|bike|biking) )?(?:route|directions|way|path)? ?from (.+?) to (.+)$/)
+    || s.match(/^(walk|drive|cycle|bike) from (.+?) to (.+)$/) || s.match(/^how (?:do|can) i (walk|drive|cycle|get) from (.+?) to (.+)$/);
+  if (m && m[2] && m[3]) return { act: 'route', from: clean(m[2]), to: clean(m[3]), mode: /walk/.test(m[1] || '') ? 'walk' : /cycl|bike/.test(m[1] || '') ? 'cycle' : 'drive' };
   m = s.match(/^(track|follow|lock on( to)?|lock onto|target|chase)\s+(.+)$/);
   if (m) return { act: 'track', what: clean(m[3]) };
   m = s.match(/^(turn|switch|toggle)\s+(on|off)\s+(.+)$/) || s.match(/^(turn|switch|toggle)\s+(.+?)\s+(on|off)$/);
@@ -83,6 +88,6 @@ export function parse(text) {
 
 /** Phrases for the help card and the "try saying" hint. */
 export const EXAMPLES = Object.freeze([
-  'Take me to Tokyo', 'Track the ISS', 'Night vision', 'Thermal', 'Enter cockpit', 'Turn on earthquakes',
+  'Take me to Tokyo', 'Track the ISS', 'Night vision', 'Thermal', 'Enter cockpit', 'Turn on earthquakes', 'Walking route from Big Ben to the Tower of London',
   'How many satellites are in view?', "What's this?", 'Show me the launches', 'Zoom out to a globe view',
 ]);

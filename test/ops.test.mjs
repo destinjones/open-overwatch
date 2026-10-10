@@ -68,3 +68,18 @@ test('share links carry the sensor and overlays, and nothing else gets in', () =
   assert.equal(decodeView('#c=1,2,3&o=<script>.h').ops.sensor, 'normal');
   assert.equal(decodeView('#c=1,2,3').ops, undefined);
 });
+
+test('voice: routes', () => {
+  assert.deepEqual(parse('Draw the walking route from the Capitol to Zilker Park'), { act: 'route', from: 'capitol', to: 'zilker park', mode: 'walk' });
+  assert.deepEqual(parse('directions from LAX to Santa Monica Pier'), { act: 'route', from: 'lax', to: 'santa monica pier', mode: 'drive' });
+  assert.deepEqual(parse('cycle from Amsterdam Centraal to Vondelpark'), { act: 'route', from: 'amsterdam centraal', to: 'vondelpark', mode: 'cycle' });
+  assert.deepEqual(parse('how do I get from Big Ben to the Tower of London'), { act: 'route', from: 'big ben', to: 'tower of london', mode: 'drive' });
+  assert.deepEqual(parse('fly the route'), { act: 'flyroute' });
+  assert.deepEqual(parse('Fly it'), { act: 'flyroute' });
+  assert.deepEqual(parse('fly to Paris'), { act: 'go', place: 'paris' });   // not a route
+});
+
+test('voice: "fly it" is not the start of a place name', () => {
+  assert.deepEqual(parse('fly to Italy'), { act: 'go', place: 'italy' });
+  assert.notEqual(parse('fly italy').act, 'flyroute');
+});

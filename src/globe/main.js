@@ -41,6 +41,7 @@ import { Ops } from './ops.js';
 import { Voice } from './voice.js';
 import { Photoreal } from './photoreal.js';
 import { Storms } from './storms.js';
+import { Directions } from './directions.js';
 
 // things on the ground: from look-up mode's eye height they become huge streaks across the sky, so they hide there
 const GROUND = ['companies', 'volcanoes', 'lighthouses', 'launches', 'quakes', 'sun', 'buildings'];
@@ -83,6 +84,7 @@ PRESETS.crew = () => Crew.open();
 PRESETS.launches = () => { hooks.clearPresets(); Launches.openList(); };
 hooks.showLaunch = o => Launches.show(o);
 PRESETS.flight = () => Flight.open();
+PRESETS.route = () => Directions.open();
 hooks.shareCopy = () => Share.copy();
 hooks.closeWeather = () => { if (Weather.on) Weather.close(); };
 hooks.snapshot = () => Snapshot.share();
@@ -160,7 +162,7 @@ every(10 * 60e3, () => Quakes.load(), 'Earthquakes');
 every(30 * 60e3, () => Storms.load(), 'Tropical cyclones');
 setInterval(() => Aurora.apply(), 60e3);   // refreshes itself every 10 minutes while the layer is on
 
-window.OO3D = { Ops, Voice, Photoreal, Storms, Conj, LookUp, Eclipses, Tonight, Flight, Snapshot, Search, Launches, Crew,
+window.OO3D = { Ops, Voice, Photoreal, Storms, Directions, Conj, LookUp, Eclipses, Tonight, Flight, Snapshot, Search, Launches, Crew,
   viewer, space: Space, time: Time, Earth, marbleLayer, nightLayer, fxShell, cloudShell, limbShell, Fx, Sats, Air, Quakes, Lighthouses, Weather, Wind, Country, Aurora, Flybys, Companies, Volcanoes, SunLine, Buildings, Share, Tour, setIonToken: t => Buildings.setToken(t), L, PRESETS, moonPosition, SatModels, AirModels, Follow, select, applyVisibility,
   /** debug: the axes test model at lon/lat/height, body X = east, Y = north, Z = up, arrays turned by `deg` */
   debugAxes(lon, lat, h, deg = 0, uri = 'brand/models/test/axes.glb') {
