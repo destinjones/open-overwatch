@@ -2,6 +2,7 @@
 export const C = window.Cesium;
 export const $ = s => document.querySelector(s);
 export { esc } from '../core/format.js';
+import { PUBLIC_RELAY, PUBLIC_RELAY_HOSTS, onPublishedSite } from '../core/relay.js';
 export const fmt = n => n == null || Number.isNaN(n) ? '—' : Math.round(n).toLocaleString('en-US');
 // a narrow window, or a touch screen whose short side is phone-sized (a phone held sideways is wider than 820 px)
 export const PHONE = matchMedia('(max-width: 820px)').matches || (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600);
@@ -35,6 +36,13 @@ export const bigStore = {
 
 // the local helper (serve.js / serve.py) relays the few feeds that send no CORS headers; the website has no helper
 export const RELAY = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) && location.protocol.startsWith('http') ? location.origin + '/proxy?url=' : null;
+/** The relayed URL for a feed: the local helper if there is one, else the website's public relay for the feeds it carries
+ *  (src/core/relay.js; not aircraft), else null. */
+export function relayed(url) {
+  if (RELAY) return RELAY + encodeURIComponent(url);
+  try { if (onPublishedSite(location.hostname) && PUBLIC_RELAY_HOSTS.includes(new URL(url).hostname)) return PUBLIC_RELAY + encodeURIComponent(url); } catch (e) { /* not a URL */ }
+  return null;
+}
 
 async function request(url, timeout, read) {
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), timeout);
@@ -43,8 +51,9 @@ async function request(url, timeout, read) {
   finally { clearTimeout(t); }
 }
 export function getJSON(url, { relay = false, timeout = 45000 } = {}) {
-  if (relay && !RELAY) return Promise.reject(new Error('live aircraft need the download version (its local helper relays them)'));
-  return request(relay ? RELAY + encodeURIComponent(url) : url, timeout, r => r.json());
+  const via = relay ? relayed(url) : url;
+  if (!via) return Promise.reject(new Error('live aircraft need the download version (its local helper relays them)'));
+  return request(via, timeout, r => r.json());
 }
 export const getText = (url, { timeout = 90000 } = {}) => request(url, timeout, r => r.text());
 

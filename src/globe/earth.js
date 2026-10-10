@@ -192,8 +192,9 @@ export const Earth = {
   h: Infinity,
   update(h) { this.h = h; this.apply(); },
   hidden: false,   // look-up mode: no map tiles or shells, a plain dark ground (set by lookup.js)
+  covered: false,  // Photoreal 3D is the ground close up (photoreal.js): no imagery or shells under it
   apply() {
-    if (this.hidden) {
+    if (this.hidden || this.covered) {
       for (let k = 0; k < viewer.imageryLayers.length; k++) viewer.imageryLayers.get(k).show = false;
       fxShell.primitive.show = cloudShell.primitive.show = limbShell.primitive.show = false; return;
     }

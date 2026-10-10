@@ -78,7 +78,7 @@ function tipFor(o) {
   if (o.kind === 'volcano') return `${o.name}${o.elevationM ? ' · ' + fmt(o.elevationM) + ' m' : ''}`;
   if (o.kind === 'company') return `${o.name} · ${fmt(o.employees)} employees`;
   if (o.kind === 'lighthouse') return `${o.name || 'Lighthouse'}${o.heightM ? ' · ' + fmt(o.heightM) + ' m' : ''}`;
-  return '';
+  return typeof o.tip === 'function' ? o.tip() : '';   // layers in their own modules (transit, radio…) describe themselves
 }
 let hoverRaf = 0;
 handler.setInputAction(m => {
@@ -134,6 +134,8 @@ export function select(o) {
     const wd = /^Q\d+$/.test(o.wiki) ? `<div class="acts"><a class="chipbtn" href="https://www.wikidata.org/wiki/${o.wiki}" target="_blank" rel="noopener">Wikidata</a></div>` : '';
     const light = [o.colour, o.character].filter(Boolean).join(' · ');
     html = `<div class="k" style="--c:#ffe27a">${o.status ? 'Disused lighthouse' : 'Lighthouse'}</div><h2>${esc(o.name || 'Unnamed lighthouse')}</h2><dl>${o.heightM ? row('Height', fmt(o.heightM) + ' m') : ''}${light ? row('Light', light) : ''}${o.rangeNm ? row('Range', fmt(o.rangeNm) + ' nautical miles') : ''}${o.built ? row('Built', o.built) : ''}${o.operator ? row('Run by', o.operator) : ''}${row('Position', o.lat.toFixed(4) + '°, ' + o.lon.toFixed(4) + '°')}</dl>${wd}<div class="note" style="margin-top:8px">© OpenStreetMap contributors (ODbL)</div>`;
+  } else if (typeof o.cardHtml === 'function') {   // a self-describing object: its module builds the card (escaping is its job)
+    html = o.cardHtml();
   } else if (o.kind === 'quake') {
     const link = /^https:\/\//.test(o.url) ? `<div class="acts"><a class="chipbtn" href="${esc(o.url)}" target="_blank" rel="noopener">USGS page</a></div>` : '';
     html = `<div class="k" style="--c:#ff7b4f">Earthquake</div><h2>M${o.mag.toFixed(1)}</h2><dl>${row('Where', o.place)}${row('When', new Date(o.time).toISOString().slice(0, 16).replace('T', ' ') + ' UTC')}${row('Depth', fmt(o.depth) + ' km')}</dl>${link}`;
@@ -151,6 +153,7 @@ export function select(o) {
   if ($('#crewLine')) Crew.load().then(() => { const el = $('#crewLine'); if (!el || state.selected !== o) return; const n = Crew.aboard(o.id === '25544' ? 'ISS' : 'Tiangong').length;
     el.innerHTML = `Aboard now: ${n} ${n === 1 ? 'person' : 'people'} · <a href="#" id="crewWho">who?</a>`; $('#crewWho').onclick = e => { e.preventDefault(); Crew.open(); }; }, () => { const el = $('#crewLine'); if (el) el.remove(); });
   if (o.kind === 'country') Country.after(o);
+  if (typeof o.afterCard === 'function') o.afterCard(card);
   if ($('#btnFollow')) $('#btnFollow').onclick = () => following ? Follow.stop() : o.kind === 'air' ? AirModels.follow(o) : SatModels.follow(o);
 }
 hooks.reselect = select;

@@ -40,7 +40,7 @@ function build(els) {
 }
 
 async function tick() {
-  const on = L.buildings.on && !state.lookup, low = camHeight() < MAX_H;   // from look-up's eye height they'd tower over the sky
+  const on = L.buildings.on && !state.lookup && !state.photoreal, low = camHeight() < MAX_H;   // Google's photoreal city has its own   // from look-up's eye height they'd tower over the sky
   for (const c of cells.values()) if (c.prim) c.prim.show = on && low;
   if (!on || !low || busy || performance.now() - last < GAP_MS) return;
   const p = camera.pickEllipsoid(new C.Cartesian2(scene.canvas.clientWidth / 2, scene.canvas.clientHeight / 2), scene.globe.ellipsoid) || camera.positionWC;

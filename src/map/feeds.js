@@ -93,7 +93,7 @@ feed(lyStorms, { interval: 1200, errorInterval: 1800, fetch: async () => {
     L.polyline(pts.map(p => [p.coordinates[1], p.coordinates[0]]), { color: col, weight: 1.5, opacity: .6, interactive: false, renderer: vecRenderer }).addTo(gStorms);
     World.storms.push(s); items.push({ lat, lon, r: 7, color: col, fillAlpha: .25, lw: 2, halo: 16, kind: 'storm', obj: s, tip: `${ev.title}${kt ? ' · ' + kt + ' kt' : ''}`, label: ev.title.replace(/^(Tropical Storm|Hurricane|Typhoon|Cyclone|Tropical Cyclone)\s+/i, ''), labelZoom: 2 });
   }
-  if (Relay.available) { try { // NHC adds official advisories for Atlantic / East & Central Pacific storms
+  if (Relay.available || Relay.wrap('https://www.nhc.noaa.gov/CurrentStorms.json')) { try { // NHC adds official advisories for Atlantic / East & Central Pacific storms (helper, or the website's public relay)
     const nhc = await Net.json('https://www.nhc.noaa.gov/CurrentStorms.json');
     for (const st of nhc.activeStorms || []) { const lat = +st.latitudeNumeric, lon = +st.longitudeNumeric; if (!isFinite(lat)) continue;
       const s = { id: st.id, src: 'NOAA NHC', title: `${st.classification || ''} ${st.name}`.trim(), sub: `Basin ${st.binNumber || ''}`, lat, lon, kt: +st.intensity || null, pressure: st.pressure, movement: st.movementDir != null ? `${st.movementDir}° at ${st.movementSpeed} kt` : null, advisory: st.lastUpdate, links: [st.publicAdvisory?.url ? { text: `Public advisory ${st.publicAdvisory.advNum || ''}`, url: st.publicAdvisory.url } : null, st.forecastAdvisory?.url ? { text: 'Forecast advisory', url: st.forecastAdvisory.url } : null, { text: 'NHC home', url: 'https://www.nhc.noaa.gov/' }].filter(Boolean) };

@@ -27,5 +27,5 @@ export const Buildings = {
     }
     this.tick();
   },
-  tick() { if (this.tileset) { this.tileset.show = L.buildings.on && !state.lookup && camHeight() < 1.5e5; viewer.scene.requestRender(); } },
+  tick() { if (this.tileset) { this.tileset.show = L.buildings.on && !state.lookup && !state.photoreal && camHeight() < 1.5e5; viewer.scene.requestRender(); } },
 };

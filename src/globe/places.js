@@ -6,11 +6,17 @@ import { release } from './follow.js';
 
 const API = 'https://photon.komoot.io/api/';
 const cache = new Map();
+let custom = null, customCredit = '';
+/** Another geocoder takes over (Google's, while Photoreal 3D is on: its terms require it); null = Photon again. */
+export function setGeocoder(fn, credit = '') { custom = fn; customCredit = credit; cache.clear(); }
+/** The line that credits whoever answered place searches. */
+export const placesCredit = () => custom ? customCredit : 'Places: Photon (komoot) · © OpenStreetMap contributors';
 
 /** [{ name, sub, lon, lat, type, extent: [w, n, e, s] | null }] for a query (at most `limit`). */
 export async function findPlaces(q, limit = 5) {
   const key = q.trim().toLowerCase() + '|' + limit; if (key.length < 3) return [];
   if (cache.has(key)) return cache.get(key);
+  if (custom) { const out = await custom(q.trim().slice(0, 80), limit); cache.set(key, out); return out; }
   const lang = (navigator.language || 'en').slice(0, 2), url = `${API}?q=${encodeURIComponent(q.trim().slice(0, 80))}&limit=${limit}${['en', 'de', 'fr', 'it'].includes(lang) ? '&lang=' + lang : ''}`;
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 8000);
   try {
@@ -33,7 +39,8 @@ const typeName = p => TYPES[p.osm_value] || TYPES[p.type] || '';
 export function flyToPlace(pl) {
   release();
   const big = { country: 2.6e6, state: 9.0e5, county: 2.5e5, region: 9.0e5, city: 2.6e4, town: 1.2e4, village: 6.0e3, island: 6.0e4, aerodrome: 6.0e3, airport: 6.0e3 }[pl.type];
-  if (pl.extent && (pl.type === 'country' || pl.type === 'state' || pl.type === 'region')) {
+  const wide = pl.extent && Math.max(Math.abs(pl.extent[2] - pl.extent[0]), Math.abs(pl.extent[1] - pl.extent[3])) > 0.6;   // ~60 km: a region, not a building
+  if (pl.extent && (pl.type === 'country' || pl.type === 'state' || pl.type === 'region' || (!pl.type && wide))) {
     const [w, n, e, s] = pl.extent;
     camera.flyTo({ destination: C.Rectangle.fromDegrees(w, s, e, n), duration: 3 }); return;
   }

@@ -21,7 +21,7 @@ const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const SENSOR_SAY = { normal: 'Normal colour.', nvg: 'Night vision.', flir: 'Thermal, white hot.', flirbh: 'Thermal, black hot.', iron: 'Thermal, ironbow.', crt: 'Old monitor.', noir: 'Noir.' };
 // what people call each layer
 const LAYER_WORDS = {
-  quakes: 'earthquake earthquakes quakes seismic', air: 'planes aircraft flights airplanes civil air traffic', mil: 'military military aircraft military planes',
+  quakes: 'earthquake earthquakes quakes seismic', storms: 'storms hurricanes cyclones typhoons hurricane typhoon cyclone tropical storms', air: 'planes aircraft flights airplanes civil air traffic', mil: 'military military aircraft military planes',
   stations: 'space stations stations', starlink: 'starlink', debris: 'debris space junk junk', gnss: 'gps navigation galileo glonass beidou',
   geo: 'geostationary geo', weather: 'weather satellites', visual: 'bright satellites', active: 'other satellites active satellites',
   launches: 'launch pads launches rockets', lighthouses: 'lighthouses', volcanoes: 'volcanoes', companies: 'employers companies towers',

@@ -39,6 +39,8 @@ import { Launches } from './launches.js';
 import { Crew } from './crew.js';
 import { Ops } from './ops.js';
 import { Voice } from './voice.js';
+import { Photoreal } from './photoreal.js';
+import { Storms } from './storms.js';
 
 // things on the ground: from look-up mode's eye height they become huge streaks across the sky, so they hide there
 const GROUND = ['companies', 'volcanoes', 'lighthouses', 'launches', 'quakes', 'sun', 'buildings'];
@@ -51,7 +53,7 @@ function applyAll() {
   for (const s of Sats.list) if (s.pt) s.pt.show = L[s.layer].on && !s.ent && !s.docked;
   airPts.show = airIcons.show = !state.weather; satPts.show = !state.weather;
   for (const a of Air.map.values()) { const on = airShown(a); a.pt.show = on && !a.ent; a.icon.show = on && !a.ent; if (!on && a.ent) AirModels.drop(a); }
-  qkPts.show = L.quakes.on; Lighthouses.apply(); Aurora.apply(); Companies.apply(); Volcanoes.apply(); SunLine.apply(); Buildings.apply(); Launches.apply();
+  qkPts.show = L.quakes.on; Lighthouses.apply(); Aurora.apply(); Companies.apply(); Volcanoes.apply(); SunLine.apply(); Buildings.apply(); Launches.apply(); Photoreal.apply(); Storms.apply();
   Earth.apply(); updateBand(); updateStats();
 }
 hooks.applyVisibility = applyVisibility;
@@ -155,9 +157,10 @@ Sats.ready = Sats.load().catch(e => toast('Satellites failed: ' + e.message));  
 every(15 * 60e3, () => Air.opensky(), 'Civil aircraft');
 every(60e3, () => Air.military(), 'Military aircraft');
 every(10 * 60e3, () => Quakes.load(), 'Earthquakes');
+every(30 * 60e3, () => Storms.load(), 'Tropical cyclones');
 setInterval(() => Aurora.apply(), 60e3);   // refreshes itself every 10 minutes while the layer is on
 
-window.OO3D = { Ops, Voice, Conj, LookUp, Eclipses, Tonight, Flight, Snapshot, Search, Launches, Crew,
+window.OO3D = { Ops, Voice, Photoreal, Storms, Conj, LookUp, Eclipses, Tonight, Flight, Snapshot, Search, Launches, Crew,
   viewer, space: Space, time: Time, Earth, marbleLayer, nightLayer, fxShell, cloudShell, limbShell, Fx, Sats, Air, Quakes, Lighthouses, Weather, Wind, Country, Aurora, Flybys, Companies, Volcanoes, SunLine, Buildings, Share, Tour, setIonToken: t => Buildings.setToken(t), L, PRESETS, moonPosition, SatModels, AirModels, Follow, select, applyVisibility,
   /** debug: the axes test model at lon/lat/height, body X = east, Y = north, Z = up, arrays turned by `deg` */
   debugAxes(lon, lat, h, deg = 0, uri = 'brand/models/test/axes.glb') {

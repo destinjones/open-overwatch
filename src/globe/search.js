@@ -15,7 +15,7 @@ import { Launches } from './launches.js';
 import { LookUp } from './lookup.js';
 import { select, flyToObject, PRESETS } from './ui.js';
 import { parseFlightQuery, matchesFlight } from '../core/flight.js';
-import { findPlaces, flyToPlace } from './places.js';
+import { findPlaces, flyToPlace, placesCredit } from './places.js';
 
 // everyday names for famous objects -> NORAD numbers
 export const ALIAS = { iss: '25544', 'space station': '25544', 'international space station': '25544', zarya: '25544', hubble: '20580', hst: '20580',
@@ -68,7 +68,7 @@ function draw(list, q) {
   const box = $('#srRes'); if (!box) return;
   results = list;
   box.innerHTML = list.length ? list.map((r, i) => `<button class="cj sr" data-i="${i}"><span>${esc(r.label)}</span><small>${esc(r.sub)}</small></button>`).join('')
-      + (list.some(r => r.kind === 'place') ? '<p class="note">Places: Photon (komoot) · © OpenStreetMap contributors</p>' : '')
+      + (list.some(r => r.kind === 'place') ? `<p class="note">${esc(placesCredit())}</p>` : '')
     : q.trim().length < 2 ? '<p class="note">Satellites (name or NORAD number), countries, cities and places, flight numbers, volcanoes, views… Try "ISS", "Tokyo", "Eiffel Tower", "BA 123" or "eclipse".</p>'
     : !Sats.list.length ? '<p class="note">The satellite catalogue is still loading: try again in a moment.</p>'
     : `<p class="note">Nothing called "${esc(q.trim())}" on the globe. Volcanoes, employers and lighthouses are searched once their layers are on.</p>`;
