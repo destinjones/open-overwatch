@@ -81,3 +81,12 @@ user enters in the 2D map's Setup tab (stored only in their browser).
 
 The 2D map's Setup tab can run a live check of every endpoint. `notes/review-2026-10-01.json` holds the last full
 liveness review.
+
+## Search, voice and the Ops overlays (3D globe)
+
+| What | Source | How | Notes |
+|---|---|---|---|
+| Places by name (cities, airports, landmarks, addresses) | [Photon](https://photon.komoot.io) by komoot, over OpenStreetMap | direct (CORS, no key); only the typed or spoken words are sent, after a 250 ms pause in typing | © OpenStreetMap contributors (ODbL); fair-use public API, results cached for the session |
+| Voice commands | the browser's Web Speech API (`SpeechRecognition`) | the browser's own service: Chrome/Edge send audio to Google/Microsoft, Safari to Apple; parsed into one action by `src/core/voicecmd.js` (no AI service) | unavailable in Firefox; answers are spoken with the browser's speech synthesis, on the device |
+| Grid references (HUD) | MGRS computed in the browser (`src/core/mgrs.js`) | UTM by the Krüger series with the Norway/Svalbard zones | matches NGA GeoTrans (Python `mgrs`) to the metre in the tests; null in the polar UPS regions |
+| Sensor looks (NVG, thermal, CRT, noir) | a post-process shader over the rendered globe | `src/globe/ops.js` | a stylised look, not real infrared: "thermal" maps brightness and edges, not temperature |

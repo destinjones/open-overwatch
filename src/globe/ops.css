@@ -1,0 +1,64 @@
+/* Ops pack (ops.js, voice.js): sensor rail, tactical HUD, detection overlay, voice bubble. */
+#opsDet{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;display:none}
+
+/* ---- the rail: sensors, overlays, cockpit, mic */
+#opsRail{position:fixed;left:50%;top:80px;transform:translateX(-50%);display:flex;gap:2px;padding:4px;z-index:5;max-width:calc(100% - 600px)}
+#opsRail button{min-width:44px;padding:0 8px;height:30px;flex:none;border-radius:8px;border:1px solid transparent;background:none;color:var(--dim);font:600 10px/1 var(--mono);letter-spacing:.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+#opsRail button:hover{color:var(--ink);border-color:var(--edge-dim)}
+#opsRail button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+#opsRail [data-s].on{color:var(--accent);border-color:var(--edge);background:rgba(125,255,166,.07)}
+#opsRail [data-o].on{color:#04060a;background:var(--accent)}
+#opsRail .ops-t{color:var(--accent);font-weight:700;letter-spacing:.14em}
+#opsRail .ops-body{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+#opsRail:not(.open) .ops-body{display:none}
+#opsRail:not(.open) .ops-t{width:auto;padding:0 10px}
+#opsRail .ops-sep{display:block;width:1px;margin:5px 4px;background:var(--edge-dim)}
+#opsMic.live{color:#ff4d5e!important;border-color:#ff4d5e!important;animation:opsPulse 1s ease-in-out infinite}
+@keyframes opsPulse{50%{box-shadow:0 0 14px rgba(255,77,94,.55)}}
+body.lookup #opsRail{display:none}
+
+/* ---- tactical HUD */
+#opsHud{position:fixed;inset:0;pointer-events:none;z-index:3;display:none;color:var(--hud,#7dffa6);font:500 11px/1.5 var(--mono);letter-spacing:.06em;text-shadow:0 0 6px rgba(0,0,0,.95),0 0 2px rgba(0,0,0,.9)}
+body.ops-hud #opsHud,body.ops-cockpit #opsHud{display:block}
+body.lookup #opsHud{display:none!important}
+#opsHud .oh-frame{position:absolute;inset:124px 12px 80px 278px;opacity:.55;--k:28px;--w:1.5px;
+  background:linear-gradient(var(--hud),var(--hud)) top left/var(--k) var(--w) no-repeat,linear-gradient(var(--hud),var(--hud)) top left/var(--w) var(--k) no-repeat,
+    linear-gradient(var(--hud),var(--hud)) top right/var(--k) var(--w) no-repeat,linear-gradient(var(--hud),var(--hud)) top right/var(--w) var(--k) no-repeat,
+    linear-gradient(var(--hud),var(--hud)) bottom left/var(--k) var(--w) no-repeat,linear-gradient(var(--hud),var(--hud)) bottom left/var(--w) var(--k) no-repeat,
+    linear-gradient(var(--hud),var(--hud)) bottom right/var(--k) var(--w) no-repeat,linear-gradient(var(--hud),var(--hud)) bottom right/var(--w) var(--k) no-repeat}
+#opsHud .oh-tape{position:absolute;top:126px;left:50%;transform:translateX(-50%);width:min(460px,64vw);height:46px;overflow:hidden;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 16%,#000 84%,transparent);mask-image:linear-gradient(90deg,transparent,#000 16%,#000 84%,transparent)}
+#opsHud .oh-strip{position:absolute;left:50%;top:0;height:26px;width:4324px;will-change:transform}
+#opsHud .oh-strip i{position:absolute;top:0;width:1px;height:6px;background:var(--hud);opacity:.7}
+#opsHud .oh-strip i.b{height:10px;opacity:1}
+#opsHud .oh-strip span{position:absolute;top:11px;left:0;transform:translateX(-50%);font-size:10px;font-style:normal}
+#opsHud .oh-hdg{position:absolute;left:50%;top:26px;transform:translateX(-50%);padding:0 6px;border:1px solid var(--hud);font-weight:600;background:rgba(0,0,0,.35);line-height:16px}
+#opsHud .oh-hdg::before{content:'';position:absolute;left:50%;top:-6px;width:1px;height:6px;background:var(--hud)}
+#opsHud .oh-ret{position:absolute;left:50%;top:50%;width:120px;height:120px;transform:translate(-50%,-50%);fill:none;stroke:var(--hud);stroke-width:1.2;opacity:.8;filter:drop-shadow(0 0 2px rgba(0,0,0,.9))}
+#opsHud .oh-ret circle{opacity:.55}
+#opsHud .oh-lock{position:absolute;left:50%;top:calc(50% + 72px);transform:translateX(-50%);padding:2px 8px;border:1px solid var(--hud);background:rgba(0,0,0,.35);letter-spacing:.12em;white-space:nowrap;display:none}
+#opsHud .oh-tl,#opsHud .oh-bl{position:absolute;display:grid;gap:0;white-space:nowrap}
+#opsHud .oh-tl{left:292px;top:134px} #opsHud .oh-bl{left:292px;bottom:92px}
+#opsHud .oh-tl b{font-weight:600;letter-spacing:.16em}
+#opsHud .rec{font-style:normal;color:#ff4d5e;margin-left:8px;animation:opsBlink 1.2s steps(2,start) infinite}
+@keyframes opsBlink{to{visibility:hidden}}
+body.ops-cockpit #opsHud .oh-ret{width:150px;height:150px}
+
+/* ---- voice */
+#voiceBubble{position:fixed;left:50%;bottom:92px;transform:translate(-50%,8px);z-index:7;display:flex;gap:10px;align-items:flex-start;padding:10px 14px;max-width:min(560px,92vw);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;font:500 13px/1.4 var(--body)}
+#voiceBubble.show{opacity:1;transform:translate(-50%,0)}
+#voiceBubble .vb-mic{color:var(--faint);font-size:12px;line-height:20px} #voiceBubble .vb-mic.on{color:#ff4d5e;animation:opsBlink 1s steps(2,start) infinite}
+#voiceBubble q{display:block;color:var(--ink);font-style:italic;quotes:'“' '”'} #voiceBubble q.dim{color:var(--dim);quotes:none}
+#voiceBubble b{display:block;margin-top:2px;color:var(--accent);font:500 12px/1.4 var(--mono)}
+
+/* ---- phones: the rail is a strip under the header, the HUD keeps to the edges */
+body.m #opsRail{top:calc(72px + env(safe-area-inset-top,0px));left:10px;transform:none;max-width:calc(100% - 20px)}
+body.m #opsRail .ops-body{overflow-x:auto;scrollbar-width:none}
+body.m #opsRail [data-o]{order:-2} body.m #opsRail .ops-sep{order:-1} /* overlays first: no swipe needed for HUD and the mic */
+body.m #opsRail button{width:auto;min-width:42px;padding:0 9px;height:34px;flex:none}
+body.m #opsHud .oh-frame{inset:calc(118px + env(safe-area-inset-top,0px)) 8px calc(84px + env(safe-area-inset-bottom,0px)) 8px}
+body.m #opsHud .oh-tape{top:calc(122px + env(safe-area-inset-top,0px));width:76vw}
+body.m #opsHud .oh-tl{left:16px;top:calc(172px + env(safe-area-inset-top,0px));font-size:10px}
+body.m #opsHud .oh-bl{left:16px;bottom:calc(92px + env(safe-area-inset-bottom,0px));font-size:10px}
+body.m #voiceBubble{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+@media (prefers-reduced-motion:reduce){#opsHud .rec,#voiceBubble .vb-mic.on,#opsMic.live{animation:none}}

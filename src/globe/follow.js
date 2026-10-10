@@ -25,6 +25,7 @@ export const Follow = {
     const T = C.Transforms.eastNorthUpToFixedFrame(p), inv = C.Matrix4.inverseTransformation(T, new C.Matrix4());
     const from = C.Matrix4.multiplyByPoint(inv, camera.positionWC, new C.Cartesian3());
     this.glide = { from, to: new C.Cartesian3(-r, -r, r * 0.55), t0: performance.now(), dur: 2200 };
+    this.home = this.glide.to;   // where the cockpit (ops.js) glides back out to
     Object.assign(this, { obj, getPos, ent, minPx });
     if (ent.model) ent.model.minimumPixelSize = 0;   // true size while you're next to it (markers have no model)
     ctrl.minimumZoomDistance = 2;

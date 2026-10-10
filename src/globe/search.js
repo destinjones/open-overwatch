@@ -15,9 +15,10 @@ import { Launches } from './launches.js';
 import { LookUp } from './lookup.js';
 import { select, flyToObject, PRESETS } from './ui.js';
 import { parseFlightQuery, matchesFlight } from '../core/flight.js';
+import { findPlaces, flyToPlace } from './places.js';
 
 // everyday names for famous objects -> NORAD numbers
-const ALIAS = { iss: '25544', 'space station': '25544', 'international space station': '25544', zarya: '25544', hubble: '20580', hst: '20580',
+export const ALIAS = { iss: '25544', 'space station': '25544', 'international space station': '25544', zarya: '25544', hubble: '20580', hst: '20580',
   tiangong: '48274', css: '48274', 'chinese space station': '48274', 'landsat 9': '49260', 'landsat 8': '39084', 'sentinel-2a': '40697', 'goes-16': '41866', 'goes 16': '41866', 'goes-18': '51850' };
 // views without a band button: [label, sub]
 const EXTRA = { crew: ['People in space', 'Who is aboard the ISS and Tiangong right now'] };
@@ -67,7 +68,8 @@ function draw(list, q) {
   const box = $('#srRes'); if (!box) return;
   results = list;
   box.innerHTML = list.length ? list.map((r, i) => `<button class="cj sr" data-i="${i}"><span>${esc(r.label)}</span><small>${esc(r.sub)}</small></button>`).join('')
-    : q.trim().length < 2 ? '<p class="note">Satellites (name or NORAD number), countries, flight numbers, volcanoes, views… Try "ISS", "Japan", "BA 123", "Etna" or "eclipse".</p>'
+      + (list.some(r => r.kind === 'place') ? '<p class="note">Places: Photon (komoot) · © OpenStreetMap contributors</p>' : '')
+    : q.trim().length < 2 ? '<p class="note">Satellites (name or NORAD number), countries, cities and places, flight numbers, volcanoes, views… Try "ISS", "Tokyo", "Eiffel Tower", "BA 123" or "eclipse".</p>'
     : !Sats.list.length ? '<p class="note">The satellite catalogue is still loading: try again in a moment.</p>'
     : `<p class="note">Nothing called "${esc(q.trim())}" on the globe. Volcanoes, employers and lighthouses are searched once their layers are on.</p>`;
 }
@@ -75,6 +77,7 @@ function draw(list, q) {
 async function pick(r) {
   if (r.kind === 'view') { const b = $(`#band [data-go="${r.go}"]`); if (b) b.click(); else PRESETS[r.go](); return; }
   if (r.kind === 'flight') { Flight.find(r.q); return; }
+  if (r.kind === 'place') { flyToPlace(r.place); return; }
   if (r.kind === 'country') { const o = await Country.byIso(r.iso); if (o) { select(o); Country.fly(o); } return; }
   if (r.kind === 'obj') { const o = r.obj, lay = L[o.layer || (o.kind === 'air' ? (o.mil ? 'mil' : 'air') : o.kind === 'volcano' ? 'volcanoes' : o.kind === 'company' ? 'companies' : o.kind === 'launch' ? 'launches' : 'lighthouses')]; if (lay && !lay.on) { lay.on = true; syncDock(); hooks.applyVisibility(); } select(o); flyToObject(o); }
 }
@@ -88,9 +91,14 @@ export const Search = {
       <div class="cjl" id="srRes" aria-live="polite"></div>`;
     c.classList.add('show'); c.querySelector('.x').onclick = () => c.classList.remove('show');
     const input = c.querySelector('#srQ');
-    const run = () => { clearTimeout(timer); timer = setTimeout(async () => { const n = ++seq, q = input.value, list = await find(q); if (list && n === seq) draw(list, q); }, 140); };
+    // places (Photon) come in after the local results, once typing pauses: only the typed words are sent
+    const places = async (list, q, n) => { if (q.trim().length < 3) return list; await new Promise(r => setTimeout(r, 250)); if (n !== seq) return null;
+      const pl = await findPlaces(q, 4).catch(() => []); if (n !== seq) return null;
+      const all = [...list, ...pl.map(p => ({ kind: 'place', place: p, label: `📍 ${p.name}`, sub: p.sub || 'Place' }))]; if (pl.length) draw(all, q); return all; };
+    const run = () => { clearTimeout(timer); timer = setTimeout(async () => { const n = ++seq, q = input.value, list = await find(q); if (list && n === seq) { draw(list, q); places(list, q, n); } }, 140); };
     input.oninput = run;
-    c.querySelector('#srForm').onsubmit = e => { e.preventDefault(); clearTimeout(timer); (async () => { const n = ++seq, list = await find(input.value); if (list && n === seq) { draw(list, input.value); if (list[0] && list[0].kind !== 'note') pick(list[0]); } })(); };
+    c.querySelector('#srForm').onsubmit = e => { e.preventDefault(); clearTimeout(timer); (async () => { const n = ++seq; let list = await find(input.value); if (!list || n !== seq) return; draw(list, input.value);
+      if (!list.some(r => r.kind !== 'note')) list = await places(list, input.value, n) || list; if (n === seq && list[0] && list[0].kind !== 'note') pick(list.find(r => r.kind !== 'note')); })(); };
     c.querySelector('#srRes').onclick = e => { const b = e.target.closest('[data-i]'); if (b && results[+b.dataset.i] && results[+b.dataset.i].kind !== 'note') pick(results[+b.dataset.i]); };
     draw([], text); if (text) run();
     setTimeout(() => input.focus(), 50);

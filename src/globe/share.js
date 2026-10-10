@@ -22,7 +22,7 @@ export const Share = {
     const c = camera.positionCartographic;
     return location.origin + location.pathname + '#' + encodeView({ lon: C.Math.toDegrees(c.longitude), lat: C.Math.toDegrees(c.latitude), height: c.height, heading: C.Math.toDegrees(camera.heading), pitch: C.Math.toDegrees(camera.pitch),
       layers: LAYERS.filter(l => l.on).map(l => l.id), weather: Weather.on ? Object.entries(Weather.sets).filter(([, s]) => s.on).map(([k]) => k) : null,
-      time: Time.live ? null : { jd: Time.jd(), rate: Time.rate }, country: state.selected && state.selected.kind === 'country' ? state.selected.iso : null, flight: Flight.shareId });
+      time: Time.live ? null : { jd: Time.jd(), rate: Time.rate }, country: state.selected && state.selected.kind === 'country' ? state.selected.iso : null, flight: Flight.shareId, ops: hooks.opsState?.() });
   },
   /** An <iframe> for someone else's page: this view, in embed mode. */
   embedCode() { const u = this.link().replace('#', '#embed=1&'); return `<iframe src="${u.replace(/"/g, '&quot;')}" width="100%" height="480" style="border:0;border-radius:12px" loading="lazy" allow="fullscreen" title="Open Overwatch: the Earth, live"></iframe>`; },
@@ -46,6 +46,7 @@ export const Share = {
     }
     if (v.layers) { const on = new Set(v.layers); for (const l of LAYERS) l.on = on.has(l.id); syncDock(); hooks.applyVisibility(); }
     if (v.time) Time.setJd(v.time.jd, v.time.rate);
+    if (v.ops) hooks.applyOps?.(v.ops);
     camera.setView({ destination: C.Cartesian3.fromDegrees(v.lon, v.lat, Math.max(150, v.height)), orientation: { heading: C.Math.toRadians(v.heading), pitch: C.Math.toRadians(v.pitch), roll: 0 } });
     if (v.weather) { for (const [k, s] of Object.entries(Weather.sets)) s.on = v.weather.includes(k); await Weather.open(); Weather.build(); Weather.show(); }
     if (v.country) { const o = await Country.byIso(v.country).catch(() => null); if (o) select(o); }

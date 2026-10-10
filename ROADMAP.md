@@ -116,6 +116,28 @@ check any new runtime asset is too (archived /v/<tag>/ copies fall back to the s
       would keep the previous copy instead
 - [ ] Real-phone check: share sheet with a file (iOS Safari, Android Chrome), notifications on Android, .ics on iPhone
 
+## Stage 5 — Ops pack: take on God's Eye View (2026-10-10, local, not published)
+Benchmark: [bilawalsidhu/gods-eye-view](https://github.com/bilawalsidhu/gods-eye-view) (Node + Vite, Google 3D tiles, OpenAI voice).
+Our edge stays: a URL that works on a phone, no keys, no install, and the zoom out to the cosmic web.
+- [x] Sensor looks, keys 1-7: night vision, thermal (white hot, black hot, ironbow), CRT, noir. One post-process pass
+      (src/globe/ops.js); off = disabled, no cost. Stylised: "thermal" maps brightness + Sobel edges, not temperature
+- [x] Tactical HUD (H): compass tape, reticle, the ground under it in lat/lon and MGRS (core/mgrs.js, tested against
+      GeoTrans), altitude, ground sample distance, UTC, a lock line with range for the followed object
+- [x] Detection (D): boxes + IDs on the nearest 46 things in view (22 on phones). Scanning all 18,747 objects costs 2 ms,
+      4 times a second; frame time with HUD + boxes + thermal on = 5.5 ms median, same as off (RTX 3060, headless Edge)
+- [x] Cockpit (C): ride a followed satellite (or a plane, download version) along its path; drag to look, wheel to zoom,
+      Esc out; the model and its orbit line hide while you're inside
+- [x] Voice (V or the mic), keyless: the browser's speech recognition + core/voicecmd.js (tested) + spoken answers.
+      Go to places, track things, sensors, layers, views, "what's this", "how many satellites are in view". Chrome, Edge, Safari
+- [x] Places by name in Search and voice: Photon (komoot, OpenStreetMap), only the typed words are sent (src/globe/places.js)
+- [x] Share links keep the look (&o=nvg.h.d); landing page section with three captures (brand/lander/ops/)
+Still behind them, in order of wow per effort:
+- [ ] Photoreal 3D cities with the visitor's own free Cesium ion token (Google Photorealistic 3D Tiles; buildings.js already keeps a token)
+- [ ] Live aircraft on the website: needs a public relay (e.g. a free Cloudflare Worker); their cockpit story is all planes
+- [ ] Public cameras projected into the 3D city, transit (GTFS-RT), a radio tuner, wind / lightning timeline, launch replays,
+      a scene director, an MCP server
+- [ ] Real-phone check of Ops: iOS Safari speech recognition, the post-process pass on a phone GPU
+
 ## Rules of thumb
 - One clear goal per session; read this file first, tick boxes as they land.
 - Core code is plain ES modules with no DOM/three.js imports, so Node can test it.
