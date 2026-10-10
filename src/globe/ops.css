@@ -16,6 +16,8 @@
 #opsMic.live{color:#ff4d5e!important;border-color:#ff4d5e!important;animation:opsPulse 1s ease-in-out infinite}
 @keyframes opsPulse{50%{box-shadow:0 0 14px rgba(255,77,94,.55)}}
 body.lookup #opsRail{display:none}
+/* Director's cinema mode: nothing but the globe (and the data credits) on screen */
+body.cinema #top,body.cinema #dock,body.cinema #band,body.cinema #navpad,body.cinema #card,body.cinema #opsRail,body.cinema .m-dock,body.cinema #hover,body.cinema #toast,body.cinema #voiceBubble{display:none!important}
 
 /* ---- tactical HUD */
 #opsHud{position:fixed;inset:0;pointer-events:none;z-index:3;display:none;color:var(--hud,#7dffa6);font:500 11px/1.5 var(--mono);letter-spacing:.06em;text-shadow:0 0 6px rgba(0,0,0,.95),0 0 2px rgba(0,0,0,.9)}
