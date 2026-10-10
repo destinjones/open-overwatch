@@ -142,7 +142,8 @@ Round 2 (2026-10-10, local):
 - [x] Director: shots, cinema mode, scenes as links or files (core/scene.js tested)
 - [x] Mapped cameras and plate readers from OpenStreetMap (Overpass), with view wedges (src/globe/surveil.js)
 - [x] Lightning in weather mode (NOAA nowCOAST, the Americas and the Pacific)
-- [ ] Live transit and the radio tuner (helpers building src/globe/transit.js and radio.js)
+- [x] World radio with an analog tuner: 3,000 stations, the dial snaps to real stations and flies to them (src/globe/radio.js)
+- [ ] Live transit (helper building src/globe/transit.js)
 - [ ] Public cameras projected into the 3D city (needs higher effort: camera pose estimates, a projection shader)
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
