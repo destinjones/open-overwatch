@@ -4,6 +4,7 @@
 //    Meteosat, which no free tile service carries.
 //  - Rain radar: RainViewer's composite of national radars (10-minute frames; only where radar exists).
 //  - Rain from space: NASA IMERG, global between 60 deg N and S, about 7 hours old (still).
+//  - Lightning: NOAA nowCOAST strike density (NLDN + GLD360), the last 15 minutes, the Americas and the Pacific (still).
 // Nothing is fetched until the mode is opened. Frames are Cesium imagery layers made on demand; only the current frame (and
 // the next, while playing) is shown, so the GPU holds a few tiles, not the whole loop.
 import { C, $, toast, PHONE } from './env.js';
@@ -17,6 +18,7 @@ const GIBS = 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/';
 const SCHEME = () => new C.GeographicTilingScheme({ rectangle: C.Rectangle.fromDegrees(-180, -198, 396, 90), numberOfLevelZeroTilesX: 2, numberOfLevelZeroTilesY: 1 });   // see earth.js
 const nasa = new C.Credit('Clouds and rain: NASA GIBS (NOAA GOES-East/West, JMA Himawari, NASA IMERG)');
 const rv = new C.Credit('Radar © RainViewer.com');
+const ltg = new C.Credit('Lightning: NOAA nowCOAST (NLDN and GLD360 via NCEP OPC)');
 const gibsProvider = (layer, time, matrix, max) => new C.UrlTemplateImageryProvider({ url: `${GIBS}${layer}/default/${time}/${matrix}/{z}/{y}/{x}.png`, tilingScheme: SCHEME(),
   rectangle: C.Rectangle.fromDegrees(-180, -90, 180, 90), tileWidth: 512, tileHeight: 512, maximumLevel: max, credit: nasa });
 /** The three infrared satellites as ONE imagery layer: each 512 px tile is the three GIBS tiles drawn onto one canvas.
@@ -53,7 +55,7 @@ async function latest(layer, step, from, to, minBytes) {   // newest time (ms) i
 
 export const Weather = {
   on: false, playing: false, frame: FRAMES - 1, timer: 0, ready: null, layers: new Map(),
-  sets: { ir: { name: 'Infrared clouds', on: true }, radar: { name: 'Rain radar', on: true }, rain: { name: 'Rain from space', on: false }, wind: { name: 'Wind', on: false }, temp: { name: 'Temperature', on: false } },
+  sets: { ir: { name: 'Infrared clouds', on: true }, radar: { name: 'Rain radar', on: true }, rain: { name: 'Rain from space', on: false }, lightning: { name: 'Lightning (Americas)', on: true }, wind: { name: 'Wind', on: false }, temp: { name: 'Temperature', on: false } },
   ir: [], radar: [], rainAt: 0,
 
   async init() {
@@ -81,19 +83,21 @@ export const Weather = {
       const f = this.radar.reduce((a, b) => Math.abs(b.time - at) < Math.abs(a.time - at) ? b : a);
       out.push(this.add(new C.UrlTemplateImageryProvider({ url: `${f.url}/256/{z}/{x}/{y}/2/1_1.png`, maximumLevel: 7, credit: rv })));
     } else if (set === 'rain' && this.rainAt) out.push(this.add(gibsProvider('IMERG_Precipitation_Rate_30min', iso(this.rainAt), '2km', 5)));
+    else if (set === 'lightning') out.push(this.add(new C.WebMapServiceImageryProvider({ url: 'https://nowcoast.noaa.gov/geoserver/ows', layers: 'lightning_detection:ldn_lightning_strike_density',
+      parameters: { transparent: true, format: 'image/png' }, rectangle: C.Rectangle.fromDegrees(-180, -25, 180, 80), maximumLevel: 6, credit: ltg })));
     this.layers.set(key, out); return out;
   },
   add(provider) { const l = viewer.imageryLayers.addImageryProvider(provider); l.show = false; l.alpha = 0.9; return l; },
 
   show() {   // current frame (and the next while playing) of the sets that are on
     const want = new Set([this.frame, ...(this.playing ? [(this.frame + 1) % FRAMES] : [])]);
-    for (const set of ['ir', 'rain', 'radar']) {   // bottom to top
-      const still = set === 'rain', ks = still ? [FRAMES - 1] : [...Array(FRAMES).keys()];
+    for (const set of ['ir', 'rain', 'radar', 'lightning']) {   // bottom to top
+      const still = set === 'rain' || set === 'lightning', ks = still ? [FRAMES - 1] : [...Array(FRAMES).keys()];
       for (const k of ks) {
         const on = this.on && this.sets[set].on && (still || want.has(k));
         if (on) this.layersFor(set, k);
         for (const l of this.layers.get(set + k) || []) {
-          l.show = on && !Earth.hidden; l.alpha = (set === 'ir' ? 0.92 : set === 'rain' ? 0.7 : 0.85) * (still || k === this.frame ? 1 : 0.001);
+          l.show = on && !Earth.hidden; l.alpha = (set === 'ir' ? 0.92 : set === 'rain' ? 0.7 : set === 'lightning' ? 0.95 : 0.85) * (still || k === this.frame ? 1 : 0.001);
           if (l.show) viewer.imageryLayers.raiseToTop(l);
         }
       }
