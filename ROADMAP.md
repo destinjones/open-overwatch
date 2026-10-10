@@ -143,8 +143,10 @@ Round 2 (2026-10-10, local):
 - [x] Mapped cameras and plate readers from OpenStreetMap (Overpass), with view wedges (src/globe/surveil.js)
 - [x] Lightning in weather mode (NOAA nowCOAST, the Americas and the Pacific)
 - [x] World radio with an analog tuner: 3,000 stations, the dial snaps to real stations and flies to them (src/globe/radio.js)
-- [ ] Live transit (helper building src/globe/transit.js)
-- [ ] Public cameras projected into the 3D city (needs higher effort: camera pose estimates, a projection shader)
+- [x] Live transit: Boston (MBTA), Helsinki (HSL, MQTT over WebSocket), Norway (Entur), interpolated between reports
+- [x] Live traffic cameras projected into the 3D city (src/globe/cams.js): TfL (stills + video), NYC, Caltrans, Fintraffic;
+      the picture is cast onto the ground or Google's buildings from an estimated pose (core/campose.js, tested), with an
+      image plane, frustum and coverage; Look through + drag to line up, Save; 'Nearest camera' hand-off from any card
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 
