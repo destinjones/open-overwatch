@@ -1,4 +1,5 @@
 // Helpers, settings storage, log + toast + sounds, the network layer with the local relay, the clock.
+import { PUBLIC_RELAY, PUBLIC_RELAY_HOSTS, onPublishedSite } from '../core/relay.js';
 
 /** Modules defined later register here, for the few references that point forward. */
 export const late = {};
@@ -97,7 +98,9 @@ export const Relay = {
   custom: Store.get('proxy', ''), customOk: null, available: false, checked: false, // customOk: null = not tested yet
   base() { return (this.custom && this.customOk !== false) ? this.custom : (this.local ? location.origin + '/proxy?url=' : ''); },
   needs(url) { try { return NEEDS_RELAY.includes(new URL(url).hostname); } catch (e) { return false; } },
-  wrap(url, b = this.base()) { if (!b) return null; return b.includes('{url}') ? b.replace('{url}', encodeURIComponent(url)) : b + encodeURIComponent(url); },
+  wrap(url, b = this.base()) {
+    if (!b) { try { if (onPublishedSite(location.hostname) && PUBLIC_RELAY_HOSTS.includes(new URL(url).hostname)) b = PUBLIC_RELAY; } catch (e) { /* not a URL */ } }   // the website: the public relay, for the feeds it may carry
+    if (!b) return null; return b.includes('{url}') ? b.replace('{url}', encodeURIComponent(url)) : b + encodeURIComponent(url); },
   async check() { // a custom relay is test-fetched with one small file; if it fails, the local helper (if any) takes over
     this.checked = true; this.customOk = null;
     if (this.custom) {

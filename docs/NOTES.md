@@ -126,3 +126,12 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   listens on 127.0.0.1:9876; the Claude "Blender" desktop extension connects to it.
 - The map is 2D, so 3D work goes in as pre-rendered icons/sprites, branding/promo renders, or a separate
   3D globe view (Three.js/CesiumJS + .glb models).
+
+## Public relay (relay/, Cloudflare Worker) — 2026-10-10
+`relay/worker.js` on the owner's Cloudflare account (`npx wrangler deploy` from relay/, after `npx wrangler login`):
+https://open-overwatch-relay.destinjones123.workers.dev/?url=… . Allowlist = `PUBLIC_RELAY_HOSTS` in src/core/relay.js
+(NOAA NHC, NYC DOT cameras, submarinecablemap), GET only, redirects re-checked, `Access-Control-Allow-Origin` fixed to
+the published site, Workers Cache in front (works on the free plan: `CF-Cache-Status: HIT`; per-host max-age in TTL).
+The ADS-B networks and OpenSky refuse Cloudflare's servers (adsb.lol 429, airplanes.live / adsb.fi / adsb.one 403,
+OpenSky timeout), so they are not relayed; don't disguise the relay to get past that. adsb.lol's API terms say a key
+(given to feeders) is coming: with the owners' agreement, add the host back to TTL and PUBLIC_RELAY_HOSTS.

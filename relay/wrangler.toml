@@ -1,0 +1,9 @@
+# Open Overwatch public relay (see worker.js). Deploy: npx wrangler deploy  (from this folder, after npx wrangler login)
+name = "open-overwatch-relay"
+main = "worker.js"
+compatibility_date = "2026-10-10"
+workers_dev = true
+
+# Workers Cache in front of the Worker: responses are shared for the max-age worker.js sets per feed
+[cache]
+enabled = true
