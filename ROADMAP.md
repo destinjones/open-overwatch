@@ -131,12 +131,21 @@ Our edge stays: a URL that works on a phone, no keys, no install, and the zoom o
       Go to places, track things, sensors, layers, views, "what's this", "how many satellites are in view". Chrome, Edge, Safari
 - [x] Places by name in Search and voice: Photon (komoot, OpenStreetMap), only the typed words are sent (src/globe/places.js)
 - [x] Share links keep the look (&o=nvg.h.d); landing page section with three captures (brand/lander/ops/)
-Still behind them, in order of wow per effort:
-- [ ] Photoreal 3D cities with the visitor's own free Cesium ion token (Google Photorealistic 3D Tiles; buildings.js already keeps a token)
-- [ ] Live aircraft on the website: needs a public relay (e.g. a free Cloudflare Worker); their cockpit story is all planes
-- [ ] Public cameras projected into the 3D city, transit (GTFS-RT), a radio tuner, wind / lightning timeline, launch replays,
-      a scene director, an MCP server
-- [ ] Real-phone check of Ops: iOS Safari speech recognition, the post-process pass on a phone GPU
+Round 2 (2026-10-10, local):
+- [x] Public relay on the owner's Cloudflare account (relay/, Workers Cache in front): NOAA NHC, NYC cameras and the
+      live cable map now work on the website. The ADS-B networks and OpenSky refuse Cloudflare's servers, so live
+      aircraft still need the download (see docs/NOTES.md "Public relay"; adsb.lol says feeder API keys are coming)
+- [x] Photoreal 3D cities: Google tiles via the visitor's own Cesium ion token; Google's geocoder while on (src/globe/photoreal.js)
+- [x] Tropical cyclones on the globe: NASA EONET tracks + NOAA NHC advisories (src/globe/storms.js)
+- [x] Directions: drive / walk / cycle (FOSSGIS OSRM), turn-by-turn, "fly it", by voice (core/route.js tested)
+- [x] Launch replays: a reconstructed ascent per listed launch, labelled an estimate (core/ascent.js tested)
+- [x] Director: shots, cinema mode, scenes as links or files (core/scene.js tested)
+- [x] Mapped cameras and plate readers from OpenStreetMap (Overpass), with view wedges (src/globe/surveil.js)
+- [x] Lightning in weather mode (NOAA nowCOAST, the Americas and the Pacific)
+- [ ] Live transit and the radio tuner (helpers building src/globe/transit.js and radio.js)
+- [ ] Public cameras projected into the 3D city (needs higher effort: camera pose estimates, a projection shader)
+- [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
+- [ ] An MCP server (download version), and a real-phone check of everything above
 
 ## Rules of thumb
 - One clear goal per session; read this file first, tick boxes as they land.
