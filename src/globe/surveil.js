@@ -10,7 +10,7 @@ import { state } from './state.js';
 const ENDPOINT = 'https://overpass-api.de/api/interpreter';
 const MAX_H = 2.5e4, CELL = 0.05, MAX_CELLS = 16, GAP_MS = 4000;   // query 0.05-degree cells, at most 16 at a time
 const pts = scene.primitives.add(new C.PointPrimitiveCollection()), wedges = scene.primitives.add(new C.PolylineCollection());
-const COL = { alpr: '#ff4d5e', cam: '#ff6fb5' };
+const COL = { alpr: '#ff4d5e', cam: '#c9a0ff' };   // lavender: live cameras (cams.js) are pink
 const cells = new Map();   // "x,y" -> 'loading' | 'done'
 let byId = new Map(), busy = false, last = 0, failed = 0;
 

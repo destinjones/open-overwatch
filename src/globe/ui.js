@@ -144,11 +144,14 @@ export function select(o) {
   const followBtn = (o.kind === 'sat' && SatModels.classify(o)) || o.kind === 'air' ? `<button class="chipbtn" id="btnFollow">${following ? 'Stop following' : 'Follow in 3D'}</button>` : '';
   const seeBtn = o.kind === 'sat' ? '<button class="chipbtn" id="btnSee" style="color:#7dffa6" title="Its passes over you in the next 3 days, with reminders">When can I see it?</button>' : '';
   const shareBtn = o.kind === 'air' ? '<button class="chipbtn" id="btnShareAir" title="Copy a link that finds this plane">Share</button>' : '';
-  card.innerHTML = `<button class="x" aria-label="Close">×</button>${html}<div class="acts">${following ? '' : '<button class="chipbtn" id="btnFocus">Fly to</button>'}${followBtn}${seeBtn}${shareBtn}</div>`;
+  const ll = o.kind === 'air' ? [o.cur?.lat ?? o.lat, o.cur?.lon ?? o.lon] : [o.lat, o.lon];   // hand off to the nearest live camera (cams.js)
+  const camBtn = hooks.camHandoff && !['cam', 'country', 'sat', 'launch'].includes(o.kind) && Number.isFinite(ll[0]) && Number.isFinite(ll[1]) ? '<button class="chipbtn" id="btnNearCam" style="color:#ff6fb5" title="The nearest public traffic camera, its picture cast into 3D">📷 Nearest camera</button>' : '';
+  card.innerHTML = `<button class="x" aria-label="Close">×</button>${html}<div class="acts">${following ? '' : '<button class="chipbtn" id="btnFocus">Fly to</button>'}${followBtn}${seeBtn}${shareBtn}${camBtn}</div>`;
   card.classList.add('show');
   card.querySelector('.x').onclick = closeCard;
   if ($('#btnFocus')) $('#btnFocus').onclick = () => flyToObject(o);
   if ($('#btnShareAir')) $('#btnShareAir').onclick = () => hooks.shareCopy();
+  if ($('#btnNearCam')) $('#btnNearCam').onclick = () => hooks.camHandoff(ll[0], ll[1]);
   if ($('#btnSee')) $('#btnSee').onclick = () => hooks.satPasses(o);
   if ($('#crewLine')) Crew.load().then(() => { const el = $('#crewLine'); if (!el || state.selected !== o) return; const n = Crew.aboard(o.id === '25544' ? 'ISS' : 'Tiangong').length;
     el.innerHTML = `Aboard now: ${n} ${n === 1 ? 'person' : 'people'} · <a href="#" id="crewWho">who?</a>`; $('#crewWho').onclick = e => { e.preventDefault(); Crew.open(); }; }, () => { const el = $('#crewLine'); if (el) el.remove(); });
@@ -166,6 +169,7 @@ export function flyToObject(o) {
   if (o.kind === 'sat') { const st = SatModels.state(o), p = st.ok ? st.pos : o.pt.position, h = C.Cartesian3.magnitude(p) - 6371000; camera.flyToBoundingSphere(new C.BoundingSphere(p, 1), { offset: new C.HeadingPitchRange(0, -0.6, Math.max(2.5e6, h * 0.6)), duration: 2.5 }); }
   else if (o.kind === 'air') flyDeg(o.cur?.lon ?? o.lon, (o.cur?.lat ?? o.lat) - 0.35, 45000, -50);
   else if (o.kind === 'lighthouse') flyDeg(o.lon, o.lat - 0.025, 7000, -45);
+  else if (o.kind === 'transit' || o.kind === 'cam' || o.kind === 'cctv') flyDeg(o.lon, o.lat - 0.02, 4000, -45);
   else if (o.kind === 'country') Country.fly(o);
   else if (o.kind === 'volcano') flyDeg(o.lon, o.lat - 0.2, 3.5e4, -40);
   else if (o.kind === 'company') flyDeg(o.lon, o.lat - 0.6, 4.0e5, -50);

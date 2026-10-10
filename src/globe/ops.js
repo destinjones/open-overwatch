@@ -15,6 +15,8 @@ import { Air, AirModels, airShown } from './aircraft.js';
 import { Quakes } from './quakes.js';
 import { Storms } from './storms.js';
 import { Surveil } from './surveil.js';
+import { Cams } from './cams.js';
+import { Transit } from './transit.js';
 import { L } from './layers.js';
 import { LookUp } from './lookup.js';
 import { toMgrs } from '../core/mgrs.js';
@@ -26,7 +28,7 @@ const SENSOR_INFO = {
 };
 // overlay colour per sensor (the detection boxes and HUD follow the look)
 const HUD_COLOR = { normal: '#7dffa6', nvg: '#c4ffbe', flir: '#ffffff', flirbh: '#ffe36e', iron: '#ffffff', crt: '#7dffa6', noir: '#ffffff' };
-const KIND_COLOR = { sat: '#d9ccff', station: '#7dffa6', air: '#5fd3ff', mil: '#ffb44d', emg: '#ff4d5e', quake: '#ff7b4f', storm: '#7fd0ff', cctv: '#ff6fb5' };
+const KIND_COLOR = { sat: '#d9ccff', station: '#7dffa6', air: '#5fd3ff', mil: '#ffb44d', emg: '#ff4d5e', quake: '#ff7b4f', storm: '#7fd0ff', cctv: '#c9a0ff', cam: '#ff6fb5', transit: '#3ee08f' };
 
 // ------------------------------------------------------------------------------------------------ sensors
 const FS = `
@@ -132,6 +134,8 @@ function describe(o) {
   if (o.kind === 'sat') return { id: 'SAT ' + o.id, sub: o.name.replace(/\s*\[.*?\]\s*/g, ' ').trim().slice(0, 22) };
   if (o.kind === 'air') return { id: (o.mil ? 'MIL ' : o.emerg ? 'EMG ' : 'AIR ') + String(o.hex || '').toUpperCase(), sub: `${(o.flight || '').trim() || '—'} ${o.ground ? 'GND' : 'FL' + String(Math.round((o.alt || 0) / 0.3048 / 100)).padStart(3, '0')}` };
   if (o.kind === 'quake') return { id: 'SEIS M' + o.mag.toFixed(1), sub: (o.place || '').replace(/^.*? of /, '').slice(0, 18) };
+  if (o.kind === 'cam') return { id: 'CAM ' + String(o.id).split(':').pop().slice(-6).toUpperCase(), sub: String(o.name || '').slice(0, 22) };
+  if (o.kind === 'transit') { const i = o.info || {}; return { id: String(i.mode || 'bus').slice(0, 5).toUpperCase() + ' ' + String(i.line || i.vehicle || '').slice(0, 8), sub: String(i.dest || i.operator || '').slice(0, 22) }; }
   if (o.kind === 'cctv') return { id: (o.alpr ? 'ALPR ' : 'CCTV ') + String(o.id).slice(-6), sub: String(o.tags.operator || o.tags['camera:type'] || '').slice(0, 18) };
   if (o.kind === 'storm') return { id: 'WX ' + (o.kt ? o.kt + 'KT' : 'LOW'), sub: o.title.replace(/^(Tropical Storm|Hurricane|Typhoon|Cyclone|Tropical Cyclone|Super Typhoon)\s+/i, '').slice(0, 18) };
   return { id: '', sub: '' };
@@ -143,6 +147,8 @@ function* candidates() {
   if (L.quakes.on) for (const q of Quakes.list) if (q.pt) yield [q, () => q.pt.position];
   if (L.storms && L.storms.on) for (const s of Storms.list) if (s.pt) yield [s, () => s.pt.position];
   if (L.cctv && L.cctv.on) for (const c of Surveil.list) yield [c, () => c.pt.position];
+  if (L.cams && L.cams.on) for (const c of Cams.list) yield [c, () => c.pt.position];
+  if (L.transit && L.transit.on) for (const v of Transit.vehicles.values()) if (v.pt && v.pt.show) yield [v, () => v.pt.position];
 }
 /** One pass over every candidate: in front of the camera, inside the view cone, not behind the Earth. */
 function scan(cap) {

@@ -26,7 +26,7 @@ const LAYER_WORDS = {
   stations: 'space stations stations', starlink: 'starlink', debris: 'debris space junk junk', gnss: 'gps navigation galileo glonass beidou',
   geo: 'geostationary geo', weather: 'weather satellites', visual: 'bright satellites', active: 'other satellites active satellites',
   launches: 'launch pads launches rockets', lighthouses: 'lighthouses', volcanoes: 'volcanoes', companies: 'employers companies towers',
-  aurora: 'aurora northern lights', radio: 'radio radios stations radio stations music', cctv: 'cameras camera cctv surveillance plate readers alpr anpr surveillance cameras mapped cameras', clouds: 'clouds', night: 'city lights night lights', labels: 'place names labels names', buildings: 'buildings 3d buildings', sun: 'sun time zones',
+  aurora: 'aurora northern lights', cams: 'traffic cameras live cameras webcams traffic cams', transit: 'buses trams trains metro transit public transport subway', radio: 'radio radios stations radio stations music', cctv: 'cameras camera cctv surveillance plate readers alpr anpr surveillance cameras mapped cameras', clouds: 'clouds', night: 'city lights night lights', labels: 'place names labels names', buildings: 'buildings 3d buildings', sun: 'sun time zones',
 };
 const VIEW_OF = { moon: 'moon', 'the moon': 'moon', 'solar system': 'space', space: 'space', planets: 'space', 'geo belt': 'geo', 'outer space': 'space' };
 

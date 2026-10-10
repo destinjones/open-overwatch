@@ -64,3 +64,14 @@ body.m #opsHud .oh-tl{left:16px;top:calc(172px + env(safe-area-inset-top,0px));f
 body.m #opsHud .oh-bl{left:16px;bottom:calc(92px + env(safe-area-inset-bottom,0px));font-size:10px}
 body.m #voiceBubble{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 @media (prefers-reduced-motion:reduce){#opsHud .rec,#voiceBubble .vb-mic.on,#opsMic.live{animation:none}}
+
+/* ---- live cameras (cams.js): the picture in the card, and "Look through" */
+#card img.cam-live{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid var(--edge-dim);margin:2px 0 10px;background:#000}
+body.cam-look #top,body.cam-look #dock,body.cam-look #band,body.cam-look #navpad,body.cam-look #card,body.cam-look #opsRail,body.cam-look .m-dock,body.cam-look #opsHud,body.cam-look #opsDet{display:none!important}
+#camLookUi .cl-pic{position:fixed;left:0;z-index:6;cursor:grab;touch-action:none;outline:1px solid rgba(255,111,181,.6)}
+#camLookUi .cl-pic:active{cursor:grabbing}
+#camLookUi .cl-pic img,#camLookUi .cl-pic video{width:100%;height:100%;object-fit:fill;display:block;pointer-events:none;user-select:none}
+#camLookUi .cl-bar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:7;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px;max-width:calc(100% - 20px);font:500 12px/1.3 var(--mono)}
+#camLookUi .cl-bar b{font:700 14px/1 var(--display);letter-spacing:.06em;text-transform:uppercase;color:#ff6fb5;margin-right:4px}
+#camLookUi .cl-bar label{display:flex;align-items:center;gap:6px;color:var(--dim)}
+#camLookUi .cl-bar .note{color:var(--faint);font-size:11px;width:100%;text-align:center}
