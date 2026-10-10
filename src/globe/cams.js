@@ -12,6 +12,7 @@ import { L, setCount } from './layers.js';
 import { state, hooks } from './state.js';
 import { release } from './follow.js';
 import { Photoreal } from './photoreal.js';
+import { overpass } from './overpass.js';
 import { estimatePose, footprint, axes, roadBearings } from '../core/campose.js';
 
 const PINK = '#ff6fb5', MAX_DIST = 300, FADE_FROM = 120;   // metres: the cast picture fades out on the ground between these
@@ -293,8 +294,9 @@ export const Proj = {
 
 async function nearbyRoads(lat, lon) {
   const q = `[out:json][timeout:15];way(around:45,${lat.toFixed(6)},${lon.toFixed(6)})["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)$"];out geom;`;
-  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 12000);
-  try { const r = await fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q), { signal: ctl.signal }); if (!r.ok) throw new Error('HTTP ' + r.status); return roadBearings((await r.json()).elements, lat, lon); }
+  let t = 0;   // through the shared queue, but never held up more than 15 s behind other layers' requests
+  const late = new Promise((res, rej) => { t = setTimeout(() => rej(new Error('Overpass queue busy')), 15000); });
+  try { return roadBearings((await Promise.race([overpass(q, { timeout: 12000, gap: 0 }), late])).elements, lat, lon); }
   finally { clearTimeout(t); }
 }
 

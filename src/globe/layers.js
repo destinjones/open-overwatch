@@ -19,6 +19,7 @@ export const LAYERS = [
   { id: 'mil', group: 'Air', name: 'Military aircraft (adsb.lol, every 60 s)', color: '#ffb44d', on: true },
   { id: 'quakes', group: 'Earth', name: 'Earthquakes M2.5+ · 24 h', color: '#ff7b4f', on: true },
   { id: 'transit', group: 'Earth', name: 'Live transit (Boston · Helsinki · Norway)', color: '#3ee08f', on: false },
+  { id: 'traffic', group: 'Earth', name: 'Traffic: simulated cars on real roads (measured speeds: New York · Finland)', color: '#f5c26b', on: false },
   { id: 'storms', group: 'Earth', name: 'Tropical cyclones (NASA EONET · NOAA NHC)', color: '#7fd0ff', on: true },
   { id: 'radio', group: 'Earth', name: 'World radio (radio-browser.info)', color: '#ff6fd8', on: false },
   { id: 'lighthouses', group: 'Earth', name: 'Lighthouses of the world', color: '#ffe27a', on: !PHONE },

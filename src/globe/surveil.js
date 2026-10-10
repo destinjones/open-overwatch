@@ -6,8 +6,8 @@ import { C, esc } from './env.js';
 import { scene, camera, camHeight } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { state } from './state.js';
+import { overpass } from './overpass.js';
 
-const ENDPOINT = 'https://overpass-api.de/api/interpreter';
 const MAX_H = 2.5e4, CELL = 0.05, MAX_CELLS = 16, GAP_MS = 4000;   // query 0.05-degree cells, at most 16 at a time
 const pts = scene.primitives.add(new C.PointPrimitiveCollection()), wedges = scene.primitives.add(new C.PolylineCollection());
 const COL = { alpr: '#ff4d5e', cam: '#c9a0ff' };   // lavender: live cameras (cams.js) are pink
@@ -53,10 +53,7 @@ async function tick() {
   busy = true; last = performance.now();
   try {
     const q = `[out:json][timeout:25];node["man_made"="surveillance"](${bb});out 2000;`;
-    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 30000);
-    const res = await fetch(ENDPOINT + '?data=' + encodeURIComponent(q), { signal: ctl.signal }).finally(() => clearTimeout(t));
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    for (const el of (await res.json()).elements || []) add(el);
+    for (const el of (await overpass(q, { timeout: 30000 })).elements || []) add(el);
     for (const [x, y] of pick) cells.set(x + ',' + y, 'done');
     failed = 0; setCount('cctv', byId.size);
   } catch (e) { console.warn('mapped cameras', e.message); for (const [x, y] of pick) cells.delete(x + ',' + y); failed++; last = performance.now() + failed * 8000; }

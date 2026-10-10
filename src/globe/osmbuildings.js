@@ -6,11 +6,11 @@ import { C, toast } from './env.js';
 import { viewer, scene, camera, camHeight } from './viewer.js';
 import { L } from './layers.js';
 import { state } from './state.js';
+import { overpass } from './overpass.js';
 
 const CELL = 0.01, MAX_H = 2500, MAX_CELLS = 40, MAX_PER_CELL = 2500, GAP_MS = 6000;
-const ENDPOINTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
 const cells = new Map();   // key -> { prim, t }  (prim null while loading or empty)
-let busy = false, last = 0, timer = 0, told = false, credited = false, ep = 0;
+let busy = false, last = 0, timer = 0, told = false, credited = false;
 
 const key = (ix, iy) => ix + ',' + iy;
 const heightOf = t => { const h = parseFloat(t.height); if (h > 0) return Math.min(h, 500); const lv = parseFloat(t['building:levels']); if (lv > 0) return Math.min(lv * 3.2 + 1.5, 500); return 9; };
@@ -18,14 +18,7 @@ const tint = h => { const k = Math.min(1, h / 150); return new C.Color(0.80 - 0.
 
 async function fetchCell(ix, iy) {
   const s = iy * CELL, w = ix * CELL, q = `[out:json][timeout:25];way["building"](${s},${w},${s + CELL},${w + CELL});out geom tags;`;
-  for (let i = 0; i < ENDPOINTS.length; i++) {
-    try {
-      const r = await fetch(ENDPOINTS[(ep + i) % ENDPOINTS.length], { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      ep = (ep + i) % ENDPOINTS.length; return (await r.json()).elements || [];
-    } catch (e) { /* try the other server */ }
-  }
-  throw new Error('Overpass is busy');
+  return (await overpass(q, { timeout: 40000 })).elements || [];   // the shared, polite queue (both servers)
 }
 
 function build(els) {

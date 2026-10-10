@@ -127,6 +127,26 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
 - The map is 2D, so 3D work goes in as pre-rendered icons/sprites, branding/promo renders, or a separate
   3D globe view (Three.js/CesiumJS + .glb models).
 
+## Traffic (src/globe/traffic.js) — 2026-10-10
+- The cars are simulated and every label says so: no open feed gives individual vehicles. Real numbers only where a
+  city publishes them: NYC DOT link speeds (~2.5-3 h late, shown with their age) and Fintraffic sensors (speeds and
+  counts per direction; direction 1 = the station's `bearing`). They set the cars' speed and, with a count, how many.
+- Roads come from OpenFreeMap's vector tiles, not Overpass: on 2026-10-10 overpass-api.de answered 504 to about half the
+  road queries, kumi.systems answered 500 to everything, and error answers carry no CORS headers (they show up as
+  "Failed to fetch"). A public CDN with versioned tiles is the polite choice for a website (GEV was asked by OSM Germany
+  to slow down). curl gets 406 from overpass-api.de; browsers are fine (don't disguise curl).
+- Vector tiles have no node ids, lanes, speed limits or signals: junctions are shared vertices (a street ending between
+  another road's vertices gets one inserted, same level only), tile seams are joined within one unit along the edge,
+  lanes and speeds come from the road class, and lights go where two tertiary+ roads meet or a secondary+ road crosses
+  anything (Manhattan comes out right). The street grid's main bearing (27.5° measured for Midtown; ~29° real) sets
+  which approaches are green first; a green wave runs along it at ~40 km/h.
+- Cost: a z14 tile is ~0.7 MB (every layer; we decode two in ~2 ms), preparing it ~30 ms once; join + graph ~3 ms a
+  tile. 2,450 cars cost ~1.2 ms a frame on the RTX 3060 (138 vs 165 fps); phones cap at 600 cars and 4 tiles.
+- Drawing: car sprites (top-down, nose along the segment via `alignedAxis`, brake lights) within 1.4 km, glowing dots
+  beyond 1.1 km coloured by the last ~8 s of speed; measured roads as coloured lines beside the traffic.
+- Other OpenStreetMap layers (mapped cameras, buildings, a projected camera's street) share one polite Overpass client
+  (src/globe/overpass.js): one request at a time, a pause as long as the last request took, the fastest healthy server.
+
 ## Public relay (relay/, Cloudflare Worker) — 2026-10-10
 `relay/worker.js` on the owner's Cloudflare account (`npx wrangler deploy` from relay/, after `npx wrangler login`):
 https://open-overwatch-relay.destinjones123.workers.dev/?url=… . Allowlist = `PUBLIC_RELAY_HOSTS` in src/core/relay.js

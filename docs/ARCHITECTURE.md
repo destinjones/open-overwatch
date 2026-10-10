@@ -51,6 +51,9 @@ same code runs in Node tests and in the render loop without allocating.
 | `eclipse.js` | Moon shadow cones, where they meet the WGS84 ellipsoid, shadow outlines, what an observer sees |
 | `accuracy.js` | errors against JPL Horizons (shared by the tests and the in-app "Under the hood" panel) |
 | `gpu.js` | software-WebGL detection |
+| `mvt.js` | Mapbox Vector Tile decoding (protobuf by hand, wanted layers only), tile maths |
+| `roadtiles.js` | road lines from vector tiles: clipped per tile, joined across tile edges, junctions, names, lights where busy roads meet |
+| `traffic.js` | the traffic simulation: road graph, car following (IDM), lights, time-of-day busyness, NYC DOT / Fintraffic readings |
 
 Accuracy, checked by the tests against JPL Horizons on 2026-10-02: planets within arcminutes (JPL's own stated
 error for these formulas), main-belt asteroids within ~3×10⁻⁴ AU, the Moon within ~0.3°, the other moons within 0.4° of their orbit.

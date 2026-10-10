@@ -26,7 +26,7 @@ const LAYER_WORDS = {
   stations: 'space stations stations', starlink: 'starlink', debris: 'debris space junk junk', gnss: 'gps navigation galileo glonass beidou',
   geo: 'geostationary geo', weather: 'weather satellites', visual: 'bright satellites', active: 'other satellites active satellites',
   launches: 'launch pads launches rockets', lighthouses: 'lighthouses', volcanoes: 'volcanoes', companies: 'employers companies towers',
-  aurora: 'aurora northern lights', cams: 'traffic cameras live cameras webcams traffic cams', transit: 'buses trams trains metro transit public transport subway', radio: 'radio radios stations radio stations music', cctv: 'cameras camera cctv surveillance plate readers alpr anpr surveillance cameras mapped cameras', clouds: 'clouds', night: 'city lights night lights', labels: 'place names labels names', buildings: 'buildings 3d buildings', sun: 'sun time zones',
+  aurora: 'aurora northern lights', cams: 'traffic cameras live cameras webcams traffic cams', transit: 'buses trams trains metro transit public transport subway', traffic: 'cars car road traffic street traffic simulated traffic simulated cars', radio: 'radio radios stations radio stations music', cctv: 'cameras camera cctv surveillance plate readers alpr anpr surveillance cameras mapped cameras', clouds: 'clouds', night: 'city lights night lights', labels: 'place names labels names', buildings: 'buildings 3d buildings', sun: 'sun time zones',
 };
 const VIEW_OF = { moon: 'moon', 'the moon': 'moon', 'solar system': 'space', space: 'space', planets: 'space', 'geo belt': 'geo', 'outer space': 'space' };
 
@@ -66,6 +66,7 @@ function findLayers(name) {
   const n = name.toLowerCase();
   if (/^(all )?(the )?(satellites|sats)$/.test(n)) return LAYERS.filter(l => l.sat);
   if (/^(all )?(the )?(planes|aircraft|flights)$/.test(n)) return LAYERS.filter(l => l.id === 'air' || l.id === 'mil');
+  const own = LAYERS.find(l => l.id === n); if (own) return [own];   // a layer's own name first: "traffic" is the cars, not air traffic or traffic cameras
   return LAYERS.filter(l => l.id === n || (LAYER_WORDS[l.id] || '').split(' ').includes(n) || ` ${LAYER_WORDS[l.id] || ''} `.includes(` ${n} `) || l.name.toLowerCase().startsWith(n));
 }
 function setLayers(list, on) { for (const l of list) l.on = on; syncDock(); hooks.applyVisibility(); }

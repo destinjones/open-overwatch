@@ -147,6 +147,10 @@ Round 2 (2026-10-10, local):
 - [x] Live traffic cameras projected into the 3D city (src/globe/cams.js): TfL (stills + video), NYC, Caltrans, Fintraffic;
       the picture is cast onto the ground or Google's buildings from an estimated pose (core/campose.js, tested), with an
       image plane, frustum and coverage; Look through + drag to line up, Save; 'Nearest camera' hand-off from any card
+- [x] Traffic: simulated cars on real roads (src/globe/traffic.js): OpenFreeMap vector tiles (core/mvt.js, core/roadtiles.js),
+      car following, lights at busy junctions, density by road type and local time, drive side by country; measured
+      speeds/counts drive the cars and colour the roads in New York (NYC DOT) and Finland (Fintraffic) (core tested)
+- [ ] Traffic: a TomTom flow overlay for visitors who bring their own key; per-lane counts where Fintraffic has them
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 
