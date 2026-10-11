@@ -18,7 +18,7 @@ export function utmZone(lat, lon) {
 
 /** { zone, band, easting, northing } (metres; northing is false-northed in the south), or null near the poles. */
 export function toUtm(lat, lon) {
-  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -80 || lat >= 84) return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -80 || lat > 84) return null;   // band X runs to 84°N inclusive
   const zone = utmZone(lat, lon), lon0 = (zone - 1) * 6 - 180 + 3;
   const phi = lat * Math.PI / 180, dl = ((((lon - lon0) + 540) % 360) - 180) * Math.PI / 180;
   const s = Math.sin(phi), c = Math.cos(phi), t = Math.tan(phi);
@@ -39,5 +39,5 @@ export function toMgrs(lat, lon, digits = 5) {
   const row = ROWS[(Math.floor(u.northing / 100000) + (u.zone % 2 === 0 ? 5 : 0)) % 20];
   if (!col) return null;
   const k = 10 ** (5 - digits), fix = v => String(Math.floor((v % 100000) / k)).padStart(digits, '0');
-  return `${u.zone}${u.band} ${col}${row} ${fix(u.easting)} ${fix(u.northing)}`;
+  return digits > 0 ? `${u.zone}${u.band} ${col}${row} ${fix(u.easting)} ${fix(u.northing)}` : `${u.zone}${u.band} ${col}${row}`;   // digits 0: the 100 km square alone
 }

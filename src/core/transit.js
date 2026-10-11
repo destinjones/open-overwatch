@@ -218,6 +218,6 @@ export function lagMeter(win = 15e3) {
 
 /** Is (lat, lon) inside an area: a circle { lat, lon, r (m) } or a box { box: [s, w, n, e] }? Flat-Earth, fine at 150 km. */
 export function inArea(a, lat, lon) {
-  if (a.box) return lat >= a.box[0] && lat <= a.box[2] && lon >= a.box[1] && lon <= a.box[3];
+  if (a.box) { const [s, w, n, e] = a.box; return lat >= s && lat <= n && (w <= e ? lon >= w && lon <= e : lon >= w || lon <= e); }   // w > e: the box crosses the antimeridian
   return hop(a, { lat, lon }).d <= a.r;
 }

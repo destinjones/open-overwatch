@@ -25,7 +25,7 @@ export function instruction(step) {
 
 /** "350 m", "4.2 km", "12 km"; "45 s", "8 min", "1 h 05 min". */
 export const distanceText = m => m < 950 ? `${Math.max(10, Math.round(m / 10) * 10)} m` : m < 9950 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m / 1000)} km`;
-export const durationText = s => s < 60 ? `${Math.round(s)} s` : s < 3600 ? `${Math.round(s / 60)} min` : `${Math.floor(s / 3600)} h ${String(Math.round((s % 3600) / 60)).padStart(2, '0')} min`;
+export const durationText = s => { const m = Math.round(s / 60); return s < 60 ? `${Math.round(s)} s` : m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`; };   // whole minutes first: never "1 h 60 min"
 
 /** Great-circle metres between [lon, lat] points. */
 export function haversine(a, b) {
