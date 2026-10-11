@@ -1,9 +1,11 @@
 // A shared view as a URL hash, and back. Pure functions (the globe's share.js reads and applies them):
 //   #c=lon,lat,height,heading,pitch  &l=layer,ids,on  &w=ir,wind  &t=julianDate,rate  &k=ISO2  &f=CALLSIGN (a flight to find)
 //   &o=nvg.h.d (Ops: sensor, then h = tactical HUD, d = detection boxes)
+//   &d=... the draw-and-measure drawing: pins, lines, areas, distances, country outlines (measure.js encodeDrawing)
 //   #go=tonight opens a panel by itself (no camera needed): see GO; &id= names one launch (LL2 id) or eclipse (date) in it
 
 import { SENSORS } from './voicecmd.js';
+import { encodeDrawing, decodeDrawing } from './measure.js';
 
 const r = (v, n) => +Number(v).toFixed(n);
 const FLIGHT = /^[A-Za-z0-9]{2,8}$/;
@@ -26,6 +28,7 @@ export function encodeView(v) {
   if (v.country) p.set('k', v.country);
   if (v.flight && FLIGHT.test(v.flight)) p.set('f', v.flight);
   if (v.ops && (v.ops.sensor !== 'normal' || v.ops.hud || v.ops.detect)) p.set('o', [SENSORS.includes(v.ops.sensor) ? v.ops.sensor : 'normal', v.ops.hud ? 'h' : '', v.ops.detect ? 'd' : ''].filter(Boolean).join('.'));
+  if (v.drawing && v.drawing.length) { const d = encodeDrawing(v.drawing); if (d) p.set('d', d); }   // left out when it would not fit a link
   return p.toString();
 }
 
@@ -41,5 +44,6 @@ export function decodeView(hash) {
   out.flight = decodeExtras(hash).flight;
   const o = (p.get('o') || '').split('.');
   if (p.has('o')) out.ops = { sensor: SENSORS.includes(o[0]) ? o[0] : 'normal', hud: o.includes('h'), detect: o.includes('d') };   // only when the link has it: older views decode as before
+  if (p.has('d')) { const d = decodeDrawing(p.get('d')); if (d.length) out.drawing = d; }   // likewise: only what checks out
   return out;
 }

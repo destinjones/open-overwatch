@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { inverse, direct, bisect, midpoint, pathLength, densify, groundProfile, polygonArea, multiPolygonArea, centre, selfCrossing, choosePair,
-  lengthText, areaText, bearingText, lengthWords, areaWords, toGeoJSON, EARTH_AREA, AUTHALIC_R, MAX_POINTS } from '../src/core/measure.js';
+  lengthText, areaText, bearingText, lengthWords, areaWords, toGeoJSON, encodeDrawing, decodeDrawing, EARTH_AREA, AUTHALIC_R, MAX_POINTS } from '../src/core/measure.js';
 import { parse } from '../src/core/voicecmd.js';
 
 const dAz = (a, b) => Math.abs(((a - b) % 360 + 540) % 360 - 180);
@@ -197,4 +197,49 @@ test('voice: measure, outline, draw, pins, undo, clear', () => {
   assert.deepEqual(parse('hide the satellites'), { act: 'layer', name: 'satellites', on: false });
   assert.deepEqual(parse('show the bounding boxes'), { act: 'detect', on: true });
   assert.deepEqual(parse('reset'), { act: 'reset' });
+});
+
+// ---- the drawing in share links
+const DRAWING = [
+  { kind: 'pin', coords: [[2.294481, 48.858370]], name: 'Café de l’Homme, Paris ✓' },
+  { kind: 'line', coords: [[-0.129, 51.508], [-0.1196, 51.5046], [-0.108, 51.5079], [-0.087, 51.5074]] },
+  { kind: 'area', coords: [[-0.188, 51.511], [-0.1585, 51.513], [-0.1527, 51.5032], [-0.187, 51.5005]] },
+  { kind: 'arrow', coords: [[2.3522, 48.8566], [13.405, 52.52]], name: 'Paris → Berlin', road: true },
+  { kind: 'arrow', coords: [[179.95, -16.5], [-179.6, -17.1]] },
+  { kind: 'outline', iso: 'FR' },
+];
+
+test('a drawing survives the link: every shape, its points to a millionth of a degree, names, the road flag', () => {
+  const d = encodeDrawing(DRAWING);
+  assert.deepEqual(decodeDrawing(d), DRAWING);
+  assert.equal(new URLSearchParams({ d }).toString(), 'd=' + d, 'nothing in it is percent-encoded');
+  assert.ok(d.length < 200, `${d.length} characters`);
+  const p = decodeDrawing(encodeDrawing([{ kind: 'pin', coords: [[12.3456789, -45.6789012]] }]))[0].coords[0];
+  assert.deepEqual(p, [12.345679, -45.678901]);
+});
+
+test('a full drawing still fits a link; past 512 points, shapes are left out', () => {
+  const pts = Array.from({ length: 512 }, (_, i) => [((i * 137.508) % 360) - 180, ((i * 59.3) % 170) - 85]);   // far apart: the worst case
+  const d = encodeDrawing([{ kind: 'line', coords: pts }]);
+  assert.ok(d.length > 0 && d.length <= 9000, `${d.length} characters`);
+  assert.equal(decodeDrawing(d)[0].coords.length, MAX_POINTS);
+  const two = decodeDrawing(encodeDrawing([{ kind: 'line', coords: pts.slice(0, 511) }, { kind: 'arrow', coords: pts.slice(0, 2) }, { kind: 'pin', coords: [[1, 1]] }]));
+  assert.deepEqual(two.map(s => s.kind), ['line', 'pin'], 'the arrow would be points 512-513');
+  assert.equal(decodeDrawing(encodeDrawing([{ kind: 'pin', coords: [[1, 2]], name: 'x'.repeat(80) }]))[0].name.length, 60);
+});
+
+test('a link is not trusted: broken, oversized or hostile drawings are dropped, names cleaned', () => {
+  for (const t of ['', '<script>', 'l', 'p', 'lA', 'x' + encodeDrawing([DRAWING[1]]).slice(1), 'oFRA', 'ofr', 'o12', 'a' + encodeDrawing([DRAWING[1]]).slice(1, 9),
+    'p' + '_'.repeat(8) + 'A', 'pAB_', 'd%41', 'l'.repeat(9001)]) assert.deepEqual(decodeDrawing(t), [], t.slice(0, 20));
+  assert.deepEqual(decodeDrawing(encodeDrawing([{ kind: 'pin', coords: [[1, 1], [2, 2]] }])), [], 'a pin is one point');
+  assert.deepEqual(decodeDrawing(encodeDrawing([{ kind: 'area', coords: [[1, 1], [2, 2]] }])), [], 'an area has three corners or more');
+  const far = encodeDrawing([{ kind: 'pin', coords: [[10, 80]] }]).replace(/^p/, 'p') + '.p' + encodeDrawing([{ kind: 'pin', coords: [[0, 95]] }]).slice(1);
+  assert.equal(decodeDrawing(far).length, 1, 'latitude 95 is refused');
+  const named = name => decodeDrawing(encodeDrawing([{ kind: 'pin', coords: [[1, 2]], name }]))[0].name;
+  assert.equal(named('Big\u0007 Ben‮'), 'Big Ben'); assert.equal(named('   '), undefined); assert.equal(named('<b>Tower</b>'), '<b>Tower</b>', 'kept as text: the card escapes it');
+  const bad = encodeDrawing([{ kind: 'pin', coords: [[1, 2]] }]) + '*_w';   // byte 0xFF: not UTF-8
+  assert.deepEqual(decodeDrawing(bad), [{ kind: 'pin', coords: [[1, 2]] }], 'an unreadable name is dropped, the pin kept');
+  assert.deepEqual(decodeDrawing('oFR.oFR.oJP').map(s => s.iso), ['FR', 'JP']);
+  assert.deepEqual(decodeDrawing('pAA.l<b>.p%41.oJP').map(s => s.kind), ['pin', 'outline'], 'a mangled part costs only itself');
+  assert.equal(encodeDrawing([{ kind: 'outline', iso: 'fr' }, { kind: 'weird', coords: [[1, 1]] }, null].filter(Boolean)), '');
 });

@@ -5,7 +5,7 @@
 // the WGS84 ellipsoid (Vincenty, within a millimetre) and areas on it (within 0.001%). Band → Measure, the M key, or by
 // voice ("measure from Paris to Berlin", "outline France", "clear the drawing"). Nothing leaves the browser except
 // place names for voice (Photon, like a typed search) and the two ends of a "by road" request (OSRM).
-import { C, $, esc, toast, PHONE, store } from './env.js';
+import { C, $, esc, toast, PHONE, EMBED, store } from './env.js';
 import { viewer, scene, camera, globe } from './viewer.js';
 import { state, hooks } from './state.js';
 import { release } from './follow.js';
@@ -69,7 +69,7 @@ let ids = 0;
 const seq = {};
 function newShape(kind, name) {
   seq[kind] = (seq[kind] || 0) + 1;
-  const sh = { id: ++ids, kind, name: name || `${TOOLS[kind] || KIND[kind]} ${seq[kind]}`, coords: [], h: [], done: false, m: {}, e: { verts: [], legs: [] }, all: [] };
+  const sh = { id: ++ids, kind, name: name || `${TOOLS[kind] || KIND[kind]} ${seq[kind]}`, custom: !!name, coords: [], h: [], done: false, m: {}, e: { verts: [], legs: [] }, all: [] };   // custom: a name given (it goes into share links)
   sh.ref = { kind: 'measure', shape: sh, tip: () => `${sh.name} · ${summary(sh)}`, cardHtml: () => refCard(sh), afterCard: card => refActions(sh, card) };
   return sh;
 }
@@ -401,8 +401,8 @@ export const Measure = {
     if (this.shapes.includes(sh)) { this.changed(sh); this.update(); }
     return sh.road || null;
   },
-  /** Outline a country (a record from Country.byIso), with its area; once per country. */
-  outline(o) {
+  /** Outline a country (a record from Country.byIso), with its area; once per country. `fly`: frame it. */
+  outline(o, fly = true) {
     let sh = this.shapes.find(s => s.kind === 'outline' && s.iso === o.iso);
     if (!sh) {
       this.finish();
@@ -417,8 +417,33 @@ export const Measure = {
       add(sh, { position: cart(mid), label: { ...LABEL, text: `${sh.name}\n${area(sh.m.area)}`, verticalOrigin: C.VerticalOrigin.CENTER, pixelOffset: C.Cartesian2.ZERO } }, cart(mid, 10));
       this.shapes.push(sh);
     }
-    this.fly(sh); this.update(); scene.requestRender();
+    if (fly) this.fly(sh);
+    this.update(); scene.requestRender();
     return sh;
+  },
+  /** What a share link carries (share.js, core/viewlink.js): the finished shapes, names only where someone gave one, a
+   *  distance's road as a flag (it is asked for again), outlines as ISO codes. null when nothing is drawn. */
+  exportShapes() {
+    const out = this.shapes.filter(s => s.kind === 'outline' || s.coords.length >= (s.kind === 'area' ? 3 : s.kind === 'pin' ? 1 : 2))
+      .map(s => s.kind === 'outline' ? { kind: 'outline', iso: s.iso } : { kind: s.kind, coords: s.coords, ...(s.custom ? { name: s.name } : {}), ...(s.road ? { road: true } : {}) });
+    return out.length ? out : null;
+  },
+  /** Rebuild a drawing from a link (already checked by core/measure.js decodeDrawing), without moving the camera: the link
+   *  has its own view. `card`: open the measure card to show the numbers (not in embeds, nor over a card the link opens;
+   *  on phones a toast instead: the card would cover the drawing, whose labels carry the numbers anyway). */
+  async importShapes(list, { card = true } = {}) {
+    this.finish();
+    for (const s of list) {
+      if (s.kind === 'outline') continue;
+      if (userPoints() + s.coords.length > MAX_POINTS) break;
+      const sh = newShape(s.kind, s.name); sh.coords = s.coords.map(([lon, lat]) => [lon, lat]); sh.h = sh.coords.map(() => 0); sh.done = true;
+      this.shapes.push(sh); this.changed(sh);
+      if (sh.kind === 'line') this.overGround(sh);
+      if (sh.kind === 'arrow' && s.road) this.byRoad(sh);
+    }
+    if (card && !EMBED && !PHONE) this.open(null);
+    else { this.update(); if (card && !EMBED) toast('This link carries a drawing: Explore → Measure lists it', 4500); }
+    for (const s of list) if (s.kind === 'outline') { const o = await Country.byIso(s.iso).catch(() => null); if (o) this.outline(o, false); }   // the borders load first
   },
   /** A country by name ("France", "the UK", "this country"): its outline shape, or null if there is no such country. */
   async outlineByName(q, spot = null) {
@@ -531,6 +556,9 @@ export const Measure = {
   },
 };
 
+// share links carry the drawing (share.js asks through these, so it needs no import of this module)
+hooks.drawState = () => Measure.exportShapes();
+hooks.applyDraw = (list, opts) => Measure.importShapes(list, opts).catch(e => console.warn('drawing from a link', e));
 // the card was closed or another module took it: the tool stands down (the drawing stays)
 new MutationObserver(() => { if (Measure.mode && !cardMine()) Measure.disarm(); }).observe($('#card'), { childList: true, attributes: true, attributeFilter: ['class'] });
 // keys while a tool is armed: Enter finishes, Backspace / Ctrl+Z undo; M opens or closes the tool

@@ -32,3 +32,13 @@ test('links can open a panel or find a flight, and nothing else', () => {
   assert.equal(decodeView('#go=tonight'), null);                                           // no camera: not a view
   assert.equal(new URLSearchParams(encodeView({ lon: 0, lat: 0, height: 1, heading: 0, pitch: 0, flight: 'a"b' })).get('f'), null);
 });
+
+test('a drawing rides along, and only a good one', () => {
+  const drawing = [{ kind: 'pin', coords: [[-0.1246, 51.5007]], name: 'Big Ben' }, { kind: 'arrow', coords: [[2.3522, 48.8566], [13.405, 52.52]], road: true }, { kind: 'outline', iso: 'JP' }];
+  const back = decodeView('#' + encodeView({ ...view, drawing }));
+  assert.deepEqual(back, { ...view, drawing });
+  assert.equal('drawing' in decodeView('#' + encodeView(view)), false, 'no drawing, no key');
+  assert.equal('drawing' in decodeView('#c=10,20,3000&d=<script>alert(1)</script>'), false);
+  assert.deepEqual(decodeView('#c=10,20,3000&d=pAA.pAAAA.oXX.ofr').drawing, [{ kind: 'pin', coords: [[0, 0]] }, { kind: 'outline', iso: 'XX' }], 'what checks out is kept (a two-point pin is not)');
+  assert.equal(new URLSearchParams(encodeView({ lon: 0, lat: 0, height: 1, heading: 0, pitch: 0, drawing: [{ kind: 'line', coords: [[1, 1]] }] })).has('d'), false);
+});

@@ -177,6 +177,8 @@ Round 2 (2026-10-10, local):
       the total over the WGS84 ellipsoid (Vincenty, a bisection near the antipode: within a millimetre of GeographicLib),
       areas on it (within 0.001%), the trip by road (OSRM), length over the hills and the climb on 3D terrain, "outline
       France" with its area, GeoJSON out; draped with ClassificationType.BOTH; a compact card on phones (core/measure.js tested)
+- [x] Share links, embeds and shared pictures carry the drawing (`&d=`: ~0.1 m points, names, the road, outlines; checked
+      shape by shape on arrival, tested in core/measure.js and core/viewlink.js)
 - [ ] An MCP package that opens our URL
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above

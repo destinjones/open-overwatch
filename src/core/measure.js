@@ -262,3 +262,68 @@ export function toGeoJSON(shapes) {
   return { type: 'FeatureCollection', features };
 }
 const rounded = ({ area, perimeter }) => ({ area_m2: Math.round(area * 10) / 10, perimeter_m: Math.round(perimeter * 10) / 10 });
+
+// ---- the drawing in a share link (#...&d=): shapes joined by '.', each a kind letter (p pin, l line, a area, d distance,
+// D a distance whose road route is asked for again on arrival), then its points as steps of a millionth of a degree
+// (~0.1 m), zigzag varints in the URL-safe base64 alphabet (5 bits a character, the sixth says "more", as in Google's
+// polyline format), then optionally '*' and its name as base64url UTF-8; a country outline is 'o' and its ISO code. Every
+// character is one URLSearchParams leaves alone. Links are not trusted: decodeDrawing checks each number, count and name
+// and drops a shape that fails.
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_', B64_AT = Object.fromEntries([...B64].map((c, i) => [c, i]));
+const CODE = { pin: 'p', line: 'l', area: 'a', arrow: 'd' }, KIND_OF = { p: 'pin', l: 'line', a: 'area', d: 'arrow', D: 'arrow' };
+const STEP = 1e6, LINK_MAX = 9000;   // a 512-point drawing of far-apart points is ~6 KB
+const fits = (kind, n) => kind === 'pin' ? n === 1 : kind === 'arrow' ? n === 2 : kind === 'line' ? n >= 2 : kind === 'area' ? n >= 3 : false;
+function putInt(out, v) { let z = v < 0 ? -2 * v - 1 : 2 * v; do { const c = z % 32; z = Math.floor(z / 32); out.push(B64[c + (z > 0 ? 32 : 0)]); } while (z > 0); }
+function readInts(s) {
+  const out = []; let z = 0, k = 1, n = 0;
+  for (const ch of s) {
+    const c = B64_AT[ch]; if (c === undefined || ++n > 7) return null;   // 7 characters hold any step round the Earth
+    z += (c & 31) * k; k *= 32;
+    if (!(c & 32)) { out.push(z % 2 ? -(z + 1) / 2 : z / 2); z = 0; k = 1; n = 0; }
+  }
+  return n ? null : out;   // a number cut short
+}
+const nameOut = s => { let bin = ''; for (const b of new TextEncoder().encode(s)) bin += String.fromCharCode(b); return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+function nameIn(s) {
+  try {
+    const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - s.length % 4) % 4));
+    const text = new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+    return [...text.replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩﻿]/g, '').trim()].slice(0, 60).join('').trim() || null;   // no control or direction-flipping characters
+  } catch (e) { return null; }
+}
+/** Shapes ({ kind, coords: [[lon, lat]], name?, road? } or { kind: 'outline', iso }) as the text of a link's d= field ('' if
+ *  there is nothing to carry or it would not fit a link). At most MAX_POINTS points; names are cut to 60 characters. */
+export function encodeDrawing(shapes) {
+  const parts = []; let n = 0;
+  for (const s of shapes || []) {
+    if (s.kind === 'outline') { if (/^[A-Z]{2}$/.test(s.iso || '')) parts.push('o' + s.iso); continue; }
+    if (!CODE[s.kind] || !Array.isArray(s.coords) || !fits(s.kind, s.coords.length) || n + s.coords.length > MAX_POINTS) continue;
+    n += s.coords.length;
+    const out = [s.kind === 'arrow' && s.road ? 'D' : CODE[s.kind]]; let x0 = 0, y0 = 0;
+    for (const [lon, lat] of s.coords) { const x = Math.round(lon * STEP), y = Math.round(lat * STEP); putInt(out, x - x0); putInt(out, y - y0); x0 = x; y0 = y; }
+    if (s.name) out.push('*', nameOut([...String(s.name)].slice(0, 60).join('')));
+    parts.push(out.join(''));
+  }
+  const d = parts.join('.');
+  return d.length <= LINK_MAX ? d : '';
+}
+/** A link's d= field back into shapes, keeping only what checks out: [] for anything unusable. */
+export function decodeDrawing(text) {
+  const s = String(text || ''); if (!s || s.length > LINK_MAX) return [];   // each part is checked on its own: one mangled shape costs only itself
+  const out = []; let n = 0;
+  for (const part of s.split('.').slice(0, 200)) {
+    if (/^o[A-Z]{2}$/.test(part)) { if (!out.some(o => o.iso === part.slice(1))) out.push({ kind: 'outline', iso: part.slice(1) }); continue; }
+    const m = part.match(/^([pladD])([A-Za-z0-9_-]+)(?:\*([A-Za-z0-9_-]{2,320}))?$/); if (!m) continue;   // 60 characters of up to 4 bytes
+    const ints = readInts(m[2]); if (!ints || ints.length % 2) continue;
+    const coords = []; let x = 0, y = 0;
+    for (let i = 0; i < ints.length; i += 2) { x += ints[i]; y += ints[i + 1]; coords.push([x / STEP, y / STEP]); }
+    const kind = KIND_OF[m[1]];
+    if (coords.some(([lon, lat]) => !(Math.abs(lon) <= 180 && Math.abs(lat) <= 90)) || !fits(kind, coords.length) || n + coords.length > MAX_POINTS) continue;
+    n += coords.length;
+    const sh = { kind, coords }, name = m[3] ? nameIn(m[3]) : null;
+    if (name) sh.name = name;
+    if (m[1] === 'D') sh.road = true;
+    out.push(sh);
+  }
+  return out;
+}

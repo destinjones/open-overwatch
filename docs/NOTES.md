@@ -50,7 +50,9 @@ Detail that used to live in CLAUDE.md. Read the section you need before touching
   /v/<tag>/ copies only carry solar.html itself. window.OOSS is the console handle; globe_shot.mjs renders it with
   OO_URL=http://localhost:8787/solar.html.
 - `serve.js` / `serve.py` — twin local helpers: serve the folder on http://127.0.0.1:8787 and relay an https host
-  allowlist at `/proxy?url=…` for sources that send no CORS header. Keep the two in sync.
+  allowlist at `/proxy?url=…` for sources that send no CORS header. Keep the two in sync. `OW_PORT=8788` runs a second
+  serve.js: the one on 8787 may be another session's, serving another copy of the site (check before trusting a render;
+  `OO_URL=http://localhost:8788/globe.html` points globe_shot.mjs at yours).
 - `Start Open Overwatch.bat` / `.vbs` — Windows launchers.
 - `brand/` — brand + promo pack (3D emblem, globe hero, share images, TikTok promo video) and the scripts that
   rebuild it; see brand/README.md. The start screen's `.splash-globe` and the favicon/apple-touch-icon/og tags use it.
@@ -247,8 +249,16 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   to Berlin" into Paris, Maine and Berlin, New Hampshire. "How far is the Moon / the ISS" answers without drawing.
 - Test input: Cesium's pointer handling calls setPointerCapture, so a synthetic touch needs pointer id 1 (the mouse's;
   brand/tools/_steps/ms_common.js).
-- Not done: states and provinces ("outline Texas" needs a boundary dataset: the user's OK to download), the drawing in
-  share links, dragging a corner to edit.
+- Share links and embeds carry the drawing (`&d=`, core/measure.js encodeDrawing / decodeDrawing via core/viewlink.js):
+  each shape's points as steps of a millionth of a degree (~0.1 m, so the numbers come back the same) in zigzag varints over
+  the base64url alphabet (polyline-style, but with no character URLSearchParams escapes), custom names as base64url UTF-8,
+  a distance's road as a flag (OSRM is asked again on arrival), outlines as ISO codes. A named pin, a 4-point line, a named
+  distance by road and France: 109 characters; 512 far-apart points still fit (≤ 9,000). Each part is checked on its
+  own and dropped if it fails (counts, ranges, 7-character numbers, names without control or direction-flipping
+  characters); names are text everywhere (the card escapes them). On arrival the card opens on desktops (not in embeds,
+  not over a country or flight card the link opens); phones get a toast, as the card would cover the drawing.
+- Not done: states and provinces ("outline Texas" needs a boundary dataset: the user's OK to download), dragging a
+  corner to edit.
 
 ## Public relay (relay/, Cloudflare Worker) — 2026-10-10
 `relay/worker.js` on the owner's Cloudflare account (`npx wrangler deploy` from relay/, after `npx wrangler login`):
