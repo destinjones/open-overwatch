@@ -35,3 +35,6 @@ data/wind.json
 brand/source/companies/
 brand/source/countries/
 brand/source/volcanoes.json
+
+# Cloudflare wrangler's local dev state and cache (account details, miniflare databases): never commit
+relay/.wrangler/
