@@ -429,10 +429,11 @@ export const Measure = {
     return out.length ? out : null;
   },
   /** Rebuild a drawing from a link (already checked by core/measure.js decodeDrawing), without moving the camera: the link
-   *  has its own view. `card`: open the measure card to show the numbers (not in embeds, nor over a card the link opens;
-   *  on phones a toast instead: the card would cover the drawing, whose labels carry the numbers anyway). */
+   *  has its own view. It replaces what is drawn (a link is the whole drawing: applying one again must not double it).
+   *  `card`: open the measure card to show the numbers (not in embeds, nor over a card the link opens; on phones a toast
+   *  instead: the card would cover the drawing, whose labels carry the numbers anyway). */
   async importShapes(list, { card = true } = {}) {
-    this.finish();
+    this.clear();
     for (const s of list) {
       if (s.kind === 'outline') continue;
       if (userPoints() + s.coords.length > MAX_POINTS) break;
