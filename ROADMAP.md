@@ -184,6 +184,11 @@ Round 2 (2026-10-10, local):
       aurora, tonight's sky), each with a link that opens the globe there; show_on_globe puts the globe in the chat as an
       MCP App (a frame of the site in embed mode, moved by hash); no SDK, one dependency (satellite.js); a Claude Desktop
       bundle (.mcpb) built by the release workflow; npm publish needs the owner's npm account (test/mcp.test.mjs)
+- [x] Emulator pass of v0.9.2.7 (Android Chrome 124 + WebKit iPhone 15): every new layer holds the phone cap of 30
+      renders/s while dragging, the battery saver idles at 5-15, no script errors in either engine, layer caches stay
+      flat after the first use; launch labels of one site now share one label (+N)
+- [ ] The measure card covers ~40% of an iPhone-sized screen while placing points (with the draw-and-measure session)
+- [ ] NYC traffic: Midtown showed no roads with measured speeds in the phone test, though NYC DOT speeds are promised
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 
