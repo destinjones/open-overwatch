@@ -22,9 +22,20 @@
 #msTip{position:fixed;pointer-events:none;z-index:6;padding:5px 9px;border-radius:7px;font:500 11.5px/1.3 var(--mono);background:var(--glass-strong);border:1px solid rgba(255,212,92,.45);color:var(--ink);display:none;white-space:nowrap}
 body.ms-armed #globe canvas{cursor:crosshair!important}
 body.m .ms-list{max-height:24vh}
-.ms-now{display:none;font:600 13px/1.4 var(--mono);color:var(--ink)} .ms-now:empty{display:none!important}
+.ms-now{display:none}
 #msMore{display:none} body.m #msMore{display:inline-flex}
-#msCard.ms-compact .ms-full{display:none!important} #msCard.ms-compact .ms-now{display:block} #msCard.ms-compact h2{font-size:18px;margin:2px 0 6px}
-#msCard.ms-compact .ms-hint{margin:2px 0}
+/* phones while a tool is armed: the card is one slim strip just above the dock (the shape in two lines, Undo, Finish, ▴) */
+#card:has(> #msCard.ms-slim){padding:5px 6px 5px 12px;bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+#msCard.ms-slim > :not(.ms-acts){display:none!important}
+#msCard.ms-slim .ms-acts{margin:0;flex-wrap:nowrap;align-items:center;gap:4px}
+#msCard.ms-slim .ms-full{display:none!important}
+#msCard.ms-slim .ms-now{display:flex;flex-direction:column;justify-content:center;flex:1;min-width:0;order:0}
+#msCard.ms-slim .ms-now b{font:600 10px/1.35 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:#ffd45c}
+#msCard.ms-slim .ms-now span{font:600 12.5px/1.35 var(--mono);color:var(--ink)}
+#msCard.ms-slim .ms-now b,#msCard.ms-slim .ms-now span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#msCard.ms-slim #msUndo{order:1} #msCard.ms-slim #msFinish{order:2;color:#ffd45c} #msCard.ms-slim #msMore{order:3}
+#msCard.ms-slim #msUndo,#msCard.ms-slim #msMore{min-width:40px;justify-content:center;padding:8px;color:var(--ink)}
+#msCard.ms-slim #msFinish{padding:8px 9px}
+body:has(#msCard.ms-slim) #toast{bottom:calc(146px + env(safe-area-inset-bottom,0px))}
 body.lookup #msTip{display:none!important}
 @media (pointer:coarse){ .ms-x{font-size:22px;padding:4px 10px} .ms-name{padding:4px 0} }

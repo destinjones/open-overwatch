@@ -182,6 +182,23 @@ function rowBody(sh) {
   if (sh.kind === 'pin') { const [lon, lat] = sh.coords[0], mg = toMgrs(lat, lon); return `<span class="ms-n">${esc(where(sh.coords[0]))}</span>${mg ? `<span class="ms-dim">MGRS ${esc(mg)}</span>` : ''}`; }
   return `<span class="ms-n">${esc(bothArea(m.area))}</span><span class="ms-dim">${m.parts} part${m.parts === 1 ? '' : 's'}, from simplified borders: roughly right, not official</span>`;
 }
+// the phone strip's icons (SVG: WebKit drew the ↶ and ▴ characters small and faint) and its two lines: the shape in
+// hand, else the one this tool just finished, else what to tap first
+const ICON = d => `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+const UNDO_ICON = ICON('M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11'), UP_ICON = ICON('m6 15 6-6 6 6');
+const NEXT = { line: 'Tap to add points', area: 'Tap the first corner', arrow: 'Tap a start, then an end', pin: 'Tap to drop a pin' };
+function stripHtml(M) {
+  const last = M.shapes[M.shapes.length - 1], sh = M.cur || (last && last.kind === M.mode ? last : null), m = sh && sh.m;
+  let top = TOOLS[M.mode] || '', low = NEXT[M.mode] || '';
+  if (sh) {
+    const n = sh.coords.length; top = sh.name;
+    if (sh.kind === 'line') { if (n > 1) top += ` · ${m.legs.length} leg${m.legs.length === 1 ? '' : 's'}`; low = n > 1 ? len(m.total) : 'Tap the next point'; }
+    else if (sh.kind === 'area') { top += ` · ${n} corner${n === 1 ? '' : 's'}`; low = n >= 3 ? `${area(m.area)} · ${len(m.per)} around` : 'Tap the next corner'; }
+    else if (sh.kind === 'arrow') low = n > 1 ? `${len(m.total)} · ${bearingText(m.legs[0].az1)}` : 'Tap the end';
+    else if (sh.kind === 'pin') low = where(sh.coords[0]);
+  }
+  return `<b>${esc(top)}</b><span>${esc(low)}</span>`;
+}
 function rowHtml(sh) {
   return `<div class="ms-row${sh === Measure.cur ? ' cur' : ''}" data-row="${sh.id}"><button class="ms-name" data-fly="${sh.id}" title="Fly to it">${esc(sh.name)}</button>`
     + `<button class="ms-x" data-del="${sh.id}" aria-label="Delete ${esc(sh.name)}">×</button><div class="ms-body">${rowBody(sh)}</div></div>`;
@@ -189,8 +206,8 @@ function rowHtml(sh) {
 function cardHtml() {
   return `<button class="x" aria-label="Close">×</button><div class="k" style="--c:${COLOR}">Draw and measure</div><h2>Measure</h2>
     <div class="ms-modes" role="group" aria-label="Drawing tool">${Object.entries(TOOLS).map(([k, w]) => `<button class="chipbtn" data-mode="${k}">${w}</button>`).join('')}</div>
-    <p class="note ms-hint" id="msHint"></p><div class="ms-now" id="msNow" aria-live="polite"></div>
-    <div class="acts ms-acts"><button class="chipbtn" id="msFinish">Finish</button><button class="chipbtn" id="msUndo">Undo</button><button class="chipbtn ms-full" id="msClear">Clear all</button><button class="chipbtn ms-full" id="msCopy" title="The drawing as GeoJSON, for geojson.io, QGIS and the like">Copy GeoJSON</button><button class="chipbtn" id="msMore" aria-label="Show everything drawn">More</button></div>
+    <p class="note ms-hint" id="msHint"></p>
+    <div class="acts ms-acts"><div class="ms-now" id="msNow" aria-live="polite"></div><button class="chipbtn" id="msFinish">Finish</button><button class="chipbtn" id="msUndo" aria-label="Undo">Undo</button><button class="chipbtn ms-full" id="msClear">Clear all</button><button class="chipbtn ms-full" id="msCopy" title="The drawing as GeoJSON, for geojson.io, QGIS and the like">Copy GeoJSON</button><button class="chipbtn" id="msMore">Less</button></div>
     <form class="fl-form ms-full" id="msOutline" autocomplete="off"><input id="msCountry" maxlength="60" placeholder="Outline a country" aria-label="Outline a country" list="msCountries" style="text-transform:none"><datalist id="msCountries"></datalist><button class="chipbtn" style="color:${COLOR}">Outline</button></form>
     <div class="ms-list ms-full" id="msList"></div>
     <p class="note ms-full" style="margin-top:8px">Shortest paths over the Earth's real shape (WGS84; within a millimetre) and areas on it (within 0.001%), at sea level. Up to ${MAX_POINTS} points. Countries: Natural Earth, simplified.</p>`;
@@ -291,6 +308,7 @@ export const Measure = {
   close() { this.disarm(); if (cardMine()) $('#card').classList.remove('show'); },
   arm(mode) {
     this.mode = mode; this.lastMode = mode; state.picking = true; document.body.classList.add('ms-armed');
+    this.expanded = false;   // a tool picked on a phone: back to the slim strip, to draw
     if (this.cur && this.cur.kind !== mode) this.finish();
     this.update();
   },
@@ -316,7 +334,7 @@ export const Measure = {
     if (this.mode === 'pin' && lastPin && lastPin.kind === 'pin' && quick(lastPin) && near(lastPin, 0, touch ? 24 : 8)) return;   // a double-click's second click
     const p = pickGround(win); if (!p) return;
     const g = C.Cartographic.fromCartesian(p);
-    if (this.addPoint([deg(g.longitude), deg(g.latitude)], g.height)) this.update();
+    if (this.addPoint([deg(g.longitude), deg(g.latitude)], g.height)) { this.expanded = false; this.update(); }   // drawing again: the strip
     if (mouse && !touch) preview(win);
   },
   addPoint(at, h = 0, name) {
@@ -372,12 +390,13 @@ export const Measure = {
     list.innerHTML = this.shapes.length ? this.shapes.map(rowHtml).join('') : '<p class="note" style="margin:0">Nothing drawn yet.</p>';
     list.scrollTop = top; if (this.cur) list.querySelector(`[data-row="${this.cur.id}"]`)?.scrollIntoView({ block: 'nearest' });
     root.querySelector('#msFinish').disabled = !this.cur; root.querySelector('#msUndo').disabled = root.querySelector('#msClear').disabled = root.querySelector('#msCopy').disabled = !this.shapes.length;
-    // phones, while a tool is armed: just the tools, one line about the shape in hand, Finish and Undo (the full card hid
-    // most of the globe there); More opens the rest
-    const compact = PHONE && !!this.mode && !this.expanded, now = this.cur || this.shapes[this.shapes.length - 1];
-    root.classList.toggle('ms-compact', compact);
-    root.querySelector('#msMore').textContent = compact ? 'More' : 'Less';
-    root.querySelector('#msNow').textContent = now ? `${now.name} · ${summary(now)}` : '';
+    // phones, while a tool is armed: one slim strip above the dock, the shape in hand (or what to tap) in two lines, Undo,
+    // Finish and ▴ for the rest (the whole card, then a compact one, still covered ~40% of an iPhone's Safari viewport)
+    const slim = PHONE && !!this.mode && !this.expanded, more = root.querySelector('#msMore');
+    root.classList.toggle('ms-slim', slim);
+    more.innerHTML = slim ? UP_ICON : 'Less'; more.setAttribute('aria-label', slim ? 'Show the tools and everything drawn' : 'Show less'); more.hidden = !this.mode;
+    root.querySelector('#msUndo').innerHTML = slim ? UNDO_ICON : 'Undo';
+    root.querySelector('#msNow').innerHTML = slim ? stripHtml(this) : '';
   },
   fly(sh) {
     if (!sh) return;
@@ -387,7 +406,7 @@ export const Measure = {
     if (c.length === 1) { camera.flyTo({ destination: C.Cartesian3.fromDegrees(c[0][0], c[0][1] - 0.012, 1800), orientation: { heading: 0, pitch: C.Math.toRadians(-45), roll: 0 }, duration: 1.8 }); return; }
     // framed clear of the card: it covers the right of a desktop and the bottom of a phone
     const r = C.Rectangle.fromCartesianArray(c.map(x => cart(x))), w = C.Rectangle.computeWidth(r), h = r.north - r.south, pad = Math.max(w, h) * 0.25 + 2e-4;
-    const south = pad + (PHONE && cardMine() ? Math.max(h, w * 0.5) * (this.mode && !this.expanded ? 0.6 : 1.4) : 0), east = pad + (!PHONE && cardMine() ? w * 0.4 : 0);
+    const south = pad + (PHONE && cardMine() ? Math.max(h, w * 0.5) * (this.mode && !this.expanded ? 0.35 : 1.4) : 0), east = pad + (!PHONE && cardMine() ? w * 0.4 : 0);
     camera.flyTo({ destination: new C.Rectangle(r.west - pad, Math.max(-1.5, r.south - south), r.east + east, Math.min(1.5, r.north + pad)), duration: 2 });
   },
   /** A distance arrow's trip by road (OSRM, car): drawn in green beside the straight line. */

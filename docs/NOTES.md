@@ -240,8 +240,12 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   only stops the camera controller's reads), 3D terrain → `globe.pick` (CPU, the drawn tiles), else the ellipsoid.
 - A quick (under 0.5 s) second click or tap on the last point is the double-click that finishes; a slow one is a point
   placed close by (at first a phone corner 16 px from the last one ended the area).
-- Phones: while a tool is armed the card shrinks to the tools, one line about the shape and Finish / Undo / More (the
-  full card covered 60% of the screen and the drawing with it). Flights to a shape leave room for the card.
+- Phones: while a tool is armed the card is one slim strip just above the dock: the shape in hand (or what to tap) in
+  two lines, Undo, Finish, and a chevron for the rest; picking a tool or tapping the globe folds it back. In WebKit's
+  iPhone 15 profile (Playwright, a 393x659 Safari viewport) the strip is 52 px: card and dock cover 21% of the screen,
+  where the full card, then a compact one (tools, hint, readout, buttons: 202 px), left 46%. The two small icons are
+  SVG (WebKit drew the ↶ and ▴ characters tiny and faint). Flights to a shape leave room for the card. Checked with real
+  WebKit touch taps (`page.touchscreen.tap`, brand/tools/_steps/ms_webkit.mjs) and Chromium at 390x844.
 - Over the ground: finished lines up to 30 km on 3D terrain, at most 300 heights (Terrain.heights, the most detailed
   tiles): length with the hills (Google Earth's "ground length"), climb and descent.
 - Voice "from A to B" takes the two best Photon matches unless one of them is much nearer (3x) another candidate of the
