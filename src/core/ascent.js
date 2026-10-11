@@ -67,4 +67,4 @@ function sample0(p, t) {   // altitude and downrange only (for the speed estimat
 }
 
 /** The latest event at or before t: "Max Q (approx.)". */
-export const eventAt = (t, sub = false) => sub ? (t < 1 ? 'Lift-off' : t < 150 ? 'Powered ascent' : 'Coasting over the top, then back down') : [...EVENTS].reverse().find(([s]) => t >= s)[1];
+export const eventAt = (t, sub = false) => sub ? (t < 1 ? 'Lift-off' : t < 150 ? 'Powered ascent' : 'Coasting over the top, then back down') : ([...EVENTS].reverse().find(([s]) => t >= s) || EVENTS[0])[1];

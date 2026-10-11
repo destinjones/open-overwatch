@@ -322,7 +322,7 @@ function bracket(x, y, s) {
   ctx.moveTo(x - s + k, y + s); ctx.lineTo(x - s, y + s); ctx.lineTo(x - s, y + s - k);
   ctx.stroke();
 }
-scene.preUpdate.addEventListener((sc, time) => Ops.ride(time));   // after Follow.track (registered first, in main.js)
+hooks.leaveCockpit = () => { if (Ops.cockpit) Ops.setCockpit(false); };   // follow.js's release() calls it: inputs and the lens come back the moment a follow ends
 let drawn = false;   // the overlay is cleared once when everything is switched off, then left alone
 scene.postRender.addEventListener(() => { const on = Ops.detect || Ops.hud; if (on || drawn) { Ops.draw(); drawn = on; } });
 setInterval(() => Ops.rescan(), 250);
@@ -353,17 +353,28 @@ addEventListener('keydown', e => {
   else if (Ops.cockpit && /^arrow/.test(k)) { e.preventDefault(); const L2 = Ops.look; if (k === 'arrowleft') L2.yaw -= 5; if (k === 'arrowright') L2.yaw += 5; if (k === 'arrowup') L2.pitch = Math.min(60, L2.pitch + 4); if (k === 'arrowdown') L2.pitch = Math.max(-89, L2.pitch - 4); }
 }, true);
 
-// cockpit free-look: drag turns the head, the wheel (or a pinch's wheel events) zooms the lens
-scene.canvas.addEventListener('pointerdown', e => { if (Ops.cockpit) { Ops.look.drag = { x: e.clientX, y: e.clientY, yaw: Ops.look.yaw, pitch: Ops.look.pitch }; scene.canvas.setPointerCapture?.(e.pointerId); } });
+// cockpit free-look: drag turns the head, the wheel or a two-finger pinch zooms the lens
+const zoomLens = k => { camera.frustum.fov = C.Math.clamp(camera.frustum.fov * k, C.Math.toRadians(8), C.Math.toRadians(100)); };
+const ptrs = new Map(); let pinch = 0;
+const span = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a[0] - b[0], a[1] - b[1]); };
+scene.canvas.addEventListener('pointerdown', e => {
+  if (!Ops.cockpit) return;
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]); scene.canvas.setPointerCapture?.(e.pointerId);
+  if (ptrs.size >= 2) { pinch = span(); Ops.look.drag = null; return; }
+  Ops.look.drag = { x: e.clientX, y: e.clientY, yaw: Ops.look.yaw, pitch: Ops.look.pitch };
+});
 scene.canvas.addEventListener('pointermove', e => {
-  const d = Ops.look.drag; if (!Ops.cockpit || !d) return;
+  if (!Ops.cockpit) return;
+  if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (ptrs.size >= 2) { const d = span(); if (pinch && d > 0) zoomLens(pinch / d); pinch = d; return; }
+  const d = Ops.look.drag; if (!d) return;
   const k = C.Math.toDegrees(camera.frustum.fov) / Math.max(300, scene.canvas.clientWidth);
   Ops.look.yaw = d.yaw - (e.clientX - d.x) * k; Ops.look.pitch = Math.max(-89, Math.min(60, d.pitch + (e.clientY - d.y) * k));
 });
-addEventListener('pointerup', () => { Ops.look.drag = null; });
+for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => { ptrs.delete(e.pointerId); pinch = 0; Ops.look.drag = null; });
 scene.canvas.addEventListener('wheel', e => {
   if (!Ops.cockpit) return; e.preventDefault();
-  camera.frustum.fov = C.Math.clamp(camera.frustum.fov * (e.deltaY > 0 ? 1.08 : 0.93), C.Math.toRadians(8), C.Math.toRadians(100));
+  zoomLens(e.deltaY > 0 ? 1.08 : 0.93);
 }, { passive: false });
 
 hooks.opsState = () => ({ sensor: Ops.sensor, hud: Ops.hud, detect: Ops.detect });

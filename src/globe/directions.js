@@ -108,6 +108,7 @@ export const Directions = {
     }
   },
   clearDrawing() { for (const e of ents) viewer.entities.remove(e); ents = []; },
+  apply() { for (const e of ents) e.show = !state.lookup; },   // the route is on the ground: a streak across look-up mode's sky otherwise
   clear() { this.stopFly(); this.clearDrawing(); this.route = null; },
   frame() {
     release();
@@ -146,8 +147,9 @@ export const Directions = {
     const dur = Math.min(90, Math.max(12, line.total / speed)), height = this.mode === 'walk' ? 140 : 260, back = height * 1.6;
     // on 3D terrain, the ground along the route every 50 m (one batch, before the flight): the camera keeps its height above
     // the highest ground from just behind it to just ahead, so it never dips into a hill
+    const run = this.flyRun = (this.flyRun || 0) + 1;
     const STEP = 50, prof = Terrain.on ? await Terrain.heights(Array.from({ length: Math.ceil(line.total / STEP) + 1 }, (_, i) => { const p = pointAt(line, Math.min(line.total, i * STEP)); return { lat: p[1], lon: p[0] }; })) : null;
-    if (!this.route || this.route.line !== line) return;   // changed while the heights loaded
+    if (run !== this.flyRun || !this.route || this.route.line !== line) return;   // changed, or flown again, while the heights loaded
     const groundNear = d => { if (!prof) return 0; let m = -Infinity; for (let i = Math.max(0, Math.floor((d - back) / STEP)); i <= Math.min(prof.length - 1, Math.ceil((d + 150) / STEP)); i++) m = Math.max(m, prof[i]); return m; };
     const t0 = performance.now(); let head = null;
     ctrl.enableInputs = false;
@@ -166,6 +168,7 @@ export const Directions = {
     toast(`Flying the ${distanceText(line.total)} route · any click or Esc stops`, 3500);
   },
   stopFly() {
+    this.flyRun = (this.flyRun || 0) + 1;   // a flight still loading its heights stands down
     if (flight) { flight(); flight = null; }
     if (this._stop) { for (const ev of ['pointerdown', 'wheel', 'keydown']) removeEventListener(ev, this._stop, { capture: true }); this._stop = null; }
     ctrl.enableInputs = true;

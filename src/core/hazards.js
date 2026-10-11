@@ -93,8 +93,9 @@ export function gdacsForecast(fc) {
       r.points.push({ lat, lon, label: String(p.polygonlabel || ''), t: NaN, forecast: false });
     }
   }
-  const year = Number.isNaN(r.advisory) ? new Date().getUTCFullYear() : new Date(r.advisory).getUTCFullYear();
-  for (const q of r.points) { q.t = gdacsTime(q.label, year); q.forecast = q.t > r.advisory; }
+  const ref = Number.isNaN(r.advisory) ? Date.now() : r.advisory, year = new Date(ref).getUTCFullYear();
+  const nearest = label => { let best = NaN; for (const y of [year - 1, year, year + 1]) { const t = gdacsTime(label, y); if (!Number.isNaN(t) && (Number.isNaN(best) || Math.abs(t - ref) < Math.abs(best - ref))) best = t; } return best; };   // the labels carry no year: a forecast over New Year is next year's
+  for (const q of r.points) { q.t = nearest(q.label); q.forecast = q.t > r.advisory; }
   r.points.sort((a, b) => a.t - b.t);
   return r;
 }
@@ -128,7 +129,7 @@ export function fireTilesFor(w, s, e, n, level) {
 export function parseFires(layers, since = 0) {
   const out = [];
   for (const l of Object.values(layers || {})) for (const f of l.features) {
-    const p = f.props, time = String(p.ACQ_TIME || '').replace(/^(\d\d)(\d\d)$/, '$1:$2'), t = Date.parse(`${p.ACQ_DATE}T${time.padStart(5, '0')}:00Z`);
+    const p = f.props, raw = String(p.ACQ_TIME ?? ''), time = (/^\d{1,4}$/.test(raw) ? raw.padStart(4, '0') : raw).replace(/^(\d\d)(\d\d)$/, '$1:$2'), t = Date.parse(`${p.ACQ_DATE}T${time.padStart(5, '0')}:00Z`);   // "0312", 312 (a number: 03:12) or "03:12"
     const lat = +p.LATITUDE, lon = +p.LONGITUDE;
     if (!(t >= since) || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
     out.push({ id: `${p.SATELLITE}:${p.ACQ_DATE}:${p.UID}`, lat, lon, frp: +p.FRP || 0, k: +p.BRIGHT_TI4 || null, conf: String(p.CONFIDENCE || ''), sat: String(p.SATELLITE || ''), t, day: p.DAYNIGHT === 'D' });

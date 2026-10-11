@@ -49,7 +49,7 @@ const ON = /\b(on|show|enable|start|open|activate)\b/, OFF = /\b(off|hide|disabl
 
 /** Lowercase, no punctuation, no wake word or politeness. */
 export function normalize(text) {
-  return String(text || '').toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9' &-]+/g, ' ')
+  return String(text || '').toLowerCase().normalize('NFD').replace(/\p{M}+/gu, '').replace(/[’']/g, "'").replace(/[^a-z0-9' &-]+/g, ' ')   // "Zürich" -> "zurich", not "z rich": the marks go, the letters stay
     .replace(/^\s*(hey |ok |okay )?(overwatch|open overwatch|computer)\b[ ,]*/, '')
     .replace(/\b(please|can you|could you|would you|i want to|i'd like to|let's|lets|just|now)\b/g, ' ')
     .replace(/\s+/g, ' ').trim();
@@ -120,7 +120,7 @@ export function parse(text) {
   m = s.match(/^how many (satellites|sats|planes|airplanes|aircraft|flights|jets|military( aircraft| planes| flights)?|earthquakes|quakes|ships|boats|vessels|buses|trains|trams|vehicles|cameras|things|objects|targets|contacts)\b(?:.*?\b(?:over|above|in|around|near|across|within|off)\s+(.+?))?$/);
   if (m) {
     const what = (COUNTED.find(([re]) => re.test(m[1])) || [null, 'all'])[1], place = m[3] ? clean(m[3].replace(/\s+(right|at the moment|today)$/, '')) : '';
-    return place && !/^(view|sight|the view|frame|the frame|the picture|the sky|range|my view|screen|the screen)$/.test(place) ? { act: 'count', what, place } : { act: 'count', what };
+    return place && !/^(view|sight|the view|frame|the frame|the picture|the sky|sky|range|my view|screen|the screen|air|the air|me|us|here|there|out there|up there|space|orbit|total|all|the world|earth|the earth|the planet)$/.test(place) ? { act: 'count', what, place } : { act: 'count', what };   // "in the air", "above me": not places
   }
   if (/^(fly (it|the route|this route|that route|along the route|the path)|play the route)( |$)/.test(s)) return { act: 'flyroute' };
   m = s.match(/^(?:show me |give me |get |find |draw |plot )?(?:the |a )?(?:(walking|walk|driving|drive|car|cycling|cycle|bike|biking) )?(?:route|directions|way|path)? ?from (.+?) to (.+)$/)
@@ -163,6 +163,6 @@ export function weatherSentence(r, imperial = false) {
   const out = [];
   if (Number.isFinite(r.temp)) out.push(imperial ? `${Math.round(r.temp * 9 / 5 + 32)} degrees Fahrenheit` : `${Math.round(r.temp)} degrees Celsius`);
   const sky = skyWords(r); if (sky) out.push(sky);
-  if (Number.isFinite(r.speed)) out.push(r.speed < 0.5 ? 'calm' : `wind ${imperial ? Math.round(r.speed * 2.23694) + ' miles' : Math.round(r.speed * 3.6) + ' kilometres'} an hour from the ${compass(r.from)}`);
+  if (Number.isFinite(r.speed)) out.push(r.speed < 0.5 ? 'calm' : `wind ${imperial ? Math.round(r.speed * 2.23694) + ' miles' : Math.round(r.speed * 3.6) + ' kilometres'} an hour${Number.isFinite(r.from) ? ` from the ${compass(r.from)}` : ''}`);
   return out.join(', ');
 }

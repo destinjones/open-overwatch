@@ -75,7 +75,8 @@ const NETS = {
     const d = await getJSON(url, { relay: true, timeout: 60000 });
     return (Array.isArray(d) ? d : d.results || []).filter(c => c.location?.coordinates && c.should_appear !== false).map(c => ({ net: 'bc', id: 'bc:' + c.id, name: c.name, view: c.caption || '',
       direction: DIRS[c.orientation] || '', lat: +c.location.coordinates[1], lon: +c.location.coordinates[0], image: `https://www.drivebc.ca/images/${encodeURIComponent(c.id)}.jpg`,
-      online: !c.marked_stale && c.is_on !== false, link: 'https://www.drivebc.ca/' }));
+      online: !c.marked_stale && c.is_on !== false, link: 'https://www.drivebc.ca/' }))
+      .filter(c => Number.isFinite(c.lat) && Number.isFinite(c.lon));
   } },
   calgary: { name: 'City of Calgary', box: [50.84, -114.32, 51.21, -113.86], credit: 'Calgary cameras: City of Calgary (Open Government Licence – City of Calgary)', async load() {
     const d = await getJSON('https://data.calgary.ca/resource/k7p9-kppz.json?$limit=1000', { timeout: 40000 });
@@ -128,7 +129,9 @@ export const Live = {
     v.addEventListener('pause', () => setTimeout(() => { if (this.video === v && v.paused) v.play().catch(() => {}); }, 60));
     if (v.canPlayType('application/vnd.apple.mpegurl')) v.src = cam.video;   // Safari, iOS
     else {
-      const Hls = (await (hlsLib ||= import(HLS_JS))).default;
+      let Hls;
+      try { Hls = (await (hlsLib ||= import(HLS_JS).catch(e => { hlsLib = null; throw e; }))).default; }   // a failed load is tried again next time, not cached
+      catch (e) { console.warn('camera video', e.message); if (this.video === v) this.failed = true; return null; }
       if (this.video !== v) return null;
       if (!Hls.isSupported()) { this.failed = true; return null; }
       const h = this.hls = new Hls({ maxBufferLength: 8, backBufferLength: 0, liveSyncDurationCount: 2 });
@@ -167,7 +170,7 @@ function card(cam) {
   const facing = `${Math.round(pose.heading)}° ${['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(pose.heading / 45) % 8]}`;
   const presets = cam.presets && cam.presets.length > 1 ? `<div class="acts">${cam.presets.map((p, i) => `<button class="chipbtn" data-cpre="${i}" style="${i === cam.preset ? 'color:' + PINK : ''}">${esc(p.name || 'View ' + (i + 1))}</button>`).join('')}</div>` : '';
   return `<div class="k" style="--c:${PINK}">Traffic camera · ${esc(NETS[cam.net === 'caltrans' ? cam.id.slice(0, 4).replace(':', '') : cam.net]?.name || cam.net)}</div><h2>${esc(cam.name)}</h2>
-    ${isStream(cam) ? `<div class="cam-live cam-video" id="camMedia"${cam.image ? ` style="background-image:url('${esc(bust(cam.image, cam))}')"` : ''}><span class="cam-badge">LIVE</span></div>`
+    ${isStream(cam) ? `<div class="cam-live cam-video" id="camMedia"${cam.image ? ` style="background-image:url('${esc(encodeURI(bust(cam.image, cam)).replace(/[()']/g, c => '%' + c.charCodeAt(0).toString(16)))}')"` : ''}><span class="cam-badge">LIVE</span></div>`
       : cam.image ? `<img class="cam-live" id="camLive"${cam.cors === false ? '' : ' crossorigin="anonymous"'} alt="Latest picture from ${esc(cam.name)}" src="${esc(bust(cam.image, cam))}">` : '<p class="note">No picture from this camera.</p>'}
     ${presets}<dl>${cam.view ? `<dt>View</dt><dd>${esc(cam.view)}</dd>` : ''}<dt>Facing</dt><dd>${esc(facing)} · ${esc(pose.source === 'calibrated' ? 'lined up' : 'estimated from ' + pose.source)}</dd>
     <dt>Position</dt><dd>${cam.lat.toFixed(5)}, ${cam.lon.toFixed(5)}</dd>${cam.online === false ? '<dt>Status</dt><dd>offline</dd>' : ''}</dl>
@@ -194,7 +197,7 @@ function attach(cam) {
       if (!box.isConnected) return;
       box.prepend(v); v.play().catch(() => {});
       v.addEventListener('oo-failed', () => { if (box.isConnected) box.insertAdjacentHTML('beforeend', '<p class="note cam-fail">The live video stopped (the agency\'s server).</p>'); }, { once: true });
-    });
+    }).catch(e => { console.warn('camera video', e.message); if (box.isConnected) box.insertAdjacentHTML('beforeend', '<p class="note cam-fail">The live video can\'t play here right now.</p>'); });
     if (cam.net === 'sg') refreshSg().then(() => { const i = q('#camLive'); if (i && i.isConnected) i.src = bust(cam.image, cam); });
     if (cam.net === 'finland' && !cam.detail) finlandDetail(cam);
   };

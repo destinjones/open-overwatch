@@ -8,12 +8,14 @@ const td = typeof TextDecoder !== 'undefined' ? new TextDecoder() : null;
 export class Pbf {
   constructor(buf, start = 0, end = buf.length) { this.b = buf; this.p = start; this.end = end; this.dv = null; }
   varint() { let v = 0, s = 1, b; do { b = this.b[this.p++]; v += (b & 0x7f) * s; s *= 128; } while (b & 0x80); return v; }   // exact to 2^53
+  /** A signed 64-bit varint (protobuf int64): a negative value is 10 bytes, past a double's exactness, so it is read as a BigInt. */
+  int64() { let v = 0n, s = 0n, b; do { b = this.b[this.p++]; v |= BigInt(b & 0x7f) << s; s += 7n; } while (b & 0x80); return Number(BigInt.asIntN(64, v)); }
   key() { const k = this.varint(); return [Math.floor(k / 8), k & 7]; }
   bytes() { const l = this.varint(), a = this.p; this.p += l; return [a, this.p]; }
   str() { const [a, b] = this.bytes(); return td.decode(this.b.subarray(a, b)); }
   view() { return this.dv || (this.dv = new DataView(this.b.buffer, this.b.byteOffset, this.b.byteLength)); }
-  f32() { const v = this.view().getFloat32(this.p, true); this.p += 4; return v; }
-  f64() { const v = this.view().getFloat64(this.p, true); this.p += 8; return v; }
+  f32() { if (this.p + 4 > this.end) throw new Error('mvt: cut off'); const v = this.view().getFloat32(this.p, true); this.p += 4; return v; }   // a plain error for a truncated download, not a RangeError
+  f64() { if (this.p + 8 > this.end) throw new Error('mvt: cut off'); const v = this.view().getFloat64(this.p, true); this.p += 8; return v; }
   skip(wire) {
     if (wire === 0) this.varint(); else if (wire === 1) this.p += 8; else if (wire === 2) { const l = this.varint(); this.p += l; } else if (wire === 5) this.p += 4;   // not `p += varint()`: that adds to p as it was before the length
     else throw new Error('mvt: wire type ' + wire);
@@ -28,7 +30,7 @@ function value(r, end) {
     if (f === 1) v = r.str();
     else if (f === 2) v = r.f32();
     else if (f === 3) v = r.f64();
-    else if (f === 4) { v = r.varint(); if (v >= 2 ** 63) v -= 2 ** 64; }
+    else if (f === 4) v = r.int64();
     else if (f === 5) v = r.varint();
     else if (f === 6) { const n = r.varint(); v = n % 2 === 1 ? -(n + 1) / 2 : n / 2; }
     else if (f === 7) v = r.varint() === 1;
@@ -43,7 +45,7 @@ export function geometry(cmds) {
   const out = []; let x = 0, y = 0, i = 0, cur = null;
   while (i < cmds.length) {
     const c = cmds[i++], id = c & 7, n = c >>> 3;
-    if (id === 1 || id === 2) for (let k = 0; k < n; k++) { x += zz(cmds[i++]); y += zz(cmds[i++]); if (id === 1) out.push(cur = [x, y]); else cur.push(x, y); }
+    if (id === 1 || id === 2) for (let k = 0; k < n && i + 1 < cmds.length; k++) { x += zz(cmds[i++]); y += zz(cmds[i++]); if (id === 1) out.push(cur = [x, y]); else if (cur) cur.push(x, y); }   // a LineTo before any MoveTo, or a cut-off tile, is skipped, not thrown
     else if (id === 7) { if (cur) cur.push(cur[0], cur[1]); }
     else break;
   }
@@ -88,8 +90,8 @@ export function decodeTile(buf, want) {
 
 /** The z/x/y tile (Web Mercator) that holds a point. */
 export function tileAt(lat, lon, z) {
-  const n = 2 ** z, s = Math.sin(lat * Math.PI / 180);
-  return { z, x: Math.floor((lon + 180) / 360 * n), y: Math.floor((0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n) };
+  const n = 2 ** z, s = Math.sin(Math.max(-85.0511, Math.min(85.0511, lat)) * Math.PI / 180), clamp = v => Math.max(0, Math.min(n - 1, Math.floor(v)));   // Web Mercator ends at ±85.05°; lon 180 is the last column, not one past it
+  return { z, x: clamp((((lon + 180) % 360 + 360) % 360) / 360 * n), y: clamp((0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n) };
 }
 /** World pixel (0..scale on both axes, y down) -> { lat, lon }. */
 export function unproject(px, py, scale) {

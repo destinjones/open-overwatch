@@ -128,7 +128,7 @@ export const Weather = {
     const S = this.sets, cloud = this.on && fc && S.ir.on, rain = this.on && fc && S.radar.on;
     const kinds = [...(S.wind.on ? ['wind'] : []), ...(S.temp.on ? ['temp'] : []), ...(cloud ? ['cloud'] : []), ...(rain ? ['rain'] : [])];
     if (this.on && kinds.length) {
-      Wind.moment(f.t, kinds).then(model => { if (!model && fc && (cloud || rain)) toast('The weather model is not reachable right now: no forecast pictures', 3500); this.label(); });
+      Wind.moment(f.t, kinds).then(model => { if (!model && fc && (cloud || rain)) toast('The weather model is not reachable right now: no forecast pictures', 3500); this.label(); }).catch(() => this.label());
       if (this.playing && next) Model.prefetch(next.t, kinds);
     }
     const field = (on, set) => (on ? set(true) : set(false)).catch(() => { toast('Weather model data is not reachable right now'); });

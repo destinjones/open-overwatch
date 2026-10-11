@@ -13,6 +13,7 @@ export const SOLAR_AXIS = new C.Cartesian3(0, 0, -1);   // Blender +Y expressed 
 
 /** Stop following and leave any Moon lookAt, before a new camera move. */
 export function release() {
+  hooks.leaveCockpit?.();   // ops.js: the cockpit rides the followed object, so it ends first (inputs and the lens come back)
   if (Follow.obj) Follow.stop();
   if (state.lookingAtMoon) { camera.lookAtTransform(C.Matrix4.IDENTITY); state.lookingAtMoon = false; }
 }
