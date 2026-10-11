@@ -35,19 +35,24 @@ export const Launches = {
     })().catch(e => { console.warn('launches', e); this.error = "The launch schedule isn't reachable right now."; this.loading = null; this.failedAt = Date.now(); });
     return this.loading;
   },
-  /** One marker per pad, for its next launch. */
+  /** One marker per pad, for its next launch. Pads of one site (Vandenberg's, the Cape's: a few km apart) share one label,
+   *  the soonest launch's, with "+N" for the site's other pads: their labels printed over each other. */
   draw() {
-    pts.removeAll(); labels.removeAll(); const seen = new Set();
+    pts.removeAll(); labels.removeAll(); const seen = new Set(), sites = [];
     for (const l of this.list) {
+      l.pt = l.label = null; l.more = 0;
       const key = l.lat.toFixed(3) + ',' + l.lon.toFixed(3); if (seen.has(key)) continue; seen.add(key);
       const pos = C.Cartesian3.fromDegrees(l.lon, l.lat, 200);
       l.pt = pts.add({ position: pos, pixelSize: 9, color: ORANGE, outlineColor: C.Color.BLACK.withAlpha(0.6), outlineWidth: 2, id: l });
+      const site = sites.find(s => Math.abs(s.lat - l.lat) < 0.5 && Math.abs(s.lon - l.lon) < 0.5 / Math.max(0.2, Math.cos(l.lat * Math.PI / 180)));   // ~55 km
+      if (site) { site.more++; continue; }   // the list is soonest first: the site's label stays with its next launch
+      sites.push(l);
       l.label = labels.add({ position: pos, text: '', font: '600 12px system-ui', fillColor: ORANGE, showBackground: true, backgroundColor: C.Color.fromCssColorString('#05080cbb'),
         pixelOffset: new C.Cartesian2(10, -10), horizontalOrigin: C.HorizontalOrigin.LEFT, distanceDisplayCondition: new C.DistanceDisplayCondition(0, 9.0e6), id: l });
     }
     this.relabel(); this.apply();
   },
-  relabel() { const now = Date.now(); for (const l of this.list) if (l.label) l.label.text = `🚀 ${l.rocket}${precise(l) ? ' · ' + countdown(l.net, now).replace(/:\d\d$/, '') : ''}`; },
+  relabel() { const now = Date.now(); for (const l of this.list) if (l.label) l.label.text = `🚀 ${l.rocket}${precise(l) ? ' · ' + countdown(l.net, now).replace(/:\d\d$/, '') : ''}${l.more ? ` · +${l.more}` : ''}`; },
   apply() {
     pts.show = labels.show = L.launches.on && !state.lookup;   // look-up mode hides things on the ground
     if (L.launches.on && !this.loading && Date.now() - this.failedAt > 5 * 60e3) this.load();   // after a failure, try again in 5 minutes, not on every redraw
