@@ -167,7 +167,7 @@ function card(cam) {
   const facing = `${Math.round(pose.heading)}° ${['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(pose.heading / 45) % 8]}`;
   const presets = cam.presets && cam.presets.length > 1 ? `<div class="acts">${cam.presets.map((p, i) => `<button class="chipbtn" data-cpre="${i}" style="${i === cam.preset ? 'color:' + PINK : ''}">${esc(p.name || 'View ' + (i + 1))}</button>`).join('')}</div>` : '';
   return `<div class="k" style="--c:${PINK}">Traffic camera · ${esc(NETS[cam.net === 'caltrans' ? cam.id.slice(0, 4).replace(':', '') : cam.net]?.name || cam.net)}</div><h2>${esc(cam.name)}</h2>
-    ${isStream(cam) ? `<div class="cam-live cam-video" id="camMedia"${cam.image ? ` style="background-image:url('${esc(bust(cam.image, cam))}')"` : ''}><span class="cam-badge">LIVE</span></div>`
+    ${isStream(cam) ? `<div class="cam-live cam-video" id="camMedia"${cam.image ? ` style="background-image:url('${esc(encodeURI(bust(cam.image, cam)).replace(/[()']/g, c => '%' + c.charCodeAt(0).toString(16)))}')"` : ''}><span class="cam-badge">LIVE</span></div>`
       : cam.image ? `<img class="cam-live" id="camLive"${cam.cors === false ? '' : ' crossorigin="anonymous"'} alt="Latest picture from ${esc(cam.name)}" src="${esc(bust(cam.image, cam))}">` : '<p class="note">No picture from this camera.</p>'}
     ${presets}<dl>${cam.view ? `<dt>View</dt><dd>${esc(cam.view)}</dd>` : ''}<dt>Facing</dt><dd>${esc(facing)} · ${esc(pose.source === 'calibrated' ? 'lined up' : 'estimated from ' + pose.source)}</dd>
     <dt>Position</dt><dd>${cam.lat.toFixed(5)}, ${cam.lon.toFixed(5)}</dd>${cam.online === false ? '<dt>Status</dt><dd>offline</dd>' : ''}</dl>

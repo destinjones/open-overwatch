@@ -253,8 +253,11 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
 ## Public relay (relay/, Cloudflare Worker) — 2026-10-10
 `relay/worker.js` on the owner's Cloudflare account (`npx wrangler deploy` from relay/, after `npx wrangler login`):
 https://open-overwatch-relay.destinjones123.workers.dev/?url=… . Allowlist = `PUBLIC_RELAY_HOSTS` in src/core/relay.js
-(NOAA NHC, NYC DOT cameras, submarinecablemap), GET only, redirects re-checked, `Access-Control-Allow-Origin` fixed to
-the published site, Workers Cache in front (works on the free plan: `CF-Cache-Status: HIT`; per-host max-age in TTL).
+(nine hosts: NOAA NHC, NYC DOT cameras, submarinecablemap, the BC and Missouri camera lists, four agencies' stills), each
+host limited to its feed paths (PATHS in worker.js), an Origin header required, GET only, redirects re-checked, a fixed
+Accept (a forwarded one let anyone poison the shared cache with DriveBC's HTML rendering: 2026-10-11 review), HTML never
+cached, a 30 MB cap counted on the stream, `Access-Control-Allow-Origin` fixed to the published site, test/relay.test.mjs
+exercises it with a stand-in upstream. Add the free-plan WAF rate-limiting rule on the route (e.g. 60 req/min per address), Workers Cache in front (works on the free plan: `CF-Cache-Status: HIT`; per-host max-age in TTL).
 The ADS-B networks and OpenSky refuse Cloudflare's servers (adsb.lol 429, airplanes.live / adsb.fi / adsb.one 403,
 OpenSky timeout), so they are not relayed; don't disguise the relay to get past that. adsb.lol's API terms say a key
 (given to feeders) is coming: with the owners' agreement, add the host back to TTL and PUBLIC_RELAY_HOSTS.

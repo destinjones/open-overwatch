@@ -3,7 +3,10 @@
 // can't read them. This passes those through, and only those, like the download's local helper (serve.js):
 //   GET /?url=<encoded https URL>   the feed, with Access-Control-Allow-Origin for the website
 //   GET /?ping=1                    "ok"
-// Rules: an allowlist of hosts, GET only, every redirect re-checked against the allowlist, no cookies or keys passed on.
+// Rules: an allowlist of hosts and paths, GET only, an Origin header required (browsers always send one cross-origin;
+// a script without one gets nothing), every redirect re-checked against the allowlist, a fixed Accept header (a forwarded
+// one could poison the shared cache with an HTML rendering of a JSON feed), no cookies or keys passed on, a byte cap
+// enforced on the stream. Rate limiting per address is a Cloudflare WAF rule on the route (free plan: one rule).
 // Workers Cache (wrangler.toml [cache]) sits in front: a response is shared for a few seconds (aircraft) to minutes
 // (snapshots, advisories), so a thousand visitors cost the volunteer feeds one request per interval, not a thousand.
 // Cache hits never reach this code, so the allowed origin is one fixed value (the cache doesn't vary by Origin).
@@ -25,10 +28,20 @@ const TTL = {
   'trafficcam.calgary.ca': 60,
   'images.data.gov.sg': 300,
 };
+// what each host may be asked for: API hosts only their feed paths; the camera image hosts any picture path (the feeds name them)
+const PATHS = {
+  'www.nhc.noaa.gov': ['/CurrentStorms.json'],
+  'webcams.nyctmc.org': ['/api/cameras'],
+  'www.submarinecablemap.com': ['/api/v3/'],
+  'www.drivebc.ca': ['/api/webcams/', '/images/'],
+  'traveler.modot.org': ['/timconfig/feed/'],
+  'kamera.atlas.vegvesen.no': ['/'], 'atmsqf.iowadot.gov': ['/'], 'trafficcam.calgary.ca': ['/'], 'images.data.gov.sg': ['/'],
+};
 const MAX_BYTES = 30e6;
+const ACCEPT = 'application/json, application/geo+json, image/*;q=0.9, */*;q=0.5';
 const UA = 'OpenOverwatchRelay/1 (+https://destinjones.github.io/open-overwatch/)';
 
-const allowed = u => u.protocol === 'https:' && Object.hasOwn(TTL, u.hostname) && !u.username && !u.password;
+const allowed = u => u.protocol === 'https:' && !u.port && Object.hasOwn(TTL, u.hostname) && !u.username && !u.password && (PATHS[u.hostname] || []).some(p => u.pathname.startsWith(p));
 
 function reply(status, body, seconds = 0) {
   return new Response(body, { status, headers: {
@@ -42,7 +55,7 @@ export default {
     if (req.method !== 'GET' && req.method !== 'HEAD') return reply(405, 'GET only');
     const u = new URL(req.url), origin = req.headers.get('origin');
     if (u.searchParams.has('ping')) return reply(200, 'ok', 60);
-    if (origin && !ORIGINS.has(origin)) return reply(403, 'this relay only serves Open Overwatch pages');
+    if (!origin || !ORIGINS.has(origin)) return reply(403, 'this relay only serves Open Overwatch pages');
     let target;
     try { target = new URL(u.searchParams.get('url') || ''); } catch (e) { return reply(400, 'url= must be a full https URL'); }
     if (!allowed(target)) return reply(403, 'host not on the relay allowlist: ' + target.hostname);
@@ -50,7 +63,7 @@ export default {
     let res;
     try {
       for (let hop = 0; ; hop++) {   // follow redirects by hand so every hop is checked against the allowlist
-        res = await fetch(target, { headers: { 'user-agent': UA, accept: req.headers.get('accept') || '*/*' }, redirect: 'manual', signal: AbortSignal.timeout(25000) });
+        res = await fetch(target, { headers: { 'user-agent': UA, accept: ACCEPT }, redirect: 'manual', signal: AbortSignal.timeout(25000) });
         if (res.status < 300 || res.status >= 400) break;
         const loc = res.headers.get('location'); if (!loc) break;
         const next = new URL(loc, target);
@@ -59,12 +72,16 @@ export default {
       }
     } catch (e) { return reply(502, 'upstream error: ' + (e.name === 'TimeoutError' ? 'timeout' : e.message)); }
 
-    const len = +res.headers.get('content-length') || 0;
+    const len = +res.headers.get('content-length') || 0, type = res.headers.get('content-type') || '';
     if (len > MAX_BYTES) return reply(502, 'upstream response too large');
     const h = new Headers({ 'access-control-allow-origin': SITE, 'x-content-type-options': 'nosniff', 'x-relay': 'open-overwatch' });
     for (const k of ['content-type', 'content-length', 'last-modified', 'etag']) { const v = res.headers.get(k); if (v) h.set(k, v); }
-    // only good answers are shared; errors (a 429 from a busy feed) are not, so the next visitor tries again
-    h.set('cache-control', res.ok ? `public, max-age=${TTL[target.hostname]}` : 'no-store');
-    return new Response(req.method === 'HEAD' ? null : res.body, { status: res.status, headers: h });
+    // only good answers are shared; errors (a 429 from a busy feed) are not, so the next visitor tries again. An HTML
+    // page where a feed was expected (a login page, an error page, a content-negotiated rendering) is never shared either
+    h.set('cache-control', res.ok && !/text\/html/i.test(type) ? `public, max-age=${TTL[target.hostname]}` : 'no-store');
+    // the byte cap holds without a Content-Length too (chunked or compressed answers): count as it streams
+    let seen = 0;
+    const capped = res.body && res.body.pipeThrough(new TransformStream({ transform(chunk, ctl) { seen += chunk.byteLength; if (seen > MAX_BYTES) ctl.error(new Error('too large')); else ctl.enqueue(chunk); } }));
+    return new Response(req.method === 'HEAD' ? null : capped, { status: res.status, headers: h });
   },
 };
