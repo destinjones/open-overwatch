@@ -4,15 +4,18 @@
 
 const td = typeof TextDecoder !== 'undefined' ? new TextDecoder() : null;
 
-class Pbf {
+/** A protobuf reader (also used by core/gtfsrt.js): varints, length-delimited fields, fixed 32/64-bit numbers. */
+export class Pbf {
   constructor(buf, start = 0, end = buf.length) { this.b = buf; this.p = start; this.end = end; this.dv = null; }
   varint() { let v = 0, s = 1, b; do { b = this.b[this.p++]; v += (b & 0x7f) * s; s *= 128; } while (b & 0x80); return v; }   // exact to 2^53
   key() { const k = this.varint(); return [Math.floor(k / 8), k & 7]; }
   bytes() { const l = this.varint(), a = this.p; this.p += l; return [a, this.p]; }
   str() { const [a, b] = this.bytes(); return td.decode(this.b.subarray(a, b)); }
   view() { return this.dv || (this.dv = new DataView(this.b.buffer, this.b.byteOffset, this.b.byteLength)); }
+  f32() { const v = this.view().getFloat32(this.p, true); this.p += 4; return v; }
+  f64() { const v = this.view().getFloat64(this.p, true); this.p += 8; return v; }
   skip(wire) {
-    if (wire === 0) this.varint(); else if (wire === 1) this.p += 8; else if (wire === 2) this.p += this.varint(); else if (wire === 5) this.p += 4;
+    if (wire === 0) this.varint(); else if (wire === 1) this.p += 8; else if (wire === 2) { const l = this.varint(); this.p += l; } else if (wire === 5) this.p += 4;   // not `p += varint()`: that adds to p as it was before the length
     else throw new Error('mvt: wire type ' + wire);
   }
   packed() { const [a, b] = this.bytes(), out = [], r = new Pbf(this.b, a, b); while (r.p < b) out.push(r.varint()); return out; }
@@ -23,8 +26,8 @@ function value(r, end) {
   while (r.p < end) {
     const [f, w] = r.key();
     if (f === 1) v = r.str();
-    else if (f === 2) { v = r.view().getFloat32(r.p, true); r.p += 4; }
-    else if (f === 3) { v = r.view().getFloat64(r.p, true); r.p += 8; }
+    else if (f === 2) v = r.f32();
+    else if (f === 3) v = r.f64();
     else if (f === 4) { v = r.varint(); if (v >= 2 ** 63) v -= 2 ** 64; }
     else if (f === 5) v = r.varint();
     else if (f === 6) { const n = r.varint(); v = n % 2 === 1 ? -(n + 1) / 2 : n / 2; }

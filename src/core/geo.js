@@ -11,6 +11,16 @@ export function destination(lat, lon, dist, bearing) {
   return { lat: p2 * R2D, lon: ((l2 * R2D + 540) % 360) - 180 };
 }
 
+/** The unit vector along a course at a point (Earth-fixed, into `out` {x, y, z}): an icon's alignedAxis, which Cesium
+ *  turns to the screen every frame, so a plane's nose or a ship's bow follows the true heading from any camera angle
+ *  (a fixed north axis drifts with latitude and pitch). */
+export function courseAxis(lat, lon, track, out) {
+  const p = lat * D2R, l = lon * D2R, c = (track || 0) * D2R, sc = Math.sin(c), cc = Math.cos(c);
+  const sp = Math.sin(p), cp = Math.cos(p), sl = Math.sin(l), cl = Math.cos(l);
+  out.x = -sl * sc - sp * cl * cc; out.y = cl * sc - sp * sl * cc; out.z = cp * cc;
+  return out;
+}
+
 /** Great-circle distance in metres (haversine). */
 export function haversine(lat1, lon1, lat2, lon2) {
   const dp = (lat2 - lat1) * D2R, dl = (lon2 - lon1) * D2R;

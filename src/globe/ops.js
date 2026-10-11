@@ -17,6 +17,7 @@ import { Storms } from './storms.js';
 import { Surveil } from './surveil.js';
 import { Cams } from './cams.js';
 import { Transit } from './transit.js';
+import { Ships } from './ships.js';
 import { L } from './layers.js';
 import { LookUp } from './lookup.js';
 import { toMgrs } from '../core/mgrs.js';
@@ -28,7 +29,7 @@ const SENSOR_INFO = {
 };
 // overlay colour per sensor (the detection boxes and HUD follow the look)
 const HUD_COLOR = { normal: '#7dffa6', nvg: '#c4ffbe', flir: '#ffffff', flirbh: '#ffe36e', iron: '#ffffff', crt: '#7dffa6', noir: '#ffffff' };
-const KIND_COLOR = { sat: '#d9ccff', station: '#7dffa6', air: '#5fd3ff', mil: '#ffb44d', emg: '#ff4d5e', quake: '#ff7b4f', storm: '#7fd0ff', cctv: '#c9a0ff', cam: '#ff6fb5', transit: '#3ee08f' };
+const KIND_COLOR = { sat: '#d9ccff', station: '#7dffa6', air: '#5fd3ff', mil: '#ffb44d', emg: '#ff4d5e', quake: '#ff7b4f', storm: '#7fd0ff', cctv: '#c9a0ff', cam: '#ff6fb5', transit: '#3ee08f', ship: '#5fb0ff' };
 
 // ------------------------------------------------------------------------------------------------ sensors
 const FS = `
@@ -137,6 +138,7 @@ function describe(o) {
   if (o.kind === 'cam') return { id: 'CAM ' + String(o.id).split(':').pop().slice(-6).toUpperCase(), sub: String(o.name || '').slice(0, 22) };
   if (o.kind === 'transit') { const i = o.info || {}; return { id: String(i.mode || 'bus').slice(0, 5).toUpperCase() + ' ' + String(i.line || i.vehicle || '').slice(0, 8), sub: String(i.dest || i.operator || '').slice(0, 22) }; }
   if (o.kind === 'cctv') return { id: (o.alpr ? 'ALPR ' : 'CCTV ') + String(o.id).slice(-6), sub: String(o.tags.operator || o.tags['camera:type'] || '').slice(0, 18) };
+  if (o.kind === 'ship') return { id: 'SHIP ' + String(o.mmsi).slice(-6), sub: `${String(o.label).slice(0, 14)} ${o.sog != null ? o.sog.toFixed(1) + 'KN' : ''}` };
   if (o.kind === 'storm') return { id: 'WX ' + (o.kt ? o.kt + 'KT' : 'LOW'), sub: o.title.replace(/^(Tropical Storm|Hurricane|Typhoon|Cyclone|Tropical Cyclone|Super Typhoon)\s+/i, '').slice(0, 18) };
   return { id: '', sub: '' };
 }
@@ -149,6 +151,7 @@ function* candidates() {
   if (L.cctv && L.cctv.on) for (const c of Surveil.list) yield [c, () => c.pt.position];
   if (L.cams && L.cams.on) for (const c of Cams.list) yield [c, () => c.pt.position];
   if (L.transit && L.transit.on) for (const v of Transit.vehicles.values()) if (v.pt && v.pt.show) yield [v, () => v.pt.position];
+  if (L.ships && L.ships.on) for (const s of Ships.ships.values()) yield [s, () => s.icon.position];
 }
 /** One pass over every candidate: in front of the camera, inside the view cone, not behind the Earth. */
 function scan(cap) {

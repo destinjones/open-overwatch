@@ -1,8 +1,11 @@
 // Live transit, the pure parts: feed parsers (MBTA, Entur, HSL), a minimal MQTT 3.1.1 codec for HSL's WebSocket broker,
-// and the motion model that turns a fix every few seconds into steady movement. No DOM, no Cesium (test/transit.test.mjs).
+// GTFS-RT agencies (Austin, Minneapolis), and the motion model that turns a fix every few seconds into steady movement.
+// No DOM, no Cesium (test/transit.test.mjs).
 //
 // A fix is { id, t (ms, the vehicle's own report time), lat, lon, spd (m/s or null), hdg (deg or null), mode, line,
-// dest, vehicle, delay (s late, or null), ... }. Modes: bus, tram, metro, rail, ferry.
+// dest, vehicle, delay (s late, or null), ... }. Modes: bus, tram, lightrail, metro, rail, ferry.
+
+import { GTFS_STATUS } from './gtfsrt.js';
 
 const M_PER_DEG = 111320, D2R = Math.PI / 180;
 const num = x => (typeof x === 'number' && Number.isFinite(x) ? x : null);
@@ -41,6 +44,23 @@ export function parseEntur(doc) {
     out.push({ id: 'entur:' + code + ':' + v.vehicleId, t: t * 1000, lat, lon, spd: spd == null ? null : spd / 3.6, hdg: num(v.bearing),
       mode: ENTUR_MODE[v.mode] || 'bus', line: v.line?.publicCode || '', lineName: v.line?.lineName || '', color: null,
       dest: v.destinationName || '', vehicle: '', status: '', delay: num(v.delay), operator: v.operator?.name || code });
+  }
+  return out;
+}
+
+/**
+ * GTFS-RT vehicle positions (core/gtfsrt.js: parseVehiclePositions) → fixes. `routes`: route_id → [mode, name, line]
+ * for the routes that aren't buses (the feed itself carries no route names or modes). Vehicles without a route are out
+ * of service (driving to a garage, parked) and are left out.
+ */
+export function fromGtfsRt(feed, { prefix, operator, routes = {} }) {
+  const out = [];
+  for (const v of feed?.vehicles || []) {
+    if (!v.routeId || !Number.isFinite(v.t)) continue;
+    const r = routes[v.routeId] || [];
+    out.push({ id: prefix + ':' + v.id, t: v.t, lat: v.lat, lon: v.lon, spd: v.spd != null && v.spd >= 0 && v.spd < 100 ? v.spd : null, hdg: v.hdg,
+      mode: r[0] || 'bus', line: r[2] || v.routeId, lineName: r[1] || '', color: null, dest: '', vehicle: v.label || v.vehicleId,
+      status: GTFS_STATUS[v.status] || '', delay: null, operator });
   }
   return out;
 }

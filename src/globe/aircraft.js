@@ -8,7 +8,7 @@ import { viewer, camera, airPts, airIcons, camHeight } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { state, hooks } from './state.js';
 import { Follow, MODEL_FIX } from './follow.js';
-import { deadReckonArc } from '../core/geo.js';
+import { deadReckonArc, courseAxis } from '../core/geo.js';
 import { Terrain } from './terrain.js';
 import { Time } from './time.js';
 
@@ -58,15 +58,6 @@ function renderHeight(r, p, near = true) {
   if (!Terrain.on) return r.ground ? 3 : h;
   if (r.ground) return Terrain.near(p.lat, p.lon, 4, near ? 0.3 : 0) + 2;   // parked or taxiing: on the ground (the most detailed near the view)
   return h < 4500 ? Math.max(h, Terrain.near(p.lat, p.lon, 2, 0) + 15) : h;   // low fliers: never inside a hill (coarse ground)
-}
-/** The unit vector along a course at a point (Earth-fixed): an icon's alignedAxis, which Cesium turns to the screen
- *  every frame, so the nose follows the true heading from any camera angle (a fixed north axis drifts with latitude
- *  and pitch). */
-function courseAxis(lat, lon, track, out) {
-  const p = lat * Math.PI / 180, l = lon * Math.PI / 180, c = (track || 0) * Math.PI / 180, sc = Math.sin(c), cc = Math.cos(c);
-  const sp = Math.sin(p), cp = Math.cos(p), sl = Math.sin(l), cl = Math.cos(l);
-  out.x = -sl * sc - sp * cl * cc; out.y = cl * sc - sp * sl * cc; out.z = cp * cc;
-  return out;
 }
 const AX = new C.Cartesian3();
 

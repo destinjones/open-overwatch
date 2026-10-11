@@ -166,6 +166,24 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   position is eased in (tau = distance / 300 m/s, 0.8-6 s; not over 50 km), heading too. Geometric altitude (OpenSky
   `geo_altitude`, readsb `alt_geom`) is used as an ellipsoid height when present.
 
+## More live feeds (ships.js, bikes.js, transit GTFS-RT, cams live video) — 2026-10-11
+- A Primitive's geometry is baked into world coordinates (and projected for 2D) unless the viewer is `scene3DOnly`, which
+  ours isn't: a unit quad in model space crashes `projectTo2D` (points near the Earth's centre). Ship hulls and wakes are
+  built where the ship is and moved by `modelMatrix = (transform now) × (transform at build)⁻¹`.
+- core/mvt.js `skip()` had `this.p += this.varint()`, which adds to p as it was before the length: off by the length's own
+  bytes. Map tiles never skip a length-delimited field; a GTFS-RT header does at once.
+- CapMetro: `data.texas.gov/download/…` answers 302 without CORS. The dataset's metadata (`api/views/eiei-9rpf.json`,
+  CORS) names the current `blobId`; `api/views/eiei-9rpf/files/{blobId}` is CORS * and never changes (a new id each update).
+- Live video: DelDOT (Wowza), Iowa (MediaMTX fMP4 on :8888), Vegvesen and MoDOT send CORS on playlists and segments. An MSE
+  video (hls.js) is a fine WebGL texture. One `Live` stream is shared by the card and the projection; moving a `<video>`
+  between parents pauses it (the HTML rule for a removed media element), so it resumes itself on 'pause'.
+- Stills without CORS (Vegvesen, Iowa, Calgary, Singapore) show in the card without `crossorigin` and project only
+  through the relay (the local helper; the public Worker once redeployed with those hosts).
+- CityBikes: 300 requests an hour per address (`ratelimit-*` headers); `?fields=` trims the answer; times look like
+  `…+00:00Z`; some systems' feeds stopped months ago (their last numbers stay): greyed after 2 days.
+- AIS: positions are the antenna's (A to the bow, C to port: the hull is offset); ROT_AIS = 4.733 √(°/min); heading 511
+  and course 360 mean none; the ETA has no year. Digitraffic `?from=<ms>` returns only what changed (~270 a minute).
+
 ## Hazards and imagery (storms.js, fires.js, imagery.js) — 2026-10-11
 - NOAA's tropical map service is CORS-open (it echoes the origin) and carries everything NHC's KMZ files do, as
   GeoJSON: join layers by the storm id in `idp_source` (ep202026) and refuse to draw a cone whose advisory differs from

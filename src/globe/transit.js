@@ -1,5 +1,6 @@
-// Live transit: buses, trams, metros, trains and ferries in Boston (MBTA), Helsinki (HSL) and all of Norway (Entur),
-// straight from each operator's keyless feed (CORS or WebSocket, so the website needs no relay). A feed runs only while
+// Live transit: buses, trams, metros, trains and ferries in Boston (MBTA), Helsinki (HSL), all of Norway (Entur), Austin
+// (CapMetro) and Minneapolis-St Paul (Metro Transit), straight from each operator's keyless feed (CORS or WebSocket, so
+// the website needs no relay; Austin and Minneapolis publish GTFS-RT protobuf, read by core/gtfsrt.js). A feed runs only while
 // the camera is near its area, below 400 km, in a visible tab. Vehicles report every few seconds; each is drawn a little
 // behind live, between two real reports, so dots glide instead of hopping (motion model: core/transit.js).
 import { C, esc, fmt } from './env.js';
@@ -7,10 +8,11 @@ import { scene, camera, camHeight } from './viewer.js';
 import { Terrain } from './terrain.js';
 import { setCount } from './layers.js';
 import { state } from './state.js';
-import { parseMbta, parseEntur, parseHfp, enturQuery, mqtt, addFix, sample, ease, approach, lagMeter, inArea } from '../core/transit.js';
+import { parseMbta, parseEntur, parseHfp, enturQuery, mqtt, addFix, sample, ease, approach, lagMeter, inArea, fromGtfsRt } from '../core/transit.js';
+import { parseVehiclePositions } from '../core/gtfsrt.js';
 
 const MAX_H = 400e3;   // above this the dots are sub-pixel specks: no feeds at all
-const MODES = { bus: ['Bus', '#ffcc4d'], tram: ['Tram', '#3ee08f'], metro: ['Metro', '#ff5e7a'], rail: ['Train', '#b18cff'], ferry: ['Ferry', '#4f9dff'] };
+const MODES = { bus: ['Bus', '#ffcc4d'], tram: ['Tram', '#3ee08f'], lightrail: ['Light rail', '#3ee08f'], metro: ['Metro', '#ff5e7a'], rail: ['Train', '#b18cff'], ferry: ['Ferry', '#4f9dff'] };
 const COLOR = Object.fromEntries(Object.entries(MODES).map(([k, [, c]]) => [k, C.Color.fromCssColorString(c)]));
 const OUTLINE = C.Color.BLACK.withAlpha(0.55), SCALE = new C.NearFarScalar(2e3, 1.4, 4e5, 0.5);
 const pts = scene.primitives.add(new C.PointPrimitiveCollection());
@@ -24,6 +26,17 @@ async function fetchJSON(url, init, signal) {
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
+/** A GTFS-RT vehicle positions feed → fixes. `url` may be a function that finds the current file. */
+const gtfsrt = (url, opts) => async signal => {
+  const r = await fetch(typeof url === 'function' ? await url(signal) : url, { signal });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return fromGtfsRt(parseVehiclePositions(new Uint8Array(await r.arrayBuffer())), opts);
+};
+// the feeds carry route ids only: the lines that aren't buses (Metro Transit's METRO lines, CapMetro's train)
+const METRO_TRANSIT = { 901: ['lightrail', 'METRO Blue Line', 'Blue'], 902: ['lightrail', 'METRO Green Line', 'Green'], 888: ['rail', 'Northstar commuter rail', 'Northstar'],
+  903: ['bus', 'METRO Red Line (bus rapid transit)', 'Red'], 904: ['bus', 'METRO Orange Line (bus rapid transit)', 'Orange'], 905: ['bus', 'METRO Gold Line (bus rapid transit)', 'Gold'],
+  921: ['bus', 'METRO A Line (rapid bus)', 'A'], 922: ['bus', 'METRO B Line (rapid bus)', 'B'], 923: ['bus', 'METRO C Line (rapid bus)', 'C'], 924: ['bus', 'METRO D Line (rapid bus)', 'D'], 925: ['bus', 'METRO E Line (rapid bus)', 'E'] };
+const CAPMETRO = { 550: ['rail', 'MetroRail Red Line', 'Red Line'], 801: ['bus', 'MetroRapid 801'], 803: ['bus', 'MetroRapid 803'] };
 
 // ---- sources. `every`: poll period (0 = a stream); `gap0`: report interval assumed before a vehicle's own is known;
 // `stale`: drop a vehicle whose last report is older than this (a stream never says a vehicle has gone)
@@ -43,10 +56,21 @@ const SOURCES = {
         body: JSON.stringify({ query: enturQuery((lat - dLat).toFixed(3), (lon - dLon).toFixed(3), (lat + dLat).toFixed(3), (lon + dLon).toFixed(3)) }) }, signal).then(parseEntur);
     } },
   hsl: { name: 'HSL', every: 0, gap0: 8e3, stale: 5 * 60e3, credit: 'HSL high-frequency positioning (CC BY 4.0)' },
+  // CapMetro's vehicles report every few seconds (the file is refreshed about every 15 s); Metro Transit's every ~30 s
+  capmetro: { name: 'CapMetro', every: 15e3, gap0: 15e3, stale: 10 * 60e3, credit: 'CapMetro GTFS-RT via the Texas Open Data Portal',
+    fetch: gtfsrt(async signal => {   // the download link redirects without CORS: ask for the current file, then read it
+      const id = (await fetchJSON('https://data.texas.gov/api/views/eiei-9rpf.json', {}, signal)).blobId;
+      if (!/^[\w-]+$/.test(id || '')) throw new Error('CapMetro: no current file');
+      return `https://data.texas.gov/api/views/eiei-9rpf/files/${id}?filename=vehiclepositions.pb`;
+    }, { prefix: 'capmetro', operator: 'CapMetro', routes: CAPMETRO }) },
+  metrotransit: { name: 'Metro Transit', every: 15e3, gap0: 30e3, stale: 10 * 60e3, credit: 'Metro Transit GTFS-RT (Metropolitan Council)',
+    fetch: gtfsrt('https://svc.metrotransit.org/mtgtfs/vehiclepositions.pb', { prefix: 'mt', operator: 'Metro Transit', routes: METRO_TRANSIT }) },
 };
 const AREAS = [
   { name: 'Boston', lat: 42.36, lon: -71.06, r: 150e3, src: SOURCES.mbta },
   { name: 'Helsinki', lat: 60.17, lon: 24.94, r: 150e3, src: SOURCES.hsl },
+  { name: 'Austin', lat: 30.27, lon: -97.74, r: 150e3, src: SOURCES.capmetro },
+  { name: 'Minneapolis', lat: 44.98, lon: -93.20, r: 150e3, src: SOURCES.metrotransit },
   // Norway as three boxes (south, middle, north) so Sweden doesn't poll it
   { name: 'Norway', box: [57.8, 4.3, 63.5, 12.7], src: SOURCES.entur },
   { name: 'Norway', box: [63.5, 8.3, 67.0, 15.5], src: SOURCES.entur },
@@ -200,7 +224,7 @@ document.addEventListener('visibilitychange', evaluate);
 
 let lastCheck = 0, lastMove = 0;
 export const Transit = {
-  layer: { id: 'transit', group: 'Earth', name: 'Live transit (Boston · Helsinki · Norway)', color: '#3ee08f', on: false },
+  layer: { id: 'transit', group: 'Earth', name: 'Live transit (Boston · Helsinki · Norway · Austin · Minneapolis)', color: '#3ee08f', on: false },
   vehicles, sources: SOURCES,
   /** Show or hide; starts or stops the feeds (nothing is fetched while off). */
   apply(on = this.layer.on) {

@@ -19,6 +19,8 @@ const ALLOWED_HOSTS = new Set([
   'firms.modaps.eosdis.nasa.gov',                                           // fires (key)
   'api.windy.com',                                                          // webcams (key)
   'www.submarinecablemap.com',                                              // submarine cables (live TeleGeography data)
+  'www.drivebc.ca', 'traveler.modot.org',                                   // camera lists (British Columbia, Missouri)
+  'kamera.atlas.vegvesen.no', 'atmsqf.iowadot.gov', 'trafficcam.calgary.ca', 'images.data.gov.sg', // camera stills sent without CORS
 ]); // keep in sync with NEEDS_RELAY in open-overwatch.html and ALLOWED_HOSTS in serve.py
 const FORWARD_HEADERS = ['x-windy-api-key', 'accept'];
 const UA = 'OpenOverwatch/1.0 (local helper; personal use)';

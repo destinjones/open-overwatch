@@ -1,5 +1,5 @@
 // Open Overwatch public relay, a Cloudflare Worker. A few feeds the website needs send no CORS headers (the ADS-B
-// aircraft networks, OpenSky, NOAA's hurricane advisories, NYC cameras, the submarine cable map), so a browser page
+// aircraft networks, OpenSky, NOAA's hurricane advisories, NYC cameras, some camera lists and stills, the submarine cable map), so a browser page
 // can't read them. This passes those through, and only those, like the download's local helper (serve.js):
 //   GET /?url=<encoded https URL>   the feed, with Access-Control-Allow-Origin for the website
 //   GET /?ping=1                    "ok"
@@ -18,6 +18,12 @@ const TTL = {
   'www.nhc.noaa.gov': 600,            // hurricane advisories
   'webcams.nyctmc.org': 30,           // NYC traffic camera frames
   'www.submarinecablemap.com': 86400, // cable routes
+  'www.drivebc.ca': 3600,             // British Columbia camera list (the pictures themselves send CORS)
+  'traveler.modot.org': 3600,         // Missouri camera list (the video streams send CORS)
+  'kamera.atlas.vegvesen.no': 60,     // camera stills without CORS headers: Norway, Iowa, Calgary, Singapore
+  'atmsqf.iowadot.gov': 60,
+  'trafficcam.calgary.ca': 60,
+  'images.data.gov.sg': 300,
 };
 const MAX_BYTES = 30e6;
 const UA = 'OpenOverwatchRelay/1 (+https://destinjones.github.io/open-overwatch/)';

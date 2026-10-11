@@ -161,8 +161,10 @@ Round 2 (2026-10-10, local):
 - [x] Hazards: NOAA forecast cones, tracks, coastal watches/warnings and wind fields + GDACS cones for every other basin;
       wildfire hot spots worldwide (NASA VIIRS via GIBS vector tiles, keyless) and US perimeters (NIFC) (core/hazards.js tested)
 - [x] Before/after: recent Landsat / Sentinel-2 pictures of the view (NASA CMR + GIBS HLS, VIIRS daily), split by a slider
-- [ ] More live cameras (DelDOT / Vegvesen live video, DriveBC, Austin, Calgary, NSW, TxDOT, Tallinn via the relay)
-- [ ] Bike share worldwide (MobilityData systems.csv), Austin + Minneapolis transit (GTFS-RT), Baltic ships (Digitraffic AIS)
+- [x] More live cameras: live video from DelDOT, Iowa DOT, Statens vegvesen and MoDOT (HLS, hls.js on first use), stills
+      from Hong Kong, Singapore, Calgary and DriveBC: 12 networks (Austin, NSW, TxDOT, Tallinn left out: see DATA_SOURCES)
+- [x] Bike share worldwide (CityBikes, ~800 systems; core/bikes.js tested), Austin + Minneapolis transit (GTFS-RT,
+      core/gtfsrt.js tested), Baltic ships (Digitraffic AIS: arrows far out, true-size hulls with wakes close in; core/ais.js tested)
 - [ ] Wind through forecast time (GFS + ECMWF grids built by the GitHub Action), one weather timeline, a render governor
 - [ ] Voice: spoken replies, "what's this?", push-to-talk; draw and measure; an MCP package that opens our URL
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
