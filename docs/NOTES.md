@@ -147,6 +147,25 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
 - Other OpenStreetMap layers (mapped cameras, buildings, a projected camera's street) share one polite Overpass client
   (src/globe/overpass.js): one request at a time, a pause as long as the last request took, the fastest healthy server.
 
+## 3D terrain and aircraft motion (terrain.js, aircraft.js) — 2026-10-10
+- Terrain: Re:Earth's keyless quantized mesh (Mapterhorn + EGM2008, ellipsoid heights, vertex normals; the globe's own
+  lighting stays off below ~20 km, so close up the photo's shading carries the relief). A layer: desktop on, phones off.
+- `globe.getHeight` costs ~0.8 ms a point (it intersects the drawn tile's mesh): never per car or per plane. Exact
+  heights come from `sampleTerrainMostDetailed` in batches of 500 and are kept per rounded point (Terrain.ground);
+  coarse ones (level 9) keep far or low things out of hills without pulling detailed tiles for a whole country
+  (Terrain.near); the ground under the camera is the stand-in until an answer arrives.
+- Roads get a point every 25 m on terrain (core densify): cars on Russian Hill went from -22..+19 m off the ground to 99%
+  within 3 m. Parked planes at Denver: exactly +2 m (they were 125 m under the airport when read from coarse tiles).
+- Jumping the camera to a new place with terrain on can cost one 200-370 ms frame (Cesium compiling terrain shader
+  variants the first time); later jumps are smooth. Steady state ~90 fps vs ~150 flat on the RTX 3060 (low, oblique).
+- Plane icons: `alignedAxis` = the course as an Earth-fixed unit vector (Cesium 1.146 turns it into eye space every
+  frame: `czm_modelView3D`), rotation 0. Checked with labelled rings top-down and at 45° pitch; small crops of tilted
+  views are easy to misread (check with labels).
+- Motion: OpenSky fixes are dead-reckoned from `time_position`, not the snapshot time; adsb.lol from `now - seen_pos`.
+  A turn rate from two fixes 2-120 s apart (0.4-4 deg/s) curves the next 2 min. A new fix that disagrees with the drawn
+  position is eased in (tau = distance / 300 m/s, 0.8-6 s; not over 50 km), heading too. Geometric altitude (OpenSky
+  `geo_altitude`, readsb `alt_geom`) is used as an ellipsoid height when present.
+
 ## Public relay (relay/, Cloudflare Worker) — 2026-10-10
 `relay/worker.js` on the owner's Cloudflare account (`npx wrangler deploy` from relay/, after `npx wrangler login`):
 https://open-overwatch-relay.destinjones123.workers.dev/?url=… . Allowlist = `PUBLIC_RELAY_HOSTS` in src/core/relay.js

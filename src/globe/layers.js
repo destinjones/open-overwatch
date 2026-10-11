@@ -24,6 +24,7 @@ export const LAYERS = [
   { id: 'radio', group: 'Earth', name: 'World radio (radio-browser.info)', color: '#ff6fd8', on: false },
   { id: 'lighthouses', group: 'Earth', name: 'Lighthouses of the world', color: '#ffe27a', on: !PHONE },
   { id: 'sun', group: 'Earth', name: 'Sun overhead and time zones', color: '#ffd45c', on: false },
+  { id: 'terrain', group: 'Earth', name: '3D terrain: mountains and valleys (Mapterhorn via Re:Earth, no key)', color: '#c9b38f', on: !PHONE },
   { id: 'buildings', group: 'Earth', name: '3D buildings (OpenStreetMap, close up)', color: '#c9d3e0', on: false },
   { id: 'cams', group: 'Earth', name: 'Live traffic cameras, projected into 3D (London · New York · California · Finland)', color: '#ff6fb5', on: false },
   { id: 'cctv', group: 'Earth', name: 'Mapped cameras and plate readers (OpenStreetMap, close up)', color: '#c9a0ff', on: false },

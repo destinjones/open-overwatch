@@ -7,7 +7,8 @@
 //   its direction field, the road it stands on). "Look through" puts you in its seat with the picture over the 3D world;
 //   drag to line them up, then Save (kept in this browser; data/camera_poses.json can ship shared alignments).
 import { C, $, esc, toast, store, PHONE, getJSON, relayed } from './env.js';
-import { viewer, scene, camera, ctrl, camHeight } from './viewer.js';
+import { viewer, scene, camera, ctrl, camHeight, camAGL } from './viewer.js';
+import { Terrain } from './terrain.js';
 import { L, setCount } from './layers.js';
 import { state, hooks } from './state.js';
 import { release } from './follow.js';
@@ -113,7 +114,7 @@ async function loadNear() {
 // coverage: the ground each nearby camera is guessed to see, drawn below ~6 km
 let lastCover = '';
 function drawCoverage() {
-  const h = camHeight(), on = L.cams.on && !state.lookup && h < 6000;
+  const h = camAGL(), on = L.cams.on && !state.lookup && h < 6000;
   if (!on) { if (lastCover) { cover.removeAll(); lastCover = ''; } return; }
   const c = C.Cartographic.fromCartesian(camera.pickEllipsoid(new C.Cartesian2(scene.canvas.clientWidth / 2, scene.canvas.clientHeight / 2), C.Ellipsoid.WGS84) || camera.positionWC);
   const lat = C.Math.toDegrees(c.latitude), lon = C.Math.toDegrees(c.longitude), key = `${lat.toFixed(3)},${lon.toFixed(3)},${all.length}`;
@@ -123,7 +124,7 @@ function drawCoverage() {
   for (const k of near) {
     const pose = k.pose || estimatePose({ ...k, calibrated: saved(k.id) }), fp = footprint({ ...pose, height: pose.height }, 16 / 9, 90);
     if (!fp) continue;
-    const enu = C.Transforms.eastNorthUpToFixedFrame(C.Cartesian3.fromDegrees(k.lon, k.lat, 0.5)), at = ([x, y]) => C.Matrix4.multiplyByPoint(enu, new C.Cartesian3(x, y, 0), new C.Cartesian3());
+    const enu = C.Transforms.eastNorthUpToFixedFrame(C.Cartesian3.fromDegrees(k.lon, k.lat, Terrain.near(k.lat, k.lon) + 0.5)), at = ([x, y]) => C.Matrix4.multiplyByPoint(enu, new C.Cartesian3(x, y, 0), new C.Cartesian3());
     const o = at([0, 0]);
     cover.add({ positions: [o, at(fp[0]), at(fp[3]), at(fp[2]), at(fp[1]), o], width: 1.2, material: C.Material.fromType('Color', { color: C.Color.fromCssColorString(PINK).withAlpha(saved(k.id) ? 0.85 : 0.45) }) });
   }
@@ -187,6 +188,11 @@ export const Proj = {
     if (this.token !== token) return;
     this.roads = roads; cam.pose = estimatePose({ ...cam, calibrated: saved(cam.id) }, roads); this.pose = { ...cam.pose };
     this.ground = 0;
+    if (Terrain.on && !state.photoreal) {   // the street under it, from the terrain (flat around the camera: a good fit in town)
+      const [g] = await Terrain.heights([{ lat: cam.lat, lon: cam.lon }]);
+      if (this.token !== token) return;
+      this.ground = g;
+    }
     if (state.photoreal && Photoreal.tileset) {   // stand on Google's ground, not on the ellipsoid ~50 m below it
       let g = null; try { [g] = await scene.sampleHeightMostDetailed([C.Cartographic.fromDegrees(cam.lon, cam.lat)], []); } catch (e) { console.warn('camera ground height', e.message); }
       if (this.token !== token) return;

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { maxspeed, drivesLeft, busyness, localTime, buildGraph, nextEdge, follow, along, laneOffset, expected, green, CYCLE,
-  zonedToUtc, linkPoints, parseNyc, parseTms, matchSpeeds, Sim, dist, STOP_BACK } from '../src/core/traffic.js';
+  zonedToUtc, linkPoints, parseNyc, parseTms, matchSpeeds, Sim, dist, STOP_BACK, densify } from '../src/core/traffic.js';
 
 // a high street west-east through a junction with traffic lights (ways 1, 2), crossed by a one-way lane south to north (3, 4)
 const n = (id, lat, lon) => ({ id, lat, lon });
@@ -136,4 +136,14 @@ test('measured speeds land on the right roads, in the right direction', () => {
   assert.equal(fwd.meas?.kmh, 23); assert.equal(back.meas, null); assert.equal(lane.meas, null);   // not the other way, not a side street
   const n2 = matchSpeeds(g.edges, [], [{ kmh: 30, t: 2, name: 'link', pts: [{ lat: 51.50005, lon: -0.099 }, { lat: 51.50005, lon: -0.095 }] }]);
   assert.equal(n2, 1); assert.equal(fwd.meas.src, 'nyc'); assert.equal(back.meas, null);
+});
+
+test('densified roads: more points along long segments, the same network and lengths', () => {
+  const dense = densify(ways, 25), g0 = buildGraph(ways, [10]), g1 = buildGraph(dense, [10]);
+  assert.equal(g1.edges.length, g0.edges.length);   // no new junctions
+  const e0 = g0.edges.find(e => e.way === 1 && e.dir === 1), e1 = g1.edges.find(e => e.way === 1 && e.dir === 1);
+  assert.ok(e1.pts.length > 10 && Math.abs(e1.len - e0.len) < 1e-6, `${e1.pts.length} points, ${e1.len} m`);
+  assert.ok(e1.cum.every((c, i) => i === 0 || c - e1.cum[i - 1] <= 25.01));
+  assert.deepEqual(e1.stops.map(s => [Math.round(s.s), s.node]), e0.stops.map(s => [Math.round(s.s), s.node]));   // the light is still at the junction
+  assert.equal(densify([way(9, [W, C0], { highway: 'residential' })], 1000)[0].nodes.length, 2);   // short: untouched
 });

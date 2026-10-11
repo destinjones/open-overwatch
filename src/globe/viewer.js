@@ -51,3 +51,13 @@ export const orbitLines = scene.primitives.add(new C.PolylineCollection());
 
 /** Camera height above the ellipsoid (a sphere radius would go negative near the poles). */
 export function camHeight() { const c = camera.positionCartographic; return c ? c.height : C.Cartesian3.magnitude(camera.positionWC) - 6371000; }
+/** Camera height above the ground under it: the terrain where it's on (terrain.js), else the ellipsoid. For things
+ *  that appear "below N km", which in Denver or the Alps means above the ground, not above sea level. */
+let aglAt = 0, aglGround = 0;
+export function camAGL() {
+  const c = camera.positionCartographic; if (!c) return camHeight();
+  if (scene.terrainProvider instanceof C.EllipsoidTerrainProvider || c.height > 5e4) return c.height;
+  const t = performance.now();
+  if (t - aglAt > 500) { aglAt = t; aglGround = globe.getHeight(c) || 0; }   // reading the drawn tiles costs ~0.8 ms
+  return c.height - aglGround;
+}

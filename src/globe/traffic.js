@@ -5,14 +5,15 @@
 // is coloured by them: New York City DOT's link speeds and Fintraffic's roadside sensors (both keyless, with CORS). The
 // simulation is core/traffic.js, the roads core/roadtiles.js (both tested); this file loads tiles and readings, and draws.
 import { C, esc, fmt, toast, PHONE, getJSON } from './env.js';
-import { viewer, scene, camera, camHeight } from './viewer.js';
+import { viewer, scene, camera, camHeight, camAGL } from './viewer.js';
+import { Terrain } from './terrain.js';
 import { setCount } from './layers.js';
 import { state } from './state.js';
 import { Time } from './time.js';
 import { Country } from './country.js';
 import { decodeTile, tileAt } from '../core/mvt.js';
 import { prepareTile, joinTiles } from '../core/roadtiles.js';
-import { buildGraph, Sim, busyness, localTime, matchSpeeds, parseNyc, parseTms, laneOffset, drivesLeft, along, dist } from '../core/traffic.js';
+import { buildGraph, densify, Sim, busyness, localTime, matchSpeeds, parseNyc, parseTms, laneOffset, drivesLeft, along, dist } from '../core/traffic.js';
 
 const MAX_H = 6000, Z = 14, CAP = PHONE ? 600 : 2500, MAX_TILES = PHONE ? 4 : 9, KEEP_TILES = 24;
 const NEAR = 1400, FAR = 1100;   // m from the camera: car pictures nearer than NEAR, glowing dots farther than FAR
@@ -129,12 +130,20 @@ const DOT = ['#ffe7b0', '#ffb44d', '#ff4d5e'].map(s => C.Color.fromCssColorStrin
 const CAR_SCALE = new C.NearFarScalar(250, 1, 1400, 2.2);   // true size close up, a little larger farther out so cars still read as cars
 const speedColor = r => C.Color.fromCssColorString(r >= 0.7 ? '#3ee08f' : r >= 0.45 ? '#ffd45c' : r >= 0.25 ? '#ff9f5c' : '#ff4d5e');
 
-/** Each edge's points on the globe (ECEF), unit directions and unit "right" vectors per segment; redone when heights change. */
+/** Each edge's points on the globe (ECEF), unit directions and unit "right" vectors per segment; redone when heights
+ *  change, and on terrain a moment later while any point still stands on a stand-in height (Terrain.ground). */
 const v1 = new C.Cartesian3();
 function geo(e) {
-  if (e.G && e.G.gv === gv) return e.G;
-  const n = e.pts.length, P = new Float64Array(n * 3), U = new Float64Array(n * 3), Rt = new Float64Array(n * 3), h = groundAt(e.pts[0]) + 0.9;
-  for (let k = 0; k < n; k++) { C.Cartesian3.fromDegrees(e.pts[k].lon, e.pts[k].lat, h, undefined, v1); P[k * 3] = v1.x; P[k * 3 + 1] = v1.y; P[k * 3 + 2] = v1.z; }
+  const t = performance.now();
+  if (e.G && e.G.gv === gv && t < e.G.until) return e.G;
+  const n = e.pts.length, P = new Float64Array(n * 3), U = new Float64Array(n * 3), Rt = new Float64Array(n * 3);
+  let guess = false;
+  for (let k = 0; k < n; k++) {
+    let h = groundAt(e.pts[k]);
+    if (Terrain.on && !state.photoreal && !Terrain.exact) guess = true;
+    if (h === null) h = groundRef;
+    C.Cartesian3.fromDegrees(e.pts[k].lon, e.pts[k].lat, h + 0.9, undefined, v1); P[k * 3] = v1.x; P[k * 3 + 1] = v1.y; P[k * 3 + 2] = v1.z;
+  }
   for (let k = 0; k < n - 1; k++) {
     const j = k * 3, dx = P[j + 3] - P[j], dy = P[j + 4] - P[j + 1], dz = P[j + 5] - P[j + 2], l = Math.hypot(dx, dy, dz) || 1;
     const ux = dx / l, uy = dy / l, uz = dz / l, m = Math.hypot(P[j], P[j + 1], P[j + 2]), ox = P[j] / m, oy = P[j + 1] / m, oz = P[j + 2] / m;
@@ -142,7 +151,8 @@ function geo(e) {
     U[j] = ux; U[j + 1] = uy; U[j + 2] = uz; Rt[j] = rx; Rt[j + 1] = ry; Rt[j + 2] = rz;
   }
   if (n > 1) for (let c = 0; c < 3; c++) { U[(n - 1) * 3 + c] = U[(n - 2) * 3 + c]; Rt[(n - 1) * 3 + c] = Rt[(n - 2) * 3 + c]; }
-  return (e.G = { gv, P, U, Rt });
+  if (guess) linesGuess = true;
+  return (e.G = { gv, P, U, Rt, until: guess ? t + 800 + Math.random() * 1200 : Infinity });   // staggered: not every edge in one frame
 }
 
 const pos = new C.Cartesian3(), axis = new C.Cartesian3();
@@ -177,8 +187,9 @@ function draw(dt) {
 
 const LINE_MAT = ['#3ee08f', '#ffd45c', '#ff9f5c', '#ff4d5e'].map(s => C.Material.fromType('Color', { color: C.Color.fromCssColorString(s).withAlpha(0.9) }));
 /** Measured roads as coloured lines beside the traffic (green flowing ... red crawling). */
+let linesGuess = false;   // some line points stood on stand-in heights: redraw them once the real ones are in
 function drawLines() {
-  lines.removeAll();
+  lines.removeAll(); linesGuess = false;
   for (const e of sim.g.edges) {
     if (!e.meas) continue;
     const G = geo(e), off = laneOffset(e, e.lanes, left) + (e.oneway ? LANE : 0), positions = [], r = e.meas.kmh / e.speed;
@@ -192,7 +203,13 @@ const LANE = 2.4;
 const ground = new Map();   // tile -> metres above the ellipsoid (a low quantile of samples: the street, not the roofs)
 let groundAll = 0;
 const tileKey = p => { const t = tileAt(p.lat, p.lon, Z); return t.x + '/' + t.y; };
-function groundAt(p) { return state.photoreal ? ground.get(tileKey(p)) ?? groundAll : 0; }
+let groundRef = 0;   // the ground under the view's centre: a stand-in where no terrain tile is loaded yet
+/** Ground height under a point: Google's city (sampled per tile), the terrain, or the ellipsoid; null = not known yet. */
+function groundAt(p) {
+  if (state.photoreal) return ground.get(tileKey(p)) ?? groundAll;
+  return Terrain.on ? Terrain.ground(p.lat, p.lon) : 0;
+}
+Terrain.onChange(() => { gv++; dirty = true; drawLines(); });   // re-seat, and rebuild with (or without) the extra points
 function sampleGround() {
   if (!state.photoreal || !scene.sampleHeightSupported) return;
   for (const key of active) {
@@ -255,7 +272,7 @@ function tilesFor(c, r) {
 function rebuild() {
   const preps = [];
   for (const key of active) { const t = tiles.get(key); if (t?.prep) { t.used = Date.now(); preps.push(t.prep); } }
-  const { ways, signals } = joinTiles(preps), g = buildGraph(ways, signals);
+  const { ways, signals } = joinTiles(preps), g = buildGraph(Terrain.on ? densify(ways) : ways, signals);   // on 3D terrain, points every 25 m: cars follow hills
   measure(g.edges); sim.setGraph(g); drawLines();
 }
 
@@ -311,17 +328,18 @@ function reticle() {
   const p = camera.pickEllipsoid(new C.Cartesian2(scene.canvas.clientWidth / 2, scene.canvas.clientHeight / 2), C.Ellipsoid.WGS84);
   const g = C.Cartographic.fromCartesian(p || camera.positionWC), c = { lat: C.Math.toDegrees(g.latitude), lon: C.Math.toDegrees(g.longitude) };
   const below = camera.positionCartographic, under = { lat: C.Math.toDegrees(below.latitude), lon: C.Math.toDegrees(below.longitude) };
-  const d = dist(under, c), max = Math.max(1500, camHeight() * 2.5);   // a low, tilted view: not the horizon
+  const d = dist(under, c), max = Math.max(1500, camAGL() * 2.5);   // a low, tilted view: not the horizon
   if (d <= max) return c;
   const f = max / d; return { lat: under.lat + (c.lat - under.lat) * f, lon: under.lon + (c.lon - under.lon) * f };
 }
 function setShown(v) { if (v === shown) return; shown = v; bbs.show = pts.show = lines.show = v; lastFrame = 0; }
 function tick() {
   if (!on) return;
-  const h = camHeight();
+  const h = camAGL();
   setShown(!state.lookup && (shown ? h < MAX_H * 1.1 : h < MAX_H));
   if (!shown) return;
   centre = reticle(); R = Math.min(Math.max(h * 1.1, 600), PHONE ? 1200 : 2200);
+  if (Terrain.on) groundRef = Terrain.near(centre.lat, centre.lon, 3, 0.05);
   const want = tilesFor(centre, R);
   if (want.join(';') !== active.join(';')) { active = want; dirty = true; }
   while (inflight < 2) {
@@ -341,6 +359,7 @@ function tick() {
   const cell = tileKey(centre);
   if (cell !== lastCell) { lastCell = cell; Country.at(centre.lon, centre.lat).then(k => { const l = drivesLeft(k?.iso); if (l !== left) { left = l; drawLines(); } }).catch(() => {}); }
   refreshMeasured(centre);
+  if (linesGuess && lines.length) drawLines();
   sampleGround();
   if (tiles.size > KEEP_TILES) for (const [k] of [...tiles].filter(([k, t]) => !active.includes(k) && t.prep).sort((a, b) => a[1].used - b[1].used).slice(0, tiles.size - KEEP_TILES)) tiles.delete(k);
 }
@@ -353,7 +372,7 @@ export const Traffic = {
     if (want === on) { if (on) tick(); return; }
     on = want;
     if (!on) { setShown(false); sim.fit(0); setCount('traffic', 0); return; }
-    if (camHeight() > MAX_H) toast('Traffic: simulated cars on real roads. Fly below 6 km over a city to see them.', 4500);
+    if (camAGL() > MAX_H) toast('Traffic: simulated cars on real roads. Fly below 6 km over a city to see them.', 4500);
     tick();
   },
   /** Before each render: move the cars (real time: the time bar sets how busy, not how fast) and draw them. */

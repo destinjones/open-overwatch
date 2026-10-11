@@ -3,7 +3,8 @@
 // API. Locations and tags only: no video, no plates. Where a camera's direction is tagged, a small wedge shows where it
 // points. Coverage is whatever volunteers have mapped: patchy, and labelled that way.
 import { C, esc } from './env.js';
-import { scene, camera, camHeight } from './viewer.js';
+import { scene, camera, camAGL } from './viewer.js';
+import { Terrain } from './terrain.js';
 import { L, setCount } from './layers.js';
 import { state } from './state.js';
 import { overpass } from './overpass.js';
@@ -13,12 +14,13 @@ const pts = scene.primitives.add(new C.PointPrimitiveCollection()), wedges = sce
 const COL = { alpr: '#ff4d5e', cam: '#c9a0ff' };   // lavender: live cameras (cams.js) are pink
 const cells = new Map();   // "x,y" -> 'loading' | 'done'
 let byId = new Map(), busy = false, last = 0, failed = 0;
+Terrain.onChange(() => { for (const o of byId.values()) { pts.remove(o.pt); if (o.wedge) wedges.remove(o.wedge); } byId = new Map(); cells.clear(); });   // re-seat: load again
 
 function tagsHtml(t) {
   const show = ['surveillance:type', 'surveillance', 'surveillance:zone', 'camera:type', 'camera:direction', 'camera:mount', 'operator', 'manufacturer', 'name', 'description'];
   return show.filter(k => t[k]).map(k => `<dt>${esc(k.replace(/^(surveillance|camera):/, '').replace(/_/g, ' '))}</dt><dd>${esc(String(t[k]).slice(0, 120))}</dd>`).join('');
 }
-function add(el) {
+function add(el, gh = 0) {
   if (byId.has(el.id) || !Number.isFinite(el.lat)) return;
   const t = el.tags || {}, alpr = /alpr|anpr|plate/i.test(`${t['surveillance:type'] || ''} ${t['camera:type'] || ''} ${t.name || ''}`), col = C.Color.fromCssColorString(alpr ? COL.alpr : COL.cam);
   const o = { kind: 'cctv', id: el.id, lat: el.lat, lon: el.lon, alpr, tags: t };
@@ -27,22 +29,22 @@ function add(el) {
     <dl>${tagsHtml(t)}<dt>Position</dt><dd>${o.lat.toFixed(5)}, ${o.lon.toFixed(5)}</dd></dl>
     <div class="acts"><a class="chipbtn" href="https://www.openstreetmap.org/node/${encodeURIComponent(el.id)}" target="_blank" rel="noopener">On OpenStreetMap</a></div>
     <div class="note" style="margin-top:8px">A location someone tagged, not a feed: no video, no plates. Unmapped cameras are not shown, and some tags are out of date. © OpenStreetMap contributors (ODbL).</div>`;
-  o.pt = pts.add({ position: C.Cartesian3.fromDegrees(o.lon, o.lat, 4), pixelSize: alpr ? 8 : 6, color: col.withAlpha(0.85), outlineColor: C.Color.BLACK.withAlpha(0.6), outlineWidth: 1, id: o, show: L.cctv.on, disableDepthTestDistance: 5000 });
+  o.pt = pts.add({ position: C.Cartesian3.fromDegrees(o.lon, o.lat, gh + 4), pixelSize: alpr ? 8 : 6, color: col.withAlpha(0.85), outlineColor: C.Color.BLACK.withAlpha(0.6), outlineWidth: 1, id: o, show: L.cctv.on, disableDepthTestDistance: 5000 });
   const dir = parseFloat(t['camera:direction'] || t.direction);
   if (Number.isFinite(dir)) {   // a 60-degree wedge, 35 m long, toward where the camera looks
-    const R = 35, m = 111320, cos = Math.cos(o.lat * Math.PI / 180), at = a => C.Cartesian3.fromDegrees(o.lon + Math.sin(a * Math.PI / 180) * R / (m * cos), o.lat + Math.cos(a * Math.PI / 180) * R / m, 4);
-    const c0 = C.Cartesian3.fromDegrees(o.lon, o.lat, 4), arc = []; for (let a = dir - 30; a <= dir + 30; a += 10) arc.push(at(a));
+    const R = 35, m = 111320, cos = Math.cos(o.lat * Math.PI / 180), at = a => C.Cartesian3.fromDegrees(o.lon + Math.sin(a * Math.PI / 180) * R / (m * cos), o.lat + Math.cos(a * Math.PI / 180) * R / m, gh + 4);
+    const c0 = C.Cartesian3.fromDegrees(o.lon, o.lat, gh + 4), arc = []; for (let a = dir - 30; a <= dir + 30; a += 10) arc.push(at(a));
     o.wedge = wedges.add({ positions: [c0, ...arc, c0], width: 1.5, material: C.Material.fromType('Color', { color: col.withAlpha(0.7) }), show: L.cctv.on });
   }
   byId.set(el.id, o);
 }
 
 async function tick() {
-  if (!L.cctv.on || state.lookup || busy || camHeight() > MAX_H || performance.now() - last < GAP_MS || failed > 4) return;
+  if (!L.cctv.on || state.lookup || busy || camAGL() > MAX_H || performance.now() - last < GAP_MS || failed > 4) return;
   // the area around the reticle (a tilted view's rectangle runs to the horizon), sized by height: 1.5-12 km across
   const c = camera.pickEllipsoid(new C.Cartesian2(scene.canvas.clientWidth / 2, scene.canvas.clientHeight / 2), C.Ellipsoid.WGS84) || camera.positionWC;
   const g = C.Cartographic.fromCartesian(c), lat = C.Math.toDegrees(g.latitude), lon = C.Math.toDegrees(g.longitude);
-  const rad = Math.min(6000, Math.max(750, camHeight() * 2)), dLat = rad / 111320, dLon = rad / (111320 * Math.max(0.2, Math.cos(g.latitude)));
+  const rad = Math.min(6000, Math.max(750, camAGL() * 2)), dLat = rad / 111320, dLon = rad / (111320 * Math.max(0.2, Math.cos(g.latitude)));
   const w = lon - dLon, e = lon + dLon, s = lat - dLat, n = lat + dLat;
   const want = [];
   for (let x = Math.floor(w / CELL); x <= Math.floor(e / CELL); x++) for (let y = Math.floor(s / CELL); y <= Math.floor(n / CELL); y++) if (!cells.has(x + ',' + y)) want.push([x, y]);
@@ -53,7 +55,9 @@ async function tick() {
   busy = true; last = performance.now();
   try {
     const q = `[out:json][timeout:25];node["man_made"="surveillance"](${bb});out 2000;`;
-    for (const el of (await overpass(q, { timeout: 30000 })).elements || []) add(el);
+    const els = ((await overpass(q, { timeout: 30000 })).elements || []).filter(el => !byId.has(el.id) && Number.isFinite(el.lat));
+    const hs = await Terrain.heights(els);   // the ground under each (0s while terrain is off)
+    els.forEach((el, i) => add(el, hs[i]));
     for (const [x, y] of pick) cells.set(x + ',' + y, 'done');
     failed = 0; setCount('cctv', byId.size);
   } catch (e) { console.warn('mapped cameras', e.message); for (const [x, y] of pick) cells.delete(x + ',' + y); failed++; last = performance.now() + failed * 8000; }

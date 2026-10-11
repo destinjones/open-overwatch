@@ -9,6 +9,7 @@ import { state, hooks } from './state.js';
 import { Earth, sunDirection } from './earth.js';
 import { Sats } from './satellites.js';
 import { Air } from './aircraft.js';
+import { Terrain } from './terrain.js';
 import { release } from './follow.js';
 import { Time } from './time.js';
 import { L } from './layers.js';
@@ -55,8 +56,8 @@ function dropConstellations() { for (const c of [CON.lines, CON.names]) if (c) s
 
 const S = { find: '', targets: new Map(), startId: 0, starting: false, cancel: false, active: false, obs: null, saved: null, labels: null, points: null, ring: null, sensor: false, dir: null, up: null, heading: 180, pitch: 25, fov: 65, timer: 0, pass: null, onDown: null };
 
-export function observerAt(lat, lon) {
-  const pos = C.Cartesian3.fromDegrees(lon, lat, 2), m = C.Transforms.eastNorthUpToFixedFrame(pos);
+export function observerAt(lat, lon, h = 2) {   // h: eye height above the ellipsoid (the terrain's + 2 m where it's on)
+  const pos = C.Cartesian3.fromDegrees(lon, lat, h), m = C.Transforms.eastNorthUpToFixedFrame(pos);
   const E = new C.Cartesian3(m[0], m[1], m[2]), N = new C.Cartesian3(m[4], m[5], m[6]), U = new C.Cartesian3(m[8], m[9], m[10]);
   return { lat, lon, pos, E, N, U, km: { pos: { x: pos.x / 1000, y: pos.y / 1000, z: pos.z / 1000 }, east: E, north: N, up: U } };
 }
@@ -190,10 +191,12 @@ async function enter() {
     if (!navigator.geolocation) return res(null);
     navigator.geolocation.getCurrentPosition(p => res(p.coords), () => res(null), { timeout: 9000, maximumAge: 600e3 });
   });
+  const at = loc ? [loc.latitude, loc.longitude] : [FALLBACK.lat, FALLBACK.lon];
+  const [ground] = await Terrain.heights([{ lat: at[0], lon: at[1] }]);   // stand on the 3D terrain (0 while it's off)
   if (token !== S.startId) return;   // Done, then Look up again while this one waited: the newer start owns everything now
   S.starting = false;
   if (S.cancel) { state.lookup = false; hooks.applyVisibility(); $('#lookup').classList.remove('on'); document.body.classList.remove('lookup'); return; }   // "Done" (or Esc) while it was starting
-  S.obs = loc ? observerAt(loc.latitude, loc.longitude) : observerAt(FALLBACK.lat, FALLBACK.lon);
+  S.obs = observerAt(at[0], at[1], ground + 2);
   $('#luWhere').textContent = loc ? `Your sky · ${loc.latitude.toFixed(2)}, ${loc.longitude.toFixed(2)} (stays on this device)` : FALLBACK.name;
   S.active = true; state.lookup = true; hooks.applyVisibility(); S.sensor = false; S.dir = S.up = null;
   Earth.hidden = true; Earth.apply(); globe.baseColor = C.Color.fromCssColorString('#0b0f14');

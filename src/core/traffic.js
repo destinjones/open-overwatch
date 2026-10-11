@@ -98,6 +98,21 @@ export function buildGraph(ways, signalIds = []) {
 
 export const CYCLE = 70;   // s: half for each axis, the last 3 s of each half amber / all-red
 export const STOP_BACK = 9;   // m: the stop line, back from the junction's middle (the node) by about half a street
+/** Extra points every `step` metres along long segments (ids no other way shares, so never junctions): a car between two
+ *  junctions then follows the ground over a hill instead of a straight chord through it (on 3D terrain). */
+export function densify(ways, step = 25) {
+  return ways.map(w => {
+    const g = w.geometry, n = w.nodes; if (!g || !n || g.length !== n.length) return w;
+    const G = [g[0]], N = [n[0]];
+    for (let k = 1; k < g.length; k++) {
+      const parts = Math.ceil(dist(g[k - 1], g[k]) / step);
+      for (let j = 1; j < parts; j++) { const f = j / parts; G.push({ lat: g[k - 1].lat + (g[k].lat - g[k - 1].lat) * f, lon: g[k - 1].lon + (g[k].lon - g[k - 1].lon) * f }); N.push(`${w.id}~${k}.${j}`); }
+      G.push(g[k]); N.push(n[k]);
+    }
+    return G.length === g.length ? w : { ...w, geometry: G, nodes: N };
+  });
+}
+
 /** Is the light green for a car heading `hdg` at a signal, `t` seconds into the day? */
 export function green(sig, hdg, t, axis) {
   const rel = ((hdg - axis) % 180 + 180) % 180, main = rel < 45 || rel >= 135;

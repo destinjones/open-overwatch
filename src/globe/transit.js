@@ -4,6 +4,7 @@
 // behind live, between two real reports, so dots glide instead of hopping (motion model: core/transit.js).
 import { C, esc, fmt } from './env.js';
 import { scene, camera, camHeight } from './viewer.js';
+import { Terrain } from './terrain.js';
 import { setCount } from './layers.js';
 import { state } from './state.js';
 import { parseMbta, parseEntur, parseHfp, enturQuery, mqtt, addFix, sample, ease, approach, lagMeter, inArea } from '../core/transit.js';
@@ -134,6 +135,7 @@ class Vehicle {
     this.delay = (src.gap0 + src.every) * 1.1;   // ms behind live, eased toward what its reports need
     this.lat = f.lat; this.lon = f.lon; this.disp = { lat: f.lat, lon: f.lon }; this.hdg = f.hdg;
     this.at = { t: 0, lat: f.lat, lon: f.lon };   // drawn position and the feed time it stands for (addFix)
+    this.gh = 0; this.gLat = 99; this.gLon = 0; this.gOn = null; this.gx = false;   // ground height under it (terrain), where it was read, exact yet
     this.pt = pts.add({ position: C.Cartesian3.fromDegrees(f.lon, f.lat, 4), pixelSize: 6, color: COLOR[f.mode] || COLOR.bus,
       outlineColor: OUTLINE, outlineWidth: 1, scaleByDistance: SCALE, id: this });
   }
@@ -145,9 +147,12 @@ class Vehicle {
     if (!sample(this.fixes, t, tmp)) return;
     ease(this.disp, tmp, dt);
     this.hdg = tmp.hdg; this.at.t = t; this.at.lat = this.disp.lat; this.at.lon = this.disp.lon;
-    if (Math.abs(this.disp.lat - this.lat) + Math.abs(this.disp.lon - this.lon) < 1e-8) return;   // parked: leave the buffer alone
+    if (Math.abs(this.disp.lat - this.lat) + Math.abs(this.disp.lon - this.lon) < 1e-8 && this.gOn === Terrain.on) return;   // parked: leave the buffer alone
     this.lat = this.disp.lat; this.lon = this.disp.lon;
-    this.pt.position = C.Cartesian3.fromDegrees(this.lon, this.lat, 4, undefined, pos);
+    if (this.gOn !== Terrain.on || !this.gx || Math.abs(this.lat - this.gLat) + Math.abs(this.lon - this.gLon) > 5e-4) {   // the ground under it, every ~50 m
+      this.gh = Terrain.near(this.lat, this.lon, 4); this.gx = Terrain.exact; this.gLat = this.lat; this.gLon = this.lon; this.gOn = Terrain.on;
+    }
+    this.pt.position = C.Cartesian3.fromDegrees(this.lon, this.lat, this.gh + 4, undefined, pos);
   }
   drop() { pts.remove(this.pt); vehicles.delete(this.id); }
   age() { return this.lastT ? (Date.now() - this.src.lag.value - this.lastT) / 1000 : 0; }

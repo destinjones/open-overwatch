@@ -26,3 +26,18 @@ export function deadReckon({ lat, lon, gs, track, ground }, seconds) {
   if (ground || !(gs > 15) || track == null || !(seconds > 0)) return { lat, lon };
   return destination(lat, lon, gs * seconds, track);
 }
+
+/**
+ * Like deadReckon, but holding a constant-rate turn (deg/s, + = right) for up to `maxTurn` seconds, then straight on:
+ * an aircraft that was turning between its last two fixes keeps turning instead of flying off along a tangent.
+ * Rates under 0.4 or over 4 deg/s are treated as straight (noise, or a rate no airliner holds). Returns { lat, lon, track }.
+ */
+export function deadReckonArc(o, seconds, turn = 0, maxTurn = 120) {
+  if (o.ground || !(o.gs > 15) || o.track == null || !(seconds > 0)) return { lat: o.lat, lon: o.lon, track: o.track };
+  const w = Math.abs(turn) >= 0.4 && Math.abs(turn) <= 4 ? turn * D2R : 0;
+  if (!w) return { ...destination(o.lat, o.lon, o.gs * seconds, o.track), track: o.track };
+  const ta = Math.min(seconds, maxTurn), c0 = o.track * D2R, r = o.gs / w;   // r: signed turn radius
+  const e = r * (Math.cos(c0) - Math.cos(c0 + w * ta)), n = r * (Math.sin(c0 + w * ta) - Math.sin(c0));   // east / north of the arc's end
+  const end = destination(o.lat, o.lon, Math.hypot(e, n), Math.atan2(e, n) * R2D), track = ((o.track + turn * ta) % 360 + 360) % 360;
+  return seconds > ta ? { ...destination(end.lat, end.lon, o.gs * (seconds - ta), track), track } : { ...end, track };
+}

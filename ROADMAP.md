@@ -151,6 +151,19 @@ Round 2 (2026-10-10, local):
       car following, lights at busy junctions, density by road type and local time, drive side by country; measured
       speeds/counts drive the cars and colour the roads in New York (NYC DOT) and Finland (Fintraffic) (core tested)
 - [ ] Traffic: a TomTom flow overlay for visitors who bring their own key; per-lane counts where Fintraffic has them
+
+### Round 3: what God's Eye View does better (ranked in docs/GEV_STUDY.md)
+- [x] Keyless 3D terrain (Re:Earth / Mapterhorn; a layer, off on phones); cars, buses, parked planes, mapped cameras, OSM
+      buildings, projected cameras, look-up and the route fly-through stand on it; exact heights near the view
+- [x] Aircraft icons that point along the course from any camera angle (alignedAxis = the course vector)
+- [x] Aircraft motion: fixes stamped with the feed's own time, dead reckoning through a turn (core/geo.js, tested), new
+      fixes eased in instead of jumping, geometric altitude where the feed has it
+- [ ] Hazards: NOAA cones/tracks + GDACS for every basin, NIFC fire perimeters, keyless hot spots (GIBS)
+- [ ] Recent satellite imagery before/after (NASA CMR + GIBS HLS/VIIRS, swipe compare)
+- [ ] More live cameras (DelDOT / Vegvesen live video, DriveBC, Austin, Calgary, NSW, TxDOT, Tallinn via the relay)
+- [ ] Bike share worldwide (MobilityData systems.csv), Austin + Minneapolis transit (GTFS-RT), Baltic ships (Digitraffic AIS)
+- [ ] Wind through forecast time (GFS + ECMWF grids built by the GitHub Action), one weather timeline, a render governor
+- [ ] Voice: spoken replies, "what's this?", push-to-talk; draw and measure; an MCP package that opens our URL
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 

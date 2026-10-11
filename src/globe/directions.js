@@ -6,6 +6,7 @@ import { viewer, scene, camera, ctrl } from './viewer.js';
 import { state, hooks } from './state.js';
 import { release } from './follow.js';
 import { findPlaces } from './places.js';
+import { Terrain } from './terrain.js';
 import { instruction, distanceText, durationText, measure, pointAt, bearing, haversine } from '../core/route.js';
 
 const PROFILE = { drive: ['routed-car', 'driving'], walk: ['routed-foot', 'foot'], cycle: ['routed-bike', 'bike'] };
@@ -125,11 +126,16 @@ export const Directions = {
   },
 
   // ---- fly it: the camera leads the route, banking gently into turns
-  fly() {
+  async fly() {
     if (!this.route) return;
     this.stopFly(); release(); hooks.clearPresets?.();
     const line = this.route.line, speed = this.mode === 'walk' ? 45 : this.mode === 'cycle' ? 70 : 140;   // metres of route per second of film
     const dur = Math.min(90, Math.max(12, line.total / speed)), height = this.mode === 'walk' ? 140 : 260, back = height * 1.6;
+    // on 3D terrain, the ground along the route every 50 m (one batch, before the flight): the camera keeps its height above
+    // the highest ground from just behind it to just ahead, so it never dips into a hill
+    const STEP = 50, prof = Terrain.on ? await Terrain.heights(Array.from({ length: Math.ceil(line.total / STEP) + 1 }, (_, i) => { const p = pointAt(line, Math.min(line.total, i * STEP)); return { lat: p[1], lon: p[0] }; })) : null;
+    if (!this.route || this.route.line !== line) return;   // changed while the heights loaded
+    const groundNear = d => { if (!prof) return 0; let m = -Infinity; for (let i = Math.max(0, Math.floor((d - back) / STEP)); i <= Math.min(prof.length - 1, Math.ceil((d + 150) / STEP)); i++) m = Math.max(m, prof[i]); return m; };
     const t0 = performance.now(); let head = null;
     ctrl.enableInputs = false;
     const step = () => {
@@ -138,7 +144,7 @@ export const Directions = {
       let b = bearing(here, ahead); if (head == null) head = b;
       const diff = ((b - head + 540) % 360) - 180; head = (head + diff * 0.06 + 360) % 360;   // smooth heading: no snapping at corners
       const r = C.Math.toRadians(head), dLat = -Math.cos(r) * back / 111320, dLon = -Math.sin(r) * back / (111320 * Math.cos(C.Math.toRadians(here[1])));
-      camera.setView({ destination: C.Cartesian3.fromDegrees(here[0] + dLon, here[1] + dLat, height), orientation: { heading: r, pitch: C.Math.toRadians(-32), roll: C.Math.toRadians(C.Math.clamp(-diff * 0.25, -8, 8)) } });
+      camera.setView({ destination: C.Cartesian3.fromDegrees(here[0] + dLon, here[1] + dLat, height + groundNear(d)), orientation: { heading: r, pitch: C.Math.toRadians(-32), roll: C.Math.toRadians(C.Math.clamp(-diff * 0.25, -8, 8)) } });
       if (u >= 1) { this.stopFly(); return; }
     };
     flight = scene.preUpdate.addEventListener(step);
