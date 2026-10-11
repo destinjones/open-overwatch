@@ -21,6 +21,7 @@ import { ALIAS } from './search.js';
 import { findPlaces, flyToPlace } from './places.js';
 import { Ops } from './ops.js';
 import { Directions, resolvePair } from './directions.js';
+import { Measure } from './measure.js';
 import { Wind } from './wind.js';
 import { Weather } from './weather.js';
 import { Ships } from './ships.js';
@@ -281,6 +282,8 @@ async function run(cmd, heard) {
       const r = await Directions.go(a, b, cmd.mode).catch(() => null);
       return say(r ? `${{ walk: 'Walking', cycle: 'Cycling', drive: 'Driving' }[cmd.mode]}: ${r.distance >= 1000 ? (r.distance / 1000).toFixed(1) + ' kilometres' : Math.round(r.distance) + ' metres'}, about ${Math.max(1, Math.round(r.duration / 60))} minutes. Say "fly it" to ride along.` : 'No route between those places.', heard);
     }
+    case 'measure': case 'outline': case 'draw': case 'pin': case 'undoDraw': case 'clearDraw': case 'drawInfo':
+      return say(await Measure.voice(cmd, { here: () => pointerSpot() || centreSpot(), famousSat: q => ALIAS[q] ? findSat(q) : null }), heard);
     case 'flyroute': if (!Directions.route) return say('Ask for a route first, like: walking route from Big Ben to the Tower of London.', heard); Directions.fly(); return say('Flying the route.', heard);
     case 'help': return say(`Try: ${EXAMPLES.slice(0, 5).join(' · ')}.`, heard);
     default: return say(`Didn't catch a command. Try "take me to Tokyo" or "night vision".`, heard);

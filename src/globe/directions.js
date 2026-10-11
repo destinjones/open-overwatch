@@ -37,6 +37,22 @@ export async function resolvePair(fromQ, toQ) {
   return best;
 }
 
+/** One OSRM route between two places ({ lat, lon }): { coords: [[lon, lat]], distance: m, duration: s, steps }. Throws an
+ *  Error with `noRoute` set when OSRM finds no way between them; otherwise the network's error ('timeout' after 20 s). */
+export async function fetchRoute(from, to, mode = 'drive') {
+  const [host, prof] = PROFILE[mode] || PROFILE.drive;
+  const url = `https://routing.openstreetmap.de/${host}/route/v1/${prof}/${from.lon},${from.lat};${to.lon},${to.lat}?overview=full&geometries=geojson&steps=true`;
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 20000);
+  let d;
+  try { const r = await fetch(url, { signal: ctl.signal }); d = await r.json().catch(() => null); if (!r.ok && !(d && d.code)) throw new Error('HTTP ' + r.status); }   // OSRM answers "no route" as HTTP 400 with a code
+  catch (e) { throw e.name === 'AbortError' ? new Error('timeout') : e; }
+  finally { clearTimeout(timer); }
+  if (!d) throw new Error('an unreadable answer');
+  if (d.code !== 'Ok' || !d.routes || !d.routes[0]) throw Object.assign(new Error(d.code || 'no route'), { noRoute: true });
+  const r = d.routes[0];
+  return { coords: r.geometry.coordinates, distance: r.distance, duration: r.duration, steps: (r.legs || []).flatMap(l => l.steps || []) };
+}
+
 export const Directions = {
   from: null, to: null, mode: 'drive', route: null, picking: null,
   open(prefill = {}) {
@@ -72,16 +88,13 @@ export const Directions = {
   /** Route between two places ({ name, lat, lon }), draw it, frame it. Resolves with the route or throws. */
   async go(from = this.from, to = this.to, mode = this.mode) {
     Object.assign(this, { from, to, mode });
-    const [host, prof] = PROFILE[mode] || PROFILE.drive;
-    const url = `https://routing.openstreetmap.de/${host}/route/v1/${prof}/${from.lon},${from.lat};${to.lon},${to.lat}?overview=full&geometries=geojson&steps=true`;
-    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 20000);
-    let d;
-    try { const r = await fetch(url, { signal: ctl.signal }); d = await r.json().catch(() => null); if (!r.ok && !(d && d.code)) throw new Error('HTTP ' + r.status); }   // OSRM answers "no route" as HTTP 400 with a code
-    catch (e) { toast('Routing is unavailable right now: ' + (e.name === 'AbortError' ? 'timeout' : e.message), 4500); throw e; }
-    finally { clearTimeout(timer); }
-    if (d.code !== 'Ok' || !d.routes || !d.routes[0]) { toast(`No ${MODE_WORD[mode].toLowerCase()} route between those places${haversine([from.lon, from.lat], [to.lon, to.lat]) > 1e6 ? ' (they are over 1,000 km apart)' : ''}`, 4500); throw new Error(d.code || 'no route'); }
-    const r = d.routes[0], coords = r.geometry.coordinates;
-    this.route = { coords, line: measure(coords), distance: r.distance, duration: r.duration, steps: (r.legs || []).flatMap(l => l.steps || []) };
+    let r;
+    try { r = await fetchRoute(from, to, mode); }
+    catch (e) {
+      toast(e.noRoute ? `No ${MODE_WORD[mode].toLowerCase()} route between those places${haversine([from.lon, from.lat], [to.lon, to.lat]) > 1e6 ? ' (they are over 1,000 km apart)' : ''}` : 'Routing is unavailable right now: ' + e.message, 4500);
+      throw e;
+    }
+    this.route = { ...r, line: measure(r.coords) };
     this.draw(); this.render(); this.frame();
     return this.route;
   },

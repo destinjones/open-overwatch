@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.146.0/Build/Cesium/Widgets/widgets.css">
 <link rel="stylesheet" href="src/globe/ops.css">
 <link rel="stylesheet" href="src/globe/radio.css">
+<link rel="stylesheet" href="src/globe/measure.css">
 <style>
 html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%} /* no page pinch-zoom; panels still scroll */
 /* Open Overwatch · Orbital (prototype): one CesiumJS globe from deep space to street level, floating glass UI. */
@@ -243,6 +244,7 @@ body.lookup #navpad{display:none}
   <button class="go" data-go="route" style="color:#7dffa6" title="A street route between two places, then fly it">Directions</button>
   <button class="go" data-go="weather" style="color:#7fd0ff" title="Live clouds, rain radar and rain from space">Weather</button>
   <button class="go" data-go="imagery" style="color:#9fe3ff" title="Recent satellite pictures of this place, before and after">Before/after</button>
+  <button class="go" data-go="measure" style="color:#ffd45c" title="Draw pins, lines and areas; distances and areas on the real Earth; outline a country  ( M )">Measure</button>
   <button class="go" data-go="eclipses" title="Solar eclipses 2027-2030: watch the Moon's shadow cross the Earth">Eclipses</button>
   <button class="go" data-go="space" style="color:var(--accent)" title="Keep zooming out: the planets, the stars, the galaxy">Solar system ↗</button>
 </nav>

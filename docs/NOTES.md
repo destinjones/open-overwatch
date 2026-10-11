@@ -214,6 +214,42 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   pair is the newest fairly clear picture against the oldest clear one at least two weeks earlier.
 - Picking an entity drawn for an object: `entity.obj = object` (ui.js pickObj).
 
+## Draw and measure (measure.js, core/measure.js) — 2026-10-11
+- Distances: Vincenty's inverse and direct formulae on WGS84, within 0.08 mm of GeographicLib 2.1 (Karney; pip
+  `geographiclib`, a dev check only, its values pasted into test/measure.test.mjs) on 4,000 random pairs. Vincenty's
+  longitude iteration runs away within about a degree of the antipode (196 of 2,000 such pairs): those are solved by
+  halving the starting bearing in Karney's set-up (point 1 nearer a pole, moved south, longitude difference positive,
+  first northward crossing of point 2's latitude: the longitude reached grows with the bearing). Exactly opposite points
+  are half a meridian apart (20,003,931.459 m). Lines along the equator are a special case for the bisection.
+- Areas: every geodesic edge split each 20 km along itself, then the exact great-circle excess on the authalic sphere
+  (R 6,371,007.18 m, latitudes mapped so areas keep), Karney's tan(E/2) per edge; a ring round a pole is put right by
+  how many times it winds round (the sum of its longitude steps). Worst of 400 random polygons: 3.4e-6; the 195 country
+  outlines: 2.5e-6. Two float traps: adding 4π to a small area kept only its first digits (5e-5 off on a 1,650 m²
+  sliver), and wrapping a longitude difference by adding 180 first cost a 0.0035° step its last digits (0.06 m² steps).
+- Cesium 1.146: draped (clampToGround) polylines and ground polygons are not pickable here (pick and drillPick find
+  nothing on them, terrain on or off); corners and labels are, so they carry `entity.obj` (tip, cardHtml, afterCard)
+  and ui.js opens a shape's card from them. `PolylineArrowMaterialProperty` on a draped line draws only the shaft (30% of
+  the width): the head is a billboard with alignedAxis = the arrival course (core/geo `courseAxis`), its tip at the end.
+- Entities are made once per part and moved in place: re-creating a draped line on every click made it flicker. The
+  rubber band to the pointer is an undraped geodesic polyline (CallbackProperty, depthFailMaterial), mice only.
+- Labels and corners skip the depth test (hills would hide them), so a 4 Hz `EllipsoidalOccluder` check hides the ones
+  behind the Earth.
+- Clicks: Google's 3D city → `scene.pickPosition` (one depth read per click; viewer.js's pickPositionSupported = false
+  only stops the camera controller's reads), 3D terrain → `globe.pick` (CPU, the drawn tiles), else the ellipsoid.
+- A quick (under 0.5 s) second click or tap on the last point is the double-click that finishes; a slow one is a point
+  placed close by (at first a phone corner 16 px from the last one ended the area).
+- Phones: while a tool is armed the card shrinks to the tools, one line about the shape and Finish / Undo / More (the
+  full card covered 60% of the screen and the drawing with it). Flights to a shape leave room for the card.
+- Over the ground: finished lines up to 30 km on 3D terrain, at most 300 heights (Terrain.heights, the most detailed
+  tiles): length with the hills (Google Earth's "ground length"), climb and descent.
+- Voice "from A to B" takes the two best Photon matches unless one of them is much nearer (3x) another candidate of the
+  other (core `choosePair`): the routes' closest-pair rule suits "Big Ben to the Tower of London" but could turn "Paris
+  to Berlin" into Paris, Maine and Berlin, New Hampshire. "How far is the Moon / the ISS" answers without drawing.
+- Test input: Cesium's pointer handling calls setPointerCapture, so a synthetic touch needs pointer id 1 (the mouse's;
+  brand/tools/_steps/ms_common.js).
+- Not done: states and provinces ("outline Texas" needs a boundary dataset: the user's OK to download), the drawing in
+  share links, dragging a corner to edit.
+
 ## Public relay (relay/, Cloudflare Worker) — 2026-10-10
 `relay/worker.js` on the owner's Cloudflare account (`npx wrangler deploy` from relay/, after `npx wrangler login`):
 https://open-overwatch-relay.destinjones123.workers.dev/?url=… . Allowlist = `PUBLIC_RELAY_HOSTS` in src/core/relay.js

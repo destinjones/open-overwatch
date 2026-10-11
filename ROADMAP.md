@@ -173,7 +173,11 @@ Round 2 (2026-10-10, local):
 - [x] Voice: "what's this?" about what the pointer rests on, numbered answers ("the second one"), weather at a place
       ("is it raining in London?"), counting over a place ("how many planes over Texas?"), hold Space to talk, the
       best voice the browser has, a short sound for listening and answers (core/voicecmd.js tested)
-- [ ] Draw and measure; an MCP package that opens our URL
+- [x] Draw and measure (band → Measure, M, or voice): pins, lines, areas and distance arrows (up to 512 points), each leg and
+      the total over the WGS84 ellipsoid (Vincenty, a bisection near the antipode: within a millimetre of GeographicLib),
+      areas on it (within 0.001%), the trip by road (OSRM), length over the hills and the climb on 3D terrain, "outline
+      France" with its area, GeoJSON out; draped with ClassificationType.BOTH; a compact card on phones (core/measure.js tested)
+- [ ] An MCP package that opens our URL
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 

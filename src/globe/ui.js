@@ -107,7 +107,7 @@ handler.setInputAction(c => {
 // double-click a satellite or aircraft to follow it (replaces Cesium's default entity tracking)
 viewer.screenSpaceEventHandler.removeInputAction(C.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
 handler.setInputAction(c => {
-  if (state.lookup) return;   // following would fight look-up's camera
+  if (state.lookup || state.picking) return;   // following would fight look-up's camera; while picking (directions, measuring) a double-click is theirs
   const o = pickObj(c.position); if (!o) return;
   if (o.kind === 'sat') { select(o); SatModels.follow(o); } else if (o.kind === 'air') { select(o); AirModels.follow(o); }
 }, C.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);

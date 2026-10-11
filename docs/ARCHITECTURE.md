@@ -54,6 +54,7 @@ same code runs in Node tests and in the render loop without allocating.
 | `mvt.js` | Mapbox Vector Tile decoding (protobuf by hand, wanted layers only), tile maths |
 | `roadtiles.js` | road lines from vector tiles: clipped per tile, joined across tile edges, junctions, names, lights where busy roads meet |
 | `traffic.js` | the traffic simulation: road graph, car following (IDM), lights, time-of-day busyness, NYC DOT / Fintraffic readings |
+| `measure.js` | draw and measure: WGS84 distances and bearings (Vincenty; a bisection near the antipode), geodesic polygon areas (authalic sphere), ground length, the words for them, GeoJSON |
 
 Accuracy, checked by the tests against JPL Horizons on 2026-10-02: planets within arcminutes (JPL's own stated
 error for these formulas), main-belt asteroids within ~3×10⁻⁴ AU, the Moon within ~0.3°, the other moons within 0.4° of their orbit.
@@ -65,7 +66,7 @@ Cesium and satellite.js load as classic scripts (globals); the app is ES modules
 relay), `viewer` (viewer, camera limits, shared primitive collections, star box), `earth` (imagery, the three shader
 shells, Sun/Moon directions), `layers` (switches + dock), `follow` (follow camera, glTF axis conventions),
 `satellites` (TLEs via core, SGP4 worker, models), `aircraft` (feeds, dead reckoning, models), `quakes`, `ui` (stats,
-band, presets, picking, card, lighting), `mobile` (phones only: bottom dock and sheets that click the existing controls), `weather` (weather mode: GIBS infrared clouds, RainViewer radar, IMERG rain, animated), `lighthouses`, `country` (click a country: border, facts, headlines, employers), `companies`, `volcanoes`, `aurora`, `flybys`, `sunline`, `buildings` (needs an ion token, `config.js`), `share` (view links in the URL hash), `tour`, `navpad` (everything else: zoom, north-up, top-down and reset buttons, keys + − N T R) and `main` (wiring, timers, boot). `state.js` holds the selection and late-bound
+band, presets, picking, card, lighting), `mobile` (phones only: bottom dock and sheets that click the existing controls), `weather` (weather mode: GIBS infrared clouds, RainViewer radar, IMERG rain, animated), `lighthouses`, `country` (click a country: border, facts, headlines, employers), `companies`, `volcanoes`, `aurora`, `flybys`, `sunline`, `buildings` (needs an ion token, `config.js`), `share` (view links in the URL hash), `tour`, `measure` (draw and measure: pins, lines, areas, distance arrows, country outlines), `navpad` (everything else: zoom, north-up, top-down and reset buttons, keys + − N T R) and `main` (wiring, timers, boot). `state.js` holds the selection and late-bound
 hooks so feature modules never import the UI. `window.OO3D` is the console handle.
 
 ## One zoom from street to galaxy

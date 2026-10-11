@@ -11,6 +11,11 @@
 //   { act: 'route', from, to, mode: 'drive' | 'walk' | 'cycle' }   { act: 'flyroute' }
 //   { act: 'pick', n }           "the second one", "number three": one of the things the last answer listed
 //   { act: 'weather', place? }   "what's the weather here", "is it raining in Paris", "how cold is it in Oslo"
+//   { act: 'measure', from?, to, road }   "measure from Paris to Berlin", "how far is Tokyo", "driving distance from A to B"
+//   { act: 'outline', place, area? }      "outline France", "show the border of Japan", "how big is Brazil" (area: true)
+//   { act: 'draw', mode | on: false | finish }   "draw an area", "measure a distance", "stop drawing", "finish"
+//   { act: 'pin', place? }       "drop a pin" (where the pointer rests), "drop a pin on Rome"
+//   { act: 'undoDraw' | 'clearDraw' | 'drawInfo' }   "undo", "clear the drawing", "how long is it"
 
 import { compass } from './gfs.js';
 
@@ -56,10 +61,40 @@ const COUNTED = [[/sat/, 'sat'], [/quake/, 'quake'], [/military/, 'mil'], [/plan
 const HERE = /^(here|there|now|right|right now|today|outside)$/;
 const clean = s => s.replace(/^(the|a|an|to|at|on|over)\s+/, '').replace(/\s+(please|now|for me|right now)$/, '').trim();
 
+// ---- draw and measure (checked first: "stop drawing" is not "stop", "draw a line from A to B" is not a route)
+const DRAWN = 'drawings?|measurements?|measures?|lines?|outlines?|borders?|pins?|markers?|areas?|shapes?|arrows?|sketch(?:es)?|polygons?|ruler';
+const MODES = [[/^(pins?|markers?|points?)$/, 'pin'], [/^(lines?|paths?|ruler|length)$/, 'line'], [/^(areas?|polygons?|shapes?|regions?|zones?|fields?)$/, 'area'], [/^(distances?|arrows?|distance arrows?)$/, 'arrow']];
+const modeOf = w => (MODES.find(([re]) => re.test(w)) || [])[1];
+function drawCommand(s) {
+  let m;
+  if (new RegExp(`^(clear|erase|delete|remove|wipe|reset)( all| everything)?( (the|my|this|that|those|these|all|every))? (${DRAWN})$`).test(s) || /^(clear|erase)( (it|all|everything|that))?$/.test(s)) return { act: 'clearDraw' };
+  if (/^(undo|undo (that|it|the last (point|one|pin))|remove the last (point|pin)|take that back)$/.test(s)) return { act: 'undoDraw' };
+  if (/^(stop|end|quit|exit|leave|close) (the )?(drawing|measuring|measurement|ruler|draw mode|drawing mode|measure tool|measuring tool)$|^(i'm )?done (drawing|measuring)$/.test(s)) return { act: 'draw', on: false };
+  if (/^(finish|finish (it|that|the (line|area|shape|drawing))|done|close (it|the (area|shape|loop))|that's it)$/.test(s)) return { act: 'draw', finish: true };
+  if (/^(how (far|long|big|large) is (it|that|this|the (line|drawing|area|shape))|what('s| is) the (length|total|area|distance)( of (it|that|this|the (line|drawing|area|shape)))?)$/.test(s)) return { act: 'drawInfo' };
+  if (/^(measure|how far|distance|what('s| is) the (driving |road )?distance|driving distance|road distance|(draw|make|put)( a| an| the)? (straight )?(line|arrow|ruler) (from|between))\b/.test(s)) {
+    const road = /\b(by (road|car)|driving|drive|road distance|on the roads?)\b/.test(s);
+    const t = s.replace(/\b(by (road|car)|driving|to drive|on the roads?)\b/g, ' ').replace(/\broad (?=distance)/, '').replace(/\s+/g, ' ').trim();
+    if ((m = t.match(/\b(?:from|between) (.+?) (?:to|and) (.+)$/))) return { act: 'measure', from: clean(m[1]), to: clean(m[2]), road };
+    if ((m = t.match(/^how far (?:away )?is (.+?) from (.+)$/))) return { act: 'measure', from: clean(m[2]), to: clean(m[1]), road };
+    if ((m = t.match(/^(?:how far (?:away )?is(?: it)?(?: to)?|distance to|measure the distance to|measure to) (.+)$/)) && !/^(this|that|it|here|there)$/.test(m[1])) return { act: 'measure', to: clean(m[1]), road };
+    if ((m = t.match(/^measure(?: (?:a|an|the|my))? (.+)$/)) && modeOf(m[1])) return { act: 'draw', mode: modeOf(m[1]) };
+    if ((m = t.match(/^measure (.+?) to (.+)$/))) return { act: 'measure', from: clean(m[1]), to: clean(m[2]), road };
+    if (/^measur(e|ing)$/.test(t)) return { act: 'draw', mode: 'line' };
+  }
+  if ((m = s.match(/^(?:outline|trace)(?: the)?(?: (?:outline|borders?|boundar(?:y|ies)) of)? (.+)$/) || s.match(/^(?:draw|show|highlight|mark|give)(?: me)?(?: the)? (?:outline|borders?|boundar(?:y|ies)|shape|frontiers?) (?:of|for|around) (.+)$/) || s.match(/^highlight (.+)$/))) return { act: 'outline', place: clean(m[1]) };
+  if ((m = s.match(/^(?:how big|how large|what size|what's the size of|what is the size of|what's the area of|what is the area of)(?: is)? (.+)$/))) return { act: 'outline', place: clean(m[1]), area: true };
+  if ((m = s.match(/^(?:drop|place|put|add|stick)(?: a| the| one)? (?:pin|marker)(?: (?:on|at|in|over|near) (.+?))?(?: (?:here|there))?$/))) { const p = m[1] && !HERE.test(m[1]) ? clean(m[1]) : null; return p ? { act: 'pin', place: p } : { act: 'pin' }; }
+  if ((m = s.match(/^(?:draw|start|make|add|create|begin)(?: a| an| the| new)? (pins?|markers?|lines?|paths?|ruler|areas?|polygons?|shapes?|regions?|distances?|arrows?|distance arrows?)(?: on the (?:map|globe))?$/))) return { act: 'draw', mode: modeOf(m[1]) };
+  if (/^((start|begin|open|show) )?(the )?(drawing|draw|measuring|measure|ruler)( (mode|tool|tools))?$/.test(s)) return { act: 'draw', mode: 'line' };
+  return null;
+}
+
 export function parse(text) {
   const s = normalize(text);
   if (!s) return { act: 'unknown', text: '' };
   if (/^(help|what can i (say|do)|commands|what do you do)\b/.test(s)) return { act: 'help' };
+  const drawn = drawCommand(s); if (drawn) return drawn;
   // stop / exit first, so "exit cockpit" and "stop tracking" are not read as anything else
   if (/\b(cockpit|ride along|pilot view|first person|ride it|ride with)\b/.test(s)) return { act: 'cockpit', on: /\b(exit|leave|stop|off|out of)\b/.test(s) ? false : /\b(enter|on|go|start|take|ride|switch)\b/.test(s) ? true : null };
   if (/^(pause|freeze|stop time|hold time)\b/.test(s)) return { act: 'pause' };
@@ -107,6 +142,7 @@ export function parse(text) {
 export const EXAMPLES = Object.freeze([
   'Take me to Tokyo', 'Track the ISS', 'Night vision', 'Thermal', 'Enter cockpit', 'Turn on earthquakes', 'Walking route from Big Ben to the Tower of London',
   'How many satellites are in view?', "What's this?", 'Show me the launches', 'Zoom out to a globe view', "What's the weather in Paris?", 'How many planes over Texas?',
+  'Measure from Paris to Berlin', 'Outline France', 'How big is Brazil?', 'Draw an area', 'Clear the drawing',
 ]);
 
 // ---- weather in words (for spoken answers)
