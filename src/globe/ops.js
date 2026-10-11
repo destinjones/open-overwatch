@@ -108,7 +108,7 @@ const rail = el('div', { id: 'opsRail', class: 'glass', role: 'toolbar', 'aria-l
   SENSORS.map((s, i) => `<button data-s="${s}" title="${SENSOR_INFO[s][1]} (${i + 1})">${SENSOR_INFO[s][0]}</button>`).join('') +
   `<i class="ops-sep"></i><button data-o="hud" title="Tactical HUD (H)">HUD</button><button data-o="detect" title="Boxes and IDs on everything in view (D)">DET</button>` +
   `<button data-o="cockpit" title="Ride the satellite or plane you follow (C)">CKPT</button><button data-o="director" title="Director: shots to fly through, for clips">DIR</button>` +
-  `<button data-o="voice" id="opsMic" title="Talk to it (V)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></div>`);
+  `<button data-o="voice" id="opsMic" title="Talk to it (V, or hold Space)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></div>`);
 document.body.append(canvas, hud, rail);
 const ctx = canvas.getContext('2d');
 

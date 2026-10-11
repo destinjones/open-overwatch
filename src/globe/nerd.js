@@ -27,6 +27,7 @@ function render() {
   el.innerHTML = `<button class="x" aria-label="Close">×</button><div class="k">Under the hood</div>
     <h3>Rendering</h3><dl><dt>Frame rate</dt><dd>${fps.toFixed(0)} fps · median ${q(0.5).toFixed(1)} ms · p95 ${q(0.95).toFixed(1)} ms</dd>
     <dt>GPU</dt><dd>${esc(Quality.gpu || 'hidden by the browser')}</dd><dt>Graphics</dt><dd>${esc(LEVELS[Quality.level].name)}${Quality.chosen === 'auto' ? ' (auto)' : ''} · tile detail ${globe.maximumScreenSpaceError}</dd>
+    <dt>Battery saver</dt><dd>${Quality.idle ? `${Quality.idle} fps while ${esc(Quality.idleWhy === 'idle' ? 'nothing moves' : Quality.idleWhy)}` : `full speed${Quality.idleWhy && Quality.idleWhy !== 'off' ? ' · ' + esc(Quality.idleWhy) : Quality.idleWhy === 'off' ? ' (saver off)' : ''}`}</dd>
     <dt>Map tiles</dt><dd>${globe.tilesLoaded ? 'all loaded' : 'loading…'}</dd>${mem ? `<dt>JS heap</dt><dd>${(mem.usedJSHeapSize / 1e6).toFixed(0)} MB</dd>` : ''}</dl>
     <h3>Satellites</h3><dl><dt>Propagated</dt><dd>${fmt(Sats.list.length)} with SGP4 in a web worker · ${Sats.tickMs ? Sats.tickMs.toFixed(0) + ' ms per pass' : '—'}</dd>
     <dt>Element sets</dt><dd>median ${tleAge != null ? (tleAge * 24).toFixed(0) + ' h' : '—'} old</dd></dl>

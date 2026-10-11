@@ -7,8 +7,12 @@
 //   { act: 'layer', name, on }   "turn on earthquakes", "hide the satellites"
 //   { act: 'view', go }          "what's above me tonight", "open the solar system", "play the tour"
 //   { act: 'reset' | 'north' | 'topdown' | 'stop' | 'what' | 'help' | 'live' | 'pause' }
-//   { act: 'zoom', dir: 'in' | 'out' }   { act: 'faster' }   { act: 'count', what }   { act: 'unknown', text }
+//   { act: 'zoom', dir: 'in' | 'out' }   { act: 'faster' }   { act: 'count', what, place? }   { act: 'unknown', text }
 //   { act: 'route', from, to, mode: 'drive' | 'walk' | 'cycle' }   { act: 'flyroute' }
+//   { act: 'pick', n }           "the second one", "number three": one of the things the last answer listed
+//   { act: 'weather', place? }   "what's the weather here", "is it raining in Paris", "how cold is it in Oslo"
+
+import { compass } from './gfs.js';
 
 export const SENSORS = Object.freeze(['normal', 'nvg', 'flir', 'flirbh', 'iron', 'crt', 'noir']);
 
@@ -47,6 +51,9 @@ export function normalize(text) {
 }
 
 const onOff = s => OFF.test(s) ? false : ON.test(s) ? true : null;
+const ORDINAL = { first: 1, '1st': 1, one: 1, second: 2, '2nd': 2, two: 2, third: 3, '3rd': 3, three: 3, fourth: 4, '4th': 4, four: 4, fifth: 5, '5th': 5, five: 5, sixth: 6, six: 6 };
+const COUNTED = [[/sat/, 'sat'], [/quake/, 'quake'], [/military/, 'mil'], [/plane|aircraft|flight|jet/, 'air'], [/ship|boat|vessel/, 'ship'], [/bus|train|tram|metro|vehicle/, 'transit'], [/camera/, 'cam']];
+const HERE = /^(here|there|now|right|right now|today|outside)$/;
 const clean = s => s.replace(/^(the|a|an|to|at|on|over)\s+/, '').replace(/\s+(please|now|for me|right now)$/, '').trim();
 
 export function parse(text) {
@@ -68,8 +75,18 @@ export function parse(text) {
   if (/\b(go live|back to (now|live)|real ?time|live mode)\b/.test(s)) return { act: 'live' };
   if (/\b(speed up|fast forward|faster|time lapse|timelapse)\b/.test(s)) return { act: 'faster' };
   if (/^(what('s| is) (this|that|here|it|selected)|what am i looking at|where am i|where is this|identify( this| that)?|what('s| is) (down )?there)\b/.test(s)) return { act: 'what' };
-  let m = s.match(/^how many (satellites|sats|planes|aircraft|flights|military( aircraft| planes| flights)?|earthquakes|quakes|things|objects|targets|contacts)\b/);
-  if (m) return { act: 'count', what: /sat/.test(m[1]) ? 'sat' : /quake/.test(m[1]) ? 'quake' : /military/.test(m[1]) ? 'mil' : /plane|aircraft|flight/.test(m[1]) ? 'air' : 'all' };
+  let m = s.match(/^(?:(?:open|select|show|pick|choose|go to|take me to) )?(?:the )?(?:number )?(first|second|third|fourth|fifth|sixth|1st|2nd|3rd|4th|5th|one|two|three|four|five|six|[1-6])(?: one)?$/);
+  if (m) return { act: 'pick', n: ORDINAL[m[1]] || +m[1] };
+  m = s.match(/^(?:what's|whats|what is|how's|hows|how is|tell me) (?:the )?weather(?: like)?(?: (?:in|at|for|over|around) (.+?))?(?: (?:here|there|right|today))?$/)
+    || s.match(/^(?:is it|will it be) (?:raining|snowing|windy|cold|hot|warm|sunny|cloudy)(?: (?:in|at|over) (.+?))?(?: (?:here|there|right|today))?$/)
+    || s.match(/^how (?:warm|cold|hot|windy) is it(?: (?:in|at|over) (.+?))?(?: (?:here|there|right|today))?$/)
+    || s.match(/^(?:weather|temperature|wind) (?:in|at|for|over) (.+)$/);
+  if (m) { const place = m[1] && !HERE.test(m[1]) ? clean(m[1]) : null; return place ? { act: 'weather', place } : { act: 'weather' }; }
+  m = s.match(/^how many (satellites|sats|planes|airplanes|aircraft|flights|jets|military( aircraft| planes| flights)?|earthquakes|quakes|ships|boats|vessels|buses|trains|trams|vehicles|cameras|things|objects|targets|contacts)\b(?:.*?\b(?:over|above|in|around|near|across|within|off)\s+(.+?))?$/);
+  if (m) {
+    const what = (COUNTED.find(([re]) => re.test(m[1])) || [null, 'all'])[1], place = m[3] ? clean(m[3].replace(/\s+(right|at the moment|today)$/, '')) : '';
+    return place && !/^(view|sight|the view|frame|the frame|the picture|the sky|range|my view|screen|the screen)$/.test(place) ? { act: 'count', what, place } : { act: 'count', what };
+  }
   if (/^(fly (it|the route|this route|that route|along the route|the path)|play the route)( |$)/.test(s)) return { act: 'flyroute' };
   m = s.match(/^(?:show me |give me |get |find |draw |plot )?(?:the |a )?(?:(walking|walk|driving|drive|car|cycling|cycle|bike|biking) )?(?:route|directions|way|path)? ?from (.+?) to (.+)$/)
     || s.match(/^(walk|drive|cycle|bike) from (.+?) to (.+)$/) || s.match(/^how (?:do|can) i (walk|drive|cycle|get) from (.+?) to (.+)$/);
@@ -89,5 +106,27 @@ export function parse(text) {
 /** Phrases for the help card and the "try saying" hint. */
 export const EXAMPLES = Object.freeze([
   'Take me to Tokyo', 'Track the ISS', 'Night vision', 'Thermal', 'Enter cockpit', 'Turn on earthquakes', 'Walking route from Big Ben to the Tower of London',
-  'How many satellites are in view?', "What's this?", 'Show me the launches', 'Zoom out to a globe view',
+  'How many satellites are in view?', "What's this?", 'Show me the launches', 'Zoom out to a globe view', "What's the weather in Paris?", 'How many planes over Texas?',
 ]);
+
+// ---- weather in words (for spoken answers)
+const WMO = { 0: 'clear skies', 1: 'mostly clear', 2: 'partly cloudy', 3: 'overcast', 45: 'fog', 48: 'freezing fog', 51: 'light drizzle', 53: 'drizzle', 55: 'heavy drizzle',
+  56: 'freezing drizzle', 57: 'freezing drizzle', 61: 'light rain', 63: 'rain', 65: 'heavy rain', 66: 'freezing rain', 67: 'freezing rain', 71: 'light snow', 73: 'snow',
+  75: 'heavy snow', 77: 'snow grains', 80: 'rain showers', 81: 'rain showers', 82: 'heavy showers', 85: 'snow showers', 86: 'heavy snow showers', 95: 'thunderstorms',
+  96: 'thunderstorms with hail', 99: 'thunderstorms with hail' };
+/** The sky in a few words: from a WMO weather code if there is one, else from cloud cover (%) and rain (mm/h). */
+export function skyWords({ code, cloud, rain, temp }) {
+  if (Number.isFinite(code) && WMO[code]) return WMO[code];
+  if (Number.isFinite(rain) && rain >= 0.2) return (Number.isFinite(temp) && temp < 0 ? 'snow' : rain >= 4 ? 'heavy rain' : rain >= 1 ? 'rain' : 'light rain');
+  if (!Number.isFinite(cloud)) return '';
+  return cloud >= 85 ? 'overcast' : cloud >= 45 ? 'partly cloudy' : cloud >= 15 ? 'mostly clear' : 'clear skies';
+}
+/** A reading { temp °C, speed m/s, from (deg), cloud %, rain mm/h, code } spoken: "14 degrees Celsius, light rain, wind 18 kilometres
+ *  an hour from the south-west". `imperial`: Fahrenheit and miles an hour (US English). */
+export function weatherSentence(r, imperial = false) {
+  const out = [];
+  if (Number.isFinite(r.temp)) out.push(imperial ? `${Math.round(r.temp * 9 / 5 + 32)} degrees Fahrenheit` : `${Math.round(r.temp)} degrees Celsius`);
+  const sky = skyWords(r); if (sky) out.push(sky);
+  if (Number.isFinite(r.speed)) out.push(r.speed < 0.5 ? 'calm' : `wind ${imperial ? Math.round(r.speed * 2.23694) + ' miles' : Math.round(r.speed * 3.6) + ' kilometres'} an hour from the ${compass(r.from)}`);
+  return out.join(', ');
+}

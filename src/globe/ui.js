@@ -70,7 +70,8 @@ const handler = new C.ScreenSpaceEventHandler(scene.canvas);
 let touchInput = matchMedia('(pointer: coarse)').matches;
 scene.canvas.addEventListener('pointerdown', e => { touchInput = e.pointerType !== 'mouse'; if (touchInput) $('#hover').style.display = 'none'; }, true);
 function pickObj(pos, r = touchInput ? 28 : 3) { const p = scene.pick(pos, r, r), id = p && p.id; return id ? (id.kind ? id : id.sat || id.air || id.obj || null) : null; }   // obj: an entity drawn for something (a storm's cone, a fire's perimeter)
-function tipFor(o) {
+/** The hover tip for anything pickable (voice.js reads it aloud too). */
+export function tipFor(o) {
   if (o.kind === 'sat') return `${o.name} · ${L[o.layer].name.split(' (')[0]}`;
   if (o.kind === 'air') return `${o.flight || o.hex} · ${o.ground ? 'on ground' : fmt((o.alt || 0) / 0.3048) + ' ft'}${o.mil ? ' · military' : ''}`;
   if (o.kind === 'launch') return `🚀 ${o.rocket} · ${o.mission}`;

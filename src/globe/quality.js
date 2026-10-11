@@ -17,14 +17,18 @@ const ORDER = ['high', 'balanced', 'low'];
 export const Quality = {
   chosen: store.get('quality', 'auto'),          // 'auto' or a level id
   level: null, targets: [],
+  idle: 0, idleWhy: '',                           // the battery saver's frame-rate cap (saver.js; 0 = none) and why
   /** Things that follow the level: fn(levelSettings) is called now and on every change. */
   follow(fn) { this.targets.push(fn); if (this.level) fn(LEVELS[this.level]); },
   apply(id) {
     this.level = id; const q = LEVELS[id];
     globe.maximumScreenSpaceError = q.sse;
-    viewer.targetFrameRate = q.fps || undefined;   // 30 fps on low: half the GPU work, cooler phones, steadier frames
+    this.applyFps();   // 30 fps on low: half the GPU work, cooler phones, steadier frames
     for (const fn of this.targets) fn(q);
   },
+  /** The battery saver's cap: frames a second while nothing moves (0 = none). */
+  setIdle(fps, why = '') { this.idle = fps; this.idleWhy = why; this.applyFps(); },
+  applyFps() { const caps = [LEVELS[this.level].fps, this.idle].filter(f => f > 0); viewer.targetFrameRate = caps.length ? Math.min(...caps) : undefined; },
   gpu: rendererName(scene.context._gl),
   get autoLevel() { return PHONE || isSoftwareRenderer(this.gpu) ? 'low' : 'high'; },
   choose(id) { this.chosen = id; store.set('quality', id); this.apply(id === 'auto' ? this.autoLevel : id); },
@@ -38,7 +42,7 @@ if (isSoftwareRenderer(Quality.gpu)) setTimeout(() => toast(SOFTWARE_HINT, 15000
   const startAt = performance.now() + 12e3;        // let the boot and the first tile burst pass
   scene.postRender.addEventListener(() => {
     const t = performance.now();
-    if (document.hidden || t < startAt || Quality.chosen !== 'auto') { last = 0; return; }
+    if (document.hidden || t < startAt || Quality.chosen !== 'auto' || Quality.idle) { last = 0; return; }   // the battery saver's slow frames are not slow hardware
     if (last) times.push(t - last);
     last = t;
     if (!windowStart) windowStart = t;

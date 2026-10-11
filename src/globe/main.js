@@ -54,6 +54,8 @@ import { Fires } from './fires.js';
 import { Imagery } from './imagery.js';
 import { Ships } from './ships.js';
 import { Bikes } from './bikes.js';
+import { Saver } from './saver.js';
+import { Model } from './model.js';
 
 // things on the ground: from look-up mode's eye height they become huge streaks across the sky, so they hide there
 const GROUND = ['companies', 'volcanoes', 'lighthouses', 'launches', 'quakes', 'sun', 'buildings', 'cctv', 'storms', 'radio', 'cams', 'transit', 'traffic', 'fires', 'ships', 'bikes'];
@@ -71,7 +73,7 @@ function applyAll() {
 }
 hooks.applyVisibility = applyVisibility;
 hooks.updateStats = updateStats;
-initDock({ bases: BASES, currentBase, onBase: setBase, quality: { levels: LEVELS, chosen: () => Quality.chosen, current: () => Quality.level, choose: id => Quality.choose(id) } });
+initDock({ bases: BASES, currentBase, onBase: setBase, quality: { levels: LEVELS, chosen: () => Quality.chosen, current: () => Quality.level, choose: id => Quality.choose(id) }, saver: { on: () => Saver.on, set: on => Saver.set(on) } });
 Quality.follow(q => { AirModels.max = q.air; SatModels.max = q.sat; cloudShell.material.uniforms.octaves = q.octaves; });
 
 // before each frame: follow camera, model lighting; before rendering: sun direction, satellite dots, Earth fades
@@ -175,7 +177,7 @@ every(10 * 60e3, () => Quakes.load(), 'Earthquakes');
 every(30 * 60e3, () => Storms.load(), 'Tropical cyclones');
 setInterval(() => Aurora.apply(), 60e3);   // refreshes itself every 10 minutes while the layer is on
 
-window.OO3D = { Ops, Voice, Photoreal, Storms, Directions, Ascent, Director, Surveil, Radio, Cams, Look, Transit, Traffic, Terrain, Fires, Imagery, Ships, Bikes, Conj, LookUp, Eclipses, Tonight, Flight, Snapshot, Search, Launches, Crew,
+window.OO3D = { Ops, Voice, Photoreal, Storms, Directions, Ascent, Director, Surveil, Radio, Cams, Look, Transit, Traffic, Terrain, Fires, Imagery, Ships, Bikes, Saver, Model, Conj, LookUp, Eclipses, Tonight, Flight, Snapshot, Search, Launches, Crew,
   viewer, space: Space, time: Time, Earth, marbleLayer, nightLayer, fxShell, cloudShell, limbShell, Fx, Sats, Air, Quakes, Lighthouses, Weather, Wind, Country, Aurora, Flybys, Companies, Volcanoes, SunLine, Buildings, Share, Tour, setIonToken: t => Buildings.setToken(t), L, PRESETS, moonPosition, SatModels, AirModels, Follow, select, applyVisibility,
   /** debug: the axes test model at lon/lat/height, body X = east, Y = north, Z = up, arrays turned by `deg` */
   debugAxes(lon, lat, h, deg = 0, uri = 'brand/models/test/axes.glb') {

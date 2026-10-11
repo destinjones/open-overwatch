@@ -1,22 +1,36 @@
 // Talk to the globe with no key and no AI service: the browser's own speech recognition hears one sentence,
-// core/voicecmd.js turns it into one action, and the answer is spoken back with the browser's speech synthesis.
+// core/voicecmd.js turns it into one action, and the answer is spoken back with the browser's speech synthesis (the
+// nicest voice it has in your language). Press V or the mic, or hold Space while you speak. "What's this?" means the
+// thing the pointer rests on (or the open card, or the middle of the view); when an answer lists several things, "the
+// second one" opens it. Questions are answered from what the globe already holds: "how many planes over Texas?",
+// "what's the weather in Paris?" (the model at the moment weather mode shows, else Open-Meteo for now).
 // Privacy: recognition is the browser's service (Chrome and Edge send the audio to their makers, Safari to Apple); this
-// site receives nothing. Place names go to Photon (places.js) like a typed search.
+// site receives nothing. Place names go to Photon (places.js) like a typed search; a weather question sends the point
+// it is about to Open-Meteo.
 import { C, $, toast, store, fmt, esc } from './env.js';
-import { camera, camHeight } from './viewer.js';
+import { scene, camera, camHeight } from './viewer.js';
 import { state, hooks } from './state.js';
-import { LAYERS, syncDock } from './layers.js';
+import { L, LAYERS, syncDock } from './layers.js';
 import { Follow } from './follow.js';
 import { Sats, SatModels } from './satellites.js';
 import { Air, AirModels } from './aircraft.js';
 import { Country } from './country.js';
 import { Time } from './time.js';
-import { select, flyToObject, PRESETS } from './ui.js';
+import { select, flyToObject, PRESETS, tipFor } from './ui.js';
 import { ALIAS } from './search.js';
 import { findPlaces, flyToPlace } from './places.js';
 import { Ops } from './ops.js';
 import { Directions, resolvePair } from './directions.js';
-import { parse, EXAMPLES } from '../core/voicecmd.js';
+import { Wind } from './wind.js';
+import { Weather } from './weather.js';
+import { Ships } from './ships.js';
+import { Transit } from './transit.js';
+import { Cams } from './cams.js';
+import { Quakes } from './quakes.js';
+import { parse, EXAMPLES, weatherSentence } from '../core/voicecmd.js';
+import { windFrom } from '../core/gfs.js';
+import { shipTypeName } from '../core/ais.js';
+import { inCountry } from '../core/borders.js';
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const SENSOR_SAY = { normal: 'Normal colour.', nvg: 'Night vision.', flir: 'Thermal, white hot.', flirbh: 'Thermal, black hot.', iron: 'Thermal, ironbow.', crt: 'Old monitor.', noir: 'Noir.' };
@@ -40,14 +54,111 @@ function show(heard, reply, listening = false) {
   bubble.classList.add('show'); clearTimeout(hideTimer);
   if (!listening) hideTimer = setTimeout(() => bubble.classList.remove('show'), 5000);
 }
+// the nicest voice the browser has in the page's language: the neural / online ones first, then the well-known good ones
+let voice = null;
+function pickVoice() {
+  if (!window.speechSynthesis) return null;
+  const lang = (navigator.language || 'en-US').toLowerCase(), base = lang.slice(0, 2);
+  const rank = v => (/natural|neural|online/i.test(v.name) ? 0 : /google|samantha|daniel|serena|aria|jenny|guy|libby|sonia|karen|moira|alex/i.test(v.name) ? 1 : 2) + (v.lang.toLowerCase() === lang ? 0 : 0.5);
+  return speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().replace('_', '-').startsWith(base)).sort((a, b) => rank(a) - rank(b))[0] || null;
+}
+if (window.speechSynthesis) { voice = pickVoice(); speechSynthesis.addEventListener?.('voiceschanged', () => { voice = pickVoice(); }); }
 function say(text, heard) {
-  show(heard, text);
+  show(heard, text); chime('done');
   try {
     if (!window.speechSynthesis || store.get('voiceMute', false)) return;
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text.replace(/·/g, ',')); u.rate = 1.06; u.pitch = 0.92; u.lang = navigator.language || 'en-US';
+    const u = new SpeechSynthesisUtterance(text.replace(/·/g, ',').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu, '')); u.rate = 1.04; u.pitch = 0.95; u.lang = navigator.language || 'en-US';
+    if (voice) u.voice = voice;
     speechSynthesis.speak(u);
   } catch (e) { /* speech output is a nicety */ }
+}
+/** A short sound: rising when it starts listening, falling when an answer comes. */
+let actx = null;
+function chime(kind) {
+  if (store.get('voiceMute', false)) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain(), [f0, f1] = kind === 'start' ? [620, 930] : [880, 620];
+    o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + 0.11);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.17);
+    o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.2);
+  } catch (e) { /* no audio: fine */ }
+}
+
+// ---- what the pointer rests on: "what's this?" (250 ms still, remembered for 30 s)
+let rest = null, restTimer = 0, listed = { items: [], t: 0 };
+scene.canvas.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'mouse') return;
+  clearTimeout(restTimer); const x = e.offsetX, y = e.offsetY;
+  restTimer = setTimeout(() => { rest = { x, y, t: performance.now() }; }, 250);
+}, { passive: true });
+scene.canvas.addEventListener('pointerleave', () => clearTimeout(restTimer));
+/** Everything drawn at a screen point (up to 6, nearest first) and the ground there: { objs, lat, lon } (lat null off the Earth). */
+function at(x, y) {
+  const pos = new C.Cartesian2(x, y), objs = [];
+  for (const p of scene.drillPick(pos, 8, 9, 9)) { const id = p && p.id, o = id ? (id.kind ? id : id.sat || id.air || id.obj || null) : null; if (o && !objs.includes(o)) objs.push(o); }
+  const g = camera.pickEllipsoid(pos, C.Ellipsoid.WGS84), c = g && C.Cartographic.fromCartesian(g);
+  return { objs: objs.slice(0, 6), lat: c ? C.Math.toDegrees(c.latitude) : null, lon: c ? C.Math.toDegrees(c.longitude) : null };
+}
+const pointerSpot = () => rest && performance.now() - rest.t < 30e3 ? at(rest.x, rest.y) : null;
+const centreSpot = () => at(scene.canvas.clientWidth / 2, scene.canvas.clientHeight / 2);
+const sayable = t => String(t || '').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu, '').replace(/\s*·\s*/g, ', ').trim();
+/** One thing, said in a sentence. */
+function describe(o) {
+  if (o.kind === 'sat') { const i = Sats.info(o); return `${o.name}, ${fmt(i.alt)} kilometres up, moving at ${fmt(i.speed)} kilometres an hour.`; }
+  if (o.kind === 'air') return `${nameOf(o)}. ${o.ground ? 'On the ground' : fmt((o.alt || 0) / 0.3048) + ' feet'}${o.type ? ', a ' + o.type : ''}${o.gs ? `, ${fmt(o.gs * 1.94384)} knots` : ''}.`;
+  if (o.kind === 'quake') return `A magnitude ${o.mag.toFixed(1)} earthquake, ${o.place}, ${ago(Date.now() - o.time)}.`;
+  if (o.kind === 'storm') return `${o.title}${o.kt ? `, winds ${fmt(o.kt)} knots` : ''}.`;
+  if (o.kind === 'ship') { const m = o.m || {}; return `${o.label}, ${shipTypeName(m.type).split(' · ')[0].toLowerCase()}${o.sog >= 0.5 ? `, doing ${Math.round(o.sog)} knots` : ''}${m.destination ? `, heading for ${m.destination}` : ''}.`; }
+  if (o.kind === 'cam') return `${o.name}: a ${o.video && /m3u8/.test(o.video) ? 'live video' : 'traffic'} camera. Its card can project it into 3D.`;
+  return sayable(tipFor(o) || nameOf(o) || 'Something') + '.';
+}
+const ago = ms => ms < 3600e3 ? Math.max(1, Math.round(ms / 60e3)) + ' minutes ago' : ms < 172800e3 ? Math.round(ms / 3600e3) + ' hours ago' : Math.round(ms / 864e5) + ' days ago';
+const ordinal = n => ['first', 'second', 'third', 'fourth', 'fifth', 'sixth'][n - 1] || n;
+const IMPERIAL = /^en-(us|lr)$|^my\b/i.test(navigator.language || '');
+/** The weather at a point: the model at the moment weather mode shows, else Open-Meteo for now. */
+async function weatherAt(lat, lon) {
+  if (Weather.on && (Wind.cur || Wind.grid)) {
+    const r = Wind.reading(lat, lon); if (r) { const w = windFrom(r.u, r.v); return { ...r, from: w.from, speed: w.speed, when: Wind.cur ? Weather.frames[Weather.frame] : null }; }
+  }
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 6000);
+  try {
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&current=temperature_2m,wind_speed_10m,wind_direction_10m,cloud_cover,precipitation,weather_code&wind_speed_unit=ms`;
+    const c = (await (await fetch(u, { signal: ctl.signal })).json()).current;
+    return { temp: c.temperature_2m, speed: c.wind_speed_10m, from: c.wind_direction_10m, cloud: c.cloud_cover, rain: c.precipitation, code: c.weather_code, source: 'Open-Meteo' };
+  } finally { clearTimeout(t); }
+}
+async function placeName(lat, lon) {
+  const k = await Country.at(lon, lat).catch(() => null);
+  return k ? k.facts.name : `Open water, ${Math.abs(lat).toFixed(1)} degrees ${lat >= 0 ? 'north' : 'south'}, ${Math.abs(lon).toFixed(1)} ${lon >= 0 ? 'east' : 'west'}`;
+}
+/** Where a spoken place is: a country (its outline) or anything Photon finds (its box, or 50 km round a point). */
+async function area(q) {
+  const name = q.replace(/^the /, ''), c = (await Country.search(name).catch(() => []))[0];
+  if (c && c.name.toLowerCase() === name) { const o = await Country.byIso(c.iso); if (o) return { name: c.name, inside: (lat, lon) => inCountry(o.border, lon, lat), lat: null, lon: null }; }
+  const pl = (await findPlaces(name, 1).catch(() => null) || [])[0];
+  if (!pl) return null;
+  const e = pl.extent && Math.abs(pl.extent[2] - pl.extent[0]) > 0.05 ? pl.extent : null, k = 0.45 / Math.max(0.2, Math.cos(pl.lat * Math.PI / 180));
+  return { name: pl.name + (e ? '' : ' (within about 50 kilometres)'), lat: pl.lat, lon: pl.lon,
+    inside: e ? (lat, lon) => lat <= e[1] && lat >= e[3] && lon >= e[0] && lon <= e[2] : (lat, lon) => Math.abs(lat - pl.lat) <= 0.45 && Math.abs(lon - pl.lon) <= k };
+}
+/** The things of one kind the globe holds now, with where they are: [{ lat, lon }]. */
+function things(what) {
+  const ll = p => { const g = C.Cartographic.fromCartesian(p); return { lat: C.Math.toDegrees(g.latitude), lon: C.Math.toDegrees(g.longitude) }; };
+  if (what === 'sat') return Sats.list.filter(o => o.pt && o.pt.show).map(o => ll(o.pt.position));
+  if (what === 'air' || what === 'mil') return [...Air.map.values()].filter(a => what === 'air' ? !a.mil : a.mil).map(a => ({ lat: a.cur?.lat ?? a.lat, lon: a.cur?.lon ?? a.lon }));
+  if (what === 'quake') return Quakes.list;
+  if (what === 'ship') return [...Ships.ships.values()].map(s => s.at);
+  if (what === 'transit') return [...Transit.vehicles.values()];
+  if (what === 'cam') return Cams.list;
+  return ['sat', 'air', 'mil', 'quake', 'ship', 'transit'].flatMap(things);
+}
+const WORD = { sat: 'satellites', air: 'aircraft', mil: 'military aircraft', quake: 'earthquakes', ship: 'ships', transit: 'transit vehicles', cam: 'cameras', all: 'tracked things' };
+/** List several things aloud, numbered, and remember them for "the second one". */
+function listOut(objs, heard, lead) {
+  listed = { items: objs, t: performance.now() };
+  return say(`${lead} ${objs.map((o, i) => `${ordinal(i + 1)}, ${sayable(tipFor(o) || nameOf(o)).split(', ')[0]}`).join('; ')}. Say "the second one" to open it.`, heard);
 }
 
 // ---- finding things
@@ -98,19 +209,49 @@ async function run(cmd, heard) {
     case 'pause': Time.setRate(0); return say('Time paused.', heard);
     case 'faster': { const r = Time.live ? 60 : Time.rate >= 600 ? 3600 : Time.rate >= 60 ? 600 : 60; Time.setRate(r); return say(r >= 3600 ? 'One hour a second.' : r >= 600 ? 'Ten minutes a second.' : 'One minute a second.', heard); }
     case 'count': {
-      const n = Ops.countInView(cmd.what), word = { sat: 'satellites', air: 'aircraft', mil: 'military aircraft', quake: 'earthquakes', all: 'tracked objects' }[cmd.what];
+      const word = WORD[cmd.what] || WORD.all;
       if ((cmd.what === 'air' || cmd.what === 'mil') && !Air.map.size) return say('No aircraft loaded. Live aircraft need the download version.', heard);
-      return say(`${fmt(n)} ${n === 1 ? word.replace(/s$/, '') : word} in view.`, heard);
+      if (!cmd.place) {
+        if (['sat', 'air', 'mil', 'quake', 'all'].includes(cmd.what)) { const n = Ops.countInView(cmd.what); return say(`${fmt(n)} ${n === 1 ? word.replace(/s$/, '') : word} in view.`, heard); }
+        const n = things(cmd.what).length; return say(`${fmt(n)} ${word} loaded right now.`, heard);
+      }
+      const where = await area(cmd.place);
+      if (!where) return say(`I couldn't find ${cmd.place}.`, heard);
+      const all = things(cmd.what), n = all.filter(o => Number.isFinite(o.lat) && where.inside(o.lat, o.lon)).length;
+      const off = cmd.what === 'ship' && !L.ships.on ? ' The ships layer is off: turn on ships first.' : cmd.what === 'transit' && !L.transit.on ? ' Live transit is off: turn it on first.' : cmd.what === 'cam' && !L.cams.on ? ' Cameras are off: turn them on first.' : '';
+      return say(`${fmt(n)} ${n === 1 ? word.replace(/s$/, '') : word} ${cmd.what === 'sat' ? 'over' : 'in'} ${where.name} right now.${off}`, heard);
     }
     case 'what': {
       const o = Follow.obj || ($('#card').classList.contains('show') ? state.selected : null);   // an open card is what you're asking about
-      if (o && o.kind === 'sat') { const i = Sats.info(o); return say(`${o.name}. ${fmt(i.alt)} kilometres up, moving at ${fmt(i.speed)} kilometres an hour.`, heard); }
-      if (o && o.kind === 'air') return say(`${nameOf(o)}. ${o.ground ? 'On the ground' : fmt((o.alt || 0) / 0.3048) + ' feet'}${o.type ? ', a ' + o.type : ''}.`, heard);
-      const W = innerWidth, H = innerHeight, p = camera.pickEllipsoid(new C.Cartesian2(W / 2, H / 2), C.Ellipsoid.WGS84);
-      if (!p) return say(`You're in space, ${fmt(camHeight() / 1000)} kilometres from Earth.`, heard);
-      const g = C.Cartographic.fromCartesian(p), lon = C.Math.toDegrees(g.longitude), lat = C.Math.toDegrees(g.latitude);
-      const k = await Country.at(lon, lat).catch(() => null), h = camHeight(), up = h > 1e5 ? fmt(h / 1000) + ' kilometres up' : fmt(h) + ' metres up';
-      return say(k ? `${k.facts.name}, from ${up}.` : `Open water, ${Math.abs(lat).toFixed(1)} degrees ${lat >= 0 ? 'north' : 'south'}, ${Math.abs(lon).toFixed(1)} ${lon >= 0 ? 'east' : 'west'}.`, heard);
+      if (o) return say(describe(o), heard);
+      const spot = pointerSpot() || centreSpot();
+      if (spot.objs.length === 1) { select(spot.objs[0]); return say(describe(spot.objs[0]), heard); }
+      if (spot.objs.length > 1) return listOut(spot.objs, heard, `${spot.objs.length} things there:`);
+      if (spot.lat == null) return say(`You're in space, ${fmt(camHeight() / 1000)} kilometres from Earth.`, heard);
+      const h = camHeight(), up = h > 1e5 ? fmt(h / 1000) + ' kilometres up' : fmt(h) + ' metres up', name = await placeName(spot.lat, spot.lon);
+      const r = Weather.on ? await weatherAt(spot.lat, spot.lon).catch(() => null) : null;
+      return say(`${name}${r ? '. ' + weatherSentence(r, IMPERIAL) : ', from ' + up}.`, heard);
+    }
+    case 'pick': {
+      if (!listed.items.length || performance.now() - listed.t > 120e3) return say('Ask "what\'s this?" over a few things first.', heard);
+      const o = listed.items[cmd.n - 1]; if (!o) return say(`There were only ${listed.items.length}.`, heard);
+      select(o); flyToObject(o); return say(describe(o), heard);
+    }
+    case 'weather': {
+      let lat, lon, name;
+      if (cmd.place) {
+        const pl = (await findPlaces(cmd.place, 1).catch(() => null) || [])[0];
+        if (!pl) return say(`I couldn't find ${cmd.place}.`, heard);
+        ({ lat, lon } = pl); name = pl.name;
+      } else {
+        const spot = pointerSpot() || centreSpot();
+        if (spot.lat == null) return say('Point at a place on the Earth first.', heard);
+        ({ lat, lon } = spot); name = await placeName(lat, lon);
+      }
+      const r = await weatherAt(lat, lon).catch(() => null);
+      if (!r) return say('The weather service is not answering right now.', heard);
+      const when = r.when && r.when.fcst ? ` (forecast for ${new Date(r.when.t).toLocaleString([], { weekday: 'long', hour: 'numeric' })})` : '';
+      return say(`${name}${when}: ${weatherSentence(r, IMPERIAL)}.`, heard);
     }
     case 'view': { const b = document.querySelector(`#band [data-go="${cmd.go}"]`); if (b) b.click(); else if (PRESETS[cmd.go]) PRESETS[cmd.go](); return say(b ? b.textContent.replace(/[⌕▶↗]/g, '').trim() + '.' : 'Opening.', heard); }
     case 'layer': {
@@ -170,8 +311,20 @@ function listen() {
     else if (e.error !== 'aborted') show('', 'Voice error: ' + e.error);
   };
   rec.onend = () => { listening = false; $('#opsMic')?.classList.remove('live'); if (!done && bubble.querySelector('.vb-mic.on')) bubble.classList.remove('show'); };
-  try { rec.start(); listening = true; $('#opsMic')?.classList.add('live'); show('', '', true); } catch (e) { toast('Voice could not start: ' + e.message); }
+  try { rec.start(); listening = true; $('#opsMic')?.classList.add('live'); show('', '', true); chime('start'); } catch (e) { toast('Voice could not start: ' + e.message); }
 }
+// push to talk: hold Space (not in a text box or on a button) for 0.4 s, speak, let go
+let pttTimer = 0, ptt = false;
+addEventListener('keydown', e => {
+  if (e.code !== 'Space' || e.repeat || e.ctrlKey || e.metaKey || e.altKey || /input|textarea|select|button/i.test(e.target.tagName) || e.target.isContentEditable) return;
+  e.preventDefault(); clearTimeout(pttTimer);
+  pttTimer = setTimeout(() => { ptt = true; if (!listening) listen(); }, 400);
+}, true);
+addEventListener('keyup', e => {
+  if (e.code !== 'Space') return;
+  clearTimeout(pttTimer);
+  if (ptt) { ptt = false; if (listening && rec) rec.stop(); }   // let go: that was the sentence
+}, true);
 Ops.onVoice = listen;
 if (!SR) $('#opsMic')?.setAttribute('title', 'Voice needs Chrome, Edge or Safari');
 

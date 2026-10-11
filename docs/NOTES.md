@@ -166,6 +166,21 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   position is eased in (tau = distance / 300 m/s, 0.8-6 s; not over 50 km), heading too. Geometric altitude (OpenSky
   `geo_altitude`, readsb `alt_geom`) is used as an ellipsoid height when present.
 
+## Weather timeline, battery saver, voice (weather.js, wind.js, model.js, saver.js, voice.js) — 2026-10-11
+- GFS straight from the browser: `noaa-gfs-bdp-pds` on S3 sends CORS * and allows the `Range` header (preflight answers
+  `range`), and its 404s carry CORS too. Each forecast hour's `.idx` (~40 KB) gives byte offsets; U and V 10 m are
+  neighbours, so one range fetches both (158 KB). No build step was needed (the study had planned a GitHub Action).
+- NCEP packs every field we use with GRIB2 template 5.3 (complex packing, second-order spatial differencing, 13-ish
+  bits, no bitmap). core/grib2.js matched eccodes (pip `eccodes`, a dev check only) to 9e-7 on all five fields;
+  test/grib2.test.mjs carries its own small encoder instead of a data file.
+- The run to read: newest first from 3.5 h after the run starts, accepted once the last hour we show (f120, f072 on
+  phones) exists. A newer run replaces it every 6 h (checked every 20 min while weather is open).
+- Weather mode sets the globe's clock (paused at the moment; live again on the newest observed frame or on close), and
+  follows `Time.onChange` and a running clock: watch `selfClock` / `following` so the two don't chase each other.
+- The battery saver uses Cesium's `targetFrameRate` (cheap idle RAF ticks), not `requestRenderMode`: every per-frame
+  updater keeps working, just less often. The quality auto step-down must ignore those slow frames (it did not at first).
+- Push-to-talk ignores Space on buttons (a focused chip would also be clicked) and in text fields.
+
 ## More live feeds (ships.js, bikes.js, transit GTFS-RT, cams live video) — 2026-10-11
 - A Primitive's geometry is baked into world coordinates (and projected for 2D) unless the viewer is `scene3DOnly`, which
   ours isn't: a unit quad in model space crashes `projectTo2D` (points near the Earth's centre). Ship hulls and wakes are

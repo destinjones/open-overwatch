@@ -165,8 +165,15 @@ Round 2 (2026-10-10, local):
       from Hong Kong, Singapore, Calgary and DriveBC: 12 networks (Austin, NSW, TxDOT, Tallinn left out: see DATA_SOURCES)
 - [x] Bike share worldwide (CityBikes, ~800 systems; core/bikes.js tested), Austin + Minneapolis transit (GTFS-RT,
       core/gtfsrt.js tested), Baltic ships (Digitraffic AIS: arrows far out, true-size hulls with wakes close in; core/ais.js tested)
-- [ ] Wind through forecast time (GFS + ECMWF grids built by the GitHub Action), one weather timeline, a render governor
-- [ ] Voice: spoken replies, "what's this?", push-to-talk; draw and measure; an MCP package that opens our URL
+- [x] One weather timeline: the last 2.5 h observed (satellites, radar) then NOAA GFS every 3 h to +5 days (wind,
+      temperature, cloud, rain), read in the browser by byte range (core/grib2.js + core/gfs.js tested; no build step,
+      no ECMWF yet); the globe's clock follows the slider and the slider follows the clock
+- [x] Battery saver: 5-15 frames a second while nothing moves (96% fewer frames idle in high orbit), full speed on any
+      input, motion, tiles loading, fast time, following, close-up traffic (src/globe/saver.js)
+- [x] Voice: "what's this?" about what the pointer rests on, numbered answers ("the second one"), weather at a place
+      ("is it raining in London?"), counting over a place ("how many planes over Texas?"), hold Space to talk, the
+      best voice the browser has, a short sound for listening and answers (core/voicecmd.js tested)
+- [ ] Draw and measure; an MCP package that opens our URL
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 
