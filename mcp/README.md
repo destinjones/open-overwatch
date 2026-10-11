@@ -1,0 +1,78 @@
+# Open Overwatch for Claude (MCP)
+
+Ask Claude about the live Earth and get answers from public open data: earthquakes, where the ISS is and when you can
+see it, rocket launches, who is in space, asteroid flybys, hurricanes, wildfires and eruptions, ships in the Baltic,
+bike share, the weather, the aurora and tonight's sky. Every answer carries a link that opens
+[Open Overwatch](https://destinjones.github.io/open-overwatch/)'s live 3D globe on it, and in Claude Desktop (and other
+apps that show MCP Apps) the globe appears right in the conversation and moves to each new answer.
+
+No account, no API keys, no local web server. It is a small Model Context Protocol server that runs on your computer
+(over stdio) and reads the same public feeds the website does.
+
+> "Any big earthquakes today? Show me the strongest." · "When can I see the ISS from Chicago this week?" ·
+> "What's in the sky tonight over Austin?" · "Follow the ISS on the globe." · "Is there a hurricane near Mexico?" ·
+> "Will I see the aurora in Minneapolis tonight?" · "Ships near Helsinki" · "Free bikes near the Eiffel Tower"
+
+## Install
+
+**Claude Desktop (one click).** Download `open-overwatch.mcpb` from the
+[latest release](https://github.com/destinjones/open-overwatch/releases/latest) and open it (or Settings → Extensions →
+Install Extension). Claude Desktop runs it with its own Node.js.
+
+**Claude Code, from this repository.** Needs Node.js 20 or newer.
+
+```bash
+git clone https://github.com/destinjones/open-overwatch.git
+cd open-overwatch && npm install
+claude mcp add open-overwatch -- node "$PWD/mcp/server.mjs"
+```
+
+**Any other MCP client** (Claude Desktop by hand, Codex, VS Code, Cursor…): run `node /path/to/open-overwatch/mcp/server.mjs`
+over stdio, with an absolute path. For Claude Desktop, Settings → Developer → Edit Config:
+
+```json
+{ "mcpServers": { "open-overwatch": { "command": "node", "args": ["/path/to/open-overwatch/mcp/server.mjs"] } } }
+```
+
+Once it is on npm, `npx -y open-overwatch-mcp` will work anywhere a command is asked for, with no clone.
+
+## Tools
+
+| Tool | Answers from | What you get |
+|---|---|---|
+| `show_on_globe` | (the globe itself) | the live 3D globe on a view: a place or point, a tilt, layers on or off, weather, a moment and clock speed, a satellite to follow, a flight to look for, a country's card, a camera look. Pass another answer's `url` to show exactly that |
+| `earthquakes` | USGS | the last hour, day, week or month, worldwide or in an area, strongest or latest first, with tsunami flags and PAGER alerts |
+| `where_is_satellite` | CelesTrak element sets (the website's copy), SGP4 | where a satellite is now: the point below it, height, speed, orbit, sunlit or not. Its link follows it |
+| `satellite_passes` | the same | when it passes over a place in the next days, in that place's time zone, and which passes you can see |
+| `launches` | Launch Library 2 (the website's copy) | upcoming launches, with how sure the time is, status, weather odds and webcasts |
+| `people_in_space` | Launch Library 2 (the website's copy) | who is up, on the ISS and Tiangong |
+| `asteroid_flybys` | NASA/JPL CNEOS (the website's copy) | close approaches in lunar distances, speed and rough size |
+| `tropical_storms` | NOAA NHC, GDACS | every active cyclone: class, wind, pressure, movement, alert level |
+| `natural_events` | NASA EONET | open wildfires, eruptions, storms, floods, icebergs, dust and more |
+| `ships_baltic` | Fintraffic Digitraffic AIS | ships near a place in the northern Baltic (Finland's coastal network): type, status, speed, destination |
+| `bike_share` | CityBikes | the nearest stations with bikes, e-bikes and free docks, worldwide |
+| `weather` | Open-Meteo | now and up to 7 days, metric or imperial, in the place's time zone |
+| `aurora` | NOAA SWPC | Kp now and for 3 days, and the chance of aurora overhead or on the horizon at a place |
+| `night_sky` | the website's own sky maths, Open-Meteo, NOAA SWPC | when it's dark, the planets, the Moon, meteor showers, bright passes, the aurora chance and the clouds |
+
+Place names are looked up with Photon (komoot), a free geocoder over OpenStreetMap; you can give `lat`/`lon` instead.
+
+## Privacy
+
+Nothing is stored and nothing is sent to this project: the server runs on your computer and asks the public sources
+directly. What each one sees is your IP address and what the question needs: place names go to Photon, coordinates to
+Open-Meteo (weather, time zones), Fintraffic (ships) and CityBikes (stations near a point), and the other tools fetch
+whole public feeds (USGS, NOAA, NASA, the website's data copies on GitHub Pages) without anything about you. The globe in
+the chat is the public website, loaded by your Claude app, under the same privacy notice as the website. Each source's
+own policy and licence applies; see [docs/DATA_SOURCES.md](../docs/DATA_SOURCES.md).
+
+## For developers
+
+- `node mcp/server.mjs --site http://localhost:8787/` points links (and the globe panel) at a local copy of the site.
+- `node --test` runs `test/mcp.test.mjs` with every source canned, and a stdio round trip.
+- No SDK: the protocol is in `mcp/protocol.mjs`; one dependency, `satellite.js` (the SGP4 library the website loads).
+- The globe panel (`mcp/panel.mjs`) is an MCP Apps view (`ui://open-overwatch/globe`, spec 2026-01-26): it frames the
+  website in embed mode and moves it by changing only the link's hash, so the globe flies instead of reloading. Hosts
+  allow the frame because the resource names the site's origin in `_meta.ui.csp.frameDomains`.
+- It never asks CelesTrak (which blocks networks that download often): element sets come from the website's copy,
+  refreshed every 6 hours.

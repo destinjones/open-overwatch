@@ -10,6 +10,7 @@ open-overwatch.html   2D map (Leaflet)            -> src/map/
 globe.html            3D Earth (CesiumJS)         -> src/globe/
 solar.html            Solar System -> Local Group -> cosmic web (three.js) -> src/solar/
 src/core/             shared, DOM-free, tested: time, frames, orbits, data formats
+mcp/                  the MCP server (Node, stdio): tools over the same open data, links into the globe, the chat panel
 test/                 node --test, fixtures from JPL Horizons
 data/solar/           pre-built binary/JSON data (scripts in brand/tools/)
 brand/                textures, models, promo assets and the scripts that make them

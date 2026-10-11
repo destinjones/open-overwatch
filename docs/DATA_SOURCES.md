@@ -119,3 +119,13 @@ liveness review.
 | Traffic: the roads (globe) | [OpenFreeMap](https://openfreemap.org) vector tiles (OpenMapTiles schema), z14 `transportation` + `transportation_name` | the tiles around the view (at most 9; 4 on phones) below 6 km; the TileJSON at `tiles.openfreemap.org/planet` names this week's set | public CDN, no key, versioned URLs the browser keeps; © OpenMapTiles, data © OpenStreetMap contributors. The cars on them are simulated (`src/core/traffic.js`): no open feed gives individual cars |
 | Traffic: measured speeds, New York | [NYC DOT Traffic Speeds](https://data.cityofnewyork.us/Transportation/DOT-Traffic-Speeds-NBE/i4gi-tjb9) (Socrata `i4gi-tjb9`, keyless, CORS) | the latest 600 rows every 5 min while the view is over New York City | ~150 links on highways and arterials; the city publishes them ~2.5-3 h late (shown with their age; used up to 4 h old); speed 0 = no reading |
 | Traffic: measured speeds and counts, Finland | [Fintraffic TMS](https://www.digitraffic.fi/en/road-traffic/) (`tie.digitraffic.fi/api/tms/v1`, keyless, CORS) | the sensor list once a day, then the 12 sensors nearest the view every 2 min (`Digitraffic-User` header) | 5-min sliding average speed and vehicles/h per direction; direction 1 travels along the station's `bearing`; CC BY 4.0 |
+
+## The MCP server (mcp/, runs on the user's computer)
+
+| What | Source | How | Notes |
+|---|---|---|---|
+| Everything it answers | the sources above: USGS, NOAA NHC, GDACS, NASA EONET, NOAA SWPC (Kp, OVATION), Fintraffic Digitraffic AIS, CityBikes, Open-Meteo | Node's fetch, no relay (servers need no CORS), a `User-Agent` naming the project; answers kept in memory for as long as each source changes, the last good one reused for a day if a source fails | each source's licence as above; only what a question needs is sent (a place's coordinates, or nothing) |
+| Satellites, launches, crew, flybys | the website's copies: `data/tle/*.txt`, `data/launches.json`, `data/astronauts.json`, `data/flybys.json` | from GitHub Pages | never CelesTrak or Launch Library directly (both limit or block heavy users) |
+| Place names | [Photon](https://photon.komoot.io) (komoot) | `api/?q=…&limit=1&lang=en`, kept 7 days | © OpenStreetMap contributors (ODbL) |
+| Time zones | Open-Meteo `timezone=auto` | the place's IANA zone, for local times | CC BY 4.0 |
+| The globe in the chat | the website itself (`globe.html#embed=1&…`), framed by an MCP Apps view | the host loads it; the server never fetches it | the site's own privacy notice applies |

@@ -1,5 +1,6 @@
 # local / generated
 .claude/
+node_modules/
 __pycache__/
 *.pyc
 *.log

@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "open-overwatch",
+  "display_name": "Open Overwatch",
+  "version": "0.1.0",
+  "description": "The live Earth for Claude: earthquakes, satellites and when to see them, launches, storms, ships, weather, the aurora and tonight's sky, with the 3D globe in the chat.",
+  "long_description": "Ask about the live Earth and get answers from public open data (USGS, NOAA, NASA, Launch Library 2, CelesTrak element sets via the Open Overwatch website, Fintraffic AIS, CityBikes, Open-Meteo). Every answer carries a link that opens Open Overwatch's live 3D globe on it, and show_on_globe puts that globe right in the conversation. No account, no API keys, nothing stored.",
+  "author": { "name": "Destin Jones", "url": "https://github.com/destinjones" },
+  "repository": { "type": "git", "url": "https://github.com/destinjones/open-overwatch" },
+  "homepage": "https://destinjones.github.io/open-overwatch/",
+  "documentation": "https://github.com/destinjones/open-overwatch/blob/main/mcp/README.md",
+  "support": "https://github.com/destinjones/open-overwatch/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "mcp/server.mjs",
+    "mcp_config": { "command": "node", "args": ["${__dirname}/mcp/server.mjs"] }
+  },
+  "tools": [
+    { "name": "show_on_globe", "description": "Open the live 3D globe on a view (in the chat where the app supports it): a place, layers, weather, a time, a satellite to follow." },
+    { "name": "earthquakes", "description": "Recent earthquakes worldwide or in an area (USGS), strongest or latest first." },
+    { "name": "where_is_satellite", "description": "Where a satellite or space station is right now (default the ISS)." },
+    { "name": "satellite_passes", "description": "When a satellite passes over a place, and which passes you can see." },
+    { "name": "launches", "description": "Upcoming rocket launches worldwide (Launch Library 2)." },
+    { "name": "people_in_space", "description": "Everyone in space right now, by station." },
+    { "name": "asteroid_flybys", "description": "Asteroids passing close to Earth in the coming weeks (NASA/JPL)." },
+    { "name": "tropical_storms", "description": "Active hurricanes, typhoons and cyclones (NOAA NHC, GDACS)." },
+    { "name": "natural_events", "description": "Open wildfires, eruptions, storms, floods, icebergs and more (NASA EONET)." },
+    { "name": "ships_baltic", "description": "Live ships near a place in the northern Baltic (Fintraffic AIS)." },
+    { "name": "bike_share", "description": "Live bike share stations near a place, worldwide (CityBikes)." },
+    { "name": "weather", "description": "Weather now and for the next days at a place (Open-Meteo)." },
+    { "name": "aurora", "description": "Kp now and ahead, and the chance of aurora at a place (NOAA SWPC)." },
+    { "name": "night_sky", "description": "Tonight's sky at a place: planets, Moon, meteor showers, bright passes, clouds." }
+  ],
+  "keywords": ["globe", "earth", "satellites", "earthquakes", "launches", "weather", "aurora", "open data", "maps"],
+  "license": "MIT",
+  "compatibility": { "runtimes": { "node": ">=20.0.0" } },
+  "privacy_policies": ["https://github.com/destinjones/open-overwatch/blob/main/mcp/README.md#privacy"]
+}

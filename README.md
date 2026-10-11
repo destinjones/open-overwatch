@@ -23,6 +23,9 @@ no build step.
 - **Light is slow at this scale.** A "ghost" shows where Earth actually sees Jupiter (49 light-minutes ago), and our
   radio bubble (everything broadcast since 1920) lights up the stars it has reached.
 - **2D ops map:** aircraft, military flights, ships, quakes, storms, radar, cameras and news on one dark map.
+- **Ask Claude about it.** The MCP server in [`mcp/`](mcp/README.md) answers questions about earthquakes, satellites and
+  their passes, launches, storms, ships, weather, the aurora and tonight's sky from the same open data, each answer with
+  a link into the globe; in Claude Desktop the live globe appears in the chat. No account, no keys.
 
 ## How it's built
 ```mermaid
@@ -72,13 +75,15 @@ Measured with `brand/tools/perf.mjs`, `zoomtest.mjs` and `mobile_journey.mjs`; d
 - **Locally:** `node serve.js` (or `python3 serve.py`), then open http://127.0.0.1:8787/.
   - The helper relays the few feeds that send no CORS headers. That adds live civil aircraft in the 2D map.
   - Windows: `Start Open Overwatch.bat`.
-- **Tests:** `node --test`. That runs 43 tests against JPL Horizons fixtures and textbook identities, with no
-  dependencies. CI also checks every module's syntax and every page's links.
+- **Tests:** `npm install` once (the MCP server's one dependency), then `node --test`: over 200 tests, from JPL Horizons
+  fixtures and textbook identities to every MCP tool against canned feeds. CI also checks every module's syntax and every
+  page's links.
 
 | Path | What |
 |---|---|
 | `src/core/` | the maths, DOM-free and unit-tested |
 | `src/globe/`, `src/solar/`, `src/map/` | the three views |
+| `mcp/` | the MCP server for Claude and other AI apps ([setup](mcp/README.md)) |
 | `brand/tools/` | data builders (Python), performance and capture tools (Node, headless Chromium over CDP), Blender scripts |
 | `docs/` | [architecture](docs/ARCHITECTURE.md), [data sources and licences](docs/DATA_SOURCES.md), [performance](docs/PERFORMANCE.md), notes |
 

@@ -42,3 +42,15 @@ test('a drawing rides along, and only a good one', () => {
   assert.deepEqual(decodeView('#c=10,20,3000&d=pAA.pAAAA.oXX.ofr').drawing, [{ kind: 'pin', coords: [[0, 0]] }, { kind: 'outline', iso: 'XX' }], 'what checks out is kept (a two-point pin is not)');
   assert.equal(new URLSearchParams(encodeView({ lon: 0, lat: 0, height: 1, heading: 0, pitch: 0, drawing: [{ kind: 'line', coords: [[1, 1]] }] })).has('d'), false);
 });
+
+test('links made elsewhere switch layers on or off and leave the rest; a satellite to follow', () => {
+  const v = { lon: 24.95, lat: 60.17, height: 30000, heading: 0, pitch: -50, add: ['ships', 'terrain'], drop: ['starlink'], sat: '25544' };
+  const back = decodeView('#' + encodeView(v));
+  assert.deepEqual([back.add, back.drop, back.sat, back.layers], [['ships', 'terrain'], ['starlink'], '25544', null]);
+  const plain = decodeView('#c=1,2,3000');
+  assert.equal('add' in plain || 'drop' in plain || 'sat' in plain, false, 'older links decode as before');
+  const bad = decodeView('#c=1,2,3000&a=ships,<b>&x=' + 'y'.repeat(30) + '&s=ISS');
+  assert.deepEqual(bad.add, ['ships']); assert.deepEqual(bad.drop, []); assert.equal('sat' in bad, false);
+  assert.equal(new URLSearchParams(encodeView({ ...v, sat: '25544; drop' })).has('s'), false);
+  assert.equal(decodeView('#c=1,2,3000&s=0025544').sat, '25544');
+});

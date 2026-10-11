@@ -2,6 +2,8 @@
 // weather sources and country. Everything lives in the URL hash (nothing is stored on a server):
 //   #c=lon,lat,height,heading,pitch  &l=ids,of,layers,on  &w=ir,wind  &t=julianDate,rate  &k=ISO2  &f=CALLSIGN  &d=drawing
 // and #go=tonight (a panel that needs no camera, e.g. from the landing page). The drawing (measure.js) goes in as its points.
+// Links made elsewhere (the MCP server) add &a= / &x= (layers on / off) and &s= (a satellite to follow). A new hash in an
+// open page is applied again, flying there (main.js): the MCP panel moves its framed globe that way, without reloading it.
 import { C, $, toast } from './env.js';
 import { camera, camHeight } from './viewer.js';
 import { LAYERS, syncDock } from './layers.js';
@@ -9,7 +11,9 @@ import { Time } from './time.js';
 import { hooks, state } from './state.js';
 import { Weather } from './weather.js';
 import { Country } from './country.js';
-import { select, PRESETS } from './ui.js';
+import { select, PRESETS, flyToObject } from './ui.js';
+import { release } from './follow.js';
+import { Sats, SatModels } from './satellites.js';
 import { Flight } from './flight.js';
 import { Launches } from './launches.js';
 import { Eclipses } from './eclipses.js';
@@ -41,8 +45,10 @@ export const Share = {
     try { await navigator.clipboard.writeText(url); toast(said, n ? 4000 : 3000); }
     catch (e) { window.prompt('Copy this link:', url); }
   },
-  /** Apply a link's hash (called once, after the boot screen is gone). Returns true if there was one. */
-  async restore() {
+  /** Apply a link's hash: after the boot screen is gone, and again (fly: true) whenever the hash changes. True if there was one. */
+  booted: false,
+  async restore({ fly = false } = {}) {
+    this.booted = true;
     const v = decodeView(location.hash), x = decodeExtras(location.hash);
     if (!v) {
       if (x.go === 'launches' && x.id) Launches.openList(x.id);   // tonight.html hands over one launch or eclipse
@@ -50,14 +56,29 @@ export const Share = {
       else if (x.go) { const b = document.querySelector(`#band [data-go="${x.go}"]`); if (b) b.click(); else PRESETS[x.go](); }
       if (x.flight) Flight.find(x.flight); return !!(x.go || x.flight);
     }
+    if (fly) {   // a view replacing another: what this link doesn't name goes back to how a fresh page starts
+      release();
+      if (!v.time && !Time.live) Time.goLive();
+      if (!v.weather && Weather.on) Weather.close();
+      if (!v.country && state.selected && state.selected.kind === 'country') hooks.closeCard?.();
+      if (!v.ops) hooks.applyOps?.({ sensor: 'normal', hud: false, detect: false });
+    }
     if (v.layers) { const on = new Set(v.layers); for (const l of LAYERS) l.on = on.has(l.id); syncDock(); hooks.applyVisibility(); }
+    if (v.add || v.drop) { for (const l of LAYERS) { if (v.add?.includes(l.id)) l.on = true; if (v.drop?.includes(l.id)) l.on = false; } syncDock(); hooks.applyVisibility(); }
     if (v.time) Time.setJd(v.time.jd, v.time.rate);
     if (v.ops) hooks.applyOps?.(v.ops);
-    camera.setView({ destination: C.Cartesian3.fromDegrees(v.lon, v.lat, Math.max(150, v.height)), orientation: { heading: C.Math.toRadians(v.heading), pitch: C.Math.toRadians(v.pitch), roll: 0 } });
+    const to = { destination: C.Cartesian3.fromDegrees(v.lon, v.lat, Math.max(150, v.height)), orientation: { heading: C.Math.toRadians(v.heading), pitch: C.Math.toRadians(v.pitch), roll: 0 } };
+    if (fly && !v.weather) camera.flyTo({ ...to, duration: 2.5 }); else camera.setView(to);   // weather opens on the whole Earth itself
+    if (v.sat) this.follow(v.sat);
     if (v.drawing) hooks.applyDraw?.(v.drawing, { card: !v.country && !v.flight });   // its shapes are built at once (outlines once the borders load)
     if (v.weather) { for (const [k, s] of Object.entries(Weather.sets)) s.on = v.weather.includes(k); await Weather.open(); Weather.build(); Weather.show(); }
     if (v.country) { const o = await Country.byIso(v.country).catch(() => null); if (o) select(o); }
     if (v.flight) Flight.find(v.flight);
     return true;
+  },
+  /** Select a satellite by NORAD number once they have loaded, and follow it (fly to it when it has no 3D model). */
+  async follow(id) {
+    await Sats.ready; const o = Sats.byId.get(String(id)); if (!o) return;
+    select(o); if (SatModels.classify(o)) SatModels.follow(o); else flyToObject(o);
   },
 };

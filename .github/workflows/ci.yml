@@ -1,4 +1,5 @@
-# Tests and syntax checks on every push and pull request. No dependencies: Node's own test runner and parser.
+# Tests and syntax checks on every push and pull request: Node's own test runner and parser, plus the one npm dependency
+# (satellite.js, the SGP4 library the MCP server's satellite tools use; the website loads the same version from a CDN).
 name: CI
 on:
   push:
@@ -13,12 +14,14 @@ jobs:
           node-version: 22
       - name: Syntax check every module and tool
         run: |
-          for f in src/*/*.js brand/tools/*.mjs serve.js; do node --check "$f" || exit 1; done
+          for f in src/*/*.js brand/tools/*.mjs mcp/*.mjs serve.js; do node --check "$f" || exit 1; done
           python3 -m py_compile serve.py .github/build_site.py brand/tools/*.py
       - name: Every module a page loads exists
         run: |
           for page in open-overwatch.html globe.html solar.html tonight.html; do
             grep -o 'src="src/[^"]*"' "$page" | sed 's/src="//; s/"$//' | while read -r f; do test -f "$f" || { echo "$page -> missing $f"; exit 1; }; done
           done
-      - name: Tests (orbital maths against JPL Horizons, TLE source, geodesy)
+      - name: Install the MCP server's dependency
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Tests (orbital maths against JPL Horizons, TLE source, geodesy, the MCP server)
         run: node --test

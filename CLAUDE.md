@@ -22,4 +22,5 @@ section you need.
 ## Running
 Preview config `open-overwatch` (.claude/launch.json) serves the folder on http://localhost:8787 (serve.js).
 Pages: /open-overwatch.html ("Enter silent" skips audio), /globe.html, /solar.html. Console handles: `window.OW`,
-`window.OO3D`, `window.OOSS`.
+`window.OO3D`, `window.OOSS`. MCP server: `node mcp/server.mjs` (stdio; `npm install` once for satellite.js; `--site
+http://localhost:8787/` links to the local copy); see mcp/README.md.

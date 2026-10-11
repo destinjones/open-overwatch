@@ -268,3 +268,32 @@ the published site, Workers Cache in front (works on the free plan: `CF-Cache-St
 The ADS-B networks and OpenSky refuse Cloudflare's servers (adsb.lol 429, airplanes.live / adsb.fi / adsb.one 403,
 OpenSky timeout), so they are not relayed; don't disguise the relay to get past that. adsb.lol's API terms say a key
 (given to feeders) is coming: with the owners' agreement, add the host back to TTL and PUBLIC_RELAY_HOSTS.
+
+## MCP server (mcp/) — 2026-10-11
+- Layout: `server.mjs` (CLI, stdio) → `index.mjs` (assembly) → `protocol.mjs` (JSON-RPC by hand: initialize with version
+  negotiation 2025-11-25 … 2024-11-05, tools, resources, cancellation, schema checks with gentle coercion) + `tools.mjs`
+  (14 tools, each `{ text, data }` with `data.url`) + `place.mjs` (Photon areas, framing, links via core/viewlink.js) +
+  `sats.mjs` (TLE groups from the site copy, SGP4 via satellite.js 5.0.0) + `feeds.mjs` (cache, stale-if-error, the
+  CelesTrak block) + `panel.mjs` (the MCP App). The root package.json makes it an npm package (`files`: mcp/ + src/core/).
+- Links from outside can't know a visitor's layers, so the link format grew `&a=` / `&x=` (layers on / off, the rest as
+  they are) and `&s=` (a satellite to follow: selected once Sats.ready, followed if it has a 3D model, else flown to).
+- A hash that changes in an open globe is applied again (main.js `hashchange` → Share.restore({ fly: true })): what the
+  new link doesn't name goes back to a fresh page's state (live clock, weather closed, no country card, normal sensor),
+  and the camera flies. The MCP panel moves its framed globe this way: no reload, ~2.5 s. Embeds post `{ type: 'oo:ready' }`
+  to the page framing them once the link is applied (the panel lifts its veil on it).
+- MCP Apps (spec 2026-01-26): the resource is `text/html;profile=mcp-app` with `_meta.ui.csp.frameDomains` naming the
+  site's origin (without it hosts default to `frame-src 'none'`); tools name it in `_meta.ui.resourceUri` (plus the old
+  flat `ui/resourceUri` key). Handshake: `ui/initialize` with `appInfo`, `appCapabilities`, `protocolVersion`, then
+  `ui/notifications/initialized` and a size; results arrive as `ui/notifications/tool-result` (read `structuredContent.url`,
+  only links on the site are framed); `ui/open-link` for the way out. Only show_on_globe opens the panel: a globe per
+  answer would be heavy. Embed mode now hides the Ops rail too; the panel's buttons sit top left (the globe's own way out
+  is top right). Tested with a stand-in host in headless Edge (brand/tools/_steps/mcp_host.html, gitignored) and the
+  official TypeScript SDK client (validates every response).
+- Weather links stay at ≥ 3,000 km: Weather.open() flies to the whole Earth from lower down.
+- Sources' quirks: GDACS's severity is the strongest wind of the storm's life, not now (said as "strongest so far"); NHC
+  `intensity` is knots and `movementDir` is where it is heading; SWPC Kp JSON is now objects (`Kp`, forecast `kp` +
+  `observed`), the old array rows are read too; AIS ETAs more than a day old or two months ahead are placeholders
+  (dropped); Photon extents are [w, n, e, s], and one spanning most longitudes (territories) becomes a circle.
+- Publishing: `npm publish` from the repo root needs the owner's npm login (not done); the release workflow builds
+  `open-overwatch.mcpb` (Claude Desktop's one-click install: manifest.json at the root, mcp/, src/core/, node_modules/
+  satellite.js; ~320 KB) and attaches it to the release next to the zip.

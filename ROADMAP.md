@@ -179,7 +179,11 @@ Round 2 (2026-10-10, local):
       France" with its area, GeoJSON out; draped with ClassificationType.BOTH; a compact card on phones (core/measure.js tested)
 - [x] Share links, embeds and shared pictures carry the drawing (`&d=`: ~0.1 m points, names, the road, outlines; checked
       shape by shape on arrival, tested in core/measure.js and core/viewlink.js)
-- [ ] An MCP package that opens our URL
+- [x] The MCP package (mcp/, `open-overwatch-mcp`): 14 tools answering from the same open data (earthquakes, where a
+      satellite is and its passes, launches, crew, flybys, cyclones, EONET events, Baltic ships, bike share, weather, the
+      aurora, tonight's sky), each with a link that opens the globe there; show_on_globe puts the globe in the chat as an
+      MCP App (a frame of the site in embed mode, moved by hash); no SDK, one dependency (satellite.js); a Claude Desktop
+      bundle (.mcpb) built by the release workflow; npm publish needs the owner's npm account (test/mcp.test.mjs)
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 

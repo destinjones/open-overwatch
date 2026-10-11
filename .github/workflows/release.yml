@@ -1,6 +1,6 @@
 # Push a tag like v0.6 (or run "Publish Update.bat") and this builds open-overwatch.zip and attaches it to a
 # GitHub release. The lander's download button points at releases/latest/download/open-overwatch.zip, so it
-# always serves the newest version.
+# always serves the newest version. open-overwatch.mcpb (the MCP server as a Claude Desktop extension) goes with it.
 name: Release
 on:
   push:
@@ -33,7 +33,22 @@ jobs:
           echo "$GITHUB_REF_NAME" > "$D/VERSION.txt"
           (cd dist && zip -qr open-overwatch.zip open-overwatch)
           ls -la dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the Claude Desktop extension (open-overwatch.mcpb, see mcp/README.md)
+        run: |
+          B=dist/mcpb
+          mkdir -p "$B/src" && cp -r mcp "$B/" && cp -r src/core src/package.json "$B/src/"
+          cp package.json package-lock.json LICENSE "$B/" && mv "$B/mcp/manifest.json" "$B/manifest.json"
+          cp brand/emblem/emblem-256.png "$B/icon.png"
+          (cd "$B" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund)                     # satellite.js, bundled
+          (cd "$B" && node mcp/server.mjs --version)                                             # it starts from the bundle
+          (cd "$B" && zip -qr ../open-overwatch.mcpb .)
+          ls -la dist
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/open-overwatch.zip
+          files: |
+            dist/open-overwatch.zip
+            dist/open-overwatch.mcpb
           generate_release_notes: true

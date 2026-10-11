@@ -156,10 +156,17 @@ updateBand(); applyVisibility();
   }
   await until(10000, () => globe.tilesLoaded);
   $('#boot').classList.add('out'); setTimeout(() => $('#boot').remove(), 900);
-  updateBand(); if (!Director.restore()) Share.restore().catch(e => console.warn('share link', e)); if (!EMBED) Tonight.peek().catch(e => console.warn('tonight', e));
+  updateBand(); Share.booted = true;
+  const linked = Director.restore() ? null : Share.restore().catch(e => console.warn('share link', e)); if (!EMBED) Tonight.peek().catch(e => console.warn('tonight', e));
   if (EMBED) $('#embedOut').href = Share.link();   // the way out keeps the view
+  if (EMBED && window.parent !== window) Promise.resolve(linked).finally(() => window.parent.postMessage({ type: 'oo:ready' }, '*'));   // the page framing this one (the MCP panel) can lift its veil
   return high;
 })();
+// a new hash in the open page (a link pasted into the same tab, or the page framing this one moving it): go there
+addEventListener('hashchange', () => {
+  if (!Share.booted || Director.restore()) return;
+  Share.restore({ fly: true }).catch(e => console.warn('share link', e)).finally(() => { if (EMBED) $('#embedOut').href = Share.link(); });
+});
 Sats.ready = Sats.load().catch(e => toast('Satellites failed: ' + e.message));   // Tonight waits for every group, not just the first
 // load the Solar System view in the background once the globe has settled, so zooming out never waits on it (its
 // start-up was 6 s of main-thread work on a phone, landing in the middle of the pinch); phones a little later
