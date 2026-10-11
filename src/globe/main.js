@@ -50,9 +50,11 @@ import { Cams, Look } from './cams.js';
 import { Transit } from './transit.js';
 import { Traffic } from './traffic.js';
 import { Terrain } from './terrain.js';
+import { Fires } from './fires.js';
+import { Imagery } from './imagery.js';
 
 // things on the ground: from look-up mode's eye height they become huge streaks across the sky, so they hide there
-const GROUND = ['companies', 'volcanoes', 'lighthouses', 'launches', 'quakes', 'sun', 'buildings', 'cctv', 'storms', 'radio', 'cams', 'transit', 'traffic'];
+const GROUND = ['companies', 'volcanoes', 'lighthouses', 'launches', 'quakes', 'sun', 'buildings', 'cctv', 'storms', 'radio', 'cams', 'transit', 'traffic', 'fires'];
 function applyVisibility() {
   const held = state.lookup ? GROUND.map(id => [id, L[id].on]) : null;   // switch them off for this pass only (the dock keeps its state)
   if (held) for (const [id] of held) L[id].on = false;
@@ -62,7 +64,7 @@ function applyAll() {
   for (const s of Sats.list) if (s.pt) s.pt.show = L[s.layer].on && !s.ent && !s.docked;
   airPts.show = airIcons.show = !state.weather; satPts.show = !state.weather;
   for (const a of Air.map.values()) { const on = airShown(a); a.pt.show = on && !a.ent; a.icon.show = on && !a.ent; if (!on && a.ent) AirModels.drop(a); }
-  qkPts.show = L.quakes.on; Lighthouses.apply(); Aurora.apply(); Companies.apply(); Volcanoes.apply(); SunLine.apply(); Buildings.apply(); Launches.apply(); Photoreal.apply(); Storms.apply(); Surveil.apply(); Radio.apply(L.radio.on); Cams.apply(); Transit.apply(L.transit.on); Traffic.apply(L.traffic.on); Terrain.apply(L.terrain.on);
+  qkPts.show = L.quakes.on; Lighthouses.apply(); Aurora.apply(); Companies.apply(); Volcanoes.apply(); SunLine.apply(); Buildings.apply(); Launches.apply(); Photoreal.apply(); Storms.apply(); Surveil.apply(); Radio.apply(L.radio.on); Cams.apply(); Transit.apply(L.transit.on); Traffic.apply(L.traffic.on); Terrain.apply(L.terrain.on); Fires.apply(); Imagery.apply();
   Earth.apply(); updateBand(); updateStats();
 }
 hooks.applyVisibility = applyVisibility;
@@ -93,6 +95,7 @@ PRESETS.launches = () => { hooks.clearPresets(); Launches.openList(); };
 hooks.showLaunch = o => Launches.show(o);
 PRESETS.flight = () => Flight.open();
 PRESETS.route = () => Directions.open();
+PRESETS.imagery = () => Imagery.open();
 hooks.shareCopy = () => Share.copy();
 hooks.closeWeather = () => { if (Weather.on) Weather.close(); };
 hooks.snapshot = () => Snapshot.share();
@@ -170,7 +173,7 @@ every(10 * 60e3, () => Quakes.load(), 'Earthquakes');
 every(30 * 60e3, () => Storms.load(), 'Tropical cyclones');
 setInterval(() => Aurora.apply(), 60e3);   // refreshes itself every 10 minutes while the layer is on
 
-window.OO3D = { Ops, Voice, Photoreal, Storms, Directions, Ascent, Director, Surveil, Radio, Cams, Look, Transit, Traffic, Terrain, Conj, LookUp, Eclipses, Tonight, Flight, Snapshot, Search, Launches, Crew,
+window.OO3D = { Ops, Voice, Photoreal, Storms, Directions, Ascent, Director, Surveil, Radio, Cams, Look, Transit, Traffic, Terrain, Fires, Imagery, Conj, LookUp, Eclipses, Tonight, Flight, Snapshot, Search, Launches, Crew,
   viewer, space: Space, time: Time, Earth, marbleLayer, nightLayer, fxShell, cloudShell, limbShell, Fx, Sats, Air, Quakes, Lighthouses, Weather, Wind, Country, Aurora, Flybys, Companies, Volcanoes, SunLine, Buildings, Share, Tour, setIonToken: t => Buildings.setToken(t), L, PRESETS, moonPosition, SatModels, AirModels, Follow, select, applyVisibility,
   /** debug: the axes test model at lon/lat/height, body X = east, Y = north, Z = up, arrays turned by `deg` */
   debugAxes(lon, lat, h, deg = 0, uri = 'brand/models/test/axes.glb') {

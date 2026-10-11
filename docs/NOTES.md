@@ -166,6 +166,21 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   position is eased in (tau = distance / 300 m/s, 0.8-6 s; not over 50 km), heading too. Geometric altitude (OpenSky
   `geo_altitude`, readsb `alt_geom`) is used as an ellipsoid height when present.
 
+## Hazards and imagery (storms.js, fires.js, imagery.js) — 2026-10-11
+- NOAA's tropical map service is CORS-open (it echoes the origin) and carries everything NHC's KMZ files do, as
+  GeoJSON: join layers by the storm id in `idp_source` (ep202026) and refuse to draw a cone whose advisory differs from
+  the points' (mid-update mixes). GDACS fills every other basin (JTWC etc.); its geometry is ~0.4 MB per storm (wind
+  buffers we don't draw), cached per episode. Match storms by name first: EONET's last fix can lag 300+ km.
+- Keyless FIRMS: GIBS serves VIIRS thermal anomalies as Mapbox vector tiles, but only in the EPSG:4326 `500m` set
+  (288° level 0); the 3857 paths 404. Tiles come gzipped with no Content-Encoding (DecompressionStream in a worker);
+  a date with no data yet is a 404 without CORS, which fetch reports as a network error. A 36° tile in Africa's burning
+  season: 0.5 MB gzipped, 14,400 detections.
+- NIFC perimeters are MultiPolygons with hundreds of spot-fire rings: as entities that was 8,438 objects (too slow to
+  appear); now two batched ground primitives (fills, outlines) with instance ids for picking.
+- CMR: the CSV form at a point is the light one (150 KB for 3 months vs ~0.7 MB per 50 granules as JSON). The first
+  pair is the newest fairly clear picture against the oldest clear one at least two weeks earlier.
+- Picking an entity drawn for an object: `entity.obj = object` (ui.js pickObj).
+
 ## Public relay (relay/, Cloudflare Worker) — 2026-10-10
 `relay/worker.js` on the owner's Cloudflare account (`npx wrangler deploy` from relay/, after `npx wrangler login`):
 https://open-overwatch-relay.destinjones123.workers.dev/?url=… . Allowlist = `PUBLIC_RELAY_HOSTS` in src/core/relay.js

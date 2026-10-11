@@ -158,8 +158,9 @@ Round 2 (2026-10-10, local):
 - [x] Aircraft icons that point along the course from any camera angle (alignedAxis = the course vector)
 - [x] Aircraft motion: fixes stamped with the feed's own time, dead reckoning through a turn (core/geo.js, tested), new
       fixes eased in instead of jumping, geometric altitude where the feed has it
-- [ ] Hazards: NOAA cones/tracks + GDACS for every basin, NIFC fire perimeters, keyless hot spots (GIBS)
-- [ ] Recent satellite imagery before/after (NASA CMR + GIBS HLS/VIIRS, swipe compare)
+- [x] Hazards: NOAA forecast cones, tracks, coastal watches/warnings and wind fields + GDACS cones for every other basin;
+      wildfire hot spots worldwide (NASA VIIRS via GIBS vector tiles, keyless) and US perimeters (NIFC) (core/hazards.js tested)
+- [x] Before/after: recent Landsat / Sentinel-2 pictures of the view (NASA CMR + GIBS HLS, VIIRS daily), split by a slider
 - [ ] More live cameras (DelDOT / Vegvesen live video, DriveBC, Austin, Calgary, NSW, TxDOT, Tallinn via the relay)
 - [ ] Bike share worldwide (MobilityData systems.csv), Austin + Minneapolis transit (GTFS-RT), Baltic ships (Digitraffic AIS)
 - [ ] Wind through forecast time (GFS + ECMWF grids built by the GitHub Action), one weather timeline, a render governor

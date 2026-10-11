@@ -75,3 +75,22 @@ body.cam-look #top,body.cam-look #dock,body.cam-look #band,body.cam-look #navpad
 #camLookUi .cl-bar b{font:700 14px/1 var(--display);letter-spacing:.06em;text-transform:uppercase;color:#ff6fb5;margin-right:4px}
 #camLookUi .cl-bar label{display:flex;align-items:center;gap:6px;color:var(--dim)}
 #camLookUi .cl-bar .note{color:var(--faint);font-size:11px;width:100%;text-align:center}
+
+/* ---- before / after (imagery.js): the slider over the globe, the list of pictures in the card */
+#imgSplit{position:fixed;top:0;bottom:0;width:0;z-index:4;pointer-events:none}
+#imgSplit .is-line{position:absolute;top:0;bottom:0;left:-1px;width:2px;background:rgba(255,255,255,.88);box-shadow:0 0 6px rgba(0,0,0,.65)}
+#imgSplit .is-grip{position:absolute;top:50%;left:-22px;width:44px;height:44px;margin-top:-22px;border-radius:50%;border:2px solid #fff;background:rgba(8,14,22,.82);color:#fff;font:700 18px/1 var(--mono);cursor:ew-resize;pointer-events:auto;touch-action:none}
+#imgSplit .is-x{position:absolute;top:calc(50% + 30px);left:-14px;width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,.55);background:rgba(8,14,22,.82);color:#fff;font:600 16px/1 var(--mono);cursor:pointer;pointer-events:auto}
+#imgSplit .is-l,#imgSplit .is-r{position:absolute;top:calc(118px + env(safe-area-inset-top,0px));padding:4px 8px;border-radius:6px;background:rgba(8,14,22,.78);color:#fff;font:600 12px/1.2 var(--mono);white-space:nowrap}
+#imgSplit .is-l{right:12px;border-left:3px solid #ffb44d}
+#imgSplit .is-r{left:12px;border-left:3px solid #9fe3ff}
+#card .ib-list{max-height:min(44vh,420px);overflow:auto;margin-top:8px;display:flex;flex-direction:column;gap:6px}
+#card .ib-row{display:grid;grid-template-columns:96px 1fr;gap:8px;align-items:center;padding:4px;border-radius:8px;border:1px solid var(--edge-dim)}
+#card .ib-row img{width:96px;height:62px;object-fit:cover;border-radius:5px;background:#000}
+#card .ib-row .ib-b{display:flex;gap:4px;margin-top:3px}
+#card .ib-row .ib-b .chipbtn{padding:3px 8px;font-size:11px}
+#card .ib-row .ib-t{display:flex;flex-direction:column;font:500 11px/1.3 var(--mono);color:var(--dim);min-width:0}
+#card .ib-row .ib-t b{color:var(--ink);font-size:12px}
+#card .ib-row.is-b{border-color:#ffb44d}
+#card .ib-row.is-a{border-color:#9fe3ff}
+@media (max-width:560px){#card .ib-row{grid-template-columns:76px 1fr}#card .ib-row img{width:76px;height:50px}}
