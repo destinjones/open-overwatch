@@ -69,7 +69,7 @@ function applyAll() {
   for (const s of Sats.list) if (s.pt) s.pt.show = L[s.layer].on && !s.ent && !s.docked;
   airPts.show = airIcons.show = !state.weather; satPts.show = !state.weather;
   for (const a of Air.map.values()) { const on = airShown(a); a.pt.show = on && !a.ent; a.icon.show = on && !a.ent; if (!on && a.ent) AirModels.drop(a); }
-  qkPts.show = L.quakes.on; Lighthouses.apply(); Aurora.apply(); Companies.apply(); Volcanoes.apply(); SunLine.apply(); Buildings.apply(); Launches.apply(); Photoreal.apply(); Storms.apply(); Surveil.apply(); Radio.apply(L.radio.on); Cams.apply(); Transit.apply(L.transit.on); Traffic.apply(L.traffic.on); Terrain.apply(L.terrain.on); Fires.apply(); Imagery.apply(); Measure.apply(); Ships.apply(L.ships.on); Bikes.apply(L.bikes.on);
+  qkPts.show = L.quakes.on; Lighthouses.apply(); Aurora.apply(); Companies.apply(); Volcanoes.apply(); SunLine.apply(); Buildings.apply(); Launches.apply(); Photoreal.apply(); Storms.apply(); Surveil.apply(); Radio.apply(L.radio.on); Cams.apply(); Transit.apply(L.transit.on); Traffic.apply(L.traffic.on); Terrain.apply(L.terrain.on); Fires.apply(); Imagery.apply(); Measure.apply(); Directions.apply(); Ships.apply(L.ships.on); Bikes.apply(L.bikes.on);
   Earth.apply(); updateBand(); updateStats();
 }
 hooks.applyVisibility = applyVisibility;
@@ -78,7 +78,7 @@ initDock({ bases: BASES, currentBase, onBase: setBase, quality: { levels: LEVELS
 Quality.follow(q => { AirModels.max = q.air; SatModels.max = q.sat; cloudShell.material.uniforms.octaves = q.octaves; });
 
 // before each frame: follow camera, model lighting; before rendering: sun direction, satellite dots, Earth fades
-scene.preUpdate.addEventListener((sc, time) => { Follow.track(time); Lighting.update(); });
+scene.preUpdate.addEventListener((sc, time) => { Follow.track(time); Ops.ride(time); Lighting.update(); });   // the cockpit sits on the followed position of this frame, so it rides after track
 scene.preRender.addEventListener((sc, time) => { SatModels.updateSun(time); Sats.update(Time.nowMs()); Earth.update(camHeight()); Space.update(); Transit.update(Date.now()); Ships.update(Date.now()); Traffic.update(); });   // transit and ships are live: the time bar doesn't move them
 PRESETS.space = () => Space.go();
 PRESETS.conj = () => Conj.openList();

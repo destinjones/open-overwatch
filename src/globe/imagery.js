@@ -57,8 +57,12 @@ export const Imagery = {
     this.box = [this.at.lon - dLon, this.at.lat - dLat, this.at.lon + dLon, this.at.lat + dLat];
     c.innerHTML = `<button class="x" aria-label="Close">×</button><div class="k" style="--c:${COLOR}">NASA Landsat · Sentinel-2 · VIIRS</div><h2>Before and after</h2><p class="note">Looking for pictures of ${this.at.lat.toFixed(2)}, ${this.at.lon.toFixed(2)}…</p>`;
     c.classList.add('show'); c.querySelector('.x').onclick = () => c.classList.remove('show');
-    try { this.dates = await this.search(Date.now() - 120 * 864e5, Date.now()); }
-    catch (e) { console.warn('imagery search', e.message); this.dates = []; toast('NASA\'s catalogue is not answering right now: daily VIIRS pictures only', 3500); }
+    const run = this.run = (this.run || 0) + 1, mark = c.querySelector('.note'); mark.dataset.wait = 'imagery';
+    let dates;
+    try { dates = await this.search(Date.now() - 120 * 864e5, Date.now()); }
+    catch (e) { console.warn('imagery search', e.message); dates = []; if (run === this.run) toast('NASA\'s catalogue is not answering right now: daily VIIRS pictures only', 3500); }
+    if (run !== this.run || !c.querySelector('[data-wait="imagery"]') || !c.classList.contains('show')) return;   // another card opened, or Esc, while the catalogue answered
+    this.dates = dates;
     const now = Date.now();   // VIIRS covers every day (coarse): the last week, for the gaps between clear HLS days
     for (let k = 1; k <= 7; k++) this.dates.push({ date: iso(now - k * 864e5), sensor: 'VIIRS', cloud: null, t: Date.parse(iso(now - k * 864e5)) });
     this.dates.sort((a, b) => b.t - a.t);

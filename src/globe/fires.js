@@ -22,6 +22,7 @@ function viaWorker(url, since) {
   if (!worker) {
     worker = new Worker(new URL('./fires.worker.js', import.meta.url), { type: 'module' });
     worker.onmessage = e => { const w = waiting.get(e.data.id); if (!w) return; waiting.delete(e.data.id); e.data.error ? w.rej(new Error(e.data.error)) : w.res(e.data); };
+    worker.onerror = e => { for (const w of waiting.values()) w.rej(new Error(e.message || 'fires worker failed')); waiting.clear(); worker = null; };   // a worker that fails to load would otherwise leave every tile 'loading' for good
   }
   return new Promise((res, rej) => { const id = ++seq; waiting.set(id, { res, rej }); worker.postMessage({ id, url, since }); });
 }

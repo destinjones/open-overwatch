@@ -6,7 +6,7 @@
 import { C, esc, fmt, getJSON, relayed } from './env.js';
 import { viewer, scene } from './viewer.js';
 import { L, setCount } from './layers.js';
-import { hooks } from './state.js';
+import { hooks, state } from './state.js';
 import { nhcForecasts, gdacsForecast, WW } from '../core/hazards.js';
 
 const pts = scene.primitives.add(new C.PointPrimitiveCollection());
@@ -116,7 +116,7 @@ export const Storms = {
     fc.show = L.storms.on;
     setCount('storms', list.length); hooks.updateStats?.();
   },
-  apply() { for (const s of this.list) { s.pt.show = L.storms.on; if (s.line) s.line.show = L.storms.on; } fc.show = L.storms.on; },
+  apply() { const on = L.storms.on && !state.lookup; for (const s of this.list) { s.pt.show = on; if (s.line) s.line.show = on; } fc.show = on; },   // look-up mode hides things on the ground
 };
 
 const deg = path => C.Cartesian3.fromDegreesArray(path.flat());

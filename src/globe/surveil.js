@@ -39,6 +39,14 @@ function add(el, gh = 0) {
   byId.set(el.id, o);
 }
 
+/** Past MAX_POINTS cameras, the ones farthest from the view go (and their cells, so they load again when the view returns). */
+const MAX_POINTS = 6000;
+function trim(lat, lon) {
+  if (byId.size <= MAX_POINTS) return;
+  const far = [...byId.values()].sort((a, b) => Math.hypot(b.lat - lat, b.lon - lon) - Math.hypot(a.lat - lat, a.lon - lon)).slice(0, byId.size - MAX_POINTS * 0.75);
+  for (const o of far) { pts.remove(o.pt); if (o.wedge) wedges.remove(o.wedge); byId.delete(o.id); cells.delete(Math.floor(o.lon / CELL) + ',' + Math.floor(o.lat / CELL)); }
+}
+
 async function tick() {
   if (!L.cctv.on || state.lookup || busy || camAGL() > MAX_H || performance.now() - last < GAP_MS || failed > 4) return;
   // the area around the reticle (a tilted view's rectangle runs to the horizon), sized by height: 1.5-12 km across
@@ -59,6 +67,7 @@ async function tick() {
     const hs = await Terrain.heights(els);   // the ground under each (0s while terrain is off)
     els.forEach((el, i) => add(el, hs[i]));
     for (const [x, y] of pick) cells.set(x + ',' + y, 'done');
+    trim(lat, lon);
     failed = 0; setCount('cctv', byId.size);
   } catch (e) { console.warn('mapped cameras', e.message); for (const [x, y] of pick) cells.delete(x + ',' + y); failed++; last = performance.now() + failed * 8000; }
   busy = false;
