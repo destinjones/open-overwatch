@@ -96,7 +96,7 @@ export const Log = {
 /* ============================================================ network + relay
    Some sources refuse browser requests (no CORS headers). When the page is served by the bundled
    helper (serve.py / serve.js) those go through its /proxy route; otherwise they are reported as blocked. */
-export const NEEDS_RELAY = ['aviationweather.gov', 'api.adsb.lol', 'api.airplanes.live', 'opendata.adsb.fi', 'api.adsb.one', 'www.nhc.noaa.gov', 'webcams.nyctmc.org', 'opensky-network.org', 'firms.modaps.eosdis.nasa.gov', 'api.windy.com', 'www.submarinecablemap.com', 'www.drivebc.ca', 'traveler.modot.org', 'kamera.atlas.vegvesen.no', 'atmsqf.iowadot.gov', 'trafficcam.calgary.ca', 'images.data.gov.sg'];   // the last six: the globe's cameras
+export const NEEDS_RELAY = ['aviationweather.gov', 'api.adsb.lol', 'api.airplanes.live', 'opendata.adsb.fi', 'api.adsb.one', 'www.nhc.noaa.gov', 'webcams.nyctmc.org', 'opensky-network.org', 'firms.modaps.eosdis.nasa.gov', 'api.windy.com', 'www.submarinecablemap.com', 'www.drivebc.ca', 'traveler.modot.org', 'kamera.atlas.vegvesen.no', 'atmsqf.iowadot.gov', 'trafficcam.calgary.ca', 'images.data.gov.sg', 'www.ndbc.noaa.gov'];   // the last six: the globe's cameras
 export const Relay = {
   local: /^https?:$/.test(location.protocol) && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname),
   custom: Store.get('proxy', ''), customOk: null, available: false, checked: false, // customOk: null = not tested yet

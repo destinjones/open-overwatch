@@ -123,6 +123,7 @@ test('measure: M opens the panel, and a drawing in a link shows its distance', a
   await expect(page.locator('#card')).not.toHaveClass(/show/);   // M again closes it
   // a drawing arrives through a link (made with the same core/viewlink.js): London to Paris, 343.9 km on the WGS84 ellipsoid (GeographicLib agrees)
   const hash = encodeView({ lon: 1, lat: 50, height: 900000, heading: 0, pitch: -90, drawing: [{ kind: 'line', coords: [[-0.1276, 51.5072], [2.3522, 48.8566]] }] });
+  await page.close();   // one software-WebGL globe at a time: two starve a 2-core runner
   const other = await context.newPage();
   await openGlobe(other, '#' + hash);
   await expect(other.locator('#card')).toContainText('213.7 mi · 343.9 km', { timeout: 30000 });
@@ -142,6 +143,7 @@ test('the share link round trip: camera, layers and a paused time come back', as
   const link = await page.evaluate(() => navigator.clipboard.readText());
   expect(decodeURIComponent(link)).toMatch(/&t=2461327\.25\d*,0/);
 
+  await page.close();   // one globe at a time (see measure)
   const other = await context.newPage();
   await openGlobe(other, new URL(link).hash);
   await expect.poll(async () => { const c = await camera(other); return [c.lon.toFixed(1), c.lat.toFixed(1), Math.round(c.h / 1e4), Math.round(c.heading), Math.round(c.pitch)]; }, { timeout: 30000 })

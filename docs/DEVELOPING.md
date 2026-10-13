@@ -129,6 +129,7 @@ Runs every `test/*.test.mjs` with Node's own runner. No dependencies except `sat
 | `relay.test.mjs` | the Cloudflare Worker against a stand-in upstream |
 | `mcp.test.mjs` | the MCP server: protocol, argument checks, every tool against canned answers, a stdio round trip, the HTTP transport |
 | `mcpworker.test.mjs` | the MCP server as a Cloudflare Worker, in Node: tokens, CORS, the free plan's tools, the Cache API between requests and isolates, the subrequest budget, the rate limit, a Node-free import graph |
+| `ocean.test.mjs` | the sea and air feeds against answers captured on 2026-10-13: NDBC buoys, stations and a DART file; CO-OPS gauges, a level and tide predictions; GIBS colour maps read back from a pixel; Open-Meteo air quality; the cards' words |
 | `wxpoint.test.mjs`, `whereis.test.mjs` | the weather at a point (tendency, Beaufort, CAPE, sea state, model agreement); "where is it now" (byte-range asteroid elements against the whole file, the quick search, H-G magnitudes) |
 | `docs.test.mjs` | these docs against the code: layer ids, link parameters, voice examples, band buttons, core modules and their exports |
 | `e2esupport.test.mjs` | the browser tests' machinery without a browser: the PNG codec and picture comparison, every feed fixture read by the real parsers, which URL gets which fixture |

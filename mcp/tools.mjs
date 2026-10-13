@@ -28,6 +28,7 @@ import { solarTool } from './solar.mjs';
 import { eclipsesTool } from './eclipses.mjs';
 import { distanceTool } from './distance.mjs';
 import { volcanoesTool } from './volcanoes.mjs';
+import { seaTool, airTool } from './ocean.mjs';
 import { roadsTool } from './roads.mjs';
 import { conjTool } from './conj.mjs';
 import { sunTool } from './sun.mjs';
@@ -60,7 +61,7 @@ export function createTools(ctx) {
         ...areaProps('to show'),
         tilt: { type: 'number', minimum: 0, maximum: 80, description: 'Degrees from straight down: 0 is a map view, 50-70 looks across the land at the place.' },
         heading: { type: 'number', minimum: 0, maximum: 360, description: 'The way the camera faces, degrees clockwise from north (with tilt).' },
-        layers_on: { type: 'array', maxItems: 32, items: { type: 'string', enum: LAYERS }, description: 'Layers to turn on: stations, visual, gnss, geo, weather (satellites), starlink, active, debris, launches, air, mil, quakes, transit, ships (Baltic), bikes, traffic, storms, events (natural events), fires, radio, lighthouses, sun, terrain, buildings, cams, cctv, photoreal, volcanoes, companies, aurora, clouds, night, labels.' },
+        layers_on: { type: 'array', maxItems: 32, items: { type: 'string', enum: LAYERS }, description: 'Layers to turn on: stations, visual, gnss, geo, weather (satellites), starlink, active, debris, launches, air, mil, airq (air quality), smoke, airports, quakes, transit, buoys (ocean), dart (tsunami buoys), tides, sst (sea temperature), ships (Baltic), bikes, traffic, storms, events (natural events), fires, radio, lighthouses, sun, terrain, buildings, cams, cctv, photoreal, volcanoes, companies, aurora, clouds, night, labels.' },
         layers_off: { type: 'array', maxItems: 32, items: { type: 'string', enum: LAYERS }, description: 'Layers to turn off.' },
         weather: { type: 'array', maxItems: 9, items: { type: 'string', enum: WEATHER }, description: 'Open weather mode with these: ir (clouds seen by satellites), radar (rain), rain (rain from space), lightning, wind, temp (temperature), pres (sea-level pressure: isobars, highs and lows), gust (wind gusts), wave (ocean wave height and direction).' },
         time: { type: 'string', maxLength: 40, description: "A moment to set the globe's clock to, ISO 8601 (e.g. a satellite pass). Omit for live." },
@@ -479,7 +480,7 @@ export function createTools(ctx) {
 
   return [showOnGlobe, earthquakes, whereSat, passes, launches, crew, flybys, storms, events, ships, bikes, weather, aurora, night,
     camerasTool(ctx), transitTool(ctx), firesTool(ctx), countryTool(ctx), cablesTool(ctx), solarTool(ctx), eclipsesTool(ctx), distanceTool(ctx), volcanoesTool(ctx), roadsTool(ctx),
-    conjTool(ctx), sunTool(ctx), meteorsTool(ctx), ...createOsmTools(ctx, link), weatherDetailsTool(ctx), aircraftTool(ctx), spaceTool(ctx), airportWxTool(ctx)];
+    conjTool(ctx), sunTool(ctx), meteorsTool(ctx), ...createOsmTools(ctx, link), weatherDetailsTool(ctx), aircraftTool(ctx), spaceTool(ctx), airportWxTool(ctx), seaTool(ctx), airTool(ctx)];
 }
 
 /** Server instructions: how the tools fit together. */

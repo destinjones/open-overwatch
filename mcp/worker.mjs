@@ -40,7 +40,7 @@ export const HEAVY = Object.freeze(['satellite_passes', 'night_sky', 'close_appr
 export const SUBREQUESTS = Object.freeze({ free: 45, paid: 900 });
 /** Seconds a tool's answer is shared (default 60: most feeds change by the minute; the answers say "5 min ago"). */
 export const CALL_TTL = Object.freeze({ default: 60, show_on_globe: 3600, solar_system: 300, where_in_space: 300, eclipses: 3600, meteor_showers: 3600, sun_and_moon: 900,
-  launches: 600, people_in_space: 1800, asteroid_flybys: 1800, country_briefing: 600, submarine_cables: 3600, volcanoes: 600, distance: 3600, aircraft_lookup: 3600, weather: 300, weather_details: 300 });
+  launches: 600, people_in_space: 1800, asteroid_flybys: 1800, country_briefing: 600, submarine_cables: 3600, volcanoes: 600, sea_conditions: 300, air_quality: 900, distance: 3600, aircraft_lookup: 3600, weather: 300, weather_details: 300 });
 const CACHE_HOST = 'https://mcp-cache.open-overwatch.invalid';   // the Cache API wants URLs for keys; this host is never asked
 
 const text = (status, body, headers = {}) => new Response(body, { status, headers: { 'Content-Type': 'text/plain; charset=utf-8', ...headers } });

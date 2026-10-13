@@ -347,6 +347,19 @@ Round 2 (2026-10-10, local):
 - [ ] At 1366x820 the globe's zoom pad covers the right end of the band (Measure, Eclipses, Solar system ↗)
 - [ ] The 2D map's phone bar buttons are 37.5 px tall: under the 44-48 px a finger wants
 - [ ] First CI run on Linux: if fonts push the picture checks past their limits, add `<name>.linux.png` references
+### Oceans and air (grow3-ocean, 2026-10-13, local)
+- [x] Globe and 2D map: NOAA NDBC buoys and coastal stations (`buoys`, ~870, coloured by wave height), DART tsunami
+      buoys (`dart`, ~75; the card reads the buoy's file: water column, event mode), NOAA CO-OPS tide gauges (`tides`,
+      ~300 US; the card reads the level now and the next high and low), sea-surface temperature (`sst`, GHRSST MUR via
+      GIBS) and smoke and dust (`smoke`, the OMPS UV aerosol index via GIBS) with legends from GIBS's own colour maps;
+      clicking the sea reads the value back from the tile's pixel; air quality (`airq`, the CAMS model via Open-Meteo
+      on a grid over the view: OpenAQ v3 needs a key). Parsers and card words in core/ocean.js (tested on captured
+      answers); MCP tools `sea_conditions` and `air_quality`
+- [ ] **The website needs the relay redeployed** for buoys and DART: NDBC sends no CORS, `www.ndbc.noaa.gov` is added to
+      relay/worker.js (TTL, PATHS) and PUBLIC_RELAY_HOSTS, but the Worker on Cloudflare runs the old list until the owner
+      redeploys it (`npx wrangler deploy` in relay/). Tides, sea temperature, smoke and air quality need no relay
+- [ ] Ocean next: NOAA's HF-radar surface currents (ERDDAP, CORS); Argo floats; a tide curve on the card (the 6-minute
+      predictions); tide gauges outside the US (IOC sea level monitoring, no CORS: relay); the 2D map's click-to-read
 
 ## Rules of thumb
 - One clear goal per session; read this file first, tick boxes as they land.

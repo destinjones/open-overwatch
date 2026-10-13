@@ -33,7 +33,7 @@ jobs:
   e2e:
     name: Browser tests (every page, headless Chromium, feeds stubbed)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -66,3 +66,4 @@ jobs:
             e2e/.results/
           retention-days: 14
           if-no-files-found: ignore
+          include-hidden-files: true   # the report folders start with a dot, which upload-artifact skips by default

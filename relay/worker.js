@@ -28,6 +28,7 @@ const TTL = {
   'atmsqf.iowadot.gov': 60,
   'trafficcam.calgary.ca': 60,
   'images.data.gov.sg': 300,
+  'www.ndbc.noaa.gov': 600,           // NOAA buoys (latest observations, station list) and DART tsunami buoy files
 };
 // what each host may be asked for: API hosts only their feed paths; the camera image hosts any picture path (the feeds name them)
 const PATHS = {
@@ -37,6 +38,7 @@ const PATHS = {
   'www.drivebc.ca': ['/api/webcams/', '/images/'],
   'traveler.modot.org': ['/timconfig/feed/'],
   'kamera.atlas.vegvesen.no': ['/'], 'atmsqf.iowadot.gov': ['/'], 'trafficcam.calgary.ca': ['/'], 'images.data.gov.sg': ['/'],
+  'www.ndbc.noaa.gov': ['/data/latest_obs/latest_obs.txt', '/activestations.xml', '/data/realtime2/'],
 };
 const MAX_BYTES = 30e6;
 const ACCEPT = 'application/json, application/geo+json, image/*;q=0.9, */*;q=0.5';

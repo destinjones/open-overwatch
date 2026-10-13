@@ -102,6 +102,8 @@ any commercial use.
 ## Fork it, build on it, or take it over
 I vibe code this with Claude (an AI): I describe what I want, Claude writes and tests it, and I try to make good calls. It surely has bugs. Please download it, fork it and build anything you like, no need to ask. If you'd like to take the whole project over, a hand-off is what I'd prefer: open an issue and say so.
 
+Want to help? [CONTRIBUTING.md](CONTRIBUTING.md) gets you from a clone to a running, tested copy in a few minutes (or one click with the [dev container](.devcontainer/README.md)), with a list of good first issues. What changed when: [CHANGELOG.md](CHANGELOG.md). How the project is run and handed over: [GOVERNANCE.md](GOVERNANCE.md). Security problems: [SECURITY.md](SECURITY.md).
+
 ## Credit and licence
 Open Overwatch is by [Destin Jones](https://destinjones.github.io/open-overwatch/about.html) ([GitHub](https://github.com/destinjones)), built in public with Claude as the building partner.
 Also by me: [Ironbound](https://destinjones.github.io/godot-open-rts/), a free open source RTS made with Godot, and [CarFinder](https://destinjones.github.io/carfinder/), every new car on sale in 11 countries with what it really costs.

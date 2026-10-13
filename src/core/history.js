@@ -24,7 +24,7 @@ export const HISTORY = Object.freeze([
   { what: 'Aircraft', has: false, src: 'live feeds only: hidden in the past' },
   { what: 'Rocket launches', has: false, src: 'upcoming ones only: hidden in the past' },
   { what: 'Cameras, ships, transit, bikes', has: false, src: 'live only: they keep showing now' },
-  { what: 'Weather, aurora, fires (VIIRS)', has: false, src: 'live or latest only' },
+  { what: 'Weather, aurora, fires (VIIRS), ocean, air quality', has: false, src: 'live or latest only' },
 ]);
 
 // ---- earthquakes ---------------------------------------------------------------------------------------------------

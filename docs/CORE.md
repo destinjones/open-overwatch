@@ -25,7 +25,7 @@ is also used by its tests in `test/`.
 - [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`
 - [Weather](#weather): `gfs.js`, `wxmodels.js`, `wxload.js`, `model.worker.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpaint.js`
 - [Weather](#weather): `gfs.js`, `wxmodels.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpoint.js`
-- [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `history.js`, `aurora.js`, `fireclusters.js`, `fires.worker.js`, `earthnow.js`
+- [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `history.js`, `aurora.js`, `ocean.js`, `fireclusters.js`, `fires.worker.js`, `earthnow.js`
 - [Aviation](#aviation): `aircraft.js`, `actype.js`, `acinfo.js`, `phase.js`, `airports.js`, `runways.js`, `aloft.js`, `trail.js`
 - [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `transitfeeds.js`, `gtfsrt.js`, `bikes.js`, `cameras.js`, `cables.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
 - [OpenStreetMap](#openstreetmap): `osmtiles.js`, `overpass.js`
@@ -604,6 +604,27 @@ layer. Pictures are RGBA arrays the views put on a canvas. Used by globe, map.
 - `parseOvation`, `ovationAt`: the grid and the chance over a place. `latestKp`: the K-index.
 - `paintEquirect`, `paintMercator`: the grid as a picture for the globe or the map. `auroraColor`, `auroraAlpha`,
   `AURORA_STOPS`.
+
+### `ocean.js`
+
+The sea and the air over it, from keyless feeds: NOAA NDBC's buoys and coastal stations, its DART tsunami buoys, NOAA
+CO-OPS tide gauges, NASA GIBS colour maps (sea-surface temperature, the UV aerosol index) and Open-Meteo's CAMS air
+quality, plus the words the cards use. Used by globe, map.
+
+- `parseNdbcLatest` (latest_obs.txt, columns by name; "MM" and a 0 s wave period mean not measured),
+  `parseNdbcStations` (activestations.xml), `mergeNdbc`, `NDBC_TYPES`, `waveLook` / `WAVE_LOOK`, `NDBC_LATEST`,
+  `NDBC_STATIONS`, `ndbcPage`.
+- `parseDart`, `dartStatus` (standard, event mode, late, silent; DARTs send every 6 hours in standard mode), `dartUrl`,
+  `DART_MODES`.
+- `parseCoopsStations`, `coopsDatum` (MLLW with tides, IGLD on the Great Lakes, else MSL), `coopsUrl`,
+  `parseCoopsLatest` (the API answers errors with HTTP 200), `parseCoopsHilo`, `nextTides`, `coopsPage`, `COOPS_STATIONS`.
+- `SEA_AIR_IMAGERY` (the GIBS layers), `gibsGeoUrl`, `gibsPixel` (which 512 px tile and pixel of the geographic grid hold a
+  point), `parseGibsColormap`, `colormapValue` (a pixel's colour back to its value), `legendStops`, `gibsColormapUrl`,
+  `gibsDomainUrl` and `parseGibsDomain` (the newest day a layer has).
+- `aqUrl` (up to 100 points in one request), `parseAirQuality`, `aqiLook` / `US_AQI` (the EPA's bands), `aqGrid` (a grid
+  on round numbers over the view, so caches hit).
+- Card words, metric with imperial in brackets: `buoyRows`, `tideRows`, `aqRows`, `agoWords`, `tempWords`,
+  `heightWords`, `speedWords`.
 
 ### `fireclusters.js`
 

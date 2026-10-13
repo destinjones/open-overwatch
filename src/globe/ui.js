@@ -103,7 +103,7 @@ handler.setInputAction(c => {
   const p = camera.pickEllipsoid(c.position, scene.globe.ellipsoid);
   if (!p) { closeCard(); return; }
   const g = C.Cartographic.fromCartesian(p);
-  Country.at(C.Math.toDegrees(g.longitude), C.Math.toDegrees(g.latitude)).then(k => { if (n !== clickNo) return; if (k) select(k); else closeCard(); }).catch(() => { if (n === clickNo) closeCard(); });
+  Country.at(C.Math.toDegrees(g.longitude), C.Math.toDegrees(g.latitude)).then(k => { if (n !== clickNo) return; if (k) select(k); else if (!hooks.seaAt?.(C.Math.toDegrees(g.longitude), C.Math.toDegrees(g.latitude))) closeCard(); }).catch(() => { if (n === clickNo) closeCard(); });
 }, C.ScreenSpaceEventType.LEFT_CLICK);
 // double-click a satellite or aircraft to follow it (replaces Cesium's default entity tracking)
 viewer.screenSpaceEventHandler.removeInputAction(C.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);

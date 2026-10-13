@@ -1,0 +1,25 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
+// Clone and run in one click: VS Code's "Reopen in Container" (Dev Containers extension) or a GitHub Codespace opened
+// in VS Code Desktop. Node 22 (what CI uses) and Python 3 (serve.py, the data builders in brand/tools/). It installs
+// the npm dependencies and starts the local helper on port 8787; see .devcontainer/README.md.
+{
+  "name": "Open Overwatch",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": { "version": "os-provided", "installTools": false }
+  },
+  // satellite.js (the MCP server) and Playwright (dev only); --ignore-scripts as in CI, so no browser download here
+  "postCreateCommand": "npm ci --ignore-scripts --no-audit --no-fund",
+  // the helper binds 127.0.0.1 inside the container; the editor forwards it to localhost:8787 on your machine
+  "postAttachCommand": { "helper": "OW_NO_OPEN=1 node serve.js" },
+  "forwardPorts": [8787],
+  "portsAttributes": {
+    "8787": { "label": "Open Overwatch (serve.js)", "onAutoForward": "notify", "requireLocalPort": true },
+    "8805": { "label": "Browser tests' helper", "onAutoForward": "silent" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-playwright.playwright"]
+    }
+  }
+}

@@ -91,8 +91,8 @@ geostationary belt. The globe's camera stops at 600 million m; beyond about 300 
 `l=id,id,id` turns on the listed layers and **turns every other layer off**. Ids are the `id` fields of `LAYERS` in
 `src/globe/layers.js`:
 
-`stations` `visual` `gnss` `geo` `weather` `starlink` `active` `debris` `launches` `air` `mil` `airports` `quakes`
-`transit` `ships` `bikes` `traffic` `storms` `events` `fires` `radio` `lighthouses` `sun` `terrain` `buildings` `cams` `cctv`
+`stations` `visual` `gnss` `geo` `weather` `starlink` `active` `debris` `launches` `air` `mil` `airq` `smoke` `airports`
+`quakes` `transit` `buoys` `dart` `tides` `sst` `ships` `bikes` `traffic` `storms` `events` `fires` `radio` `lighthouses` `sun` `terrain` `buildings` `cams` `cctv`
 `alpr` `milareas` `photoreal` `volcanoes` `companies` `aurora` `clouds` `night` `labels`
 
 What each one shows is in the [user guide](../guide.html#layers). Each id must match `[a-z0-9_-]{1,24}` (case-insensitive)

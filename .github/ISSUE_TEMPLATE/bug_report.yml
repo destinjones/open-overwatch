@@ -1,0 +1,62 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
+name: Bug report
+description: Something looks wrong, breaks, or is in the wrong place.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting it. A share link and the "Under the hood" numbers make most bugs quick to find.
+        A security problem? Please don't post it here: see SECURITY.md for the private route.
+  - type: dropdown
+    id: page
+    attributes:
+      label: Where
+      options:
+        - 3D globe (globe.html)
+        - Solar System (solar.html)
+        - 2D map (open-overwatch.html)
+        - Tonight (tonight.html)
+        - Landing page, guide or about page
+        - MCP server / Claude extension
+        - The download (serve.js / serve.py)
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+      placeholder: "I clicked the ISS and the card showed… I expected…"
+    validations:
+      required: true
+  - type: input
+    id: link
+    attributes:
+      label: A share link to the view
+      description: The Share button copies one (it carries the camera, the time, the layers and any drawing). Or the address bar.
+      placeholder: "https://destinjones.github.io/open-overwatch/globe.html#c=…"
+  - type: input
+    id: browser
+    attributes:
+      label: Browser, device and version
+      description: e.g. "Chrome 141 on a Pixel 8", "Safari on iPhone 15, iOS 19". The site's version is in the landing page's version picker, or in the address if it has /v/<tag>/.
+      placeholder: "Firefox 144 on Windows 11, v0.9.2.11"
+    validations:
+      required: true
+  - type: textarea
+    id: hood
+    attributes:
+      label: The "Under the hood" numbers (if it's slow, wrong or empty)
+      description: On the globe and in the Solar System, press ` (backtick) or open it from the layers. Paste the frame rate, the GPU it names and the data ages, or a screenshot.
+  - type: textarea
+    id: console
+    attributes:
+      label: Errors in the browser console
+      description: F12 → Console. Red lines are the useful ones.
+      render: text
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen again
+      placeholder: "1. Open the globe  2. Turn on Aircraft  3. …"
