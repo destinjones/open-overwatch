@@ -20,7 +20,7 @@ html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%} /* no page pin
 /* Open Overwatch · Solar System: Three.js, one scene from the Moon to the Local Group, in AU (log depth buffer). */
 :root{
   --bg:#000; --glass:rgba(8,12,18,.62); --glass-strong:rgba(8,12,18,.86); --edge:rgba(125,255,166,.16); --edge-dim:rgba(230,237,243,.08);
-  --ink:#e6edf3; --dim:#8b9bab; --faint:#55667a; --accent:#7dffa6; --warm:#ffd27a;
+  --ink:#e6edf3; --dim:#8b9bab; --faint:#738599; --accent:#7dffa6; --warm:#ffd27a;
   --display:"Big Shoulders Display","Arial Narrow",sans-serif; --body:"Barlow",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
   color-scheme:dark;
 }
@@ -151,18 +151,18 @@ a{color:var(--accent)}
 <div id="top">
   <a class="brand glass" href="index.html"><img src="brand/emblem/emblem-256.png" alt=""><div><b>Open Overwatch</b><small>Solar System · beta</small></div></a>
   <div id="time" class="glass">
-    <button class="tb" id="menuBtn" title="Layers">☰</button>
+    <button class="tb" id="menuBtn" title="Layers" aria-label="Layers and tours">☰</button>
     <div class="date"><b class="mono" id="tDate">—</b><span id="tRate">real time</span></div>
-    <button class="tb" data-rate="-6" title="Backwards, 1 year per second">«</button>
-    <button class="tb" data-rate="-4" title="Backwards, 1 day per second">‹</button>
-    <button class="tb" data-rate="0" title="Pause">❚❚</button>
-    <button class="tb on" data-rate="1" title="Real time">▶</button>
-    <button class="tb" data-rate="4" title="1 day per second">›</button>
-    <button class="tb" data-rate="5" title="1 month per second">»</button>
-    <button class="tb" data-rate="6" title="1 year per second">⏩</button>
+    <button class="tb" data-rate="-6" title="Backwards, 1 year per second" aria-label="Backwards, 1 year per second">«</button>
+    <button class="tb" data-rate="-4" title="Backwards, 1 day per second" aria-label="Backwards, 1 day per second">‹</button>
+    <button class="tb" data-rate="0" title="Pause" aria-label="Pause">❚❚</button>
+    <button class="tb on" data-rate="1" title="Real time" aria-label="Real time">▶</button>
+    <button class="tb" data-rate="4" title="1 day per second" aria-label="1 day per second">›</button>
+    <button class="tb" data-rate="5" title="1 month per second" aria-label="1 month per second">»</button>
+    <button class="tb" data-rate="6" title="1 year per second" aria-label="1 year per second">⏩</button>
     <button class="tb" id="now" title="Back to now">NOW</button>
   </div>
-  <div id="search" class="glass"><input id="q" placeholder="Search: Mars, Ceres, Voyager 1, Sirius…" autocomplete="off" spellcheck="false"><div id="hits" class="glass"></div></div>
+  <div id="search" class="glass"><input id="q" aria-label="Search the Solar System and beyond" placeholder="Search: Mars, Ceres, Voyager 1, Sirius…" autocomplete="off" spellcheck="false"><div id="hits" class="glass"></div></div>
   <div class="links glass"><a href="globe.html">3D globe</a><a class="hide-s" href="open-overwatch.html">Classic map</a></div>
 </div>
 
@@ -195,5 +195,6 @@ a{color:var(--accent)}
 <div id="err" class="glass"></div>
 
 <script type="module" src="src/solar/main.js"></script>
+<script type="module" src="src/app/shell.js"></script>
 </body>
 </html>

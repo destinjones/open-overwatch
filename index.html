@@ -39,7 +39,7 @@
 <style>
 :root{
   --bg:#04060a; --panel:#080c12; --panel-2:#0e141c; --line:#182230; --line-strong:#26343f;
-  --ink:#e6edf3; --ink-dim:#8b9bab; --ink-faint:#55667a;
+  --ink:#e6edf3; --ink-dim:#8b9bab; --ink-faint:#738599;
   --accent:#7dffa6; --accent-dim:rgba(125,255,166,.14);
   --civ:#5fd3ff; --mil:#ffb44d; --emg:#ff4d5e; --sat:#d9ccff; --ship:#62e0c8; --qk:#ff7b4f; --evt:#ffd45c; --cam:#ff6fb5;
   --display:"Big Shoulders Display","Arial Narrow",sans-serif;
@@ -830,5 +830,6 @@ fetch('versions.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : Promis
   $('#verList').innerHTML = '<div class="vrow muted">The full version history is on the published site: <a href="https://destinjones.github.io/open-overwatch/#launch">destinjones.github.io/open-overwatch</a>.</div>';
 });
 </script>
+<script type="module" src="src/app/shell.js"></script>
 </body>
 </html>
