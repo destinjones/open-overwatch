@@ -204,9 +204,9 @@ Round 2 (2026-10-10, local):
       that just landed or took off (from their last two fixes) and flag emergency squawks; "Tell me when it lands"
       (a notification on final and at touchdown); trails as GeoJSON; type codes in DET labels; tower view (watch a
       plane from the field's tower with a lens that keeps it framed)
-- [ ] Runways: the code is in (core/runways.js tested; runway in use, wind on it, "final 34R"), the data is not:
-      `python brand/tools/make_airports.py --runways` downloads OurAirports runways.csv (public domain, ~3.5 MB) once the
-      user agrees, and writes data/runways.json; nothing about runways shows until then
+- [x] Runways (OurAirports, public domain; data/runways.json, 5,777 runways at 4,016 airports): the runway in use (what
+      arrivals are lined up with, else into the wind) and the wind on it on airport cards, "final 34R" on board rows,
+      "On final for 34R" on plane cards and in the cockpit HUD (core/runways.js tested)
 - [ ] Aviation next: the MCP server answering "what's landing at X" (Node reads the aircraft feeds directly),
       business-jet and regional-jet models of their own instead of a scaled airliner
 - [x] NYC traffic: measured speeds were all dropped (NYC DOT publishes ~a day late; the cut-off was 4 h). Now up to 48 h,
