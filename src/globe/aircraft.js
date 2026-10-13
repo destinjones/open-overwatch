@@ -82,6 +82,7 @@ export const Air = {
       const now = Date.now(), before = r.cur && airShown(r) ? displayAt(r, now) : null;   // where we drew it
       const dt = (a.ts - r.ts) / 1000;   // turn rate (deg/s) from consecutive fixes: banks the model, curves the dead reckoning; short gaps only
       r.turn = (a.track != null && r.track != null && dt >= 2 && dt <= 120) ? (((a.track - r.track + 540) % 360) - 180) / dt : 0;
+      if (a.ts > r.ts) r.was = { ground: r.ground, ts: r.ts, lat: r.lat, lon: r.lon, alt: r.alt, gs: r.gs };   // the fix before: boards tell a landing or a take-off from it
       Object.assign(r, a); r.corr = null;
       if (before) {   // ease from where it was drawn to where the new fix says it is (not across the world: a reused address)
         const after = aircraftAt(r, now), dLat = before.lat - after.lat, dLon = ((before.lon - after.lon + 540) % 360) - 180;

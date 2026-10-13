@@ -365,3 +365,19 @@ test('trail as GeoJSON', () => {
   assert.deepEqual(g.properties.coordTimes, ['1970-01-01T00:00:00.000Z', '1970-01-01T00:01:00.000Z']); assert.equal(g.properties.callsign, 'BAW1');
   assert.equal(trailGeoJSON([{ t: 0, lat: 1, lon: 1 }]), null);
 });
+
+import { recentMove } from '../src/core/airports.js';
+test('board: landed and departed between two fixes', () => {
+  const now = 1e12, t0 = now - 10 * 60e3;
+  const w = { ...from(LHR, 90, 20), ground: false, alt: 900, gs: 80, ts: t0 };
+  const landed = recentMove(LHR, { ...from(LHR, 0, 1), ground: true, gs: 5, ts: now - 60e3, was: w }, now);
+  assert.equal(landed.status, 'landed'); near(landed.at, t0 + 20000 / 80 * 1000, 2000, 'touchdown ~250 s after the old fix'); near(landed.agoS, (now - landed.at) / 1000, 1e-9);
+  const dep = recentMove(LHR, { ...from(LHR, 270, 30), ground: false, gs: 150, alt: 3000, ts: now, was: { ...from(LHR, 0, 1), ground: true, ts: t0, gs: 0 } }, now);
+  assert.equal(dep.status, 'departed'); near(dep.at, now - 30000 / 150 * 1000, 2000, 'lift-off 200 s before the new fix');
+  assert.equal(recentMove(LHR, { ...from(LHR, 0, 1), ground: true, ts: now, was: { ...w, ts: now - 40 * 60e3 } }, now), null, 'fixes too far apart');
+  assert.equal(recentMove(LHR, { ...from(LHR, 0, 1), ground: true, ts: now, was: { ...from(LHR, 90, 100), ground: false, ts: t0 } }, now), null, 'was too far away');
+  assert.equal(recentMove(LHR, { ...from(LHR, 0, 1), ground: true, ts: now, was: { ...from(LHR, 0, 1), ground: true, ts: t0 } }, now), null, 'parked both times');
+  assert.equal(recentMove(LHR, { ...from(LHR, 0, 1), ground: true, ts: now }, now), null, 'one fix only');
+  const b = makeBoard(LHR, [{ hex: 'z', ...from(LHR, 0, 1), ground: true, gs: 0, ts: now - 60e3, was: w }], { now });
+  assert.equal(b.recent.length, 1); assert.equal(b.recent[0].status, 'landed'); assert.equal(b.ground.length, 0, 'not listed twice');
+});

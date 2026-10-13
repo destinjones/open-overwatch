@@ -29,19 +29,21 @@ async function fieldWeather(a) {
   wxCache.set(q.key, { t: Date.now(), w }); return w;
 }
 
-const SECTIONS = [['arriving', 'Arriving', '#7dffa6'], ['departing', 'Departing', '#ffd27a'], ['ground', 'On the ground', '#9fb3c8']];
+const SECTIONS = [['arriving', 'Arriving', '#7dffa6'], ['departing', 'Departing', '#ffd27a'], ['recent', 'Just landed or took off', '#c9a0ff'], ['ground', 'On the ground', '#9fb3c8']];
 const STATUS = { taxiing: 'taxiing', ground: 'parked' };
 
 function boardRow(e, ap) {
   const r = e.r, k = airClass(r), rt = r.info && r.info.route;
   // the other end of its route on file, when the route agrees with what it is doing here (a route that starts here on a
   // plane landing here is some other day's flight under the same callsign: say nothing)
-  const inbound = e.status === 'arriving' || (e.status !== 'departing' && e.toHere);
+  const inbound = e.status === 'arriving' || e.status === 'landed' || (e.status !== 'departing' && e.status !== 'departed' && e.toHere);
   const other = rt && rt.origin && rt.destination ? (inbound ? rt.origin : rt.destination) : null;
   const where = other && other.icao !== ap.icao && (inbound ? !e.fromHere : !e.toHere) ? `${inbound ? 'from' : 'to'} ${other.iata || other.icao}` : '';
-  const right = e.status === 'arriving' ? etaText(e.etaS) : e.status === 'departing' ? `climbing ${fmt((r.vr || 0) * 196.85)} ft/min` : STATUS[e.status];
-  return `<button class="cj ab-row" data-hex="${esc(r.hex)}"><span><b>${esc(r.flight || r.hex)}</b> ${esc(r.type || (r.info && r.info.aircraft && r.info.aircraft.icaoType) || '')}${where ? ' · ' + esc(where) : ''}${e.sure ? ' ✓' : ''}</span>`
-    + `<small>${e.status === 'ground' || e.status === 'taxiing' ? esc(k.name) : `${fmt(Math.max(0, e.aboveM) / 0.3048)} ft above the field · ${fmt(e.km)} km`} · ${esc(right)}</small></button>`;
+  const right = e.status === 'arriving' ? etaText(e.etaS) : e.status === 'departing' ? `climbing ${fmt((r.vr || 0) * 196.85)} ft/min`
+    : e.status === 'landed' || e.status === 'departed' ? `${e.status} about ${etaText(e.agoS)} ago`.replace('about now ago', 'just now') : STATUS[e.status];
+  const sq = r.emerg ? ` <em class="ab-emg">SQUAWK ${esc(r.squawk)}</em>` : '';
+  return `<button class="cj ab-row${r.emerg ? ' emg' : ''}" data-hex="${esc(r.hex)}"><span><b>${esc(r.flight || r.hex)}</b>${sq} ${esc(r.type || (r.info && r.info.aircraft && r.info.aircraft.icaoType) || '')}${where ? ' · ' + esc(where) : ''}${e.sure ? ' ✓' : ''}</span>`
+    + `<small>${e.status === 'ground' || e.status === 'taxiing' || e.status === 'landed' || e.status === 'departed' ? esc(k.name) : `${fmt(Math.max(0, e.aboveM) / 0.3048)} ft above the field · ${fmt(e.km)} km`} · ${esc(right)}</small></button>`;
 }
 
 export const Airports = {
@@ -70,7 +72,7 @@ export const Airports = {
       p.r = r; planes.push(p);
     }
     const b = makeBoard(a, planes, { others: this.index.near(a.lat, a.lon, BOARD.radiusKm + 30, 12) });
-    for (const k of ['arriving', 'departing', 'ground']) for (const e of b[k]) e.r = e.r.r;   // back to the live records
+    for (const k of ['arriving', 'departing', 'ground', 'recent']) for (const e of b[k]) e.r = e.r.r;   // back to the live records
     return b;
   },
   cardHtml(a) {
@@ -88,7 +90,7 @@ export const Airports = {
       const box = card.querySelector('#apBoard');
       if (!box || state.selected !== a || !card.classList.contains('show')) { clearInterval(this.timer); this.open = null; return; }
       if (!L.air.on && !L.mil.on) { box.innerHTML = '<p class="note">Switch on the aircraft layers to see who is coming and going.</p>'; return; }
-      const b = this.board(a), n = b.arriving.length + b.departing.length + b.ground.length;
+      const b = this.board(a), n = b.arriving.length + b.departing.length + b.ground.length + b.recent.length;
       const next = b.arriving.find(e => e.etaS != null);
       box.innerHTML = (next ? `<div class="acts"><button class="chipbtn" data-next="${esc(next.r.hex)}" style="color:#7dffa6">Follow the next arrival · ${esc(next.r.flight || next.r.hex)}</button></div>` : '')
         + (n ? SECTIONS.map(([k, name, col]) => b[k].length ? `<h3 style="color:${col}">${name} · ${b[k].length}</h3>${b[k].map(e => boardRow(e, a)).join('')}` : '').join('')

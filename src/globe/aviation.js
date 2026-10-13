@@ -5,7 +5,8 @@ import { Trails } from './trails.js';
 import { CockpitWx } from './cockpitwx.js';
 import { Airports } from './airports.js';
 import { RouteLine } from './routeline.js';
+import { LandWatch } from './landwatch.js';
 import './aircard.js';
 
 export { Airports };
-export const Aviation = { AcInfo, Trails, CockpitWx, Airports, RouteLine };
+export const Aviation = { AcInfo, Trails, CockpitWx, Airports, RouteLine, LandWatch };

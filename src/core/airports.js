@@ -110,14 +110,18 @@ export function boardStatus(ap, p, opt = BOARD) {
 }
 
 /**
- * The board for an airport from a list of aircraft: { arriving, departing, ground } each sorted (arrivals by ETA,
- * departures by distance flown, ground by distance), entries { r, ...boardStatus }. A plane counts once: if another
+ * The board for an airport from a list of aircraft: { arriving, departing, ground, recent } each sorted (arrivals by
+ * ETA, departures by distance flown, ground by distance, recent landings and take-offs newest first), entries
+ * { r, ...boardStatus } (recent: { r, ...recentMove, km }). A plane counts once: if another
  * airport in `others` fits it clearly better (nearer, and pointed at it), it is left to that one (fields close together).
  */
-export function makeBoard(ap, aircraft, { others = [], opt = BOARD, max = 40 } = {}) {
-  const arriving = [], departing = [], ground = [];
+export function makeBoard(ap, aircraft, { others = [], opt = BOARD, max = 40, now = Date.now() } = {}) {
+  const arriving = [], departing = [], ground = [], recent = [];
   for (const r of aircraft) {
-    const s = boardStatus(ap, r, opt); if (!s) continue;
+    const mv = recentMove(ap, r, now, opt);
+    const fresh = mv && mv.agoS < 30 * 60;
+    if (fresh) recent.push({ r, ...mv, km: gcKm(ap.lat, ap.lon, r.lat, r.lon) });
+    const s = boardStatus(ap, r, opt); if (!s || (fresh && mv.status === 'landed')) continue;   // just landed: listed once, as that
     if (!s.sure && others.length) {
       let closer = false;
       for (const o of others) {
@@ -133,7 +137,30 @@ export function makeBoard(ap, aircraft, { others = [], opt = BOARD, max = 40 } =
   arriving.sort((a, b) => (a.etaS ?? 1e9) - (b.etaS ?? 1e9) || a.km - b.km);
   departing.sort((a, b) => a.km - b.km);
   ground.sort((a, b) => (b.status === 'taxiing') - (a.status === 'taxiing') || a.km - b.km);
-  return { arriving: arriving.slice(0, max), departing: departing.slice(0, max), ground: ground.slice(0, max) };
+  recent.sort((a, b) => b.at - a.at);
+  return { arriving: arriving.slice(0, max), departing: departing.slice(0, max), ground: ground.slice(0, max), recent: recent.slice(0, max) };
+}
+
+/**
+ * A landing or take-off between a plane's last two fixes, at this airport: { status: 'landed'|'departed', at (ms,
+ * estimated), agoS } or null. Landed: on the ground within groundKm now, airborne within 60 km at the fix before (at
+ * most 20 min earlier); the touchdown is put where the old fix's ground speed would have brought it to the field.
+ * Departed: airborne now, on the ground here at the fix before; lift-off where the new fix's speed says it left.
+ */
+export function recentMove(ap, r, now, opt = BOARD) {
+  const w = r && r.was;
+  if (!w || !Number.isFinite(r.ts) || !Number.isFinite(w.ts) || r.ts - w.ts > 20 * 60e3 || r.ts <= w.ts) return null;
+  const kmNow = gcKm(ap.lat, ap.lon, r.lat, r.lon), kmWas = gcKm(ap.lat, ap.lon, w.lat, w.lon);
+  const clamp = t => Math.max(w.ts, Math.min(r.ts, t));
+  if (r.ground && !w.ground && kmNow <= opt.groundKm && kmWas <= 60) {
+    const at = clamp(w.gs > 20 ? w.ts + kmWas * 1e6 / w.gs : (w.ts + r.ts) / 2);
+    return { status: 'landed', at, agoS: (now - at) / 1000 };
+  }
+  if (!r.ground && w.ground && kmWas <= opt.groundKm) {
+    const at = clamp(r.gs > 20 ? r.ts - kmNow * 1e6 / r.gs : (w.ts + r.ts) / 2);
+    return { status: 'departed', at, agoS: (now - at) / 1000 };
+  }
+  return null;
 }
 
 /** "6 min", "1 h 05", "now" for an ETA in seconds. */
