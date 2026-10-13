@@ -132,6 +132,7 @@ $('#search').addEventListener('submit', async ev => {
   const satExact = Dyn.sats.find(s => s.name.toLowerCase() === ql || String(s.id) === q); if (satExact) return showSat(satExact);
   for (const s of Dyn.ships.values()) if ((s.name || '').toLowerCase() === ql || String(s.id) === q) { flyTo(s.lat, s.lon, 10); Detail.show('ship', s, s.id); return; }
   const satPart = Dyn.sats.find(s => s.name.toLowerCase().includes(ql)); if (satPart) return showSat(satPart);
+  if (late.findAirport && !/\d/.test(q)) { const ap = await late.findAirport(q); if (ap) { late.showAirport(ap.icao); return; } }   // "LHR", "Heathrow", "Denver" (aviation.js)
   toast('Searching feeds for ' + q + '…');
   // six hex digits may be an ICAO address or a callsign such as CCA981, so try both; one failed lookup doesn't stop the next
   const lookups = [...(/^[0-9a-f]{6}$/i.test(q) ? [['hex', q.toLowerCase()]] : []), ['callsign', encodeURIComponent(q.toUpperCase())], ['reg', encodeURIComponent(q.toUpperCase())]];

@@ -58,6 +58,7 @@ export const Air = {
       let rec = Dyn.air.get(hex);
       if (!rec) { rec = { hex, trail: [], first: now, tags: new Set() }; Dyn.air.set(hex, rec); }
       const wasEmerg = !!rec.emerg;
+      if (rec.lat != null && (rec.lat !== x.lat || rec.lon !== x.lon || rec.ground !== x.ground)) rec.was = { lat: rec.lat, lon: rec.lon, ground: rec.ground, gs: rec.gs, ts: rec.ts };   // the fix before: airport boards tell a landing or take-off from it
       Object.assign(rec, {
         lat: x.lat, lon: x.lon, alt: x.ground ? 0 : (x.altFt ?? x.geomFt ?? rec.alt), altGeom: x.geomFt, ground: x.ground, gs: x.gsKt ?? rec.gs, track: x.track ?? rec.track,
         vr: x.rateFpm, squawk: x.squawk, emergency: x.emergency, flight: x.flight, r: x.reg, t: x.type, desc: x.desc,
@@ -138,7 +139,7 @@ Detail.renderers.air = a => {
   ];
   if (a.flight) links.push({ text: `FlightAware · ${a.flight}`, url: `https://flightaware.com/live/flight/${encodeURIComponent(a.flight)}` });
   if (a.r) links.push({ text: `Registration ${a.r} on Planespotters`, url: `https://www.planespotters.net/search?q=${encodeURIComponent(a.r)}` });
-  return `<div class="det">${Detail.head(a.emerg ? C.emg : a.mil ? C.mil : C.civ, `Aircraft · ADS-B via ${a.src}`, title, sub, flags)}${Photos.html(a.hex)}${Detail.kv(rows)}
+  return `<div class="det">${Detail.head(a.emerg ? C.emg : a.mil ? C.mil : C.civ, `Aircraft · ADS-B via ${a.src}`, title, sub, flags)}${Photos.html(a.hex)}${Air.more ? Air.more(a) : ''}${Detail.kv(rows)}
   <div class="actions"><button class="btn small" onclick="flyTo(${num(a.lat)},${num(a.lon)},8)">Center</button><button class="btn small" onclick="Air.trail('${idArg(a.hex)}')">Trail</button><button class="btn small" onclick="Air.follow('${idArg(a.hex)}')">${Air.following === a.hex ? 'Unfollow' : 'Follow'}</button></div>
   <hr class="sep">${Detail.links(links)}</div>`;
 };

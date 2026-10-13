@@ -23,6 +23,7 @@ import './satellites.js';
 import './feeds.js';
 import './osmlayers.js';
 import './weather.js';
+import './aviation.js';
 import './presets.js';
 import './brief.js';
 import './audio.js';

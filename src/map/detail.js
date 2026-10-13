@@ -26,7 +26,7 @@ export const Detail = {
 };
 setInterval(() => { // live panels refresh every 2 s, but not while the user is selecting text in them (a re-render would drop it)
   const ts = getSelection(); if (ts && !ts.isCollapsed && Detail.el.contains(ts.anchorNode)) return;
-  if (Sel.kind && ['air', 'sat', 'ship', 'balloon', 'transit'].includes(Sel.kind) && $('#tab-detail').classList.contains('on') && !document.hidden) Detail.render();
+  if (Sel.kind && ['air', 'sat', 'ship', 'balloon', 'transit', 'airport'].includes(Sel.kind) && $('#tab-detail').classList.contains('on') && !document.hidden) Detail.render();
 }, 2000);
 window.flyTo = (lat, lon, z) => { map.flyTo([lat, lon], Math.max(map.getZoom(), z || 6), { duration: 0.8 }); };
 export const Tracks = { group: L.layerGroup().addTo(map), clear() { this.group.clearLayers(); } };
@@ -38,7 +38,7 @@ export const Hover = {
     const h = glyphs.hitTest(e.containerPoint); const mapEl = $('#map');
     if (!h) { if (this.last) { this.el.style.display = 'none'; mapEl.classList.remove('hit'); this.last = null; } return; }
     this.last = h; mapEl.classList.add('hit');
-    const kindName = { air: 'Aircraft', sat: 'Satellite', ship: 'Vessel', balloon: 'Balloon', cam: 'Camera', quake: 'Quake', event: 'Event', gdacs: 'Alert', news: 'News', storm: 'Storm', fire: 'Fire', landing: 'Landing station', osm: 'OSM', cluster: 'Ships', bike: 'Bike share', transit: 'Transit', hotspot: 'Fire', fireperim: 'Wildfire', shape: 'Drawing' }[h.kind] || h.kind;
+    const kindName = { air: 'Aircraft', sat: 'Satellite', ship: 'Vessel', balloon: 'Balloon', cam: 'Camera', quake: 'Quake', event: 'Event', gdacs: 'Alert', news: 'News', storm: 'Storm', fire: 'Fire', landing: 'Landing station', osm: 'OSM', cluster: 'Ships', bike: 'Bike share', transit: 'Transit', hotspot: 'Fire', fireperim: 'Wildfire', shape: 'Drawing', airport: 'Airport' }[h.kind] || h.kind;
     this.el.innerHTML = `<span class="k">${esc(kindName)}</span>${esc(h.tip || '')}`; this.el.style.display = 'block';
     const stage = $('#stage').getBoundingClientRect(), rect = mapEl.getBoundingClientRect(); let x = rect.left - stage.left + e.containerPoint.x + 14, y = rect.top - stage.top + e.containerPoint.y + 14;
     if (x + this.el.offsetWidth > stage.width - 8) x = rect.left - stage.left + e.containerPoint.x - this.el.offsetWidth - 10; if (y + this.el.offsetHeight > stage.height - 8) y -= this.el.offsetHeight + 24;

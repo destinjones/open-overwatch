@@ -1,0 +1,38 @@
+/* Aviation on the 2D map (src/map/aviation.js): the aircraft card's extra section, airport cards with their boards,
+   runways and the wind on them. */
+.det .note { font-size: 11.5px; color: var(--ink-faint, #738599); line-height: 1.45; margin: 6px 0; }
+.ac-more { margin: 4px 0 10px; padding: 8px 0 2px; border-top: 1px solid var(--line, #182230); }
+.ac-more .kv { margin-bottom: 6px; }
+.ac-phase { margin: 6px 0; font-size: 12.5px; color: var(--ink-dim, #8b9bab); }
+.ac-phase b { color: var(--accent, #7dffa6); font-weight: 600; }
+.ac-ap { background: none; border: 0; padding: 0; color: var(--accent, #7dffa6); font: 600 12.5px/1.2 var(--font-mono, ui-monospace, monospace); cursor: pointer; text-decoration: underline dotted; }
+.ac-route { margin: 8px 0; padding: 7px 8px; background: rgba(125, 255, 166, .05); border-left: 2px solid var(--accent, #7dffa6); border-radius: 2px; }
+.ac-route.off { background: rgba(255, 179, 71, .06); border-left-color: #ffb347; }
+.ac-legs { display: flex; align-items: center; gap: 8px; }
+.ac-legs .ac-ap { font-size: 14px; text-decoration: none; }
+.ac-bar { flex: 1; height: 4px; background: var(--line-strong, #26343f); border-radius: 2px; overflow: hidden; }
+.ac-bar i { display: block; height: 100%; background: var(--accent, #7dffa6); }
+.ac-route.off .ac-bar i { background: #ffb347; }
+.ac-route .note { margin: 4px 0 0; }
+.ac-photo { display: block; position: relative; margin: 8px 0; }
+.ac-photo span { position: absolute; right: 4px; bottom: 6px; font-size: 10px; color: #fff; text-shadow: 0 1px 2px #000; }
+.ap-wx { font-size: 12.5px; line-height: 1.45; margin: 4px 0 8px; color: var(--ink, #e6edf3); }
+.ap-wx small { color: var(--ink-faint, #738599); font-size: 10.5px; }
+.ap-cat { display: inline-block; padding: 0 5px; border: 1px solid var(--c); color: var(--c); border-radius: 3px; font: 700 11px/16px var(--font-mono, ui-monospace, monospace); }
+.ap-use { font-size: 12.5px; margin: 6px 0; color: var(--ink-dim, #8b9bab); }
+.ap-use b { color: #7dffa6; font-family: var(--font-mono, ui-monospace, monospace); }
+.det.ap h4 { margin: 12px 0 4px; font: 700 11.5px/1.2 var(--font-display, inherit); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim, #8b9bab); }
+.ab-row { display: grid; gap: 1px; width: 100%; text-align: left; background: transparent; border: 1px solid var(--line, #182230); border-radius: 3px; padding: 5px 8px; margin: 3px 0;
+  color: var(--ink, #e6edf3); cursor: pointer; font: 12.5px/1.3 var(--font-body, system-ui, sans-serif); }
+.ab-row:hover { border-color: var(--accent, #7dffa6); }
+.ab-row b { font-family: var(--font-mono, ui-monospace, monospace); font-weight: 500; }
+.ab-row small { color: var(--ink-faint, #738599); font-size: 11px; }
+.ab-row.emg { border-color: #ff4d5e; }
+.ab-row em { color: #ff4d5e; font-style: normal; font-weight: 700; }
+.ap-rw { width: 100%; border-collapse: collapse; font: 12px/1.35 var(--font-mono, ui-monospace, monospace); }
+.ap-rw td { padding: 2px 6px 2px 0; vertical-align: top; border-bottom: 1px solid var(--line, #182230); }
+.ap-rw td:first-child { white-space: nowrap; }
+.ap-rw .ap-end td { color: var(--ink-dim, #8b9bab); border-bottom: 0; }
+.ap-rw .ap-end td:first-child { padding-left: 12px; }
+.ap-rw .ap-end.on td { color: #7dffa6; }
+.ap-rw em { color: #ffb347; font-style: normal; }
