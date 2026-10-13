@@ -191,6 +191,13 @@ Round 2 (2026-10-10, local):
       Finish, a chevron for the rest); card and dock went from 46% to 21% of the screen (WebKit iPhone 15 profile)
 - [x] NYC traffic: measured speeds were all dropped (NYC DOT publishes ~a day late; the cut-off was 4 h). Now up to 48 h,
       with the age said on the card; 70 measured road pieces around the FDR. Midtown's side streets have no sensors at all
+- [x] OpenStreetMap layers without Overpass (GEV_STUDY 16; core/osmtiles.js tested): military areas from OpenFreeMap
+      `landuse` z9-12 (filled, outlined without tile seams, joined across tiles, named by the military airfields inside or
+      on a click), every mapped licence-plate reader in the US and Canada from the DeFlock/FlockHopper tiles (a dot cloud
+      from orbit, make/operator/facing close up), and 3D buildings with their mapped heights and colours from OpenFreeMap
+      z14 (Overpass only as the fallback; phones get 4 tiles and skip sheds)
+- [x] Plate readers and military areas on the 2D map too (src/map/osmlayers.js, the same tiles and core code)
+- [ ] Plate readers outside the US and Canada still come from Overpass (surveil.js) until someone tiles the world's
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 

@@ -127,15 +127,15 @@ export const Net = {
     const p = q.chain.then(async () => { const wait = q.last + gap - Date.now(); if (wait > 0) await sleep(wait); q.last = Date.now(); });
     q.chain = p.catch(() => { }); return p;
   },
-  async fetch(url, { timeout = 25000, headers = {}, throttle = null, gap = 1100, text = false, method = 'GET', body = null } = {}) {
+  async fetch(url, { timeout = 25000, headers = {}, throttle = null, gap = 1100, text = false, bytes = false, cache = 'no-store', method = 'GET', body = null } = {}) {
     if (throttle) await this.slot(throttle, gap);
     let target = url, relayed = false;
     if (Relay.needs(url)) { const w = Relay.wrap(url); if (!w) throw new Error('blocked by browser security (CORS) — ' + Relay.status()); target = w; relayed = true; }
     const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), timeout);
     try {
-      const r = await fetch(target, { signal: ctl.signal, headers, method, body, cache: 'no-store', mode: 'cors' });
+      const r = await fetch(target, { signal: ctl.signal, headers, method, body, cache, mode: 'cors' });
       if (!r.ok) { let msg = ''; try { msg = (await r.text()).slice(0, 120).replace(/\s+/g, ' '); } catch (e) { } throw new Error('HTTP ' + r.status + (r.status === 429 ? ' rate-limited' : '') + (msg && /^[{\[<]/.test(msg) === false ? ' · ' + msg : '')); }
-      return text ? await r.text() : await r.json();
+      return bytes ? new Uint8Array(await r.arrayBuffer()) : text ? await r.text() : await r.json();
     } catch (e) {
       if (e.name === 'AbortError') throw new Error('timeout');
       if (e instanceof TypeError) throw new Error(relayed ? 'relay unreachable (' + Relay.status() + ')' : 'blocked by browser security (CORS) or offline');
@@ -145,6 +145,8 @@ export const Net = {
   },
   json(url, o) { return this.fetch(url, o); },
   text(url, o = {}) { return this.fetch(url, { ...o, text: true }); },
+  /** Binary (vector tiles): cached by the browser unless told otherwise. */
+  bytes(url, o = {}) { return this.fetch(url, { cache: 'default', ...o, bytes: true }); },
 };
 
 /* ============================================================ clock */

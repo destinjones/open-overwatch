@@ -307,3 +307,18 @@ test('inBounds: a TileJSON box', () => {
   const us = [-159.609375, 17.685895, -64.599609, 61.616843];
   assert.ok(inBounds(us, 41.88, -87.63)); assert.ok(!inBounds(us, 51.5, -0.12)); assert.ok(!inBounds(null, 0, 0));
 });
+
+test('tilesInBox: covers the box, middle first, capped, across the antimeridian; tileBounds and tileOverlaps', async () => {
+  const { tilesInBox, tileBounds, tileOverlaps } = await import('../src/core/osmtiles.js');
+  const k = tilesInBox(-88, 41.6, -87.4, 42.1, 10);
+  for (const [lat, lon] of [[41.6, -88], [42.1, -87.4], [41.85, -87.7]]) { const t = tileAt(lat, lon, 10); assert.ok(k.includes(`10/${t.x}/${t.y}`), `${lat},${lon}`); }
+  const mid = tileAt(41.85, -87.7, 10); assert.equal(k[0], `10/${mid.x}/${mid.y}`);
+  assert.equal(new Set(k).size, k.length);
+  assert.equal(tilesInBox(-88, 41.6, -87.4, 42.1, 10, 2).length, 2);
+  const w = tilesInBox(179, -1, -179, 1, 4);
+  assert.ok(w.some(t => t.split('/')[1] === '15') && w.some(t => t.split('/')[1] === '0'), 'both sides of 180°');
+  assert.equal(tilesInBox(-200, -10, 200, 10, 2).length, 4 * 2, 'a wrapped-around world is each column once');
+  const b = tileBounds('1/0/0'); near(b[0], -180, 1e-9); near(b[2], 0, 1e-9); near(b[1], 0, 1e-9); near(b[3], 85.0511, 1e-4);
+  const us = [-159.6, 17.7, -64.6, 61.6], t = tileAt(41.88, -87.63, 9);
+  assert.ok(tileOverlaps(`9/${t.x}/${t.y}`, us)); const l = tileAt(51.5, -0.12, 9); assert.ok(!tileOverlaps(`9/${l.x}/${l.y}`, us)); assert.ok(tileOverlaps('0/0/0', null));
+});

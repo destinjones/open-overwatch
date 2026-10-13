@@ -312,3 +312,44 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
 - Its ~150 sensor links in Manhattan are all on the edges (FDR, West Side Hwy / 12th Ave, tunnels, bridges); Midtown's
   streets have none, so a Midtown view correctly shows no measured roads. A query ordered by data_as_of over the whole
   table is slow (minutes for count(distinct)); keep the ordered $limit query (1200 rows ≈ every link).
+
+## OpenStreetMap layers from vector tiles (military.js, alpr.js, tilebuildings.js, core/osmtiles.js) — 2026-10-12
+- Why: the public Overpass servers refuse a website's worth of requests. These three read tiles over plain GET (CORS,
+  browser-cached): OpenFreeMap (`tiles.openfreemap.org/planet` TileJSON names this week's set) and FlockHopper's camera
+  tiles. `src/globe/vtiles.js` holds the TileJSONs (6 h), runs at most 4 tile requests at once across these layers and
+  fetches a tile once when two layers want it. A 404/204 is an empty tile (the Canadian set has no US tiles).
+- MVT polygons: exterior rings are positive by the surveyor's formula in tile units (y down), holes negative and follow
+  their exterior (`polygons`); old tiles wound the other way are handled by the first ring's sign. Tiles overlap by a
+  buffer, so every polygon is clipped exactly to its tile (Sutherland-Hodgman, `clipRing`); otherwise buildings on a
+  tile edge are drawn twice and z-fight. Points on a cut lie exactly on the tile edge, which is how `outlineRuns` leaves
+  the seams out of outlines and how `joinPieces` puts an area cut by tile edges back together (a cut on one side
+  overlapping a cut on the same world line from the other side). An area with an unmatched cut runs on past the loaded
+  tiles: its size is "at least".
+- Military: OpenMapTiles has `landuse` class=military from z4 but **no name** for it, and `poi` has no military class.
+  Names come from `aerodrome_label` class=military inside the area (in z12 tiles for most fields: Fort Liberty is
+  "Pope Field (+1)" at z12 and unnamed at z10), else the card asks Overpass once (`is_in` + landuse/military; the
+  smallest named enclosing area, which can be the base around a part). Zoom: the most detailed of z12..z9 whose tiles
+  for a circle of 1.3 x the height fit in 16 (9 on phones) (`pickZoom`). Fills are GroundPrimitives and outlines
+  GroundPolylinePrimitives per tile (ClassificationType.BOTH, built in workers); draped primitives don't pick here, so
+  each area has a clamped billboard pin and label carrying the card. Labels show from sqrt(area) x 9 (named) or x 5.
+- Plate readers: the tiles are tippecanoe output with `--drop-rate=1 --no-feature-limit`: z0-8 are a heat set (points
+  with no properties), z9-14 carry every camera with its tags, so z9 already has all of them (Chicago's z9 tile: 2,164
+  readers, 127 KB brotli). From orbit the globe draws the heat points (one point batch per tile, made once); below
+  ~250 km the readers (z12..z9 by the same pickZoom rule). 145,000 mapped in the US + Canada on 2026-10-12. Facing
+  wedges are made only for readers near the middle of the view below 8 km. surveil.js (Overpass) skips the ALPRs this
+  layer already draws, by OSM node id; elsewhere in the world plate readers still come from surveil.js.
+- Buildings: OpenFreeMap's `building` layer is z13-14 but z13 is nearly empty: z14 only (the same tiles traffic loads).
+  `render_height` is always there (height, or levels x ~3 m, or a default); `hide_3d` marks an outline whose
+  building:parts are drawn instead; `colour` is the mapped colour or material, toned toward grey. Midtown Manhattan: 9
+  tiles, ~18,000 buildings, built in Cesium's workers in a second or two on the RTX 3060. On terrain each building
+  stands on `sampleTerrainMostDetailed` at its corner mean (one call per tile). Over the cap, the biggest footprint x
+  height are kept. Overpass (osmbuildings.js) only takes over after 4 failed tiles in a row.
+- 2D map (src/map/osmlayers.js): the same tiles and core functions as two feeds (viewDependent, refetched on moveend).
+  Plate readers: a dot cloud (z = map zoom - 3, 20,000 dots) below map zoom 10, every reader from 10 (z = map zoom - 2,
+  9..12). Military areas from map zoom 8 (z = map zoom - 2, 9..12) as Leaflet polygons (fill only) plus seam-free
+  polylines, with a triangle pin carrying the card. `Net.bytes` (util.js) fetches binary with the browser cache on;
+  `Net.fetch` keeps `cache: 'no-store'` for everything else. A 404 tile is an empty tile.
+- Headless renders killed each other: `reapOrphans()` in brand/tools/cdp.mjs killed any profile browser whose parent
+  was gone, and Edge's main process always outlives the launcher `spawn()` starts, so every globe_shot run killed every
+  other session's running render (`CDP connection closed` mid-run). Each profile now holds owner.pid and only a dead
+  owner (or, without owner.pid, 30 minutes of age) makes a browser an orphan. Parallel sessions can also set `OW_WORK`.

@@ -380,3 +380,22 @@ export function cameraFacts(c) {
 }
 /** Is a point inside a TileJSON `bounds` [w, s, e, n]? */
 export const inBounds = (b, lat, lon) => !!b && lon >= b[0] && lat >= b[1] && lon <= b[2] && lat <= b[3];
+
+/** The tiles at zoom z that cover a box (west, south, east, north in degrees; east may pass 180 or be less than west
+ *  across the antimeridian), the ones nearest the box's middle first, at most `max`: ['z/x/y', …]. For the 2D map,
+ *  whose view is a box, not a circle. */
+export function tilesInBox(w, s, e, n, z, max = Infinity) {
+  const N = 2 ** z, la = v => Math.max(-85.05, Math.min(85.05, v)), row = lat => { const t = Math.sin(la(lat) * D); return Math.min(N - 1, Math.max(0, Math.floor((0.5 - Math.log((1 + t) / (1 - t)) / (4 * Math.PI)) * N))); };
+  if (e < w) e += 360;
+  if (e - w >= 360) { w = -180; e = 180 - 1e-9; }
+  const x0 = Math.floor((w + 180) / 360 * N), x1 = Math.floor((e + 180) / 360 * N), y0 = row(n), y1 = row(s);
+  const cx = (x0 + x1 + 1) / 2, cy = (y0 + y1 + 1) / 2, out = [];
+  for (let x = x0; x <= x1 && x - x0 < N; x++) for (let y = y0; y <= y1; y++) out.push([`${z}/${((x % N) + N) % N}/${y}`, Math.hypot(x + 0.5 - cx, y + 0.5 - cy)]);
+  return out.sort((a, b) => a[1] - b[1]).slice(0, max).map(t => t[0]);
+}
+/** A tile 'z/x/y' as [west, south, east, north] degrees, and whether it overlaps a TileJSON `bounds` (none: yes). */
+export function tileBounds(key) {
+  const [z, x, y] = key.split('/').map(Number), n = 2 ** z, lat = yy => Math.atan(Math.sinh(Math.PI * (1 - 2 * yy / n))) / D;
+  return [x / n * 360 - 180, lat(y + 1), (x + 1) / n * 360 - 180, lat(y)];
+}
+export const tileOverlaps = (key, b) => { if (!b) return true; const t = tileBounds(key); return t[0] <= b[2] && t[2] >= b[0] && t[1] <= b[3] && t[3] >= b[1]; };

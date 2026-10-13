@@ -114,7 +114,7 @@ ships jump once a minute (no dead reckoning or wakes); dense-city traffic lag; p
     radius; lists capped at 25), answers carrying a view link, and an MCP App that loads the whole app through a
     tool. Ours could be a small npm stdio package whose tools answer from public feeds with links to our URL, plus
     an MCP App that just frames `?embed=1`: no checkout, no local server.
-16. **Overpass-free OSM layers.** Public Overpass refuses them too (their `OVERPASS_UPSTREAMS` defaults to empty).
+16. **Overpass-free OSM layers.** (Done 2026-10-12: military.js, alpr.js, tilebuildings.js.) Public Overpass refuses them too (their `OVERPASS_UPSTREAMS` defaults to empty).
     Military areas: OpenFreeMap `landuse` class=military, z9-12. ALPR: `tiles.dontgetflocked.com/cameras-{us,ca}-hourly.json`
     (MVT, CORS *). Buildings: OpenFreeMap's `building` layer (render_height) from the tiles our traffic already loads.
 17. **Smaller ones.**

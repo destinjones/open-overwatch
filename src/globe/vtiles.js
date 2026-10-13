@@ -47,10 +47,5 @@ export async function vtile(source, key, want = null) {
   p.finally(() => inflight.delete(id)).catch(() => {});
   return p;
 }
-/** The tile 'z/x/y' as a [west, south, east, north] box in degrees. */
-export function tileBox(key) {
-  const [z, x, y] = key.split('/').map(Number), n = 2 ** z, lat = yy => Math.atan(Math.sinh(Math.PI * (1 - 2 * yy / n))) * 180 / Math.PI;
-  return [x / n * 360 - 180, lat(y + 1), (x + 1) / n * 360 - 180, lat(y)];
-}
-/** Does a tile overlap a TileJSON `bounds`? */
-export const tileInBounds = (key, b) => { if (!b) return true; const t = tileBox(key); return t[0] <= b[2] && t[2] >= b[0] && t[1] <= b[3] && t[3] >= b[1]; };
+/** Does a tile overlap a TileJSON `bounds`? (core/osmtiles.js, tested) */
+export { tileOverlaps as tileInBounds } from '../core/osmtiles.js';

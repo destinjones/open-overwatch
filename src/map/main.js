@@ -17,6 +17,7 @@ import './detail.js';
 import './aircraft.js';
 import './satellites.js';
 import './feeds.js';
+import './osmlayers.js';
 import './presets.js';
 import './brief.js';
 import './audio.js';
