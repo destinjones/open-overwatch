@@ -234,8 +234,18 @@ Round 2 (2026-10-10, local):
       "missions now" list; comets with comae and physical ion + dust tails (exact syndyne), open orbits (3I/ATLAS),
       perihelion timelines and a "comets near the Sun" list; "Where is it now?" ranked search over everything with
       where-in-Earth's-sky; the view as a link (#f=, #t=, #d=, #q=); Sun-Earth L1/L2. Tests against Horizons fixtures
-- [ ] Solar: comet brightness (SBDB M1/K1 magnitude parameters, a new SBDB pull) so the list can say what is bright,
-      not just well placed; denser Juno track (1-day) for its perijoves
+- [x] Solar: comet brightness (SBDB M1/K1): "brightest now" with each comet's peak, "coming up" (due to peak brighter
+      than 12 in three years), magnitudes on cards and in the coma glow; comets with stale orbits left out (core/comets.js
+      tested against Horizons T-mag)
+- [x] Solar: Juno at 1-day steps and on its osculating orbits around the drawn Jupiter, 30-minute sets at each of its 109
+      perijoves (within 150 km of Horizons through a pass; was ~200,000 km), its orbit drawn there, perijoves on its card
+- [x] Solar: eclipses and lunar occultations 2026-2030 from space (core/syzygy.js on a Horizons Sun/Moon fit): the Moon's
+      shadow on the globe with its cones, the red Moon inside Earth's umbra rings, the Sun-Earth-Moon line, the Moon's
+      "shadow" toward a star; a list with Jump / play buttons, searchable event cards whose timeline holds the contacts.
+      12 solar + 12 lunar eclipses match NASA's canon (time < 2 min, magnitude < 0.01); 139 occultations (bright stars,
+      five planets) checked against published events
+- [ ] Solar: occultation ground tracks (where on Earth the star disappears, as a band on the globe) and grazes; Uranus,
+      Neptune and the dwarf planets; the 2031+ eclipses need a longer Horizons fit
 - [x] Weather 2.0: ECMWF IFS open data (0.25°, CC BY 4.0) beside GFS, read in the browser by byte range like GFS (a
       CCSDS decoder for its GRIB2, core/aec.js); a model switch and a side-by-side slider (washes split, streaks and H/L
       follow their side); sea-level pressure as isobars every 4 hPa with H and L (core/contour.js); gusts; ocean waves

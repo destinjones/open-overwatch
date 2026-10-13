@@ -502,6 +502,35 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   Ophiuchus"). Checked: Halley in Jan 1986 "low in the west after sunset, near Aquarius", as it was.
 - Renders: parallel sessions' globe_shot runs reap each other's headless Edge (cdp.mjs reapOrphans); set
   `OW_WORK="$LOCALAPPDATA\oo-brand-<name>"` per session. The Browser pane, when hidden, draws no frames at all.
+## Solar System round 2: eclipses, occultations, comet brightness, Juno (eclipses.js, core/syzygy.js) — 2026-10-13
+- The Moon for eclipses: `planets.js`'s formula is ~0.3° off (half the Moon's width), so `make_ephem.py` fits Horizons'
+  apparent Sun (daily) and Moon (hourly) 2026-2030 as Chebyshev series (Moon 4-day segments degree 13: 3 m; Sun 32-day
+  degree 13: 1 km) into `data/solar/ephem.json` (148 KB). While it is loaded the view's Moon is drawn there
+  (`byKey.moon.geoSource`), else the shadows would miss it. Time argument is UT (the view's clock).
+- `core/syzygy.js`: new/full Moons by bisection on the longitude difference; solar eclipses reuse `eclipse.js` cones
+  and `eclipselocal.js` Earth-fixed turn (agrees with the globe's `greatestEclipse` on the minute tables within 15 s,
+  0.2°); lunar eclipses by Danjon (1/85 enlargement, Earth radius at 45°: R x 0.998340) as NASA's canon: all 12
+  lunar eclipses 2026-2030 within 2 min, umbral magnitudes within 0.01, durations within 2 min. NASA's tables give TD;
+  subtract ~70 s. A central eclipse's "magnitude" in NASA's tables is the Moon/Sun diameter ratio, not the covered
+  fraction of the diameter. Occultations: the Moon within R_earth + R_moon (+ the planet's radius projected) of the
+  line Earth-target; 139 in 2026-2030 (Regulus monthly until 2027, Antares, the Pleiades; Spica's, Saturn's and
+  Aldebaran's series are not on); checked against published Venus 2026-06-17 and Jupiter 2026-09-08 / 10-06 events.
+  All 163 events take ~200 ms in the browser.
+- Shadows in the shaders: `globeMaterial` got an occluder (the other globe in view space); coverage from the angular
+  radii and separation of Sun and occluder seen from the fragment. Use atan(|a x b|, a.b), not acos: float32 acos near
+  1 has ~7% of the Sun's radius as its resolution and bands. Earth's clouds share the uniforms. The Moon adds a red
+  term in the umbra. Diagrams (cones, rings, lines) only show within hours of an event and within 0.08 AU of Earth.
+- Comet brightness: SBDB M1/K1 per comet (1,634 of 1,867), m = M1 + 5 log delta + K1 log r (Horizons' T-mag, agrees to
+  0.006 on Horizons' distances). SBDB keeps each comet's last orbit solution: 16P/Brooks 2's 2016 elements put it 1.5
+  AU from its 2026 place, so it showed as "magnitude 13 now" when Horizons says 24. `orbitFresh` (within 8 years and
+  1.2 periods of the epoch) keeps such comets out of the lists; the card says "orbit data from 2016" instead.
+- Juno: on the heliocentric samples it was drawn up to 900,000 km from the Jupiter on screen (JPL's approximate
+  Jupiter is that far off Horizons') and cut corners at perijove. Now `track.local`: daily osculating elements around
+  Jupiter + sets every 30 min for +-3 h around each of 109 perijoves, flown two-body around the drawn Jupiter; never
+  carry a set across a perijove (Jupiter's J2 turns the orbit there: a set an hour away is ~1,000 km off at the pass).
+  Within 150 km of Horizons over two days around three perijoves (sets every 15 min for +-6 h: 66 km at 1.7x the size).
+  The 1-day heliocentric track still draws the cruise and the long view. spacecraft.json is 1.6 MB (gzip 0.6 MB).
+
 ## Shared feed core and the 2D map catching up — 2026-10-12 (branch grow-map-core)
 - One parser per feed, in src/core, for the 2D map, the globe and the MCP server: quakes, eonet, gdacs, cyclones,
   cameras, aurora, cables, aircraft, transitfeeds, overpass, radio mirrors, OSRM (route.js), passes (ecfAt/nextPass).

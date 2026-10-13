@@ -37,10 +37,12 @@ function orient(key, jd, q) { bodyAxes(key, jd, axes); return q.setFromRotationM
 export function globeMaterial(sunView, { atm = [0, 0, 0], atmK = 0, wrap = 0, ring = false }) {
   return surfaceMaterial({
     uniforms: { map: { value: null }, night: { value: null }, hasNight: { value: 0 }, uSun: { value: sunView }, atm: { value: new THREE.Vector3(...atm) }, atmK: { value: atmK }, wrap: { value: wrap },
-      hasRing: { value: 0 }, ringN: { value: new THREE.Vector3() }, ringC: { value: new THREE.Vector3() }, ringIn: { value: 0 }, ringOut: { value: 0 }, ringTex: { value: null } },
+      hasRing: { value: 0 }, ringN: { value: new THREE.Vector3() }, ringC: { value: new THREE.Vector3() }, ringIn: { value: 0 }, ringOut: { value: 0 }, ringTex: { value: null },
+      hasOcc: { value: 0 }, occ: { value: new THREE.Vector3() }, occR: { value: 0 }, sunR: { value: 0 }, red: { value: 0 } },
     frag: {
       decl: `uniform sampler2D map; uniform sampler2D night; uniform float hasNight; uniform vec3 uSun; uniform vec3 atm; uniform float atmK; uniform float wrap;
-             uniform float hasRing; uniform vec3 ringN; uniform vec3 ringC; uniform float ringIn; uniform float ringOut; uniform sampler2D ringTex;`,
+             uniform float hasRing; uniform vec3 ringN; uniform vec3 ringC; uniform float ringIn; uniform float ringOut; uniform sampler2D ringTex;
+             uniform float hasOcc; uniform vec3 occ; uniform float occR; uniform float sunR; uniform float red;`,
       body: `vec3 N = normalize(vN), V = normalize(-vP), L = normalize(uSun - vP);
         float ndl = dot(N, L), lit = clamp((ndl + wrap) / (1.0 + wrap), 0.0, 1.0);
         if (hasRing > 0.5) {                                   // the rings' shadow on the cloud tops
@@ -48,7 +50,18 @@ export function globeMaterial(sunView, { atm = [0, 0, 0], atmK = 0, wrap = 0, ri
           if (abs(den) > 1e-5) { float t = dot(ringC - vP, ringN) / den; if (t > 0.0) { float r = length(vP + L * t - ringC);
             if (r > ringIn && r < ringOut) lit *= 1.0 - 0.85 * texture2D(ringTex, vec2((r - ringIn) / (ringOut - ringIn), 0.5)).a; } }
         }
+        float umbra = 0.0;
+        if (hasOcc > 0.5) {                                    // eclipses (solar/eclipses.js): how much of the Sun the other globe hides from here
+          vec3 toS = uSun - vP, toO = occ - vP; float dS = length(toS), dO = length(toO);
+          if (dot(toS, toO) > 0.0) {
+            float rs = sunR / dS, ro = occR / dO, d = atan(length(cross(toS / dS, toO / dO)), dot(toS / dS, toO / dO));   // not acos: float precision near 1
+            float cov = ro >= rs ? 1.0 - smoothstep(ro - rs, ro + rs, d) : (1.0 - smoothstep(rs - ro, rs + ro, d)) * ro * ro / (rs * rs);
+            umbra = ro >= rs ? 1.0 - smoothstep(ro - rs, ro - rs + 0.2 * rs, d) : 0.0;
+            lit *= 1.0 - cov;
+          }
+        }
         col = texture2D(map, vUv).rgb * lit;
+        if (red > 0.5) col += texture2D(map, vUv).rgb * vec3(0.30, 0.075, 0.03) * umbra * clamp(ndl * 4.0 + 0.6, 0.0, 1.0);   // the Moon in Earth's umbra: red light bent through our air
         if (hasNight > 0.5) col += texture2D(night, vUv).rgb * smoothstep(0.08, -0.12, ndl) * 1.4;
         col += atm * pow(1.0 - max(dot(N, V), 0.0), 3.0) * atmK * smoothstep(-0.25, 0.35, ndl);`,
     },
@@ -111,8 +124,9 @@ export function createPlanets({ scene, sunView, renderer }) {
     loadTexture(planetTexture('moon')).then(t => { firstTexture(mesh.material.uniforms.map, t); mesh.visible = !!mesh.material.uniforms.map.value; });
     const geo = new THREE.Vector3();
     const b = addBody({ key: 'moon', name: 'Moon', kind: 'moon', color: '#cfd3da', radius: R, pos: new THREE.Vector3(), geo, group, spin, mesh, fact: FACTS.moon,
-      update(jd) { moonGeocentric(jd, geo); b.pos.copy(byKey.earth.pos).add(geo); group.position.copy(b.pos); orient('moon', jd, spin.quaternion); },
-      posAt(jd, out) { const g = moonGeocentric(jd, {}); earthPosition(jd, out); out.x += g.x; out.y += g.y; out.z += g.z; return out; },
+      // geoSource (eclipses.js): JPL Horizons' Moon while that file is loaded and covers jd; else the formula
+      update(jd) { if (!b.geoSource?.(jd, geo)) moonGeocentric(jd, geo); b.pos.copy(byKey.earth.pos).add(geo); group.position.copy(b.pos); orient('moon', jd, spin.quaternion); },
+      posAt(jd, out) { const g = b.geoSource?.(jd, new THREE.Vector3()) || moonGeocentric(jd, {}); earthPosition(jd, out); out.x += g.x; out.y += g.y; out.z += g.z; return out; },
       info: () => [['From Earth', Math.round(geo.length() / KM_AU).toLocaleString('en-US') + ' km'], ['Light from Earth', lightTime(geo.length())], ['Radius', '1,737 km']] });
     Sharpen.add(() => Sharpen.px(b) > innerHeight * SHARP, sharpTexture('moon'), t => swapTexture(mesh.material.uniforms.map, t));
   }
@@ -173,9 +187,13 @@ function addEarthExtras(b, sunView, R) {
   const m = b.mesh.material.uniforms;
   loadTexture(planetTexture('earth_night')).then(t => { firstTexture(m.night, t); m.hasNight.value = m.night.value ? 1 : 0; });
   const clouds = new THREE.Mesh(new THREE.SphereGeometry(1.006, 128, 64), surfaceMaterial({
-    uniforms: { map: { value: null }, uSun: { value: sunView } }, transparent: true, depthWrite: false,
-    frag: { decl: 'uniform sampler2D map; uniform vec3 uSun;',
-      body: 'col = vec3(clamp(dot(normalize(vN), normalize(uSun - vP)) * 1.2 + 0.05, 0.0, 1.0)); alpha = texture2D(map, vUv).r * 0.92;' },
+    // the occluder uniforms are the globe's own objects, so the Moon's shadow falls on the clouds too
+    uniforms: { map: { value: null }, uSun: { value: sunView }, hasOcc: m.hasOcc, occ: m.occ, occR: m.occR, sunR: m.sunR }, transparent: true, depthWrite: false,
+    frag: { decl: 'uniform sampler2D map; uniform vec3 uSun; uniform float hasOcc; uniform vec3 occ; uniform float occR; uniform float sunR;',
+      body: `col = vec3(clamp(dot(normalize(vN), normalize(uSun - vP)) * 1.2 + 0.05, 0.0, 1.0)); alpha = texture2D(map, vUv).r * 0.92;
+        if (hasOcc > 0.5) { vec3 toS = uSun - vP, toO = occ - vP; float dS = length(toS), dO = length(toO);
+          if (dot(toS, toO) > 0.0) { float rs = sunR / dS, ro = occR / dO, d = atan(length(cross(toS / dS, toO / dO)), dot(toS / dS, toO / dO));   // not acos: float precision near 1
+            col *= 1.0 - (ro >= rs ? 1.0 - smoothstep(ro - rs, ro + rs, d) : (1.0 - smoothstep(rs - ro, rs + ro, d)) * ro * ro / (rs * rs)); } }` },
   }));
   clouds.scale.setScalar(R); clouds.visible = false; b.spin.add(clouds); b.clouds = clouds;
   loadTexture(planetTexture('earth_clouds'), { srgb: false }).then(t => { firstTexture(clouds.material.uniforms.map, t); clouds.visible = !!clouds.material.uniforms.map.value; });

@@ -1,17 +1,22 @@
 // Deep-space missions from JPL Horizons trajectories (data/solar/spacecraft.json, fixed time steps; maths in
 // src/core/craft.js). Each craft draws the path it has flown (bright) and the path still planned (faint), and the
 // focused craft marks its mission events along the track. Cards carry the mission, the signal time to Earth, the next
-// event with a countdown, and a timeline whose entries jump the clock there.
+// event with a countdown, and a timeline whose entries jump the clock there. A craft in orbit around a planet (Juno)
+// rides its two-body orbit around the Jupiter on screen (core/craft.js track.local), and that orbit is drawn there.
 import * as THREE from 'three';
 import { KM_AU } from '../core/units.js';
 import { fetchAsset } from '../core/assets.js';
 import { distance, lightTime } from '../core/format.js';
 import { formatUtc } from '../core/time.js';
-import { trackPosition, trackSpeed, sampleIndex, missionPhase, eventsAround, relativeTime, escaping, lagrangeL1L2 } from '../core/craft.js';
+import { trackPosition, trackSpeed, sampleIndex, missionPhase, eventsAround, relativeTime, escaping, lagrangeL1L2, inLocal, localOrbit, periapses } from '../core/craft.js';
+import { planetPosition, PHYSICAL } from '../core/planets.js';
+import { orbitPath } from '../core/kepler.js';
 import { STAR_TEXTURE } from './util.js';
 import { addBody, byKey, layer, layerOn, onLayers } from './world.js';
 
 const FLOWN = 0xffb44d, AHEAD = 0xffd9a3;
+/** Where the view draws a planet (the centre of a planet-centred track). */
+const centerAt = (key, jd, out) => planetPosition(key, jd, out);
 
 export function createSpacecraft({ scene }) {
   const craft = [];
@@ -41,11 +46,27 @@ export function createSpacecraft({ scene }) {
       const group = new THREE.Group(); scene.add(group);
       const leaving = escaping(s), ended = /^(Ended|Silent since) (\d{4})/.exec(s.status || ''), endedJd = ended ? 2451544.5 + (+ended[2] - 2000) * 365.25 : null;
       const short = s.alias && s.alias[0] && s.name.length > 18 ? s.alias[0] : null;
+      // the osculating orbit around the planet, redrawn when the element set in force changes
+      let localLine = null, localKey = null;
+      if (s.local) {
+        localLine = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: FLOWN, transparent: true, opacity: 0.5, depthWrite: false }));
+        localLine.frustumCulled = false; localLine.visible = false; scene.add(localLine);
+      }
+      const pjs = periapses(s), Rp = s.local ? PHYSICAL[s.local.center].radiusKm : 0;
       const c = addBody({ key: 'craft:' + s.name, name: short || s.name, fullName: s.name, kind: 'spacecraft', color: '#ffb44d', radius: 0.01 * KM_AU, pos: new THREE.Vector3(), group, line, ahead, s, vel: 0,
         fact: s.desc, layer: 'craft', small: true, aliases: [s.name, ...(s.alias || []), s.agency].filter(Boolean), weight: 50,
-        posAt: (jd, out) => trackPosition(s, jd, out) || out.copy(c.pos),   // the light-delay ghost
+        posAt: (jd, out) => trackPosition(s, jd, out, centerAt) || out.copy(c.pos),   // the light-delay ghost
         update(jd) {
-          const p = trackPosition(s, jd, c.pos); c.launched = !!p && jd >= s.launch_jd; group.visible = c.launched && layerOn('craft');
+          const p = trackPosition(s, jd, c.pos, centerAt); c.launched = !!p && jd >= s.launch_jd; group.visible = c.launched && layerOn('craft');
+          if (localLine) {
+            const on = inLocal(s, jd) && layerOn('craft');
+            localLine.visible = on;
+            if (on) {
+              const o = localOrbit(s, jd), key = o.tp + ':' + o.q;
+              if (key !== localKey) { localKey = key; localLine.geometry.dispose(); localLine.geometry = new THREE.BufferGeometry(); localLine.geometry.setAttribute('position', new THREE.BufferAttribute(orbitPath({ a: o.q / (1 - o.e), e: o.e, i: o.i, node: o.node, peri: o.peri }, 720), 3)); }
+              centerAt(s.local.center, jd, localLine.position);
+            }
+          }
           if (p) c.vel = trackSpeed(s, jd) ?? c.vel;
           // the path flown so far (unfocused: the last year, or the whole way out for craft leaving the Sun) and the path
           // still planned (unfocused: the next half year); a mission that has ended keeps its dot but not its lines
@@ -63,13 +84,22 @@ export function createSpacecraft({ scene }) {
             const dE = c.pos.distanceTo(byKey.earth.pos);
             rows.push(['From the Sun', distance(c.pos.length())], ['From Earth', distance(dE)], ['Signal to Earth', lightTime(dE) + ' each way'], ['Speed (Sun)', c.vel.toFixed(1) + ' km/s']);
           }
+          if (pjs.length && inLocal(s, jd)) {   // perijoves: the passes over the cloud tops
+            let i = pjs.findIndex(t => t > jd); if (i < 0) i = pjs.length;
+            const alt = k => Math.round(s.local.pj[k].el[Math.floor(s.local.pj[k].el.length / 2)][0] - Rp).toLocaleString('en-US');
+            if (i > 0) rows.push(['Last perijove', `PJ${i} · ${relativeTime(pjs[i - 1] - jd)} · ${alt(i - 1)} km above the cloud tops`]);
+            if (i < pjs.length) rows.push(['Next perijove', `PJ${i + 1} · ${relativeTime(pjs[i] - jd)} · ${formatUtc(pjs[i]).slice(0, 16)} UTC`]);
+          }
           const { last, next } = eventsAround(s, jd);
           if (last && last[1] !== 'Launch') rows.push(['Last', last[1] + ' · ' + relativeTime(last[0] - jd)]);
           if (next) rows.push(['Next', next[1] + ' · ' + relativeTime(next[0] - jd)]);
           if (!leaving && phase === 'flying' && s.end_jd < 2464290) rows.push(['Track ends', formatUtc(s.end_jd).slice(0, 10)]);
           return rows;
         },
-        timeline: () => s.events,
+        // the mission's events, and for an orbiter the perijoves nearest the clock (all 109 would bury the rest)
+        timeline: () => { if (!pjs.length) return s.events; const jd = c.jd ?? s.t0_jd;
+          const near = pjs.map((t, i) => [t, `Perijove ${i + 1}: ${s.name} skims ${s.local.center[0].toUpperCase() + s.local.center.slice(1)}`]).filter(e => Math.abs(e[0] - jd) < 120);
+          return [...s.events, ...near].sort((a, b) => a[0] - b[0]); },
         onFocus(on) { markEvents(on ? c : null); },
       });
       craft.push(c);
