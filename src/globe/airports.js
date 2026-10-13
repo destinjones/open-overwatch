@@ -68,10 +68,10 @@ export const Airports = {
   /** The board for an airport from the live aircraft. */
   board(a) {
     const planes = [], now = Date.now(), dLon = 1.6 / Math.max(0.05, Math.cos(a.lat * Math.PI / 180));   // a box around the field first (~180 km)
-    for (const r of Air.map.values()) if (Math.abs(r.lat - a.lat) < 1.6 && Math.abs(((r.lon - a.lon + 540) % 360) - 180) < dLon && now - r.ts < 20 * 60e3 && airShown(r)) {
+    for (const r of Air.map.values()) { const q = r.cur || r; if (Math.abs(q.lat - a.lat) < 1.6 && Math.abs(((q.lon - a.lon + 540) % 360) - 180) < dLon && now - r.ts < 20 * 60e3 && airShown(r)) {
       const p = r.cur ? { ...r, lat: r.cur.lat, lon: r.cur.lon, route: r.info && r.info.route } : { ...r, route: r.info && r.info.route };
       p.r = r; planes.push(p);
-    }
+    } }   // where it is drawn now (fixes can be 15 min old)
     const b = makeBoard(a, planes, { others: this.index.near(a.lat, a.lon, BOARD.radiusKm + 30, 12) });
     for (const k of ['arriving', 'departing', 'ground', 'recent']) for (const e of b[k]) e.r = e.r.r;   // back to the live records
     return b;
