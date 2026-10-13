@@ -6,9 +6,9 @@
 // weather at the field with a VFR/IFR category (Open-Meteo, core/aloft.js), the runway in use and the wind along and
 // across every runway (data/runways.json, core/runways.js). Runways are drawn from zoom 11. Boards are not timetables:
 // a plane counts once it is close and low enough to tell.
-import { $, C, Log, Store, destination, esc, fmt, late, toast } from './util.js';
+import { $, Store, esc, fmt, late, toast } from './util.js';
 import { map, vecRenderer } from './mapview.js';
-import { Dyn, Layers, Points, Sel, feed, requestDraw } from './engine.js';
+import { Dyn, Layers, Points, Sel, airAt, feed } from './engine.js';
 import { Detail } from './detail.js';
 import { Air, Photos } from './aircraft.js';
 import { fetchAsset } from '../core/assets.js';
@@ -30,9 +30,7 @@ export const AcInfo = createAcInfo({ store: Store, warn: m => console.warn(m) })
  *  it now (dead-reckoned like the canvas), or null without a position. */
 export function airPoint(a, now = Date.now()) {
   if (a.lat == null) return null;
-  let lat = a.lat, lon = a.lon;
-  const dt = Math.min(150, (now - a.ts) / 1000 + (a.seen_pos || 0));
-  if (a.gs > 30 && a.track != null && dt > 0 && !a.ground) [lat, lon] = destination(a.lat, a.lon, a.track, a.gs * KT * dt);
+  const [lat, lon] = airAt(a, now);
   return { lat, lon, alt: a.alt != null ? a.alt * FT : NaN, gs: a.gs != null ? a.gs * KT : null, vr: a.vr != null ? a.vr * FPM : 0, track: a.track ?? null,
     ground: !!a.ground, ts: a.ts, type: a.t || a.info?.aircraft?.icaoType || '', desc: a.desc || a.info?.aircraft?.type || '', cat: a.category, mil: a.mil,
     was: a.was ? { ...a.was, gs: a.was.gs != null ? a.was.gs * KT : null } : null };

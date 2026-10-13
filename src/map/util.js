@@ -1,5 +1,7 @@
 // Helpers, settings storage, log + toast + sounds, the network layer with the local relay, the clock.
 import { PUBLIC_RELAY, PUBLIC_RELAY_HOSTS, onPublishedSite } from '../core/relay.js';
+import { destination as geoDestination, haversine } from '../core/geo.js';
+import { esc } from '../core/format.js';
 
 /** Modules defined later register here, for the few references that point forward. */
 export const late = {};
@@ -15,7 +17,7 @@ window.addEventListener('error', e => {
 export const $ = (s, el = document) => el.querySelector(s);
 export const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
-export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+export { esc };   // core/format.js: one escaper for every view (null and undefined → '')
 export const rad = d => d * Math.PI / 180, deg = r => r * 180 / Math.PI;
 export const fmt = {
   n: (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d }),
@@ -28,9 +30,10 @@ export const fmt = {
   date: t => new Date(t).toISOString().replace('T', ' ').slice(0, 16) + 'Z',
   mins: m => m < 60 ? `${Math.round(m)} min` : `${Math.floor(m / 60)} h ${Math.round(m % 60)} min`,
 };
-export function haversine(lat1, lon1, lat2, lon2) { const R = 6371000, dLat = rad(lat2 - lat1), dLon = rad(lon2 - lon1); const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLon / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(a)); }
-export function destination(lat, lon, brg, dist) { const R = 6371000, b = rad(brg), d = dist / R, la = rad(lat), lo = rad(lon); const la2 = Math.asin(Math.sin(la) * Math.cos(d) + Math.cos(la) * Math.sin(d) * Math.cos(b)); const lo2 = lo + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(la), Math.cos(d) - Math.sin(la) * Math.sin(la2)); return [deg(la2), ((deg(lo2) + 540) % 360) - 180]; }
-export function bearingTo(lat1, lon1, lat2, lon2) { const y = Math.sin(rad(lon2 - lon1)) * Math.cos(rad(lat2)); const x = Math.cos(rad(lat1)) * Math.sin(rad(lat2)) - Math.sin(rad(lat1)) * Math.cos(rad(lat2)) * Math.cos(rad(lon2 - lon1)); return (deg(Math.atan2(y, x)) + 360) % 360; }
+// great circles on a sphere: core/geo.js (the globe's and the MCP server's too)
+export { haversine };
+/** [lat, lon] reached after `dist` metres along bearing `brg` (the map's argument order and array; core/geo.js destination). */
+export function destination(lat, lon, brg, dist) { const p = geoDestination(lat, lon, dist, brg); return [p.lat, p.lon]; }
 export function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 export function throttle(fn, ms) { let last = 0, t; return (...a) => { const now = Date.now(); if (now - last >= ms) { last = now; fn(...a); } else { clearTimeout(t); t = setTimeout(() => { last = Date.now(); fn(...a); }, ms - (now - last)); } }; }
 export function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }

@@ -229,3 +229,22 @@ test('round 2 fixes: night window, meteor nights, Moon names, debris, short nigh
   assert.ok(!matchesFlight({ hex: 'aa1234', flight: 'N712AB' }, parseFlightQuery('AA1234')));
   assert.equal(parseFlightQuery('3c6444').hex, '3c6444'); assert.equal(parseFlightQuery('abcdef').hex, '');   // a hex address needs a digit; "abcdef" is nothing
 });
+
+test('the Sun overhead and the day/night line for flat maps (the 2D map\'s terminator)', async () => {
+  const { subsolar, nightRing, sunAlt } = await import('../src/core/sky.js');
+  // June solstice 2026 (21 June 08:24 UTC): the Sun over the Tropic of Cancer; at 12:00 UTC near Greenwich (equation of time ~ -1.7 min)
+  const june = subsolar(Date.parse('2026-06-21T12:00:00Z'));
+  assert.ok(Math.abs(june.lat - 23.44) < 0.05, `declination ${june.lat}`);
+  assert.ok(Math.abs(june.lon - 0.4) < 0.6, `longitude ${june.lon}`);
+  const dec = subsolar(Date.parse('2026-12-21T18:00:00Z'));
+  assert.ok(Math.abs(dec.lat + 23.44) < 0.05); assert.ok(Math.abs(dec.lon + 90) < 1.5, `${dec.lon}: six hours west of Greenwich`);
+  for (const t of ['2026-06-21T12:00:00Z', '2026-03-20T09:00:00Z', '2026-10-13T15:30:00Z']) {
+    const ms = Date.parse(t), s = subsolar(ms);
+    assert.ok(sunAlt(s.lat, s.lon, ms) > 89.9, 'sunAlt agrees: straight overhead');
+    const ring = nightRing(ms, 5);
+    assert.equal(ring.length, 360 / 5 + 1 + 2);
+    for (const [lat, lon] of ring.slice(0, -2)) assert.ok(Math.abs(sunAlt(lat, lon, ms)) < 0.3, `${t} ${lat},${lon}: on the horizon`);
+    const pole = ring.at(-1)[0]; assert.equal(pole, s.lat > 0 ? -90 : 90, 'closed round the dark pole');
+    if (Math.abs(s.lat) > 2) assert.ok(sunAlt(pole > 0 ? 89 : -89, 0, ms) < 0, 'and that pole is dark');   // (near an equinox both are on the horizon)
+  }
+});

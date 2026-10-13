@@ -1,11 +1,18 @@
 // The canvas renderer for moving objects and point sets, the layer registry + panel, and the feed scheduler.
-import { $, C, FONT_MONO, Log, Store, debounce, destination, esc, fmt, hexA, rad } from './util.js';
+import { $, C, FONT_MONO, Log, Store, debounce, esc, fmt, hexA, rad } from './util.js';
 import { map } from './mapview.js';
 import { shipAt, shipKind, SHIP_KINDS, underway } from '../core/ais.js';
+import { deadReckon } from '../core/geo.js';
 
 /* ============================================================ dynamic objects + static point sets, all drawn on one canvas */
 export const Dyn = { air: new Map(), sats: [], ships: new Map(), balloons: new Map() };
 export const Sel = { kind: null, obj: null, id: null };
+/** Where an aircraft is drawn at `now`: its last fix carried along its track at its ground speed, for at most 150 s
+ *  (core/geo.js deadReckon). [lat, lon]. The canvas, following and the airport boards all place planes this way. */
+export function airAt(a, now = Date.now()) {
+  const p = deadReckon({ lat: a.lat, lon: a.lon, gs: a.gs * 0.514444, track: a.track, ground: a.ground }, Math.min(150, (now - a.ts) / 1000 + (a.seen_pos || 0)));
+  return [p.lat, p.lon];
+}
 const shipPos = { lat: 0, lon: 0, cog: null };
 /** Moving things drawn where they are now (ships, transit): Movers.define(id, { layerId, kind, minZoom, at(o, now, out) →
  *  false to skip, else out = { lat, lon, hdg }, glyph(ctx, x, y, o, z, sel), tip(o), label(o) }), then Movers.items(id)
@@ -148,9 +155,7 @@ export const Glyphs = L.Layer.extend({
       const airOn = a => { if ((Sel.kind === 'air' && Sel.id === a.hex) || (a.emerg && Layers.on('air_emg')) || !a.tags) return true; for (const t of a.tags) { const ly = AIR_TAGS[t]; if (!ly || Layers.on(ly)) return true; } return !a.tags.size; };
       for (const a of Dyn.air.values()) {
         if (a.lat == null || !airOn(a)) continue;
-        let lat = a.lat, lon = a.lon;
-        const dt = Math.min(150, (now - a.ts) / 1000 + (a.seen_pos || 0));
-        if (a.gs > 30 && a.track != null && dt > 0 && !a.ground) { [lat, lon] = destination(a.lat, a.lon, a.track, a.gs * 0.514444 * dt); }
+        const [lat, lon] = airAt(a, now);
         for (const p of toPt(lat, lon)) {
           const sel = Sel.kind === 'air' && Sel.id === a.hex;
           const col = a.emerg ? C.emg : a.mil ? C.mil : a.lowNic ? '#ff9ad5' : C.civ;

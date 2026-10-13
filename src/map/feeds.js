@@ -2,7 +2,8 @@
 import { num, idArg } from '../core/format.js';
 import { COUNTRY, COUNTRY_ALIAS } from './countries.js';
 import { $, C, debounce, deg, esc, fmt, haversine, isHttp, late, Log, Net, rad, Relay, safeHost, toast } from './util.js';
-import { map, terminatorRing, vecRenderer } from './mapview.js';
+import { map, vecRenderer } from './mapview.js';
+import { nightRing } from '../core/sky.js';
 import { Dyn, Feeds, Layers, Points, UI, feed, requestDraw, runFeed } from './engine.js';
 import { Detail } from './detail.js';
 import { parseUsgs, usgsUrl, USGS_FEEDS, largest } from '../core/quakes.js';
@@ -213,7 +214,7 @@ feed(lyRadar, { interval: 600, fetch: () => rainviewer('radar') }); feed(lyIr, {
 /* ---------- Day/night terminator */
 export const lyTerm = Layers.add({ id: 'terminator', group: 'Weather & space weather', name: 'Day / night', desc: 'Solar terminator, computed locally', color: '#2b3c49', default: true });
 export let termPoly = null, termTimer = null;
-export function drawTerminator() { const ring = terminatorRing(Date.now()); if (termPoly) termPoly.setLatLngs([ring]); else termPoly = L.polygon([ring], { color: '#000', weight: 0, fillColor: '#000', fillOpacity: .32, interactive: false, renderer: vecRenderer }); if (lyTerm.on && !map.hasLayer(termPoly)) termPoly.addTo(map); }
+export function drawTerminator() { const ring = nightRing(Date.now()); if (termPoly) termPoly.setLatLngs([ring]); else termPoly = L.polygon([ring], { color: '#000', weight: 0, fillColor: '#000', fillOpacity: .32, interactive: false, renderer: vecRenderer }); if (lyTerm.on && !map.hasLayer(termPoly)) termPoly.addTo(map); }
 lyTerm.enable = () => { drawTerminator(); termTimer = setInterval(drawTerminator, 60000); }; lyTerm.disable = () => { clearInterval(termTimer); if (termPoly) map.removeLayer(termPoly); };
 
 /* ---------- Submarine cables + landing points (TeleGeography data); cables are non-interactive lines with a manual click test */

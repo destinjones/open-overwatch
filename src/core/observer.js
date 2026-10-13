@@ -1,7 +1,6 @@
 // An observer on the WGS84 ellipsoid in Earth-fixed coordinates (km), and the Sun's direction in the same frame, without
 // Cesium: what core/passes.js needs to find satellite passes on a page that has no 3D globe. DOM-free.
-import { bodyRaDec, gmst } from './sky.js';
-import { jdFromMs } from './time.js';
+import { subsolar } from './sky.js';
 
 const A = 6378.137, F = 1 / 298.257223563, E2 = F * (2 - F), D = Math.PI / 180;
 
@@ -16,6 +15,6 @@ export function observer(lat, lon, h = 0) {
 
 /** Unit vector from the Earth's centre toward the Sun, Earth-fixed, at ms (J2000 RA/Dec turned by sidereal time: ~0.4 deg). */
 export function sunEcef(ms) {
-  const jd = jdFromMs(ms), s = bodyRaDec('sun', jd), h = (s.ra - gmst(jd)) * D, d = s.dec * D;
+  const s = subsolar(ms), h = s.lon * D, d = s.lat * D;   // the point under the Sun, as a direction
   return { x: Math.cos(d) * Math.cos(h), y: Math.cos(d) * Math.sin(h), z: Math.sin(d) };
 }

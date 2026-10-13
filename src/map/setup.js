@@ -1,6 +1,7 @@
 // The Setup tab (keys, relay, diagnostics), the open-map probe, and search.
 import { $, esc, fmt, haversine, isHttp, late, Log, Net, Relay, safeHost, Store, toast } from './util.js';
-import { map, sunElevation } from './mapview.js';
+import { map } from './mapview.js';
+import { sunAlt as sunElevation } from '../core/sky.js';
 import { Dyn, Layers } from './engine.js';
 import { Detail } from './detail.js';
 import { Air, lyAirLocal } from './aircraft.js';

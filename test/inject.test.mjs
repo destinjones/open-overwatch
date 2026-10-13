@@ -16,6 +16,7 @@ test('idArg: only word characters, dot, tilde and hyphen survive', () => {
 
 test('esc does the HTML part', () => {
   assert.equal(esc('<img src=x onerror="a()">'), '&lt;img src=x onerror=&quot;a()&quot;&gt;');
+  assert.equal(esc(null), ''); assert.equal(esc(undefined), ''); assert.equal(esc(0), '0');   // the 2D map's escaper did this; it is the only one now
 });
 
 // The 2D map builds HTML from feed data, and anything an uploader can influence (a SondeHub balloon, an ADS-B hex) must not reach an

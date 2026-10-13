@@ -1,6 +1,7 @@
 // The live situation brief and the first-run welcome.
 import { $, $$, C, deg, esc, fmt, FONT_MONO, haversine, hexA, late, pick, rad, regionOf, Relay, safeHost, Store } from './util.js';
-import { map, sunElevation } from './mapview.js';
+import { map } from './mapview.js';
+import { sunAlt as sunElevation } from '../core/sky.js';
 import { Dyn, Layers } from './engine.js';
 import { Detail } from './detail.js';
 import { Air, AirSweep, lyAirEmg, lyAirMil } from './aircraft.js';

@@ -4,7 +4,8 @@ import { createTleSource } from '../core/tle.js';
 import { ecfAt, nextPass } from '../core/passes.js';
 import { observer, sunEcef } from '../core/observer.js';
 import { $, C, deg, fmt, haversine, late, Log, Net, rad, Store } from './util.js';
-import { sunElevation, vecRenderer } from './mapview.js';
+import { vecRenderer } from './mapview.js';
+import { sunAlt as sunElevation } from '../core/sky.js';
 import { Dyn, Layers, Sel, UI, feed, requestDraw } from './engine.js';
 import { Detail, Tracks } from './detail.js';
 

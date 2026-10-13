@@ -2,7 +2,7 @@
 
 import { AU_KM, LY_AU, C_KM_S } from './units.js';
 
-export const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /** 1.2 million / 3.45 billion / 12,345 */
 export function bigNumber(n) {

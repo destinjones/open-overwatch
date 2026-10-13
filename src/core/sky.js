@@ -35,6 +35,24 @@ export function altAz({ ra, dec }, lat, lon, jd) {
 
 export const sunAlt = (lat, lon, ms) => altAz(bodyRaDec('sun', jdFromMs(ms)), lat, lon, jdFromMs(ms)).alt;
 
+/** Where the Sun is straight overhead at ms: { lat, lon } (deg; the same Sun as sunAlt, so the two agree). */
+export function subsolar(ms) {
+  const jd = jdFromMs(ms), s = bodyRaDec('sun', jd);
+  return { lat: s.dec, lon: ((s.ra - gmst(jd)) % 360 + 540) % 360 - 180 };
+}
+
+/**
+ * The night side at ms as a polygon for a flat map: [[lat, lon], …] along the day/night line every `step` degrees of
+ * longitude from -180 to 180 (where the Sun's centre is on the horizon), closed round the pole that is in darkness.
+ */
+export function nightRing(ms, step = 2) {
+  const s = subsolar(ms), t = Math.tan((Math.abs(s.lat) < 1e-6 ? 1e-6 : s.lat) * DEG), out = [];
+  for (let lon = -180; lon <= 180; lon += step) out.push([Math.atan(-Math.cos((lon - s.lon) * DEG) / t) / DEG, lon]);
+  const pole = s.lat > 0 ? -90 : 90;
+  out.push([pole, 180], [pole, -180]);
+  return out;
+}
+
 /** The Moon: fraction lit (0-1), waxing or waning, and a name for the phase. */
 export function moonPhase(ms) {
   const jd = jdFromMs(ms), m = moonGeocentric(jd), E = earthPosition(jd);

@@ -2,7 +2,7 @@
 import { num, idArg } from '../core/format.js';
 import { $, C, Log, Net, Store, debounce, destination, esc, fmt, haversine, rad, regionOf, toast } from './util.js';
 import { map, vecRenderer } from './mapview.js';
-import { Dyn, Layers, Sel, UI, feed, requestDraw } from './engine.js';
+import { Dyn, Layers, Sel, UI, airAt, feed, requestDraw } from './engine.js';
 import { Detail, Tracks } from './detail.js';
 import { readsb, openskyState } from '../core/aircraft.js';
 
@@ -106,9 +106,9 @@ setInterval(() => {
   const ce = $('#chipEmg'); $('b', ce).textContent = c.emg; ce.classList.toggle('hot', c.emg > 0);
   Air.history.push([Date.now(), c.all, c.mil]); if (Air.history.length > 120) Air.history.shift();
   const hs = $('#hudSweep'); if (hs) hs.textContent = lyAirLocal.on && AirSweep.tiles.length ? `sweep ${AirSweep.tiles.length} tiles${AirSweep.passMs ? ' · ' + (AirSweep.passMs / 1000).toFixed(0) + ' s/pass' : ''}` : '';
-  if (Air.following) { // pan to the dead-reckoned spot the icon is drawn at (same formula as Glyphs.draw), not the last raw fix
+  if (Air.following) { // pan to the dead-reckoned spot the icon is drawn at (airAt, as Glyphs.draw), not the last raw fix
     const a = Dyn.air.get(Air.following);
-    if (a) { const dt = Math.min(150, (Date.now() - a.ts) / 1000 + (a.seen_pos || 0)); const p = (a.gs > 30 && a.track != null && dt > 0 && !a.ground) ? destination(a.lat, a.lon, a.track, a.gs * 0.514444 * dt) : [a.lat, a.lon]; map.panTo(p, { animate: true, duration: .5 }); }
+    if (a) map.panTo(airAt(a), { animate: true, duration: .5 });
     else Air.following = null;
   }
 }, 3000);

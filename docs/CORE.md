@@ -200,7 +200,7 @@ module parses the raw CSV for the tests.
 
 Your sky tonight in plain words: where the Sun, Moon and planets are for someone on the ground, the Moon's phase, which
 planets are worth stepping outside for, the aurora chance, passes as sentences, Starlink trains and meetings in the
-sky. Accuracy is "where to look" (a degree or so). Used by globe, sky, mcp, core.
+sky. Accuracy is "where to look" (a degree or so). Used by globe, map, sky, mcp, core.
 
 - `bodyRaDec`, `altAz`, `gmst`, `sunAlt`: positions in the sky.
 - `darkWindow`: the dark part of the next 24 hours (Sun below −6°). `riseSet`: rise and set times for the Sun, the Moon
@@ -212,6 +212,8 @@ sky. Accuracy is "where to look" (a degree or so). Used by globe, sky, mcp, core
 - `meetings`: the Moon within 5° of a bright planet, two planets within 3°, over the next days.
 - `craftAt`: a spacecraft from `data/solar/spacecraft.json` at a Julian Date (through `craft.js`). `separation`: the angle between two
   directions.
+- `subsolar`, `nightRing`: where the Sun is overhead, and the night side as a polygon for a flat map (the 2D map's
+  day/night layer).
 
 ### `skyfacts.js`
 
@@ -290,7 +292,7 @@ east-north-up components: look-up mode. Used by globe.
 
 ### `geo.js`
 
-Spherical-Earth geodesy for things that move (aircraft dead reckoning, ship tracks). Used by globe, mcp, core.
+Spherical-Earth geodesy for things that move (aircraft dead reckoning, ship tracks). Used by globe, map, mcp, core.
 
 - `haversine`: great-circle distance in metres. `destination`: the point reached along a bearing.
 - `deadReckon`: where a moving object is some seconds after its last fix. `deadReckonArc`: the same through a turn,
@@ -384,7 +386,7 @@ is inferred (China's crews: Tiangong; others: the ISS). Used by globe, mcp.
 ### `gfs.js`
 
 NOAA's GFS model on AWS (keyless, CORS, byte ranges): which run to read, its files, the fields the globe draws, how a
-moment between two forecast hours blends them, and the weather timeline's moments. Used by globe, core.
+moment between two forecast hours blends them, and the weather timeline's moments. Used by globe, map, core.
 
 - `gfsCycles`, `cycleAt`, `gfsFile`: runs and files. `GFS_BUCKET`, `FIELDS`, `PARAM`.
 - `bracket`: the two forecast hours around a moment and the blend weight.
@@ -396,7 +398,7 @@ moment between two forecast hours blends them, and the weather timeline's moment
 GRIB2, just enough for the model fields the globe draws: NOAA's GFS and ECMWF's IFS on their regular grids, packed
 simply, with complex packing and spatial differencing (as NCEP writes it), as JPEG 2000 (NOAA's WAVEWATCH III, through
 `jpx.js`) or CCSDS (ECMWF's open data, through `aec.js`); plus NOAA's `.idx` inventories so a browser fetches only the
-fields it wants. Matched to eccodes. Used by globe, core.
+fields it wants. Matched to eccodes. Used by core (`wxload.js`, the model worker).
 
 - `decodeGrib2`: every message in a buffer → its parameter, forecast hour, grid and a `Float32Array` of values.
   `sampleGrid`: a value at a point, bilinear, wrapping in longitude.
@@ -406,7 +408,7 @@ fields it wants. Matched to eccodes. Used by globe, core.
 
 The weather models the globe reads straight from their open buckets (keyless, CORS, byte ranges): NOAA's GFS (1°, with
 WAVEWATCH III waves at 0.25°) and ECMWF's IFS (0.25°, with its wave model; CC BY 4.0). Which runs exist when, a
-forecast hour's files and inventories, and which GRIB2 parameters are which field. Used by globe.
+forecast hour's files and inventories, and which GRIB2 parameters are which field. Used by globe, map, core.
 
 - `MODELS`, `PARTS`, `partsOf`: what each model's files call the fields the globe draws.
 - `ecmwfCycles`, `ecmwfFile`, `parseEcIndex`, `ECMWF_BUCKET`: ECMWF's runs, files and JSON inventories.
@@ -452,7 +454,7 @@ packed. Checked against eccodes on real wave fields. Used by core (`grib2.js`).
 
 Model fields on regular latitude/longitude grids, the shape `grib2.js` decodes into: coarsening (a 0.25° global field is
 a million values), blending two forecast hours, and sampling that copes with coasts (wave fields are empty over land)
-and directions (350° and 10° average to north). Used by globe, core.
+and directions (350° and 10° average to north). Used by globe, core (`wxload.js`, `wxpaint.js`).
 
 - `coarsen`, `blend`, `sampleAt`: smaller fields and moments between forecast hours.
 - `sampleValid`: bilinear sampling that skips missing corners. `sampleAngle`, `blendAngle`: directions.
@@ -461,7 +463,7 @@ and directions (350° and 10° average to north). Used by globe, core.
 ### `contour.js`
 
 Isobars and pressure centres: marching squares over a model grid, joined into lines that carry on across the date
-line, and the highs and lows that stand out. Used by globe (the pressure layer).
+line, and the highs and lows that stand out. Used by core (`wxpaint.js`: the isobars of both views).
 
 - `levels`: contour levels every step from a base (isobars every 4 hPa run 996, 1000, 1004…). `isolines`: the lines.
 - `extrema`: highs and lows, strongest first. `labelSpots`: where to write a line's value.
@@ -559,7 +561,7 @@ OpenSky's state vectors, in the feeds' own units plus SI. Used by globe, map.
 
 What kind of aircraft a record is (from its ICAO type designator, else the emitter category, else adsbdb's type text),
 adsbdb answers read into one record, whether a route on file fits where the plane actually is, and the country an ICAO
-address belongs to. Used by globe, core.
+address belongs to. Used by globe, map, core.
 
 - `classify`, `shapeOf`, `CLASSES`: the class and the 3D model drawn for it.
 - `parseAdsbdb`: an adsbdb answer → `{ aircraft, route }`. `routeFit`: does the route fit the plane? `gcKm`, `bearing`.
@@ -578,7 +580,7 @@ Used by globe, map.
 ### `phase.js`
 
 What a plane is doing, in a pilot's words (parked, taxiing, take-off, climbing, cruise, descending, approach, final,
-landing roll), from its own fix and the nearest airport. Used by globe.
+landing roll), from its own fix and the nearest airport. Used by globe, map.
 
 - `flightPhase`: `{ phase, words, agl, apKm }`. `PHASES`. `greatCircle`: points along a great circle (the route arc).
 
@@ -586,7 +588,7 @@ landing roll), from its own fix and the nearest airport. Used by globe.
 
 Airport boards made from the live aircraft already on the globe, not from schedules: near an airport, a plane low and
 descending towards it is arriving, one climbing away is departing, one on the ground is at the gate or taxiing; a route
-on file makes the call firmer. Used by globe.
+on file makes the call firmer. Used by globe, map.
 
 - `parseAirports`, `AirportIndex`, `findAirport`: the OurAirports list, nearest and in view, by code, name or city.
 - `makeBoard`, `boardStatus`, `BOARD`: the board. `recentMove`: planes that just landed or took off. `etaText`.
@@ -596,7 +598,7 @@ on file makes the call firmer. Used by globe.
 ### `runways.js`
 
 Runways from OurAirports (`data/runways.json`): the wind along and across each runway end, the runway a plane is lined
-up with, and the runway in use. Used by globe.
+up with, and the runway in use. Used by globe, map.
 
 - `parseRunways`, `windOn`, `windTable`, `linedUp`, `finalFor`, `runwayInUse`.
 - `RunwayBook`: every airport's runways with those questions (empty without the file). `windWords`: "12 kt head, 4 kt
@@ -606,7 +608,7 @@ up with, and the runway in use. Used by globe.
 
 Weather at an aircraft for the cockpit HUD, from Open-Meteo's pressure levels: wind, temperature and cloud at its
 height, head and cross wind, true airspeed and Mach, the deviation from the standard atmosphere, an icing hint; and the
-weather and VFR/IFR category at an airport. Used by globe.
+weather and VFR/IFR category at an airport. Used by globe, map.
 
 - `aloftUrl`, `parseAloft`, `aloftEffects`, `aloftLines`, `bracket`, `LEVELS`: the cockpit.
 - `isaPressure`, `isaAltitude`, `isaTempC`: the standard atmosphere.

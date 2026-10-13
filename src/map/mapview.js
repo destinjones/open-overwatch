@@ -1,5 +1,5 @@
-// The Leaflet map, base maps (incl. dated NASA GIBS imagery) and the Sun/terminator maths.
-import { $, Store, debounce, deg, rad } from './util.js';
+// The Leaflet map and its base maps (incl. dated NASA GIBS imagery). The Sun and the day/night line: core/sky.js.
+import { $, Store, debounce } from './util.js';
 
 /* ============================================================ map */
 export const savedView = (v => v && [v.lat, v.lon, v.z].every(Number.isFinite) && Math.abs(v.lat) <= 85 ? v : { lat: 34, lon: -20, z: 3 })(Store.get('view', null));
@@ -38,22 +38,3 @@ setInterval(() => { // day rollover: re-date the NASA layers, their menu labels 
   for (const o of $('#basemap').options) if (BASEMAPS[o.value]) o.textContent = BASEMAPS[o.value].name;
   if (['viirs', 'night'].includes($('#basemap').value)) setBasemap($('#basemap').value);
 }, 3600e3);
-
-/* ============================================================ sun + terminator */
-export function sunPosition(date) {
-  const jd = date / 86400000 + 2440587.5, n = jd - 2451545.0;
-  const L0 = (280.460 + 0.9856474 * n) % 360, g = rad((357.528 + 0.9856003 * n) % 360);
-  const lambda = rad(L0 + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)), eps = rad(23.439 - 0.0000004 * n);
-  const dec = Math.asin(Math.sin(eps) * Math.sin(lambda));
-  const ra = Math.atan2(Math.cos(eps) * Math.sin(lambda), Math.cos(lambda));
-  const T = n / 36525; let gmst = (280.46061837 + 360.98564736629 * n + 0.000387933 * T * T) % 360; if (gmst < 0) gmst += 360;
-  let lon = deg(ra) - gmst; lon = ((lon % 360) + 540) % 360 - 180;
-  return { lat: deg(dec), lon };
-}
-export function sunElevation(lat, lon, date) { const s = sunPosition(date); const ha = rad(lon - s.lon); const el = Math.asin(Math.sin(rad(lat)) * Math.sin(rad(s.lat)) + Math.cos(rad(lat)) * Math.cos(rad(s.lat)) * Math.cos(ha)); return deg(el); }
-export function terminatorRing(date) {
-  const s = sunPosition(date), dec = rad(s.lat), pts = [];
-  for (let lon = -180; lon <= 180; lon += 2) { const ha = rad(lon - s.lon); pts.push([deg(Math.atan(-Math.cos(ha) / Math.tan(dec))), lon]); }
-  const pole = s.lat > 0 ? -90 : 90; pts.push([pole, 180]); pts.push([pole, -180]);
-  return pts;
-}
