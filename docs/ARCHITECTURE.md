@@ -50,6 +50,7 @@ same code runs in Node tests and in the render loop without allocating.
 | `passes.js` | satellite passes over an observer (rise / peak / set, look angles, sunlit + dark-sky visibility) |
 | `orientation.js` | W3C device orientation → camera direction and screen-up (look-up mode) |
 | `eclipse.js` | Moon shadow cones, where they meet the WGS84 ellipsoid, shadow outlines, what an observer sees |
+| `syzygy.js` | eclipses (solar, lunar) and lunar occultations 2026-2030 from a Chebyshev fit of Horizons' Sun and Moon (`data/solar/ephem.json`) |
 | `accuracy.js` | errors against JPL Horizons (shared by the tests and the in-app "Under the hood" panel) |
 | `gpu.js` | software-WebGL detection |
 | `mvt.js` | Mapbox Vector Tile decoding (protobuf by hand, wanted layers only), tile maths |
@@ -112,7 +113,8 @@ gitignored `brand/source/`), compress and write `data/solar/`:
 
 - `asteroids_a.bin` / `asteroids_b.bin` — all 1.57M SBDB asteroids, 15 bytes each, propagated on the GPU
 - `small_bodies.json` — named objects and comets · `stars.bin` / `stars.json` — HYG v4.1 in ecliptic light-years
-- `spacecraft.json` — JPL Horizons trajectories at fixed steps · `moons.json` — 20 moon orbits fitted to Horizons
+- `spacecraft.json` — JPL Horizons trajectories at fixed steps (Juno also as osculating orbits around Jupiter) · `moons.json` — 20 moon orbits fitted to Horizons
+- `ephem.json` — the Sun and Moon from Earth 2026-2030 as Chebyshev series (Horizons), for eclipses and occultations
 - `galaxies.bin` / `galaxies.json` — 43,480 2MASS Redshift Survey galaxies (Mpc, equatorial, Hubble-law distances)
 
 Live feeds (satellites, aircraft, quakes, …) are fetched by the page; satellite TLEs come from a copy the site build
