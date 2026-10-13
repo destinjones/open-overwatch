@@ -348,6 +348,47 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   `viewer.clock.currentTime` lags the wall clock while idle (it ticks only on rendered frames). The violet vertical
   lines over cities are the Big-employers towers (Michelin at Clermont-Ferrand), not a stray polyline.
 
+## Airport weather, estimates and runway history (fieldwx.js, fieldwatch.js; core metar, eta, runwaylog) — 2026-10-13
+- aviationweather.gov's data API sends no `Access-Control-Allow-Origin` (GET and OPTIONS checked 2026-10-13), so METAR
+  and TAF are download-version only, relayed by serve.js/serve.py (`aviationweather.gov` added to both; not to the
+  public relay, not to the 2D map's NEEDS_RELAY: the 2D map doesn't ask it). The website keeps the Open-Meteo line and
+  says why. api.weather.gov does send CORS, but its `rawMessage` was empty for KDEN's latest observation, it has US
+  stations only, and its TAFs are IWXXM XML: not worth a second decoder. A bbox METAR query over the US timed out (504);
+  `ids=` lists of 60 answer in ~0.2 s, so the dots ask by id for the fields in view (`AirportIndex.inBox`, large first).
+- The decoder (core/metar.js) works on the raw text, never AWC's decoded fields, so the same code would read any METAR
+  source; the tests check it against AWC's decode of the same reports. Differences that are representation, not error:
+  AWC gives no category without a sky group (we follow, except when the visibility alone says IFR or worse), AWC writes
+  VV as `OVX`, and AWC's TAF periods carry earlier values forward (BECMG) where ours keep what the group says;
+  `tafAt` does the carrying. The RMK T-group (tenths) wins over the whole-degree temperatures, as AWC does. `INTER`
+  (Australia) is read as a TEMPO; `VV///` as a hidden sky of unknown height (ceiling 0, LIFR).
+- Estimates (core/eta.js): the path is the distance to the threshold when lined up (core/runways.js finalFor), else the
+  distance x1.08 + 8 km to join the final + a turn penalty past 30° off; speed falls linearly with distance to an
+  approach speed by class (D ln(v0/v1)/(v0-v1)); a steady descent rate pulls by at most -30%/+40%. High on final keeps
+  the short path but widens the top (it may go round). The range is the honest part: -15/+20% on final, -25% / +35%..
+  +120% elsewhere, plus 30 s either way. First live hour at KDEN (north flow, IFR): 23 estimates for 11 landings, 18
+  inside their range, median miss 38 s; the 50 km band's 4 came in ~2.7 min early (straight-in from the south, shorter
+  than the joining allowance). EtaLog widens a field's ranges when under 60-80% land inside, narrows over 95%.
+- Fresh fixes: the globe's civil traffic is OpenSky's 15-minute snapshot, too sparse for touchdowns, so an open airport
+  card (and up to 3 "Keep watching" fields) polls adsb.lol `/v2/point/lat/lon/40` every 15 s, adsb.fi on failure. The
+  first poll from this PC got a 429 from adsb.lol (other sessions were polling it too); the next went through. Those
+  fixes go through Air.upsert, so trails record them like any adsb.lol fix (Trails.record skips only OpenSky).
+- Runway history (core/runwaylog.js): every 10 s, trails whose points changed are read for ground/air changes; the trail's
+  last point waits for the next to confirm it, and a single-fix flicker of the on-ground flag is ignored (seen live:
+  MAI293 "landed" and "took off" on 07 in the same second). Landing runway = votes from the last 5 minutes of airborne
+  points lined up (linedUp with the track between points) + 2 for the touchdown on a runway's centre line moving its
+  way; take-off = points on the centre line beyond the runway moving its way. Moves are put at the nearest airport within
+  6 km, so the 40 nm poll around DEN also logs Buckley, Centennial and Rocky Mountain Metro. Flow change = 2+ on the new
+  direction (runways within 45° count as one flow: 34R/35L) after 2+ on the old, with the new direction at most a quarter
+  of the moves before (Denver departs on 25 and 08 at once: the first live run called that "moved from 08 to 25"). Live at KDEN, 15:18-15:27Z: arrivals
+  34R/35L/35R, departures 25/08 (matches Denver's north-flow plan), ~25 events in 10 minutes.
+- MCP `airport_weather` (mcp/airportwx.mjs): Node has no CORS, so it asks AWC directly and decodes with the same
+  core/metar.js; the favoured runway is the most headwind from the METAR's wind (said to be the wind's choice, not the
+  tower's). Checked live for LHR, JFK and Tokyo (Haneda, the largest). Voice: `airwx` in core/voicecmd.js only fires
+  on METAR/TAF/flight-category words or "... airport", so "weather in Paris" stays the weather view.
+- Renders: `brand/tools/airport_wx_shot.mjs` (desktop and 390x844) injects TEST1xx planes and runway events (the render
+  blocks the aircraft feeds); real callsigns there pulled real adsbdb routes naming other airports, which drops them
+  from the board (routeOther), hence the TEST callsigns. METAR/TAF/dots in the shots are live AWC.
+
 ## Public relay (relay/, Cloudflare Worker) — 2026-10-10
 `relay/worker.js` on the owner's Cloudflare account (`npx wrangler deploy` from relay/, after `npx wrangler login`):
 https://open-overwatch-relay.destinjones123.workers.dev/?url=… . Allowlist = `PUBLIC_RELAY_HOSTS` in src/core/relay.js

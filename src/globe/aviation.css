@@ -38,3 +38,16 @@ body.tower-view #towerBar{display:flex}
 #opsHud .oh-wx b{font-weight:600;letter-spacing:.16em}
 #opsHud .oh-wx .oh-src{opacity:.6;font-size:10px}
 body.m #opsHud .oh-wx{left:16px;top:calc(244px + env(safe-area-inset-top,0px));font-size:10px;max-width:70vw;white-space:normal}
+/* METAR / TAF in plain words, runways used (airports.js, fieldwx.js, fieldwatch.js) */
+.ap-metar h3,.ap-hist h3{margin:10px 0 4px;font:600 11px/1.5 var(--mono,"IBM Plex Mono",monospace);letter-spacing:.06em;color:#9fe3ff}
+.ap-metar h3 .ap-cat{margin-right:4px}
+.ap-words{margin:0 0 4px;padding:0 0 0 16px;font-size:12.5px;line-height:1.45}
+.ap-words li{margin:1px 0}
+.ap-taf{list-style:none;padding:0}
+.ap-taf .ap-cat{font-size:10px;line-height:14px;padding:0 4px;margin-right:2px}
+.ap-raw{margin:2px 0 6px;font-size:11px}
+.ap-raw summary{cursor:pointer;opacity:.7}
+.ap-raw code{display:block;margin-top:3px;font:11px/1.4 var(--mono,monospace);white-space:normal;word-break:break-word;opacity:.85}
+.ap-hrow{display:grid;grid-template-columns:72px 1fr;align-items:center;gap:6px;margin:3px 0;font-size:11.5px}
+.ap-bar{display:flex;gap:2px;height:16px}
+.ap-bar i{display:block;min-width:24px;border-radius:3px;background:color-mix(in srgb,var(--c) 30%,transparent);border:1px solid var(--c);color:#e6edf3;font:600 10px/14px var(--mono,monospace);font-style:normal;text-align:center;overflow:hidden}

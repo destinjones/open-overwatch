@@ -74,6 +74,7 @@ Once it is on npm, `npx -y open-overwatch-mcp` will work anywhere a command is a
 | `meteor_showers` | the IMO shower list, the website's sky maths | the coming showers, how many an hour you could really see from a place, and when to look |
 | `plate_readers` | OpenStreetMap via DeFlock and FlockHopper's hourly tiles | the licence-plate readers mapped near a place in the US or Canada: how many, makes, operators, facings, the nearest ones (a count only for a big area) |
 | `military_areas` | OpenStreetMap via OpenFreeMap's tiles | land mapped as military near a place (up to 150 km), worldwide: size, airfields inside, the nearest town, an OpenStreetMap link each |
+| `airport_weather` | Aviation Weather Center (NOAA/NWS) data API; OurAirports runways (the website's copy) | an airport's METAR and TAF decoded into plain words, its flight category, the forecast period by period and the runway the wind favours |
 
 **Prompts.** Hosts that show MCP prompts (Claude Desktop lists them as slash commands) get five ready-made requests:
 `situation_report` (a place right now), `sky_tonight`, `country_brief`, `space_now` and `trip_check` (from, to, by). Each

@@ -45,7 +45,8 @@
     { "name": "sun_and_moon", "description": "Sunrise, sunset, day length, twilight, golden and blue hours, and the Moon at a place on a day." },
     { "name": "meteor_showers", "description": "The coming meteor showers: when they peak and how many you could see from a place." },
     { "name": "plate_readers", "description": "Licence-plate readers (ALPR) mapped in OpenStreetMap near a place in the US or Canada." },
-    { "name": "military_areas", "description": "Land mapped as military in OpenStreetMap near a place, worldwide." }
+    { "name": "military_areas", "description": "Land mapped as military in OpenStreetMap near a place, worldwide." },
+    { "name": "airport_weather", "description": "An airport's METAR and TAF (Aviation Weather Center) in plain words, its flight category and the runway the wind favours." }
   ],
   "prompts_generated": true,
   "keywords": ["globe", "earth", "satellites", "earthquakes", "launches", "weather", "aurora", "wildfires", "transit", "traffic cameras", "planets", "open data", "maps"],
