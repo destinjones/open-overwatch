@@ -322,3 +322,38 @@ test('tilesInBox: covers the box, middle first, capped, across the antimeridian;
   const us = [-159.6, 17.7, -64.6, 61.6], t = tileAt(41.88, -87.63, 9);
   assert.ok(tileOverlaps(`9/${t.x}/${t.y}`, us)); const l = tileAt(51.5, -0.12, 9); assert.ok(!tileOverlaps(`9/${l.x}/${l.y}`, us)); assert.ok(tileOverlaps('0/0/0', null));
 });
+
+test('routeTiles: every tile a route passes, in order, even between far-apart points', async () => {
+  const { routeTiles } = await import('../src/core/osmtiles.js');
+  const r = routeTiles([[-87.9, 41.8], [-87.5, 41.8]], 12);   // ~33 km due east: crosses ~5 z12 columns in one segment
+  const a = tileAt(41.8, -87.9, 12), b = tileAt(41.8, -87.5, 12);
+  assert.equal(r[0], `12/${a.x}/${a.y}`); assert.equal(r[r.length - 1], `12/${b.x}/${b.y}`);
+  assert.equal(r.length, b.x - a.x + 1, 'no column skipped');
+  assert.equal(new Set(r).size, r.length);
+});
+
+test('readersAlong: near the route only, in route order, side and facing', async () => {
+  const { readersAlong, makesWords } = await import('../src/core/osmtiles.js');
+  const route = [[-87.70, 41.80], [-87.60, 41.80], [-87.60, 41.90]];   // east ~8.3 km, then north ~11 km
+  const m = 1 / 111320, k = m / Math.cos(41.8 * Math.PI / 180);
+  const cams = [
+    { id: 'a', lat: 41.80 + 20 * m, lon: -87.65, facings: [270], brand: 'Flock Safety' },   // 20 m north of the eastbound leg (left), faces west: along the road
+    { id: 'b', lat: 41.80 - 30 * m, lon: -87.68, facings: [190], brand: 'Flock Safety' },   // 30 m south (right), faces south: across it
+    { id: 'c', lat: 41.85, lon: -87.60 + 25 * k, facings: [], brand: 'Motorola' },          // 25 m east of the northbound leg (right)
+    { id: 'd', lat: 41.80 + 200 * m, lon: -87.65, facings: [270] },                         // 200 m off: not on the route
+    { id: 'e', heat: true, lat: 41.80, lon: -87.65 },
+  ];
+  const r = readersAlong(route, cams, 40);
+  assert.deepEqual(r.map(x => x.cam.id), ['b', 'a', 'c'], 'in route order');
+  const [b, a, c] = r;
+  near(a.off, 20, 0.5); near(b.off, 30, 0.5); near(c.off, 25, 0.5);
+  assert.equal(a.side, 'left'); assert.equal(b.side, 'right'); assert.equal(c.side, 'right');
+  assert.equal(a.watches, 'route'); assert.equal(b.watches, 'cross'); assert.equal(c.watches, null);
+  assert.equal(readersAlong(route, [{ ...cams[0], facings: [100] }])[0].watches, 'route', 'the other way along the road counts too');
+  near(a.at, 0.05 * 111320 * Math.cos(41.8 * Math.PI / 180) * 1.0, 60, 'metres along');
+  assert.ok(c.at > 8000 && c.at < 9000 + 5600);
+  assert.equal(readersAlong(route, cams, 10).length, 0);
+  assert.deepEqual(readersAlong([[0, 0]], cams), []);
+  assert.equal(makesWords(r.map(x => x.cam)), 'Flock Safety 2, Motorola 1');
+  assert.equal(makesWords([{ brand: 'A' }, { brand: 'B' }, { brand: 'C' }, {}, {}], 2), 'unknown make 2, A 1, 2 other makes');
+});

@@ -10,7 +10,7 @@ import { Terrain } from './terrain.js';
 import { L, setCount } from './layers.js';
 import { state } from './state.js';
 import { vtile, tileSpec, tileInBounds, ALPR_US, ALPR_CA } from './vtiles.js';
-import { tileCameras, cameraFacts, pickZoom, inBounds } from '../core/osmtiles.js';
+import { tileCameras, cameraFacts, pickZoom, inBounds, routeTiles, readersAlong, tileOverlaps } from '../core/osmtiles.js';
 
 const COLOR = '#ff4d5e', SOURCES = [ALPR_US, ALPR_CA];
 const DETAIL_H = 2.5e5, DETAIL = [12, 11, 10, 9], HEAT = [8, 7, 6, 5, 4, 3];
@@ -137,6 +137,22 @@ export const Alpr = {
   has: osmNodeId => L.alpr.on && cams.has('n' + osmNodeId),
   /** Inside the tiles' coverage (the US and Canada boxes)? */
   covers: (lat, lon) => [...bounds.values()].some(b => inBounds(b, lat, lon)),
+  /**
+   * The mapped readers within 40 m of a route ([[lon, lat], …]) (readersAlong), from the tiles it passes (the finest zoom
+   * that needs at most 40; works with the layer off). null outside the tiles' coverage or for a route too long to check.
+   */
+  async along(coords, maxM = 40) {
+    const specs = await Promise.all(SOURCES.map(s => tileSpec(s)));
+    for (const z of [12, 11, 10, 9]) {
+      const keys = routeTiles(coords, z), jobs = [];
+      if (keys.length > 40) continue;
+      for (const k of keys) specs.forEach((sp, i) => { if (tileOverlaps(k, sp.bounds)) jobs.push(vtile(SOURCES[i], k, ['cameras']).then(d => { const [tz, x, y] = k.split('/').map(Number); return tileCameras(d.cameras, tz, x, y); })); });
+      if (!jobs.length) return null;
+      const seen = new Set(), cams = (await Promise.all(jobs)).flat().filter(c => !c.heat && !seen.has(c.id) && seen.add(c.id));
+      return readersAlong(coords, cams, maxM);
+    }
+    return null;
+  },
   apply() {
     if (L.alpr.on && !timer) timer = setInterval(tick, 1000);
     else if (!L.alpr.on && timer) { clearInterval(timer); timer = 0; for (const o of cams.values()) drop(o); cams.clear(); for (const id of [...tiles.keys()]) if (tiles.get(id).dots) dropTile(id); sig = ''; setCount('alpr', 0); }

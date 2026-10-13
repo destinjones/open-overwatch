@@ -399,3 +399,64 @@ export function tileBounds(key) {
   return [x / n * 360 - 180, lat(y + 1), (x + 1) / n * 360 - 180, lat(y)];
 }
 export const tileOverlaps = (key, b) => { if (!b) return true; const t = tileBounds(key); return t[0] <= b[2] && t[2] >= b[0] && t[1] <= b[3] && t[3] >= b[1]; };
+
+// ---- plate readers along a route ------------------------------------------------------------------------------------
+
+/** The tiles at zoom z a route ([[lon, lat], …]) passes through, in route order (sampled every quarter tile). */
+export function routeTiles(coords, z) {
+  const out = [], seen = new Set(), n = 2 ** z;
+  const key = (lon, lat) => { const la = Math.max(-85.05, Math.min(85.05, lat)), s = Math.sin(la * D), x = Math.floor((((lon + 180) % 360 + 360) % 360) / 360 * n), y = Math.min(n - 1, Math.max(0, Math.floor((0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n))); return `${z}/${Math.min(n - 1, x)}/${y}`; };
+  const push = k => { if (!seen.has(k)) { seen.add(k); out.push(k); } };
+  for (let i = 0; i < coords.length; i++) {
+    const [lon, lat] = coords[i]; push(key(lon, lat));
+    if (i + 1 < coords.length) {
+      const [lon2, lat2] = coords[i + 1], step = 360 / n / 4, k = Math.ceil(Math.max(Math.abs(lon2 - lon), Math.abs(lat2 - lat)) / step);
+      for (let j = 1; j < k; j++) push(key(lon + (lon2 - lon) * j / k, lat + (lat2 - lat) * j / k));
+    }
+  }
+  return out;
+}
+/**
+ * The cameras within `maxM` metres of a route ([[lon, lat], …]): [{ cam, at (metres along the route), off (metres from
+ * it), side ('left' | 'right' of the direction of travel), watches ('route' when a facing lies within 45° of the road's
+ * line, either way: it reads the plates of cars on this road, coming or going; 'cross' when it faces across it, so it
+ * watches a side street or a car park; null when untagged) }], in route order. A grid of the route's segments keeps it
+ * fast for long routes and many cameras.
+ */
+export function readersAlong(coords, cams, maxM = 40) {
+  if (coords.length < 2 || !cams.length) return [];
+  const lat0 = coords.reduce((s, c) => s + c[1], 0) / coords.length, kx = Math.cos(lat0 * D) * D * R, ky = D * R;
+  const P = coords.map(([lon, lat]) => [lon * kx, lat * ky]), cum = [0];
+  for (let i = 1; i < P.length; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+  const G = Math.max(200, maxM * 4), grid = new Map(), cell = (x, y) => Math.floor(x / G) + ',' + Math.floor(y / G);
+  for (let i = 0; i + 1 < P.length; i++) {   // each segment in the cells its padded box touches
+    const [ax, ay] = P[i], [bx, by] = P[i + 1];
+    for (let gx = Math.floor((Math.min(ax, bx) - maxM) / G); gx <= Math.floor((Math.max(ax, bx) + maxM) / G); gx++)
+      for (let gy = Math.floor((Math.min(ay, by) - maxM) / G); gy <= Math.floor((Math.max(ay, by) + maxM) / G); gy++) {
+        const k = gx + ',' + gy; if (!grid.has(k)) grid.set(k, []); grid.get(k).push(i);
+      }
+  }
+  const out = [];
+  for (const cam of cams) {
+    if (cam.heat) continue;
+    const x = cam.lon * kx, y = cam.lat * ky, segs = grid.get(cell(x, y)); if (!segs) continue;
+    let best = null;
+    for (const i of segs) {
+      const [ax, ay] = P[i], [bx, by] = P[i + 1], dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+      const t = L2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / L2)) : 0, qx = ax + t * dx, qy = ay + t * dy, d = Math.hypot(x - qx, y - qy);
+      if (d <= maxM && (!best || d < best.off)) best = { i, t, off: d, cross: dx * (y - ay) - dy * (x - ax) };
+    }
+    if (!best) continue;
+    const [ax, ay] = P[best.i], [bx, by] = P[best.i + 1], travel = (Math.atan2(bx - ax, by - ay) / D + 360) % 360, fs = cam.facings || [];
+    const alongRoad = f => { const d = Math.abs(((f - travel + 540) % 360) - 180); return d <= 45 || d >= 135; };
+    out.push({ cam, at: cum[best.i] + best.t * (cum[best.i + 1] - cum[best.i]), off: best.off, side: best.cross > 0 ? 'left' : 'right', watches: !fs.length ? null : fs.some(alongRoad) ? 'route' : 'cross' });
+  }
+  return out.sort((a, b) => a.at - b.at);
+}
+/** "Flock Safety 9, Motorola 2, unknown make 1": the makes of some cameras, most first. */
+export function makesWords(cams, max = 3) {
+  const n = new Map(); for (const c of cams) { const k = c.brand || 'unknown make'; n.set(k, (n.get(k) || 0) + 1); }
+  const list = [...n].sort((a, b) => b[1] - a[1]), shown = list.slice(0, max).map(([k, v]) => `${k} ${v}`);
+  if (list.length > max) shown.push(`${list.length - max} other make${list.length - max > 1 ? 's' : ''}`);
+  return shown.join(', ');
+}

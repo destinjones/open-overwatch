@@ -1,13 +1,17 @@
 // Directions: a street route between two places (typed, said, or picked on the globe), drawn on the ground (on the
 // photoreal city too: it is clamped to whatever is drawn), with turn-by-turn steps, then "Fly it": the camera rides
 // the route like a drone, leading the path. Routing: the FOSSGIS OSRM servers over OpenStreetMap (no key, CORS).
-import { C, $, esc, toast } from './env.js';
+// In the US and Canada a drive also counts the mapped licence-plate readers along it (alpr.js).
+import { C, $, esc, fmt, store, toast } from './env.js';
 import { viewer, scene, camera, ctrl } from './viewer.js';
 import { state, hooks } from './state.js';
 import { release } from './follow.js';
 import { findPlaces } from './places.js';
 import { Terrain } from './terrain.js';
 import { instruction, distanceText, durationText, measure, pointAt, bearing, haversine } from '../core/route.js';
+import { makesWords } from '../core/osmtiles.js';
+import { Alpr } from './alpr.js';
+import { L, syncDock } from './layers.js';
 
 const PROFILE = { drive: ['routed-car', 'driving'], walk: ['routed-foot', 'foot'], cycle: ['routed-bike', 'bike'] };
 const MODE_WORD = { drive: 'Drive', walk: 'Walk', cycle: 'Cycle' };
@@ -124,6 +128,21 @@ export const Directions = {
       <ol class="note" style="margin:8px 0 0 18px;padding:0;max-height:180px;overflow:auto">${r.steps.map(s => `<li>${esc(instruction(s))}${s.distance > 0 ? ` <span style="color:var(--faint)">· ${esc(distanceText(s.distance))}</span>` : ''}</li>`).join('')}</ol>`;
     out.querySelector('#drFly').onclick = () => this.fly();
     out.querySelector('#drClear').onclick = () => { this.clear(); out.innerHTML = ''; };
+    if (this.mode === 'drive') { out.firstElementChild.insertAdjacentHTML('beforeend', '<span id="drAlpr"></span>'); this.readers(r); }
+  },
+  /** The mapped plate readers along a drive (the US and Canada; nothing elsewhere), with a button to show them. */
+  async readers(r) {
+    const el = $('#drAlpr'); if (!el) return;
+    el.innerHTML = '<dt>Plate readers</dt><dd>counting…</dd>';
+    let hits; try { hits = await Alpr.along(r.coords); } catch (e) { console.warn('plate readers on the route', e.message); hits = undefined; }
+    if (this.route !== r || !el.isConnected) return;
+    if (hits === null) { el.innerHTML = ''; return; }   // outside the tiles' coverage, or a route too long to check
+    if (!hits) { el.innerHTML = '<dt>Plate readers</dt><dd>could not be counted just now</dd>'; return; }
+    const road = hits.filter(h => h.watches === 'route').length;
+    el.innerHTML = `<dt>Plate readers</dt><dd>${hits.length ? `${fmt(hits.length)} mapped within 40 m${road ? `, ${fmt(road)} facing along the road` : ''} (${esc(makesWords(hits.map(h => h.cam)))})` : 'none mapped within 40 m of the route'}`
+      + `${hits.length && !L.alpr.on ? ' <button class="chipbtn" id="drAlprShow">Show them</button>' : ''}</dd>`;
+    const b = el.querySelector('#drAlprShow');
+    if (b) b.onclick = () => { L.alpr.on = true; store.set('ly.alpr', true); syncDock(); hooks.applyVisibility(); b.remove(); };
   },
 
   // ---- picking A or B on the globe
