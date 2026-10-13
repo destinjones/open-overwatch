@@ -135,6 +135,7 @@ a{color:var(--accent)}
 #list table{width:100%;border-collapse:collapse;font:500 12px/1.3 var(--mono)} #list th{color:var(--faint);font-weight:500;text-align:right;padding:2px 4px} #list th:first-child{text-align:left}
 #list td{padding:6px 4px;text-align:right;vertical-align:top;border-top:1px solid var(--edge-dim);white-space:nowrap} #list td:first-child{text-align:left;white-space:normal;font-family:var(--body);font-size:13px}
 #list td small{display:block;color:var(--dim);font:500 10.5px/1.3 var(--mono);margin-top:2px} #list tr[data-key],#list tr[data-row]{cursor:pointer} #list tr:hover td{background:rgba(230,237,243,.04)} #list tr.off td{color:var(--faint)}
+#list .go{font:600 11px/1 var(--mono);padding:5px 7px;border-radius:7px;border:1px solid var(--edge-dim);color:var(--warm);background:none;cursor:pointer;margin-left:4px} #list .go:hover{background:rgba(230,237,243,.08)} #list tr.past td{color:var(--faint)}
 #list .x{position:absolute;right:8px;top:8px;width:28px;height:28px;border-radius:8px;color:var(--dim)}
 @media (max-width: 900px){ #list{left:10px;right:10px;width:auto;top:auto;bottom:86px;max-height:60vh} }
 /* fingers: ~40 px tap targets */
@@ -194,7 +195,8 @@ a{color:var(--accent)}
     <button class="btn" id="bPulse"><b>◎</b> Send a light pulse from the Sun</button>
     <button class="btn" id="bAlign"><b>☍</b> Next planetary alignment</button>
     <button class="btn" id="bMissions"><b>⌖</b> Deep-space missions now</button>
-    <button class="btn" id="bComets"><b>☄</b> Comets near the Sun</button>
+    <button class="btn" id="bComets"><b>☄</b> Comets: brightest now</button>
+    <button class="btn" id="bEclipses"><b>◐</b> Eclipses &amp; occultations 2026-2030</button>
     <button class="btn" id="bNerd"><b>⌁</b> Under the hood: speed &amp; accuracy vs NASA</button>
   </div>
   <p class="note">Drag to orbit, scroll or pinch to zoom, click anything for details. Planets are drawn to their real size: zoom in to see them.</p>

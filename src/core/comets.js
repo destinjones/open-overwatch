@@ -1,5 +1,6 @@
 // Comets: two-body positions on any conic (ellipse, parabola, hyperbola) from SBDB perihelion elements, names people
-// know them by, and the two tails. Rows are small_bodies.json's comets: [label, q (AU), e, i, node, peri (deg), tp (jd TDB)].
+// know them by, how bright they are, and the two tails. Rows are small_bodies.json's comets: [label, q (AU), e, i, node,
+// peri (deg), tp (jd TDB), M1, K1] (M1 and K1, SBDB's total-magnitude parameters, are null for comets without them).
 //
 // Tails, physically (not to scale for brightness, but pointing and curving the right way):
 // - the ion (plasma) tail is blown straight out by the solar wind, so it lies along the wind's velocity as the comet sees
@@ -10,6 +11,7 @@
 // Activity switches on inside ~5 AU (water ice sublimates near 3 AU; CO and CO2 drive some comets farther out).
 
 import { DEG, AU_KM, setXYZ } from './units.js';
+import { earthPosition } from './planets.js';
 import { TWO_PI, solveKepler } from './kepler.js';
 
 export const GM_SUN = 0.01720209895 ** 2;   // AU^3 / day^2 (Gaussian constant squared)
@@ -57,8 +59,8 @@ export function cometNames(label) {
 
 /** small_bodies.json row -> elements { q, e, i, node, peri (rad), tp, label }. */
 export function cometFromRow(row) {
-  const [label, q, e, i, node, peri, tp] = row;
-  return { label, q, e, i: i * DEG, node: node * DEG, peri: peri * DEG, tp };
+  const [label, q, e, i, node, peri, tp, m1 = null, k1 = null] = row;
+  return { label, q, e, i: i * DEG, node: node * DEG, peri: peri * DEG, tp, m1: m1 ?? null, k1: k1 ?? null };
 }
 
 /** Rotate an in-plane point (perihelion along +x) into heliocentric ecliptic J2000. */
@@ -230,4 +232,80 @@ export function perihelionPassages(c, jd0, jd1) {
   const P = cometPeriodYears(c) * 365.25, out = [];
   for (let t = c.tp + Math.ceil((jd0 - c.tp) / P) * P; t <= jd1 && out.length < 200; t += P) out.push(t);
   return out;
+}
+
+// ---------------------------------------------------------------- brightness
+
+/**
+ * Total visual magnitude from SBDB's comet parameters: m = M1 + 5 log10(delta) + K1 log10(r) (r from the Sun, delta from
+ * Earth, AU), the same formula JPL Horizons uses for its T-mag. Null without M1/K1. Comets are famously unpredictable:
+ * the parameters are fitted to past observations, and outbursts or a fading nucleus can put a comet magnitudes off.
+ */
+export function cometMagnitude(c, r, delta) {
+  if (c.m1 == null || c.k1 == null || !(r > 0) || !(delta > 0)) return null;
+  return c.m1 + 5 * Math.log10(delta) + c.k1 * Math.log10(r);
+}
+
+const EP = {}, CP = {};
+/** Magnitude at jd as seen from Earth (core/planets.js), or null. */
+export function cometMagnitudeAt(c, jd, earth = earthPosition(jd, EP)) {
+  if (c.m1 == null) return null;
+  cometPosition(c, jd, CP);
+  return cometMagnitude(c, Math.hypot(CP.x, CP.y, CP.z), Math.hypot(CP.x - earth.x, CP.y - earth.y, CP.z - earth.z));
+}
+
+/** What it takes to see a comet of magnitude m (under a dark sky; a comet's light is spread out, so a bit more). */
+export function seeingWords(m) {
+  if (m == null) return 'brightness unknown';
+  if (m < 0) return 'brilliant: easy to the naked eye, maybe in daylight near the Sun';
+  if (m < 4) return 'naked eye';
+  if (m < 6) return 'naked eye under a dark sky';
+  if (m < 9) return 'binoculars';
+  if (m < 12) return 'a small telescope';
+  return 'a large telescope';
+}
+
+/**
+ * The brightest moment between jd0 and jd1: { jd, mag } or null. Daily samples (half-day inside 0.3 AU of the Sun),
+ * then a golden-section refinement around the best one. The peak usually falls near perihelion or the closest pass by
+ * Earth, whichever wins.
+ */
+export function cometPeak(c, jd0, jd1) {
+  if (c.m1 == null) return null;
+  let best = null;
+  for (let t = jd0; t <= jd1;) {
+    const m = cometMagnitudeAt(c, t); if (m != null && (!best || m < best.mag)) best = { jd: t, mag: m };
+    cometPosition(c, t, CP); t += Math.hypot(CP.x, CP.y, CP.z) < 0.3 ? 0.5 : 1;
+  }
+  if (!best) return null;
+  let a = Math.max(jd0, best.jd - 1), b = Math.min(jd1, best.jd + 1);
+  const g = (Math.sqrt(5) - 1) / 2;
+  for (let k = 0; k < 40; k++) {
+    const x1 = b - g * (b - a), x2 = a + g * (b - a);
+    if (cometMagnitudeAt(c, x1) < cometMagnitudeAt(c, x2)) b = x2; else a = x1;
+  }
+  const t = (a + b) / 2, m = cometMagnitudeAt(c, t);
+  return m < best.mag ? { jd: t, mag: m } : best;
+}
+
+/**
+ * The brightest comets at jd: [{ row, c, mag, r, delta, peak: { jd, mag } | null }], brightest first, down to maxMag.
+ * Only comets with magnitude parameters and within maxR AU of the Sun (beyond that none is bright); defunct (D/)
+ * comets and fragments are left out. The peak is searched within +-span days.
+ */
+export function brightComets(rows, jd, { maxMag = 15, limit = 15, maxR = 6, span = 400, earth = earthPosition(jd, {}) } = {}) {
+  const out = [], p = {};
+  for (const row of rows) {
+    if (row[7] == null || /^\d*D\/|-[A-Z]{1,2}( |$)/.test(row[0])) continue;
+    const c = cometFromRow(row);
+    if (c.q > maxR) continue;
+    cometPosition(c, jd, p);
+    const r = Math.hypot(p.x, p.y, p.z); if (r > maxR) continue;
+    const delta = Math.hypot(p.x - earth.x, p.y - earth.y, p.z - earth.z), mag = cometMagnitude(c, r, delta);
+    if (mag != null && mag <= maxMag) out.push({ row, c, mag, r, delta });
+  }
+  out.sort((a, b) => a.mag - b.mag);
+  const top = out.slice(0, limit);
+  for (const o of top) o.peak = cometPeak(o.c, jd - span, jd + span);
+  return top;
 }

@@ -4,13 +4,17 @@
 //
 // Between samples the path is a cubic through four samples (Catmull-Rom), within ~2,000 km of Horizons half-way
 // between samples on cruise arcs (the samples themselves are rounded to 1e-5 AU, 1,500 km); linear interpolation was
-// off by up to 200,000 km. A craft orbiting a planet faster than the samples (Juno near perijove) stays rough: Juno
-// can be ~200,000 km off its 8-million-km orbit between 3-day samples. Denser tracks are the only fix for that.
+// off by up to 200,000 km. A craft orbiting a planet faster than the samples is the exception: Juno sweeps past
+// Jupiter's cloud tops in two hours. For it a track carries `local`: Horizons' osculating elements around the planet,
+// one set a day ({ center, gm km^3/s^2, t0_jd, step_days, el: [[q km, e, i, node, peri (deg), tp], ...] }); the
+// position is the planet (as the view draws it) plus a two-body orbit from the nearest set, so the perijove passes
+// are exact to a few km and the craft sits on its orbit around the Jupiter on screen, not 100,000 km beside it.
 // Past the last sample a craft that is leaving the Sun for good (above escape speed) coasts on in a straight line,
 // which is how Voyager and Pioneer really fly; any other craft has no published position there (null).
 
 import { AU_KM, C_KM_S } from './units.js';
-import { GM_SUN } from './comets.js';
+import { GM_SUN, cometPosition } from './comets.js';
+import { DEG } from './units.js';
 
 /** Signal (light) time over au, in seconds. */
 export const lightSeconds = au => au * AU_KM / C_KM_S;
@@ -37,9 +41,42 @@ export function escaping(c) {
   return (v.x * v.x + v.y * v.y + v.z * v.z) * r > 2 * GM_SUN;
 }
 
-const P = [{}, {}, {}, {}];
-/** Heliocentric position at jd (AU) into out, or null before the first sample / past the track for a craft that stays. */
-export function trackPosition(c, jd, out = {}) {
+// ---- orbits around a planet (track.local)
+const KM3S2_TO_AU3D2 = 86400 * 86400 / (AU_KM * AU_KM * AU_KM);
+/** Is jd inside the craft's planet-centred stretch? */
+export const inLocal = (c, jd) => !!c.local && jd >= c.local.t0_jd - c.local.step_days / 2 && jd <= c.local.t0_jd + (c.local.el.length - 0.5) * c.local.step_days;
+/** The osculating orbit in force at jd (the nearest daily set) as conic elements in AU, radians and days: { q, e, i, node, peri, tp, mu }. */
+export function localOrbit(c, jd) {
+  const L = c.local, k = Math.max(0, Math.min(L.el.length - 1, Math.round((jd - L.t0_jd) / L.step_days)));
+  if (!L.cache) L.cache = new Map();
+  let o = L.cache.get(k);
+  if (!o) { const [q, e, i, node, peri, tp] = L.el[k]; o = { q: q / AU_KM, e, i: i * DEG, node: node * DEG, peri: peri * DEG, tp, mu: L.gm * KM3S2_TO_AU3D2, k }; if (L.cache.size > 64) L.cache.clear(); L.cache.set(k, o); }
+  return o;
+}
+/** Planet-centred position (AU, ecliptic J2000) at jd, or null outside the local stretch. */
+export function localPosition(c, jd, out = {}) { return inLocal(c, jd) ? cometPosition(localOrbit(c, jd), jd, out) : null; }
+
+/** Perijoves (or periapses) inside the local stretch: [jd], from the element sets' own periapsis times. */
+export function periapses(c) {
+  if (!c.local) return [];
+  const out = [], end = c.local.t0_jd + (c.local.el.length - 1) * c.local.step_days;
+  for (const e of c.local.el) if (e[1] < 1 && e[5] >= c.local.t0_jd && e[5] <= end && !out.some(t => Math.abs(t - e[5]) < 2)) out.push(e[5]);
+  // a set far from its periapsis may name one a whole orbit off; keep each passage once, from the set nearest it
+  return out.sort((a, b) => a - b);
+}
+
+const P = [{}, {}, {}, {}], LP = {}, CP = {};
+/**
+ * Heliocentric position at jd (AU) into out, or null before the first sample / past the track for a craft that stays.
+ * centerAt(key, jd, out) places a planet as the caller draws it; with it, a craft in orbit around that planet is put on
+ * its two-body orbit around it (track.local) instead of the heliocentric samples.
+ */
+export function trackPosition(c, jd, out = {}, centerAt = null) {
+  if (centerAt && inLocal(c, jd) && jd >= (c.launch_jd ?? -Infinity) && centerAt(c.local.center, jd, CP)) {
+    localPosition(c, jd, LP);
+    out.x = CP.x + LP.x; out.y = CP.y + LP.y; out.z = CP.z + LP.z;
+    return out;
+  }
   const n = sampleCount(c); if (n < 2) return null;
   const f = (jd - c.t0_jd) / c.step_days;
   if (f < 0) return null;
