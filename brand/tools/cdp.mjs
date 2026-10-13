@@ -14,7 +14,7 @@
 // launch's unique --user-data-dir. The temporary profile directory is deleted afterwards.
 
 import { spawn, execFile, spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, rm, mkdir } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
@@ -156,12 +156,18 @@ export const CHROME = String.raw`C:\Program Files\Google\Chrome\Application\chro
  * Browsers left behind by a script that was killed hard (Windows TerminateProcess skips 'exit' handlers, so close()
  * and the exit hook never ran): their main process still runs a profile under WORK but its parent script is gone.
  * Killed once per run, before launching (a session of timed-out test runs had left ~100 of them, 992 processes).
+ * Edge's main process outlives the launcher process that spawn() starts, so its parent always looks gone: each profile
+ * holds owner.pid (the script that launched it), and a browser is only an orphan when that script is gone too (one
+ * without owner.pid, from an older copy of this file, only once it is 30 minutes old).
+ * Without it, every run killed the live renders of other sessions working in parallel (2026-10-12).
  */
 let reaped = false;
 function reapOrphans() {
   if (reaped || process.platform !== 'win32') return; reaped = true;
   const ps = `$w = '${WORK.replace(/'/g, "''")}'; $all = Get-CimInstance Win32_Process; $ids = @{}; $all | ForEach-Object { $ids[$_.ProcessId] = 1 };
-    $all | Where-Object { ($_.Name -eq 'msedge.exe' -or $_.Name -eq 'chrome.exe') -and $_.CommandLine -like ('*' + $w + '*edge-profile-*') -and $_.CommandLine -notlike '*--type=*' -and -not $ids.ContainsKey([int]$_.ParentProcessId) } | ForEach-Object { $_.ProcessId }`;
+    $all | Where-Object { ($_.Name -eq 'msedge.exe' -or $_.Name -eq 'chrome.exe') -and $_.CommandLine -like ('*' + $w + '*edge-profile-*') -and $_.CommandLine -notlike '*--type=*' -and -not $ids.ContainsKey([int]$_.ParentProcessId) } | Where-Object {
+      $owner = 0; if ($_.CommandLine -match '--user-data-dir="?(.*?edge-profile-[A-Za-z0-9]+)') { $f = Join-Path $Matches[1] 'owner.pid'; if (Test-Path -LiteralPath $f) { $owner = [int](Get-Content -LiteralPath $f -TotalCount 1) } }
+      if ($owner) { -not $ids.ContainsKey($owner) } else { $_.CreationDate -lt (Get-Date).AddMinutes(-30) } } | ForEach-Object { $_.ProcessId }`;
   try {
     const r = spawnSync('powershell.exe', ['-NoProfile', '-Command', ps], { encoding: 'utf8', windowsHide: true, timeout: 20000 });
     const pids = (r.stdout || '').split(/\s+/).filter(Boolean);
@@ -179,6 +185,7 @@ export async function launch(o = {}) {
 async function launchOnce({ exe = EDGE, profileRoot = WORK, headless = true, args = [], windowSize = [540, 960], timeoutMs = 30000 } = {}) {
   await mkdir(profileRoot, { recursive: true });
   const userDataDir = await mkdtemp(path.join(profileRoot, 'edge-profile-'));
+  await writeFile(path.join(userDataDir, 'owner.pid'), String(process.pid));   // so other runs' reapOrphans leave this one alone
   const argv = [
     headless ? '--headless=new' : null,
     `--user-data-dir=${userDataDir}`, '--remote-debugging-port=0',
