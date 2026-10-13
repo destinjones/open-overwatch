@@ -298,7 +298,8 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   <div class="wrap">
     <div class="eyebrow">Weather mode</div>
     <h2 id="weather-h">The weather timeline</h2>
-    <p><b>Weather</b> in the band opens one timeline that runs from what satellites and radar saw in the last couple of hours into what NOAA's GFS model forecasts for the next five days (three on phones). Nothing is downloaded until you open it.</p>
+    <p><b>Weather</b> in the band opens one timeline that runs from what satellites and radar saw in the last couple of hours into what a weather model forecasts for the next five days (three on phones). Nothing is downloaded until you open it.</p>
+    <p>Pick the forecast model in the panel: <b>NOAA GFS</b> (1° grid, the default) or <b>ECMWF IFS</b> (0.25°, ECMWF's open data, CC BY 4.0), or <b>compare</b> the two side by side with a slider between them. Both are read straight from their public files in your browser, a few fields at a time. A legend says what the colours mean, and pointing at the globe reads every field at that spot.</p>
     <div class="tbl"><table>
       <thead><tr><th>Switch</th><th>Shows</th><th>Source</th></tr></thead>
       <tbody>
@@ -306,8 +307,11 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td>Rain <code>radar</code></td><td>Weather radar where national radars exist. In the forecast, the model's rain rate.</td><td>RainViewer</td></tr>
         <tr><td>Rain from space <code>rain</code></td><td>Global rain between 60° north and south, about 7 hours old (a still).</td><td>NASA IMERG</td></tr>
         <tr><td>Lightning <code>lightning</code></td><td>Strike density in the last 15 minutes, the Americas and the Pacific (a still).</td><td>NOAA nowCOAST</td></tr>
-        <tr><td>Wind <code>wind</code></td><td>Animated wind at 10 m along the whole timeline.</td><td>NOAA GFS, read straight from its files on AWS</td></tr>
-        <tr><td>Temperature <code>temp</code></td><td>Temperature at 2 m along the whole timeline.</td><td>NOAA GFS</td></tr>
+        <tr><td>Wind <code>wind</code></td><td>Animated wind at 10 m along the whole timeline.</td><td>the chosen model (GFS or ECMWF)</td></tr>
+        <tr><td>Temperature <code>temp</code></td><td>Temperature at 2 m along the whole timeline.</td><td>the chosen model</td></tr>
+        <tr><td>Pressure <code>pres</code></td><td>Isobars with the highs and lows marked H and L.</td><td>the chosen model</td></tr>
+        <tr><td>Gusts <code>gust</code></td><td>Wind gusts.</td><td>the chosen model</td></tr>
+        <tr><td>Waves <code>wave</code></td><td>Ocean wave height and direction (nothing over land).</td><td>NOAA WAVEWATCH III with GFS; ECMWF's wave model with ECMWF</td></tr>
       </tbody>
     </table></div>
     <p>Clouds, rain and lightning start on. Drag the slider, or press play: the globe's clock moves with it, so the day-night line and the satellites move with the weather, and moving the clock in the time bar moves the slider. Closing weather mode puts the clock back to live.</p>
@@ -389,7 +393,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td>Outlines</td><td>"outline France", "show the border of Japan", "how big is Brazil"</td></tr>
       </tbody>
     </table></div>
-    <p>Spoken weather answers use Celsius and kilometres an hour, or Fahrenheit and miles an hour when your browser's language uses them (US English, for example). Place names are looked up with Photon (OpenStreetMap). With weather mode open, the forecast at the moment shown answers weather questions; otherwise Open-Meteo is asked about that one place.</p>
+    <p>Spoken weather answers give the temperature, the sky and the wind, and when they matter the gusts, the pressure and whether it is rising or falling, and over water the sea state and waves. They use Celsius and kilometres an hour, or Fahrenheit and miles an hour when your browser's language uses them (US English, for example). Place names are looked up with Photon (OpenStreetMap). With weather mode open, the forecast at the moment shown answers weather questions; otherwise Open-Meteo is asked about that one place.</p>
   </div>
 </section>
 
@@ -522,8 +526,12 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
       <li><b>Milky Way &amp; galaxies</b>: our galaxy seen from outside and 43,480 galaxies of the 2MASS Redshift Survey, with the big clusters named.</li>
       <li><b>Graphics</b>: Auto or a fixed level.</li>
     </ul>
+    <h3>Where is it now?</h3>
+    <p>The search box finds planets, moons, dwarf planets, spacecraft, every comet, about 26,000 named asteroids, nearby stars and other planetary systems, by name, nickname or a near-miss spelling ("Halley", "Juno", "Eros"), and flies there.</p>
+    <h3>Share a view</h3>
+    <p>The address follows what you fly to: copy it, or press the share button on a body's card, and the link opens the same body at the same moment and distance (or live, if the clock was live). The format is in <a href="https://github.com/destinjones/open-overwatch/blob/main/docs/LINK_FORMAT.md">docs/LINK_FORMAT.md</a>.</p>
     <h3>Wow</h3>
-    <p><b>Guided tour: Earth to Andromeda</b>, <b>Send a light pulse from the Sun</b> (a shell of light spreads out at 60 times its real speed and names each planet it reaches), <b>Next planetary alignment</b>, and <b>Under the hood</b>: speed, and the positions' error measured live against NASA JPL Horizons. Search (Mars, Ceres, Voyager 1, Sirius…) flies to anything by name. The time bar runs from a year a second backwards to a year a second forwards; planet positions are good from 1800 to 2050.</p>
+    <p><b>Guided tour: Earth to Andromeda</b>, <b>Send a light pulse from the Sun</b> (a shell of light spreads out at 60 times its real speed and names each planet it reaches), <b>Next planetary alignment</b>, and <b>Under the hood</b>: speed, and the positions' error measured live against NASA JPL Horizons. Two lists: <b>Deep-space missions now</b> (every mission with its distance and signal time to Earth, nearest first, and what it does next) and <b>Comets near the Sun</b> (the best placed comets, with their next perihelion). Comets near the Sun grow a straight blue ion tail and a curved dust tail; the Sun-Earth L1 and L2 points, where SOHO, JWST, Gaia and others work, ride along with Earth. The time bar runs from a year a second backwards to a year a second forwards; planet positions are good from 1800 to 2050.</p>
   </div>
 </section>
 
@@ -560,6 +568,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
       <li><b>Searches and spoken places</b> send only the words to Photon (komoot). Directions go to the FOSSGIS routing servers; mapped cameras and buildings to the public Overpass API.</li>
       <li><b>Voice</b> uses your browser's speech recognition: Chrome and Edge send the audio to Google or Microsoft, Safari to Apple. This site receives none of it, and the microphone listens for one command each time you press the mic or <kbd>V</kbd>, or while you hold <kbd>Space</kbd>.</li>
       <li><b>The public relay</b> on Cloudflare carries a few feeds a browser can't read directly (NOAA hurricanes, NYC cameras, some camera lists and pictures, cable routes). It carries only those and runs no logging code of its own.</li>
+      <li><b>Weather forecasts</b> come straight from NOAA's and ECMWF's public files on Amazon Web Services; a spoken weather question sends the place it is about to Open-Meteo.</li>
       <li><b>Photoreal 3D</b>, if you turn it on, uses your own Cesium ion token and sends it only to Cesium. <b>Radio</b> reports each station you start to radio-browser.info.</li>
     </ul>
     <p>The full notice, with every service named, is on the <a href="index.html#legal">landing page</a>.</p>

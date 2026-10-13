@@ -23,7 +23,7 @@ const weatherSets = Object.keys(Function(`return ${read('src/globe/weather.js').
 test('docs: the source lists were found (so the checks below check something)', () => {
   assert.ok(globeLayers.length >= 30, `globe layers: ${globeLayers.length}`);
   assert.ok(mapLayers.length >= 20, `2D map layers: ${mapLayers.length}`);
-  assert.deepEqual(weatherSets, ['ir', 'radar', 'rain', 'lightning', 'wind', 'temp']);
+  for (const id of ['ir', 'radar', 'rain', 'lightning', 'wind', 'temp']) assert.ok(weatherSets.includes(id), `weather set ${id}: ${weatherSets}`);
 });
 
 test('docs: every globe layer is in the guide and in the link format', () => {

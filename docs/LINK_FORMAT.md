@@ -20,7 +20,7 @@ https://destinjones.github.io/open-overwatch/globe.html#c=-0.1278,51.5074,3500,3
 - [What happens on arrival](#what-happens-on-arrival)
 - [A hash that changes in an open page](#a-hash-that-changes-in-an-open-page)
 - [Building links from code](#building-links-from-code)
-- [Other pages](#other-pages)
+- [Other pages](#other-pages): the Solar System view's own links
 - [Checklist](#checklist)
 
 ## The parameters at a glance
@@ -35,7 +35,7 @@ same way, and the examples here use them for readability.
 | `l` | layer ids | `l=stations,quakes,storms` | exactly these layers on, every other one off |
 | `a` | layer ids | `a=quakes,storms` | switch these on, leave the others as the visitor has them |
 | `x` | layer ids | `x=starlink,debris` | switch these off, leave the others |
-| `w` | weather source ids | `w=ir,radar,wind` | open weather mode with these sources |
+| `w` | weather source ids and model tokens | `w=ir,radar,wind,ecmwf` | open weather mode with these sources (and model) |
 | `t` | `julianDate,rate` | `t=2461326.25,60` | set the clock to that moment, running at that rate |
 | `k` | ISO 3166-1 alpha-2 | `k=JP` | open that country's card and outline |
 | `f` | callsign | `f=BAW123` | look for that flight |
@@ -114,12 +114,24 @@ keys of `Weather.sets` in `src/globe/weather.js`:
 
 | Id | Source |
 |---|---|
-| `ir` | clouds: GOES-East, GOES-West and Himawari infrared via NASA GIBS (forecast: GFS cloud cover) |
-| `radar` | rain radar from RainViewer (forecast: GFS rain rate) |
+| `ir` | clouds: GOES-East, GOES-West and Himawari infrared via NASA GIBS (forecast: the model's cloud cover) |
+| `radar` | rain radar from RainViewer (forecast: the model's rain rate) |
 | `rain` | rain from space, NASA IMERG |
 | `lightning` | lightning, NOAA nowCOAST (the Americas and the Pacific) |
-| `wind` | GFS 10 m wind |
-| `temp` | GFS 2 m temperature |
+| `wind` | 10 m wind from the model |
+| `temp` | 2 m temperature from the model |
+| `pres` | pressure: isobars with highs and lows (H, L) |
+| `gust` | wind gusts |
+| `wave` | ocean waves (NOAA WAVEWATCH III with GFS, ECMWF's wave model with ECMWF) |
+
+The same list can also carry the forecast model (`Weather.shareTokens()` / `fromTokens()`), mixed in with the source ids:
+
+| Token | Meaning |
+|---|---|
+| `ecmwf` | forecast from ECMWF IFS (0.25°) instead of NOAA GFS (1°, the default, written as no token) |
+| `compare` | both models side by side, with a slider between them |
+
+`w=ir,radar,wind,pres,ecmwf,compare` is a valid list. Unknown ids are ignored.
 
 Weather mode shows the whole Earth: when it opens from lower than a global view it flies out, so a link with `w`
 does not keep a close-up camera (the MCP server keeps weather links at 3,000 km or higher). `w=` with no ids opens
@@ -326,10 +338,34 @@ plain; both decode), keep layer ids lower case, and test the result by opening i
 
 ## Other pages
 
-- `solar.html?focus=mars` opens the Solar System view at a body (`focus` is a key in the view's registry: planet and
-  moon names in lower case such as `earth`, `moon`, `mars`, `jupiter`; anything unknown opens at Earth).
-  `solar.html?embed=1` is the mode the globe uses when it hands the camera over; it is not meant for links.
-- `open-overwatch.html` (the 2D map) and `tonight.html` take no link parameters.
+### The Solar System view (`solar.html#…`)
+
+The Solar System view has its own hash, written and read by `src/core/solarlink.js` (`encodeSolarView`,
+`decodeSolarView`; tested in `test/solar.test.mjs`) and applied by `src/solar/find.js`. The address follows what you
+fly to, and a body's card has a button that copies it. A hash that changes in an open page is applied again.
+
+```
+solar.html#f=craft:Voyager%201&t=2026-10-12T06:00&d=0.0012&r=1
+solar.html#q=halley
+```
+
+| Key | Value | Meaning |
+|---|---|---|
+| `f` | body key | the focus: a key in the view's registry, such as `mars`, `moon`, `moon:Titan`, `craft:Juno`, `comet:1P/Halley`, `ast:433 Eros`; 1 to 80 letters, digits, spaces and `: . / ' ( ) + , _ -` |
+| `q` | text | a search to run when there is no `f` (for hand-written links); 2 to 60 characters, the best match is flown to |
+| `t` | `YYYY-MM-DDTHH:MM` (UTC) | the moment, 1800 to 2200 (also `YYYY-MM-DD`, or with seconds or a `Z`); left out = live |
+| `r` | number | clock rate in days per second, only with `t`; at most 3,652.5 either way; with `t` but no `r` the clock is paused |
+| `d` | number | camera distance from the focus in AU (written to 3 significant figures) |
+
+A comet or asteroid that isn't drawn yet is found by its name (the part after `comet:` or `ast:`). A hash that names
+nothing usable is ignored.
+
+Two query parameters also exist: `solar.html?focus=mars` opens at a body when there is no hash (anything unknown opens
+at Earth), and `solar.html?embed=1` is the mode the globe uses when it hands the camera over (not meant for links).
+
+### The 2D map and Tonight
+
+`open-overwatch.html` (the 2D map) and `tonight.html` take no link parameters.
 
 ## Checklist
 

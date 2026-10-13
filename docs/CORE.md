@@ -17,15 +17,15 @@ is also used by its tests in `test/`.
 ## Contents
 
 - [Time, units and frames](#time-units-and-frames): `time.js`, `units.js`, `rotation.js`
-- [Orbits and the Solar System](#orbits-and-the-solar-system): `kepler.js`, `planets.js`, `moons.js`, `smallbodies.js`, `accuracy.js`
+- [Orbits and the Solar System](#orbits-and-the-solar-system): `kepler.js`, `planets.js`, `moons.js`, `smallbodies.js`, `comets.js`, `craft.js`, `accuracy.js`
 - [Satellites](#satellites): `tle.js`, `passes.js`, `observer.js`, `socrates.js`, `explain.js`
-- [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `orientation.js`
+- [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `orientation.js`
 - [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`
 - [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`
-- [Weather](#weather): `gfs.js`, `grib2.js`
+- [Weather](#weather): `gfs.js`, `wxmodels.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`
 - [Hazards and imagery](#hazards-and-imagery): `hazards.js`
 - [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `gtfsrt.js`, `bikes.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
-- [Links, words and the interface](#links-words-and-the-interface): `viewlink.js`, `scene.js`, `voicecmd.js`, `format.js`, `ics.js`, `radio.js`
+- [Links, words and the interface](#links-words-and-the-interface): `viewlink.js`, `solarlink.js`, `search.js`, `scene.js`, `voicecmd.js`, `format.js`, `ics.js`, `radio.js`
 - [Network and devices](#network-and-devices): `assets.js`, `relay.js`, `gpu.js`
 
 ## Time, units and frames
@@ -107,6 +107,33 @@ equation for each point in a shader; this module decodes the same way on the CPU
 - `cometElements`: a comet row from `small_bodies.json` as elements. `packSmallBodies`: elements back into the format.
 - `CLASSES`: Main belt, Near-Earth asteroids, Jupiter Trojans, Centaurs, Kuiper belt & beyond, Mars-crossers, Other.
 
+### `comets.js`
+
+Comets on any conic (ellipse, parabola, hyperbola) from JPL's perihelion elements, the names people know them by, and
+their two tails: the ion tail along the solar wind and the curved dust tail. Used by solar, core.
+
+- `cometFromRow`: a `small_bodies.json` row to elements. `cometPosition`, `cometVelocity`: where it is and how it moves
+  (`solveHyperbolic`, `solveBarker`, `conicInPlane` for the open orbits). `stateToConic`: the orbit through a position
+  and velocity.
+- `cometNames`, `COMET_NICKNAMES`, `COMET_FACTS`: designations, common names and why some are famous. `cometClass`,
+  `cometPeriodYears`.
+- `ionTail`, `dustTail`, `dustDays`, `activity`: the tails, longer nearer the Sun (illustrative lengths, true
+  directions).
+- `cometsNearNow`: the comets best placed near the Sun and Earth. `perihelionPassages`: perihelion dates in a span.
+  `conicArc`: a drawable stretch of an open orbit. `GM_SUN`, `SOLAR_WIND_AU_DAY`.
+
+### `craft.js`
+
+Deep-space missions from `data/solar/spacecraft.json` (JPL Horizons): where a craft is at any moment (a cubic through
+the samples), how fast, what its mission does next, and how long its signal takes to reach Earth. Used by solar, core.
+
+- `trackPosition`, `trackSpeed`, `sampleIndex`: position, speed and the sample reached.
+- `missionPhase`: before launch, flying, coasting out past the published track, or beyond the data. `escaping`,
+  `lastVelocity`.
+- `eventsAround`: the last and next mission event. `missionDays`, `relativeTime` ("in 3 days", "5 hours ago").
+- `missionsNow`: one line per mission, nearest Earth first (the "Deep-space missions now" list). `lightSeconds`.
+- `lagrangeL1L2`: the Sun-Earth L1 and L2 points for Earth's position (`EARTH_MOON_MU`). `craftAliases`: search words.
+
 ### `accuracy.js`
 
 Errors against JPL Horizons, measured with the same code the views run. Used by solar (the "Under the hood" panel loads
@@ -167,7 +194,7 @@ module parses the raw CSV for the tests.
 
 Your sky tonight in plain words: where the Sun, Moon and planets are for someone on the ground, the Moon's phase, which
 planets are worth stepping outside for, the aurora chance, passes as sentences, Starlink trains and meetings in the
-sky. Accuracy is "where to look" (a degree or so). Used by globe, sky, solar, mcp, core.
+sky. Accuracy is "where to look" (a degree or so). Used by globe, sky, mcp, core.
 
 - `bodyRaDec`, `altAz`, `gmst`, `sunAlt`: positions in the sky.
 - `darkWindow`: the dark part of the next 24 hours (Sun below −6°). `riseSet`: rise and set times for the Sun, the Moon
@@ -177,7 +204,7 @@ sky. Accuracy is "where to look" (a degree or so). Used by globe, sky, solar, mc
 - `auroraAt`: the aurora chance overhead and on the horizon from NOAA's OVATION grid.
 - `describePass`: a pass as a sentence. `starlinkTrains`: recent Starlink launches still flying low as a train.
 - `meetings`: the Moon within 5° of a bright planet, two planets within 3°, over the next days.
-- `craftAt`: a spacecraft from `data/solar/spacecraft.json` at a Julian Date. `separation`: the angle between two
+- `craftAt`: a spacecraft from `data/solar/spacecraft.json` at a Julian Date (through `craft.js`). `separation`: the angle between two
   directions.
 
 ### `skyfacts.js`
@@ -186,6 +213,15 @@ What you are looking at in look-up mode, in a sentence or two: distance and ligh
 
 - `bodyFact`: a planet or the Moon at a Julian Date. `starFact`: a bright star ("the light reaching your eyes left
   Vega in 2001"), with distances in `STAR_LY`.
+
+### `skyplace.js`
+
+Where something in the Solar System appears in Earth's sky: its direction, its angle from the Sun, whether that means
+the evening or the morning sky, and the constellation figure nearest it. Used by solar.
+
+- `skyPosition`: RA/Dec, distance from Earth, elongation and side for a heliocentric position. `raDecOf`.
+- `skyPhrase`: when to look, in words. `nearestConstellation`: the nearest stick figure. `angularSep`,
+  `formatRaDec`.
 
 ### `meteors.js`
 
@@ -331,13 +367,60 @@ moment between two forecast hours blends them, and the weather timeline's moment
 
 ### `grib2.js`
 
-GRIB2, just enough for GFS on its regular grid (simple packing, and complex packing with spatial differencing, as NCEP
-writes it), plus NOAA's `.idx` inventories so a browser fetches only the fields it wants. Matched to eccodes to 9e-7.
-Used by globe.
+GRIB2, just enough for the model fields the globe draws: NOAA's GFS and ECMWF's IFS on their regular grids, packed
+simply, with complex packing and spatial differencing (as NCEP writes it), as JPEG 2000 (NOAA's WAVEWATCH III, through
+`jpx.js`) or CCSDS (ECMWF's open data, through `aec.js`); plus NOAA's `.idx` inventories so a browser fetches only the
+fields it wants. Matched to eccodes. Used by globe, core.
 
 - `decodeGrib2`: every message in a buffer → its parameter, forecast hour, grid and a `Float32Array` of values.
   `sampleGrid`: a value at a point, bilinear, wrapping in longitude.
 - `parseIdx`: an inventory → byte offsets. `idxRanges`: byte ranges for wanted fields, neighbours merged.
+
+### `wxmodels.js`
+
+The weather models the globe reads straight from their open buckets (keyless, CORS, byte ranges): NOAA's GFS (1°, with
+WAVEWATCH III waves at 0.25°) and ECMWF's IFS (0.25°, with its wave model; CC BY 4.0). Which runs exist when, a
+forecast hour's files and inventories, and which GRIB2 parameters are which field. Used by globe.
+
+- `MODELS`, `PARTS`, `partsOf`: what each model's files call the fields the globe draws.
+- `ecmwfCycles`, `ecmwfFile`, `parseEcIndex`, `ECMWF_BUCKET`: ECMWF's runs, files and JSON inventories.
+- `gfsWaveFile`: the WAVEWATCH III file of a GFS run. `paramKey`: a GRIB2 parameter to our field.
+- `bracketFor`: the forecast hours either side of a moment. `runWords`: "the 12:00 UTC run of 11/10".
+
+### `aec.js`
+
+CCSDS 121.0 lossless decompression (adaptive entropy coding, the Rice coder libaec implements), as GRIB2 data template
+5.42 uses it: ECMWF writes its open data this way. Checked against eccodes on a real IFS field. Used by core
+(`grib2.js`).
+
+- `aecDecode`: n samples of a given bit width from the bytes. `AEC`: the option flags.
+- `aecEncode`: a simple encoder for the tests (not used by the site).
+
+### `jpx.js`
+
+JPEG 2000 codestreams, just enough for GRIB2 data template 5.40 (one grey component), as NOAA's WAVEWATCH III files are
+packed. Checked against eccodes on real wave fields. Used by core (`grib2.js`).
+
+- `jpxDecode`: a codestream to `{ width, height, data }`. `decodeBlock`, `synth`: a code block and the inverse wavelet
+  step.
+
+### `fields.js`
+
+Model fields on regular latitude/longitude grids, the shape `grib2.js` decodes into: coarsening (a 0.25° global field is
+a million values), blending two forecast hours, and sampling that copes with coasts (wave fields are empty over land)
+and directions (350° and 10° average to north). Used by globe, core.
+
+- `coarsen`, `blend`, `sampleAt`: smaller fields and moments between forecast hours.
+- `sampleValid`: bilinear sampling that skips missing corners. `sampleAngle`, `blendAngle`: directions.
+- `wraps`, `rowLat`: grid geometry.
+
+### `contour.js`
+
+Isobars and pressure centres: marching squares over a model grid, joined into lines that carry on across the date
+line, and the highs and lows that stand out. Used by globe (the pressure layer).
+
+- `levels`: contour levels every step from a base (isobars every 4 hPa run 996, 1000, 1004…). `isolines`: the lines.
+- `extrema`: highs and lows, strongest first. `labelSpots`: where to write a line's value.
 
 ## Hazards and imagery
 
@@ -413,7 +496,7 @@ tile and joined to its neighbour across the edge; junctions where lines share a 
 ### `traffic.js`
 
 Simulated cars on real roads. No open feed says where individual cars are, so the cars are a simulation; where a city
-publishes measured speeds and counts (NYC DOT, Fintraffic) they set the cars' speed and number. Used by globe, core.
+publishes measured speeds and counts (NYC DOT, Fintraffic) they set the cars' speed and number. Used by globe.
 
 - `buildGraph`: ways → a road graph with signals and the street grid's main bearing. `densify`: points along long
   segments so cars follow the ground.
@@ -433,6 +516,23 @@ The share link: a view as a URL hash and back (full format in [LINK_FORMAT.md](L
 - `decodeExtras`: the parts that work without a camera: the panel to open, a flight, an item id. `GO`: the panels a
   link may open.
 
+### `solarlink.js`
+
+The Solar System view as a link (`solar.html#f=…&t=…&d=…&r=…`, or `#q=…`; see [LINK_FORMAT.md](LINK_FORMAT.md)).
+Nothing in a hash is trusted. Used by solar.
+
+- `encodeSolarView`, `decodeSolarView`: a view to the hash and back.
+- `isoMinute`, `parseIsoMinute`: Julian Dates and `YYYY-MM-DDTHH:MM` (UTC).
+
+### `search.js`
+
+The Solar System view's "Where is it now?" search: one ranked list over planets, moons, spacecraft, comets, named
+asteroids, stars and other planetary systems. Exact names first, then prefixes, words, substrings and near-miss
+spellings, then by kind and fame. Used by solar.
+
+- `buildIndex`, `search`, `mergeResults`: index, query, and merge ranked lists.
+- `matchScore`, `editDistance`, `normalize`, `kindRank`, `KIND_RANK`: the ranking.
+
 ### `scene.js`
 
 Director scenes: camera shots to fly through, as compact text for links and files. Used by globe.
@@ -447,7 +547,8 @@ Spoken commands without an AI service: a sentence in, one action out. Used by gl
 - `parse`: a sentence → `{ act, … }` (go, track, layer, view, sensor, measure, route, weather, count, …). `normalize`
   strips the wake word, politeness and punctuation first.
 - `EXAMPLES`: the phrases the help card suggests. `SENSORS`: the Ops looks.
-- `skyWords`, `weatherSentence`: weather readings in words, metric or imperial.
+- `skyWords`, `weatherSentence`, `seaWords`: weather readings in words (with gusts, pressure and its trend, and the sea
+  state), metric or imperial.
 
 ### `format.js`
 

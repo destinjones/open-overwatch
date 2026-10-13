@@ -103,7 +103,8 @@ Runs every `test/*.test.mjs` with Node's own runner. No dependencies except `sat
 | `geo.test.mjs`, `measure.test.mjs`, `borders.test.mjs`, `route.test.mjs` | great circles and dead reckoning; WGS84 distances and areas against GeographicLib; the country lookup; routes |
 | `viewlink.test.mjs`, `scene.test.mjs` | share links and Director scenes: round trips, hostile input refused |
 | `voice.test.mjs` | voice command parsing |
-| `gfs.test.mjs`, `grib2.test.mjs` | the weather timeline and GRIB2 decoding (with its own small encoder) |
+| `gfs.test.mjs`, `wxmodels.test.mjs`, `grib2.test.mjs`, `aec.test.mjs`, `contour.test.mjs` | the weather timeline, the GFS and ECMWF files, GRIB2 decoding (simple, complex, JPEG 2000, CCSDS) checked against eccodes, model fields, isobars |
+| `solar.test.mjs` | comets on any conic, spacecraft tracks, the "where is it now?" search, Solar System links and sky positions, against JPL Horizons |
 | `roadtiles.test.mjs`, `traffic.test.mjs`, `gtfsrt.test.mjs` | vector tiles and roads, the traffic model, GTFS-RT |
 | `ais.test.mjs`, `bikes.test.mjs`, `transit.test.mjs`, `hazards.test.mjs`, `radio.test.mjs`, `campose.test.mjs`, `ascent.test.mjs` | the feeds' parsers and the models built on them |
 | `ops.test.mjs`, `inject.test.mjs`, `regress.test.mjs` | MGRS and the voice commands of the Ops pack; hostile input in numbers, ids and HTML stays harmless; regressions from the code reviews |
