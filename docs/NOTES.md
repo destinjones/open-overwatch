@@ -561,3 +561,36 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   with only a placeholder, an img without alt, duplicate ids, tabindex > 0, an unlabelled role, and text-colour tokens
   (`--ink*`, `--dim`, `--faint`, …) under 4.5:1 against `--bg` / `--panel-solid` / `--panel-2`. Viewports that block zoom
   are only warnings on the three views that handle pinch themselves.
+
+## Earth now: the dashboard (now.js, now.css, core/earthnow.js) — 2026-10-13 (branch grow2-dashboard)
+
+- **One panel, the globe's own feeds.** `Earth now` (band, `E`, `#go=now`) sums up quakes, cyclones, the aurora, launches,
+  people in space, flybys, wildfires and the model's weather extremes. Everything already on the globe is reused
+  (`Quakes.list`, `Storms.list`, `Launches.load()`, `Crew.load()`, `Flybys.load()`, `Model.at()`); the panel adds only
+  small history files, fetched when it opens and kept 10-30 minutes: USGS `2.5_week` (~0.3 MB), `4.5_month` (~0.4 MB,
+  only when its tab is picked), EONET wildfires, and SWPC's `noaa-planetary-k-index-forecast.json` (observed,
+  estimated and predicted rows in one file). Nothing is fetched or timed while the panel is closed.
+- **Sums are pure** (`src/core/earthnow.js`, 11 tests on captured answers). Kp → G scale: SWPC marks Kp 5- (4.67) as
+  G1, so G = round(Kp) − 4; the test checks every row of the captured product against SWPC's own `noaa_scale` label.
+  SWPC tags a 3-hour block by its start and sometimes "estimates" a block that hasn't begun: "now" is the last
+  non-predicted row at or before now.
+- **Honest labels.** EONET's wildfires are incident reports (mostly IRWIN, US/Canada), and half of them are
+  prescribed burns: counted apart. Launches per month come from the upcoming list (the next 40): the current month
+  (flown launches are gone) and months past the list's end are drawn faint and say "partial". Weather extremes are
+  model grid cells, sea and Antarctica included (2 m temperature and 10 m wind of the GFS hour nearest now), named by the
+  globe's own borders.
+- **Charts** are inline SVG built as strings in core (`barsSvg`): `role="img"`, a `<title>` and a `<desc>` that lists
+  every value with its full date, a tooltip per bar, bars in `currentColor` (each section sets `--c`), text in the page's
+  CSS variables, forced-colors fallback. Today / predicted / partial bars are faint (opacity .45).
+- **Actions** switch the matching layer on (stored like a dock click) and fly; objects with cards are selected
+  (quakes, storms, launches, stations); a named fire or a weather extreme gets a pin object with `cardHtml` so `select()`
+  shows it. A weather extreme opens weather mode with Temperature or Wind on first (weather flies out to the whole Earth
+  when opened low), then flies to 4,500 km and sets weather's point readout there.
+- **Phones**: a sheet above the bottom dock (Explore → Earth now), folding to its title bar while the camera flies;
+  weather extremes wait for a tap (~1 MB of model data); opening weather from it closes the sheet (weather's panel takes
+  the same place) and says the value in a toast. Countdowns tick once a second only while the sheet is open, unfolded and
+  the tab visible; DOM-only, so the battery saver's frame rate is untouched.
+- **Desktop band**: it had grown past 1,600 px and was cut off at both ends; now.css caps it at the window minus the
+  navigation pad and lets it scroll sideways.
+- **Headless shots**: globe_shot blocks USGS, so the renders patch `fetch` for `earthquake.usgs.gov` to the captured
+  fixture (`test/fixtures/earthnow/usgs_4.5_week_2026-10-13.json`); the other sections are live.

@@ -60,6 +60,7 @@ import { Bikes } from './bikes.js';
 import { Saver } from './saver.js';
 import { Model } from './model.js';
 import { Airports, Aviation } from './aviation.js';
+import { Now } from './now.js';
 
 // things on the ground: from look-up mode's eye height they become huge streaks across the sky, so they hide there
 const GROUND = ['airports', 'companies', 'volcanoes', 'lighthouses', 'launches', 'quakes', 'sun', 'buildings', 'cctv', 'alpr', 'milareas', 'storms', 'radio', 'cams', 'transit', 'traffic', 'fires', 'ships', 'bikes'];
@@ -105,6 +106,7 @@ PRESETS.flight = () => Flight.open();
 PRESETS.route = () => Directions.open();
 PRESETS.imagery = () => Imagery.open();
 PRESETS.measure = () => Measure.open();
+PRESETS.now = () => Now.toggle();
 hooks.shareCopy = () => Share.copy();
 hooks.closeWeather = () => { if (Weather.on) Weather.close(); };
 hooks.snapshot = () => Snapshot.share();
@@ -189,7 +191,7 @@ every(10 * 60e3, () => Quakes.load(), 'Earthquakes');
 every(30 * 60e3, () => Storms.load(), 'Tropical cyclones');
 setInterval(() => Aurora.apply(), 60e3);   // refreshes itself every 10 minutes while the layer is on
 
-window.OO3D = { Aviation, Ops, Voice, Photoreal, Storms, Directions, Ascent, Director, Surveil, Alpr, Military, Radio, Cams, Look, Transit, Traffic, Terrain, Fires, Imagery, Measure, Ships, Bikes, Saver, Model, Conj, LookUp, Eclipses, Tonight, Flight, Snapshot, Search, Launches, Crew,
+window.OO3D = { Now, Aviation, Ops, Voice, Photoreal, Storms, Directions, Ascent, Director, Surveil, Alpr, Military, Radio, Cams, Look, Transit, Traffic, Terrain, Fires, Imagery, Measure, Ships, Bikes, Saver, Model, Conj, LookUp, Eclipses, Tonight, Flight, Snapshot, Search, Launches, Crew,
   viewer, space: Space, time: Time, Earth, marbleLayer, nightLayer, fxShell, cloudShell, limbShell, Fx, Sats, Air, Quakes, Lighthouses, Weather, Wind, Country, Aurora, Flybys, Companies, Volcanoes, SunLine, Buildings, Share, Tour, setIonToken: t => Buildings.setToken(t), L, PRESETS, moonPosition, SatModels, AirModels, Follow, select, applyVisibility,
   /** debug: the axes test model at lon/lat/height, body X = east, Y = north, Z = up, arrays turned by `deg` */
   debugAxes(lon, lat, h, deg = 0, uri = 'brand/models/test/axes.glb') {

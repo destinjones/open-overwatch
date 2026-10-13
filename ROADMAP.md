@@ -274,6 +274,16 @@ Round 2 (2026-10-10, local):
       session's this round
 - [ ] Real-phone check of install + offline (iOS: Add to Home Screen from Safari's Share menu; no install prompt there)
 
+### Earth now dashboard (grow2-dashboard, 2026-10-13, local)
+- [x] "Earth now" panel on the 3D globe (band button, `E`, `#go=now`; a folding sheet on phones): quakes (24 h count,
+      strongest, busiest regions, per-day charts for 7 days M2.5+ and 30 days M4.5+), tropical cyclones, aurora (Kp now in
+      words, 3 days + 1 day forecast chart with the G1 line), launches in the next 24 h with countdowns and per month,
+      people in space, flybys this week, EONET wildfires (prescribed burns apart), the model's hottest / coldest /
+      windiest point; every line switches its layer on and flies there. Sums and SVG charts in core/earthnow.js (tested)
+- [ ] Launches per month from real history: the site copies only upcoming launches; a trimmed `launches/previous` copy
+      in build_site.py (a few more LL2 requests per build) would give a true monthly count. Needs the owner's OK
+- [ ] An `earth_now` MCP tool on the same core sums
+
 ## Rules of thumb
 - One clear goal per session; read this file first, tick boxes as they land.
 - Core code is plain ES modules with no DOM/three.js imports, so Node can test it.
