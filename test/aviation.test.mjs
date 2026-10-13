@@ -457,6 +457,8 @@ test('board rows in words: where from or to, ETA and final, the climb, parked or
   assert.equal(dep.where, 'to JFK'); assert.equal(dep.right, 'climbing 1,969 ft/min');
   const odd = boardRowWords({ r: { info: { route: { origin: { icao: 'EGLL' }, destination: { icao: 'LEMD', iata: 'MAD' } } } }, status: 'arriving', etaS: 30, aboveM: 300, km: 5, fromHere: true }, LHR);
   assert.equal(odd.where, '', 'a route that leaves from here on a plane landing here: another day\'s flight'); assert.equal(odd.right, 'now');
+  const elsewhere = boardRowWords({ r: { info: { route: { origin: { icao: 'KLGA', iata: 'LGA' }, destination: { icao: 'KATL', iata: 'ATL' } } } }, status: 'arriving', etaS: 120, aboveM: 400, km: 6 }, LHR);
+  assert.equal(elsewhere.where, '', 'a route between two other fields says nothing about this one');
   const parked = boardRowWords({ r: {}, status: 'ground', aboveM: 0, km: 1 }, LHR, { kind: 'Narrow-body airliner' });
   assert.deepEqual(parked, { where: '', right: 'parked', sub: 'Narrow-body airliner' });
   assert.equal(boardRowWords({ r: {}, status: 'landed', agoS: 20, km: 1 }, LHR).right, 'landed just now');

@@ -200,16 +200,17 @@ export const ROUTE_CAVEAT = "this callsign's usual route, which it may not be fl
 const BOARD_STATUS = { taxiing: 'taxiing', ground: 'parked' };
 /**
  * One board row in words, the same on every view: { where ("from MAD" / "to JFK": the other end of the route on file,
- * only when it agrees with what the plane is doing here), right (ETA and the runway it is lined up with, the climb, how
+ * only when that route names this airport as where the plane is coming to or leaving from), right (ETA and the runway it is lined up with, the climb, how
  * long ago it landed or took off, parked or taxiing), sub (the plane's class on the ground; height above the field and
  * distance in the air) }. e: a makeBoard entry whose .r has { info?, vr (m/s) }; fin: the runway end it is lined up with.
  */
 export function boardRowWords(e, ap, { fin = null, kind = '', fmt = n => Math.round(n).toLocaleString('en-US') } = {}) {
   const r = e.r, rt = r.info && r.info.route;
-  // a route that starts here on a plane landing here is some other day's flight under the same callsign: say nothing
+  // only a route that names this airport at the right end says where else it goes: one that starts here on a plane
+  // landing here, or names other fields only, is some other day's flight under the same callsign
   const inbound = e.status === 'arriving' || e.status === 'landed' || (e.status !== 'departing' && e.status !== 'departed' && e.toHere);
   const other = rt && rt.origin && rt.destination ? (inbound ? rt.origin : rt.destination) : null;
-  const where = other && other.icao !== ap.icao && (inbound ? !e.fromHere : !e.toHere) ? `${inbound ? 'from' : 'to'} ${other.iata || other.icao}` : '';
+  const where = other && other.icao !== ap.icao && (inbound ? e.toHere : e.fromHere) ? `${inbound ? 'from' : 'to'} ${other.iata || other.icao}` : '';
   const right = e.status === 'arriving' ? etaText(e.etaS) + (fin ? ` · final ${fin.end.ident}` : '') : e.status === 'departing' ? `climbing ${fmt((r.vr || 0) * 196.85)} ft/min`
     : e.status === 'landed' || e.status === 'departed' ? `${e.status} about ${etaText(e.agoS)} ago`.replace('about now ago', 'just now') : BOARD_STATUS[e.status] || '';
   const onField = e.status === 'ground' || e.status === 'taxiing' || e.status === 'landed' || e.status === 'departed';

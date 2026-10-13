@@ -91,7 +91,7 @@ const Runways2D = {
     for (const a of aps) for (const rw of Airports.runways.of(a) || []) {
       const live = use && Airports.open.icao === a.icao && rw.ends.includes(use.end);
       L.polyline(rw.ends.map(e => [e.lat, e.lon]), { color: live ? '#7dffa6' : '#c7d3de', weight: w, opacity: live ? .85 : .55, lineCap: 'butt', interactive: false, renderer: vecRenderer }).addTo(this.group);
-      for (const e of rw.ends) ends.push({ lat: e.lat, lon: e.lon, r: 1.5, color: live && e === use.end ? '#7dffa6' : AP_COLOR, label: e.ident, labelZoom: 12, kind: 'airport', obj: a, tip: `${a.iata || a.icao} runway ${e.ident} · heading ${Math.round(e.hdg)}°${rw.lengthFt ? ' · ' + fmt.n(rw.lengthFt) + ' ft' : ''}` });
+      for (const e of rw.ends) ends.push({ lat: e.lat, lon: e.lon, r: 1.5, noSel: true, color: live && e === use.end ? '#7dffa6' : AP_COLOR, label: e.ident, labelZoom: 12, kind: 'airport', obj: a, tip: `${a.iata || a.icao} runway ${e.ident} · heading ${Math.round(e.hdg)}°${rw.lengthFt ? ' · ' + fmt.n(rw.lengthFt) + ' ft' : ''}` });
     }
     Points.set('rwyends', ends);
   },

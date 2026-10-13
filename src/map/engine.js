@@ -63,7 +63,7 @@ export const Glyphs = L.Layer.extend({
       const s = Points.sets[id]; if (!s.items.length || !Layers.on(s.layerId) || z < s.minZoom) continue;
       for (const it of s.items) {
         for (const p of toPt(it.lat, it.lon)) {
-          const sel = Sel.obj === it.obj || (Sel.id != null && it.kind === Sel.kind && it.obj != null && (it.obj.id ?? it.obj.hex) === Sel.id); // by id too: feeds rebuild their objects each poll
+          const sel = !it.noSel && (Sel.obj === it.obj || (Sel.id != null && it.kind === Sel.kind && it.obj != null && (it.obj.id ?? it.obj.hex) === Sel.id)); // by id too: feeds rebuild their objects each poll; noSel: part of something else (a runway end)
           const r = typeof it.r === 'function' ? it.r(z) : it.r;
           ctx.globalAlpha = it.alpha ?? .85;
           if (it.shape === 'tri') { ctx.beginPath(); ctx.moveTo(p.x, p.y - r - 1); ctx.lineTo(p.x + r, p.y + r * .7); ctx.lineTo(p.x - r, p.y + r * .7); ctx.closePath(); ctx.fillStyle = hexA(it.color, .5); ctx.fill(); ctx.strokeStyle = it.color; ctx.lineWidth = 1.2; ctx.stroke(); }
