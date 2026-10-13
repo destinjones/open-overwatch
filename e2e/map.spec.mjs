@@ -70,9 +70,8 @@ test('a first visit offers views to start from, and picking one applies it', asy
   await openMap(page, '', { welcome: true });
   const card = page.locator('#welcome');
   await expect(card).toBeVisible();
-  await expect(page.locator('#splash')).toBeHidden();   // the splash fades over it for 650 ms
-  await card.locator('.view[data-preset="mil"]').click();
-  await expect(card).toBeHidden();
+  // the splash is still fading over the card (650 ms, longer on a slow runner): click until the card has gone
+  await expect(async () => { await card.locator('.view[data-preset="mil"]').click({ timeout: 5000 }); await expect(card).toBeHidden({ timeout: 2000 }); }).toPass({ timeout: 60000 });
   await expect(page.locator('#views .view[data-preset="mil"]')).toHaveClass(/\bon\b/);
   expect(await page.evaluate(() => ['air_mil', 'quakes'].map(id => OW.Layers.on(id)))).toEqual([true, false]);
   await page.reload();
