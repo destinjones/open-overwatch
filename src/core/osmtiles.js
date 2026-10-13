@@ -267,24 +267,25 @@ const OPP = { W: 'E', E: 'W', N: 'S', S: 'N' };
 /**
  * Join pieces from neighbouring tiles (one zoom) into whole areas: two pieces belong together where one's cut on a tile
  * edge overlaps the other's cut on the same line from the other side. -> [{ pieces, area (m²), key (the id of its
- * biggest piece, stable while that piece is loaded) }], biggest first.
+ * biggest piece, stable while that piece is loaded), open (true when a cut has no partner: the area runs on past the
+ * tiles given, so its area is a lower bound) }], biggest first.
  */
 export function joinPieces(pieces) {
   const parent = pieces.map((_, i) => i), find = i => { while (parent[i] !== i) i = parent[i] = parent[parent[i]]; return i; };
-  const byLine = new Map();
+  const byLine = new Map(), matched = new Set();
   pieces.forEach((p, i) => { for (const c of p.cuts) { const k = p.z + ':' + c.line; if (!byLine.has(k)) byLine.set(k, []); byLine.get(k).push([i, c]); } });
   for (const list of byLine.values()) {
     for (let s = 0; s < list.length; s++) for (let t = s + 1; t < list.length; t++) {
       const [i, a] = list[s], [j, b] = list[t];
       if (OPP[a.side] !== b.side || pieces[i].tile === pieces[j].tile) continue;
-      if (Math.min(a.b, b.b) - Math.max(a.a, b.a) > 1e-6) { const ri = find(i), rj = find(j); if (ri !== rj) parent[ri] = rj; }
+      if (Math.min(a.b, b.b) - Math.max(a.a, b.a) > 1e-6) { matched.add(a); matched.add(b); const ri = find(i), rj = find(j); if (ri !== rj) parent[ri] = rj; }
     }
   }
   const groups = new Map();
   pieces.forEach((p, i) => { const r = find(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(p); });
   return [...groups.values()].map(ps => {
     const big = ps.reduce((a, b) => b.area > a.area ? b : a);
-    return { pieces: ps, area: ps.reduce((s, p) => s + p.area, 0), key: big.id };
+    return { pieces: ps, area: ps.reduce((s, p) => s + p.area, 0), key: big.id, open: ps.some(p => p.cuts.some(c => !matched.has(c))) };
   }).sort((a, b) => b.area - a.area);
 }
 const PLACE_ORDER = { city: 0, town: 1, village: 2 };

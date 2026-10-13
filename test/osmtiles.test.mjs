@@ -235,6 +235,8 @@ test('joinPieces: an area cut by a tile edge is one area again; touching corners
   near(big.area, big.pieces[0].area + big.pieces[1].area, 1e-6);
   assert.ok(areas.some(g => g.pieces.length === 2 && g.pieces.some(p => p.tile === `${z}/${x}/${y + 1}`)), 'north-south join');
   assert.ok(areas.some(g => g.pieces.length === 1 && g.pieces[0].tile === `${z}/${x + 1}/${y}`), 'the stranger stays alone');
+  assert.equal(big.open, false, 'whole once joined'); assert.ok(areas.find(g => g.pieces.length === 1).open, 'the stranger runs on past the tiles given');
+  assert.equal(joinPieces(a.pieces).find(g => g.pieces[0].cuts.length).open, true, 'alone, the cut piece is open');
   assert.ok(areas[0].area >= areas[1].area && areas[1].area >= areas[2].area, 'biggest first');
   assert.equal(joinPieces([]).length, 0);
 });

@@ -42,6 +42,7 @@ const LAYER_WORDS = {
   geo: 'geostationary geo', weather: 'weather satellites', visual: 'bright satellites', active: 'other satellites active satellites',
   launches: 'launch pads launches rockets', lighthouses: 'lighthouses', volcanoes: 'volcanoes', companies: 'employers companies towers',
   aurora: 'aurora northern lights', cams: 'traffic cameras live cameras webcams traffic cams', transit: 'buses trams trains metro transit public transport subway', traffic: 'cars car road traffic street traffic simulated traffic simulated cars', fires: 'fires fire wildfires wildfire hot spots hotspots burning', ships: 'ships ship boats boat vessels vessel ais maritime marine traffic', bikes: 'bikes bike bicycles bicycle bike share bikeshare city bikes cycling', radio: 'radio radios stations radio stations music', cctv: 'cameras camera cctv surveillance plate readers alpr anpr surveillance cameras mapped cameras', clouds: 'clouds', night: 'city lights night lights', labels: 'place names labels names', buildings: 'buildings 3d buildings', sun: 'sun time zones',
+  alpr: 'plate readers license plate readers licence plate readers alpr anpr flock flock cameras', milareas: 'military areas military bases military base bases army bases military land',
 };
 const VIEW_OF = { moon: 'moon', 'the moon': 'moon', 'solar system': 'space', space: 'space', planets: 'space', 'geo belt': 'geo', 'outer space': 'space' };
 

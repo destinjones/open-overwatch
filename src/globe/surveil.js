@@ -8,6 +8,7 @@ import { Terrain } from './terrain.js';
 import { L, setCount } from './layers.js';
 import { state } from './state.js';
 import { overpass } from './overpass.js';
+import { Alpr } from './alpr.js';
 
 const MAX_H = 2.5e4, CELL = 0.05, MAX_CELLS = 16, GAP_MS = 4000;   // query 0.05-degree cells, at most 16 at a time
 const pts = scene.primitives.add(new C.PointPrimitiveCollection()), wedges = scene.primitives.add(new C.PolylineCollection());
@@ -23,6 +24,7 @@ function tagsHtml(t) {
 function add(el, gh = 0) {
   if (byId.has(el.id) || !Number.isFinite(el.lat)) return;
   const t = el.tags || {}, alpr = /alpr|anpr|plate/i.test(`${t['surveillance:type'] || ''} ${t['camera:type'] || ''} ${t.name || ''}`), col = C.Color.fromCssColorString(alpr ? COL.alpr : COL.cam);
+  if (alpr && Alpr.has(el.id)) return;   // the plate-reader layer (alpr.js) draws this one already, from its tiles
   const o = { kind: 'cctv', id: el.id, lat: el.lat, lon: el.lon, alpr, tags: t };
   o.tip = () => `${alpr ? 'Plate reader (ALPR)' : 'Surveillance camera'}${t.operator ? ' · ' + String(t.operator).slice(0, 40) : ''}`;
   o.cardHtml = () => `<div class="k" style="--c:${alpr ? COL.alpr : COL.cam}">Mapped by OpenStreetMap volunteers</div><h2>${alpr ? 'Plate reader' : 'Camera'}</h2>
