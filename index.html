@@ -793,6 +793,9 @@ function pick(k) {
 }
 FLEET.forEach(f => { const b = document.createElement('button'); b.dataset.k = f[0]; b.textContent = f[1]; b.onclick = () => pick(f[0]); picker.append(b); });
 pick('iss');
+// leaving while a model still downloads aborts its fetch: not an error worth logging
+let leaving = false; addEventListener('pagehide', () => { leaving = true; });
+addEventListener('unhandledrejection', e => { if (leaving && /Failed to fetch|aborted/i.test(String(e.reason && e.reason.message || e.reason))) e.preventDefault(); });
 
 // latest release label (falls back to the static text)
 fetch('https://api.github.com/repos/' + REPO + '/releases/latest').then(r => r.ok ? r.json() : null).then(d => {

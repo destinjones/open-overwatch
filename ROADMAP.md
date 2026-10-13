@@ -207,9 +207,10 @@ Round 2 (2026-10-10, local):
 - [ ] Runways: the code is in (core/runways.js tested; runway in use, wind on it, "final 34R"), the data is not:
       `python brand/tools/make_airports.py --runways` downloads OurAirports runways.csv (public domain, ~3.5 MB) once the
       user agrees, and writes data/runways.json; nothing about runways shows until then
-- [ ] Aviation next: boards by voice ("arrivals at Heathrow"), the MCP server answering "what's landing at X" (Node
-      reads the aircraft feeds directly), business-jet and regional-jet models of their own instead of a scaled airliner
-- [ ] NYC traffic: Midtown showed no roads with measured speeds in the phone test, though NYC DOT speeds are promised
+- [ ] Aviation next: the MCP server answering "what's landing at X" (Node reads the aircraft feeds directly),
+      business-jet and regional-jet models of their own instead of a scaled airliner
+- [x] NYC traffic: measured speeds were all dropped (NYC DOT publishes ~a day late; the cut-off was 4 h). Now up to 48 h,
+      with the age said on the card; 70 measured road pieces around the FDR. Midtown's side streets have no sensors at all
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 

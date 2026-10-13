@@ -29,8 +29,8 @@ try {
   else {
     const site = o.site || process.env.OO_SITE || SITE;
     if (!/^https?:\/\/[^\s]+$/.test(site)) throw new Error('--site must be an http(s) address');
-    console.error(`open-overwatch-mcp ${VERSION} · links to ${site}`);
-    await serveStdio(createOverwatchServer({ site, log: line => console.error(`· ${line}`) }));
+    console.error(`open-overwatch-mcp ${VERSION} - links to ${site}`);   // plain ASCII: Claude Desktop's log reads stderr as Latin-1
+    await serveStdio(createOverwatchServer({ site, log: line => console.error(`- ${line}`) }));
   }
 } catch (e) {
   console.error(e.message); process.exitCode = 1;

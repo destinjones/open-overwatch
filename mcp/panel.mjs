@@ -73,6 +73,10 @@ function page(site, version) {
     }
     frame.src = embed;   // after the first load only the hash changes: the globe flies to the new view
   }
+  // a host whose sandbox refuses the frame (no frameDomains support) reports a CSP violation at once: offer the link then
+  document.addEventListener('securitypolicyviolation', e => {
+    if (!ready && url && /^(frame|child)-src/.test(e.effectiveDirective || e.violatedDirective || '')) { clearTimeout(timer); say('This app does not allow the live globe inside the chat. Open it in your browser instead.', true); }
+  });
   window.addEventListener('message', e => {
     const m = e.data;
     if (e.source === frame.contentWindow) { if (m && m.type === 'oo:ready') { ready = true; clearTimeout(timer); veil.hidden = true; } return; }
