@@ -17,7 +17,7 @@ import { L, setCount } from './layers.js';
 import { state, hooks } from './state.js';
 import { release } from './follow.js';
 import { Photoreal } from './photoreal.js';
-import { overpass } from './overpass.js';
+import { overpass } from '../core/overpass.js';
 import { estimatePose, footprint, axes, roadBearings } from '../core/campose.js';
 import { CAMERA_NETS, SG_URL, parseSingapore, netOf, bustUrl, isStream } from '../core/cameras.js';
 

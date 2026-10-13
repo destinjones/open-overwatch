@@ -10,6 +10,7 @@ import { parseEonet, eonetUrl, EONET_COLOR } from '../core/eonet.js';
 import { loadGdacsEvents, GDACS_LEVEL_COLOR } from '../core/gdacs.js';
 import { loadCyclones, category, catName, KIND_KT, NHC_CURRENT, activeLine, shortName, stormSources } from '../core/cyclones.js';
 import { WW } from '../core/hazards.js';
+import { overpass } from '../core/overpass.js';
 import { OVATION_URL, KP_URL, parseOvation, ovationAt, paintMercator, MERCATOR_MAX_LAT, latestKp } from '../core/aurora.js';
 import { CABLE_URLS, LANDING_URLS, parseLandings, nearestCable, cablePage, landingPage, okColor } from '../core/cables.js';
 import { CAMERA_NETS, CAMERA_GROUPS, boxInView, bustUrl, isStream, netOf } from '../core/cameras.js';
@@ -379,7 +380,7 @@ Detail.renderers.osm = o => `<div class="det">${Detail.head(C.infra, 'OpenStreet
 export async function scanArea(lat, lon, radius = 30000) {
   const around = `(around:${radius},${lat},${lon})`;
   const q = `[out:json][timeout:30];(nwr["landuse"="military"]${around};nwr["military"]${around};nwr["aeroway"="aerodrome"]${around};nwr["generator:source"="nuclear"]${around};nwr["plant:source"="nuclear"]${around};nwr["harbour"="yes"]${around};nwr["seamark:type"="harbour"]${around};nwr["man_made"="radar_station"]${around};nwr["telecom"="data_center"]${around};);out center tags 300;`;
-  toast('Scanning OpenStreetMap…'); const d = await Net.json('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q), { timeout: 60000 }); const items = []; const seen = new Set();
+  toast('Scanning OpenStreetMap…'); const d = await overpass(q, { timeout: 60000 });   // core/overpass.js: one request at a time, the quickest mirror that answers (the globe's client) const items = []; const seen = new Set();
   for (const el of d.elements || []) { const t = el.tags || {}; const la = el.lat ?? el.center?.lat, lo = el.lon ?? el.center?.lon; if (la == null) continue; const key = `${la.toFixed(4)},${lo.toFixed(4)}`; if (seen.has(key)) continue; seen.add(key);
     const kind = t.aeroway ? (t['aerodrome:type'] === 'military' || t.military ? 'Military airfield' : 'Airfield') : (t.landuse === 'military' || t.military) ? 'Military · ' + (t.military || 'area') : (t['generator:source'] === 'nuclear' || t['plant:source'] === 'nuclear') ? 'Nuclear plant' : t.man_made === 'radar_station' ? 'Radar station' : t.telecom ? 'Data centre' : 'Harbour';
     const o = { id: el.id, type: el.type, kind, name: t.name || t['name:en'] || t.icao || t.iata || kind, sub: [t.operator, t.icao, t.iata].filter(Boolean).join(' · '), lat: la, lon: lo, tags: t };
