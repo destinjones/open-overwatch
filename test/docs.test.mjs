@@ -16,8 +16,8 @@ const text = html => html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace
 const missing = (list, where, has) => list.filter(x => !has(x, where));
 
 const globeLayers = [...read('src/globe/layers.js').matchAll(/\{ id: '([a-z0-9_-]+)', group: '/g)].map(m => m[1]);
-const mapLayers = [...read('src/map/feeds.js').matchAll(/Layers\.add\(\{\s*id: '([a-z0-9_]+)'/g), ...read('src/map/aircraft.js').matchAll(/Layers\.add\(\{\s*id: '([a-z0-9_]+)'/g),
-  ...read('src/map/satellites.js').matchAll(/Layers\.add\(\{\s*id: '([a-z0-9_]+)'/g)].map(m => m[1]);
+// every Layers.add in the 2D map's modules (they spread over feeds, aircraft, satellites, cities, hazards, osmlayers…)
+const mapLayers = readdirSync(new URL('src/map/', root)).filter(f => f.endsWith('.js')).flatMap(f => [...read('src/map/' + f).matchAll(/Layers\.add\(\{\s*id: '([a-z0-9_]+)'/g)].map(m => m[1]));
 const weatherSets = Object.keys(Function(`return ${read('src/globe/weather.js').match(/sets: (\{[^\n]*?\} \}),?\n/)[1]}`)());
 
 test('docs: the source lists were found (so the checks below check something)', () => {
@@ -119,11 +119,12 @@ test('docs: files and names DEVELOPING.md points at are real', () => {
 
 test('docs: CORE.md has a section for every core module, and every export it names exists', async () => {
   const core = read('docs/CORE.md'), files = readdirSync(new URL('src/core/', root)).filter(f => f.endsWith('.js')).sort();
-  const sections = core.split(/^### `([\w-]+\.js)`$/m).slice(1);
+  const sections = core.split(/^### `([\w.-]+\.js)`$/m).slice(1);
   const named = new Map(); for (let i = 0; i < sections.length; i += 2) named.set(sections[i], sections[i + 1]);
   assert.deepEqual(files.filter(f => !named.has(f)), [], 'a "### `module.js`" section for each file in src/core/');
   assert.deepEqual([...named.keys()].filter(f => !files.includes(f)), [], 'no section for a module that is gone');
   for (const [file, body] of named) {
+    if (file.endsWith('.worker.js')) continue;   // a Web Worker: no exports, and it needs a worker's `self` to load
     const mod = await import(new URL(`src/core/${file}`, root));
     // an export is named as `name` followed by ':' ',' '.' ')' ' and' or ' (' (prose like "`webkitCompassHeading` →" is not a claim)
     const listed = [...body.matchAll(/`([A-Za-z_$][\w$]*)`(?=[:,.)]| and | \(|$)/gm)].map(m => m[1]);

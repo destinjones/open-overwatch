@@ -37,7 +37,7 @@
 <style>
 :root{
   --bg:#04060a; --panel:#080c12; --panel-2:#0e141c; --line:#182230; --line-strong:#26343f;
-  --ink:#e6edf3; --ink-dim:#8b9bab; --ink-faint:#55667a; --accent:#7dffa6; --accent-dim:rgba(125,255,166,.14);
+  --ink:#e6edf3; --ink-dim:#8b9bab; --ink-faint:#738599; --accent:#7dffa6; --accent-dim:rgba(125,255,166,.14);
   --civ:#5fd3ff; --mil:#ffb44d; --sat:#d9ccff; --evt:#ffd45c;
   --display:"Big Shoulders Display","Arial Narrow",sans-serif; --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
   --gut:clamp(16px,4vw,56px); --max:1100px; color-scheme:dark;
@@ -120,11 +120,11 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     </div>
     <div class="toc" aria-label="On this page">
       <a href="#views">The views</a><a href="#moving">Moving around</a><a href="#band">The band</a>
-      <a href="#layers">Globe layers</a><a href="#cards">Clicking things</a><a href="#sky">Tonight and look up</a>
+      <a href="#layers">Globe layers</a><a href="#cards">Clicking things</a><a href="#aviation">Planes and airports</a><a href="#sky">Tonight and look up</a>
       <a href="#weather">Weather timeline</a><a href="#measure">Draw and measure</a><a href="#ops">Ops looks</a>
       <a href="#voice">Voice commands</a><a href="#keys">Keyboard</a><a href="#share">Share and embed</a>
       <a href="#map2d">The 2D map</a><a href="#solar">Solar System</a><a href="#download">Download version</a>
-      <a href="#claude">Ask Claude</a><a href="#privacy">Privacy</a><a href="#limits">Limits</a>
+      <a href="#app">App and offline</a><a href="#claude">Ask Claude</a><a href="#privacy">Privacy</a><a href="#limits">Limits</a>
     </div>
   </div>
 </header>
@@ -179,7 +179,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <div class="tbl"><table>
       <thead><tr><th>Button</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td><code>⌕ Search</code></td><td>Search satellites (by name, NORAD number or everyday name such as ISS, Hubble, Tiangong), countries, flight numbers, places by name (Photon, OpenStreetMap), the views in this band, and volcanoes, big employers and lighthouses once their layers have loaded. <kbd>/</kbd> opens it.</td></tr>
+        <tr><td><code>⌕ Search</code></td><td>Search satellites (by name, NORAD number or everyday name such as ISS, Hubble, Tiangong), countries, flight numbers, aircraft by type or kind ("A380", "helicopters"), airports by code, name or city, places by name (Photon, OpenStreetMap), the views in this band, and volcanoes, big employers and lighthouses once their layers have loaded. <kbd>/</kbd> opens it.</td></tr>
         <tr><td><code>Street</code></td><td>Flies to London at about 3.5 km, tilted, to show street-level detail.</td></tr>
         <tr><td><code>Airspace</code></td><td>Europe from 1,400 km: the air traffic picture.</td></tr>
         <tr><td><code>Earth</code></td><td>The whole planet, looking at the sunlit side.</td></tr>
@@ -225,6 +225,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr class="grp"><td colspan="4">Air</td></tr>
         <tr><td><span class="dot" style="background:#5fd3ff"></span><code>air</code></td><td>Civil aircraft, dead-reckoned between reports so they keep moving; the nearest ones become 3D models that bank and climb.</td><td>OpenSky Network snapshot every 15 minutes (download version: the website can't reach it, see <a href="#download">Download version</a>)</td><td>on</td></tr>
         <tr><td><span class="dot" style="background:#ffb44d"></span><code>mil</code></td><td>Military aircraft.</td><td>adsb.lol every 60 seconds (download version)</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#9fe3ff"></span><code>airports</code></td><td>The world's large and medium airports, with codes close up. Click one for its board: the planes arriving, departing and on the ground right now (see <a href="#aviation">Planes and airports</a>).</td><td>OurAirports (public domain); boards from the live aircraft on the globe</td><td>on (off on phones)</td></tr>
         <tr class="grp"><td colspan="4">Earth</td></tr>
         <tr><td><span class="dot" style="background:#ff7b4f"></span><code>quakes</code></td><td>Earthquakes of magnitude 2.5 and up in the last 24 hours.</td><td>USGS real-time feed</td><td>on</td></tr>
         <tr><td><span class="dot" style="background:#3ee08f"></span><code>transit</code></td><td>Live buses, trams and trains in Boston, Helsinki, Norway, Austin and Minneapolis-St Paul, moving smoothly between real reports.</td><td>MBTA, HSL, Entur, CapMetro, Metro Transit</td><td>off</td></tr>
@@ -237,9 +238,11 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td><span class="dot" style="background:#ffe27a"></span><code>lighthouses</code></td><td>Lighthouses of the world, with their light characteristics.</td><td>OpenStreetMap</td><td>on (off on phones)</td></tr>
         <tr><td><span class="dot" style="background:#ffd45c"></span><code>sun</code></td><td>The point where the Sun is overhead, its meridian, and 24 time-zone meridians.</td><td>Computed</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#c9b38f"></span><code>terrain</code></td><td>3D terrain: mountains and valleys. Cars, buses, planes on the ground and drawings stand on it.</td><td>Re:Earth terrain (Mapterhorn), no key</td><td>on (off on phones)</td></tr>
-        <tr><td><span class="dot" style="background:#c9d3e0"></span><code>buildings</code></td><td>3D buildings close up, stood up from OpenStreetMap outlines and heights.</td><td>OpenStreetMap via the Overpass API</td><td>off</td></tr>
+        <tr><td><span class="dot" style="background:#c9d3e0"></span><code>buildings</code></td><td>3D buildings close up (below about 3 km), with their mapped heights and colours, standing on the terrain.</td><td>OpenStreetMap via OpenFreeMap's vector tiles (the Overpass API if those can't be reached)</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#ff6fb5"></span><code>cams</code></td><td>Live traffic cameras and video from 12 networks in the US, Canada, Europe and Asia. A camera's picture can be projected into the 3D city from its estimated position; "Look through" lets you line it up and save.</td><td>TfL, NYC DOT, Caltrans, Fintraffic, DelDOT, Iowa DOT, MoDOT, Statens vegvesen, DriveBC, City of Calgary, Hong Kong, Singapore LTA</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#c9a0ff"></span><code>cctv</code></td><td>Cameras and plate readers that volunteers have mapped in OpenStreetMap, with view wedges, close up.</td><td>OpenStreetMap via the Overpass API</td><td>off</td></tr>
+        <tr><td><span class="dot" style="background:#ff4d5e"></span><code>alpr</code></td><td>Every licence-plate reader volunteers have mapped in the US and Canada: a dot cloud from far away, and close up each reader with its make, operator and which way it faces. Locations and tags only: no images, no plates. Directions in the US or Canada count the readers along the route.</td><td>OpenStreetMap via DeFlock / FlockHopper's hourly tiles</td><td>off</td></tr>
+        <tr><td><span class="dot" style="background:#ff6b5e"></span><code>milareas</code></td><td>Land mapped as military (bases, ranges, depots), outlined below about 400 km, named after the military airfields inside or the nearest town; its card asks OpenStreetMap for its real name.</td><td>OpenStreetMap via OpenFreeMap's vector tiles</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#9fe3ff"></span><code>photoreal</code></td><td>Photoreal 3D cities. Needs your own free Cesium ion token, kept in your browser; while on, place search uses Google's geocoder.</td><td>Google Photorealistic 3D Tiles through Cesium ion</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#ff5a36"></span><code>volcanoes</code></td><td>Volcanoes of the world: type and height (not whether they are erupting).</td><td>Wikidata</td><td>on (off on phones)</td></tr>
         <tr><td><span class="dot" style="background:#ff9f5c"></span><code>companies</code></td><td>Big employers (20,000+ staff) as towers at their headquarters.</td><td>Wikidata</td><td>on (off on phones)</td></tr>
@@ -259,7 +262,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <h2 id="cards-h">Cards, following and the cockpit</h2>
     <ul>
       <li><b>Satellites</b>: what the satellite is in one sentence, its orbit, height and speed, whether it is in sunlight, and <b>When can I see it?</b> (its passes over you in the next 3 days). Space stations say how many people are aboard.</li>
-      <li><b>Aircraft</b>: callsign, type, height, speed, a photo when Planespotters has one, and <b>Share</b> (a link that finds that flight wherever it is when opened).</li>
+      <li><b>Aircraft</b>: what it is, what it is doing and where it is going (see <a href="#aviation">Planes and airports</a>), and <b>Share</b> (a link that finds that flight wherever it is when opened).</li>
       <li><b>A country</b>: click the ground and its border lights up, with facts (Wikidata, World Bank), what the globe knows about it right now (earthquakes, lighthouses, big employers, the wind) and English-language headlines from its news outlets (GDELT).</li>
       <li><b>Everything else</b> (quakes, storms, fires, ships, buses, cameras, stations, volcanoes, launches, drawings) opens its own card.</li>
     </ul>
@@ -267,6 +270,27 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <p>Double-click a satellite or aircraft (or press <b>Follow in 3D</b> on its card) and the camera rides along with it while you orbit around it. <kbd>Esc</kbd> lets go.</p>
     <h3>Cockpit</h3>
     <p>While following, press <kbd>C</kbd> (or <b>CKPT</b> in the Ops rail) to ride the satellite (or, in the download version, the plane) looking along its path. Drag to look around, the wheel or a pinch zooms the lens, the arrow keys turn your head, <kbd>Esc</kbd> gets out. The model and its orbit line hide while you are inside.</p>
+  </div>
+</section>
+
+<section id="aviation" aria-labelledby="aviation-h">
+  <div class="wrap">
+    <div class="eyebrow">Aviation</div>
+    <h2 id="aviation-h">Planes and airports</h2>
+    <p>Live aircraft need the <a href="#download">download version</a>: the ADS-B networks refuse websites. There, military aircraft refresh every 60 seconds and a plane you watch every 10 seconds; everything in this section works with the planes the globe has.</p>
+    <h3>The aircraft card</h3>
+    <ul>
+      <li><b>What it is</b>: its class (airliner, heavy, prop, turboprop, helicopter, fighter: the 3D model follows it), maker and type, registration, owner, the country its address belongs to, and a photo, from adsbdb (asked only for the plane you look at; answers kept in your browser for a day).</li>
+      <li><b>What it is doing</b>: its flight phase in a pilot's words (taxiing, take-off, climbing, cruise, descending, approach, final, landing roll) and its height above the nearest field; "On final for 34R" when it is lined up with a runway.</li>
+      <li><b>Where it is going</b>: the route its callsign usually flies, shown only when it fits where the plane actually is, as a dashed arc to the destination; the airports at either end open their boards.</li>
+      <li><b>Its trail</b>: where it has been in the last half hour, coloured by altitude, for the plane you follow or open. <b>Pin</b> keeps a trail drawn after the card closes; <b>Copy GeoJSON</b> takes it with times and altitudes. Trails start when a plane is first heard here.</li>
+      <li><b>Tell me when it lands</b>: a notification when it is on final and when it touches down (keep the tab open).</li>
+      <li><b>From the tower</b>: watch it from the airport's tower with a lens that keeps it framed; <kbd>Esc</kbd> or <b>Leave the tower</b> gives the camera back.</li>
+    </ul>
+    <h3>Airport boards</h3>
+    <p>Click an airport (the <code>airports</code> layer) for its board: the planes arriving (low and descending towards it), departing (climbing away), on the ground, and those that just landed or took off, worked out from the live aircraft around it, with emergency squawks standing out. It is not a timetable: a plane counts once it is close and low enough to tell. The card also has the weather at the field with its VFR or IFR category, the runway in use and the wind on each runway, <b>Follow the next arrival</b> and <b>From the tower</b>.</p>
+    <h3>Cockpit weather</h3>
+    <p>Riding a plane in the cockpit (or with the HUD on while following one), the HUD shows its flight phase and the weather where it is: the wind at its height and whether it is a head or tail wind, the outside temperature against the standard atmosphere, true airspeed and Mach, cloud at its level, an icing hint, and the nearest airport and destination. From Open-Meteo, asked only when the plane moves to another cell or level.</p>
   </div>
 </section>
 
@@ -372,6 +396,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
       <li>Walking route from Big Ben to the Tower of London</li><li>How many satellites are in view?</li><li>What's this?</li><li>Show me the launches</li>
       <li>Zoom out to a globe view</li><li>What's the weather in Paris?</li><li>How many planes over Texas?</li><li>Measure from Paris to Berlin</li>
       <li>Outline France</li><li>How big is Brazil?</li><li>Draw an area</li><li>Clear the drawing</li>
+      <li>Arrivals at Heathrow</li><li>What's taking off from JFK?</li><li>What plane is that?</li>
     </ul>
     <h3>Everything it understands</h3>
     <div class="tbl"><table>
@@ -390,6 +415,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td>Routes</td><td>"route from Paris to Lyon", "walk from Big Ben to the Tower of London", "how do I cycle from A to B", then "fly the route"</td></tr>
         <tr><td>Measure</td><td>"measure from Paris to Berlin", "driving distance from Boston to New York", "how far is Tokyo", "how far is the Moon", "how far is the ISS"</td></tr>
         <tr><td>Draw</td><td>"draw an area", "draw a line", "measure a distance", "drop a pin", "drop a pin on Rome", "finish", "undo", "clear the drawing", "how long is it", "stop drawing"</td></tr>
+        <tr><td>Aviation</td><td>"arrivals at Heathrow", "what's taking off from JFK", "departures from Denver", "what plane is that", "where is that plane going", "show the trails", "hide the trails"</td></tr>
         <tr><td>Outlines</td><td>"outline France", "show the border of Japan", "how big is Brazil"</td></tr>
       </tbody>
     </table></div>
@@ -420,7 +446,9 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
           <tr><td>arrow keys</td><td>Turn your head in the cockpit</td></tr>
           <tr><td><kbd>V</kbd>, hold <kbd>Space</kbd></td><td>Voice</td></tr>
           <tr><td><kbd>`</kbd></td><td>Under the hood</td></tr>
-          <tr><td><kbd>Esc</kbd></td><td>Leave the cockpit, stop following, close the card, leave look up, stop a tour or a flight</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Leave the cockpit or the tower, stop following, close the card, leave look up, stop a tour or a flight</td></tr>
+          <tr><td>with the globe focused</td><td>Arrow keys turn it, <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>Page Up</kbd> <kbd>Page Down</kbd> tilt, <kbd>Enter</kbd> opens what is in the middle</td></tr>
+          <tr><td>toolbars</td><td>Arrow keys, <kbd>Home</kbd> and <kbd>End</kbd> move along the band, the time bar and the layer dock</td></tr>
         </tbody></table></div>
       </div>
       <div>
@@ -435,6 +463,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
           <tr><td><kbd>S</kbd></td><td>Sound effects on or off</td></tr>
           <tr><td><kbd>A</kbd></td><td>Music on or off</td></tr>
           <tr><td><kbd>N</kbd></td><td>Next music set</td></tr>
+          <tr><td><kbd>R</kbd></td><td>Draw and measure on or off</td></tr>
           <tr><td><kbd>Esc</kbd></td><td>Close the detail panel</td></tr>
         </tbody></table></div>
         <h3>Solar System</h3>
@@ -454,7 +483,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <h2 id="share-h">Share, embed and pictures</h2>
     <h3>A link to this view</h3>
     <p>The <kbd>⎘</kbd> button (phone menu: Share) copies a link that puts the next person exactly where you are: the camera, which layers are on, the time if you moved the clock, the weather sources if weather mode is open, the country card, the flight you are looking for, the Ops look, and your drawing. Everything is in the part of the address after <code>#</code>; nothing is stored on a server. A very large drawing is left out of the link (Measure → Copy GeoJSON keeps it).</p>
-    <p>Links that open a panel by themselves work too, for example <code>globe.html#go=tonight</code> or <code>globe.html#go=launches</code>. The full format, for anyone building links (the Claude extension does), is in <a href="https://github.com/destinjones/open-overwatch/blob/main/docs/LINK_FORMAT.md">docs/LINK_FORMAT.md</a>.</p>
+    <p>Links that open a panel by themselves work too, for example <code>globe.html#go=tonight</code> or <code>globe.html#go=launches</code>. The 2D map's <b>Share</b> button writes the same format, so a link opens the same area in either view. The full format, for anyone building links (the Claude extension does), is in <a href="https://github.com/destinjones/open-overwatch/blob/main/docs/LINK_FORMAT.md">docs/LINK_FORMAT.md</a>.</p>
     <h3>Put the globe on your web page</h3>
     <p>The <kbd>&lt;/&gt;</kbd> button copies an <code>&lt;iframe&gt;</code> of the current view in embed mode: just the globe, no toasts about location or reminders, no Ops rail, and an "Open Overwatch ↗" link that opens the full site at the same view. Paste it into any page.</p>
     <h3>Share a picture</h3>
@@ -469,6 +498,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <div class="eyebrow">The classic view</div>
     <h2 id="map2d-h">The 2D map</h2>
     <p><a href="open-overwatch.html">open-overwatch.html</a> is a flat situation map. The rail on the left holds the layers in groups; each layer has a description, a live count and status, and some have options (which satellite groups, which aircraft network, which camera cities). The tabs on the right are <b>Brief</b> (what is notable now), <b>Log</b> (each feed's errors as they happen) and <b>Setup</b> (the helper, optional keys, a test of every feed). On first visit you choose to enter with audio or silent: the map can play a soundtrack generated in the browser, or radio stations.</p>
+    <p>The 2D map has <b>draw and measure</b> too (the ruler button or <kbd>R</kbd>; the same tools and accuracy as the globe, with lines drawn as the real shortest paths), <b>Share</b> (a link with the view, its layers and the drawing, in the globe's format, so a link made on one view opens the same area on the other) and <b>3D globe</b>, which opens the globe where the map is.</p>
     <div class="tbl"><table>
       <thead><tr><th>Layer</th><th>What it shows</th><th>Starts</th></tr></thead>
       <tbody>
@@ -488,10 +518,16 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td><code>events</code></td><td>Natural events: wildfires, storms, volcanoes, floods, ice (NASA EONET).</td><td>off</td></tr>
         <tr><td><code>gdacs</code></td><td>Disaster alerts from GDACS (EU/UN), the last 14 days.</td><td>off</td></tr>
         <tr><td><code>news</code></td><td>World news from GDELT: the last 24 hours matching your query, placed by the reporting country.</td><td>off</td></tr>
-        <tr><td><code>cams</code></td><td>Official traffic cameras from zoom 8 over London, New York, California, Singapore and Finland; a Windy key adds webcams worldwide.</td><td>on</td></tr>
+        <tr><td><code>cams</code></td><td>Official traffic cameras from zoom 8 in London, New York, California, Delaware, Iowa, Missouri, British Columbia, Calgary, Finland, Norway, Hong Kong and Singapore, with live video where the agency streams it; a Windy key adds webcams worldwide.</td><td>on</td></tr>
+        <tr><td><code>hotspots</code></td><td>Wildfire hot spots of the last 24 hours, keyless (NASA VIIRS via GIBS), from zoom 4. A hot pixel is not always a wildfire: farm burning and gas flares show too.</td><td>off</td></tr>
+        <tr><td><code>fireperims</code></td><td>Current US wildfire perimeters (NIFC), coloured by containment.</td><td>off</td></tr>
+        <tr><td><code>alpr</code></td><td>Licence-plate readers mapped in the US and Canada (OpenStreetMap via DeFlock / FlockHopper): a dot cloud below zoom 10, every reader with its tags from 10.</td><td>off</td></tr>
         <tr><td><code>fires</code></td><td>Active fires from NASA FIRMS (needs a free MAP_KEY).</td><td>off</td></tr>
+        <tr class="grp"><td colspan="3">Cities</td></tr>
+        <tr><td><code>bikes</code></td><td>Bike share: about 800 systems worldwide (CityBikes), stations with free bikes and docks, from zoom 11.</td><td>off</td></tr>
+        <tr><td><code>transit</code></td><td>Live buses, trams, metros, trains and ferries in Boston, Helsinki, Norway, Austin and Minneapolis-St Paul, from zoom 9.</td><td>off</td></tr>
         <tr class="grp"><td colspan="3">Weather &amp; space weather</td></tr>
-        <tr><td><code>storms</code></td><td>Tropical cyclones (EONET tracks, NHC advisories).</td><td>on</td></tr>
+        <tr><td><code>storms</code></td><td>Tropical cyclones: NASA EONET tracks, NOAA NHC and GDACS forecast cones, watches and warnings, wind fields.</td><td>on</td></tr>
         <tr><td><code>nws</code></td><td>Extreme and severe US weather warnings with their areas (NWS).</td><td>on</td></tr>
         <tr><td><code>aurora</code></td><td>The aurora forecast (NOAA SWPC OVATION).</td><td>off</td></tr>
         <tr><td><code>radar</code></td><td>Precipitation radar (RainViewer).</td><td>off</td></tr>
@@ -500,6 +536,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr class="grp"><td colspan="3">Infrastructure</td></tr>
         <tr><td><code>cables</code></td><td>Submarine cables (TeleGeography), live through the helper or the public relay, an older copy otherwise.</td><td>off</td></tr>
         <tr><td><code>landing</code></td><td>Where the cables come ashore.</td><td>off</td></tr>
+        <tr><td><code>milareas</code></td><td>Military areas (OpenStreetMap via OpenFreeMap's tiles), from zoom 8, named by the military airfields inside.</td><td>off</td></tr>
         <tr><td><code>osm_scan</code></td><td>Results of an area scan: military areas, airfields, nuclear sites and harbours from OpenStreetMap, run from a map probe.</td><td>on</td></tr>
       </tbody>
     </table></div>
@@ -549,11 +586,26 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
+<section id="app" aria-labelledby="app-h">
+  <div class="wrap">
+    <div class="eyebrow">On your phone or desktop</div>
+    <h2 id="app-h">App, offline and accessibility</h2>
+    <ul>
+      <li><b>Install it.</b> Where the browser allows (Chrome, Edge, Android) an <b>Install</b> button appears; on an iPhone use Safari's Share menu → Add to Home Screen. It opens full screen with shortcuts to Tonight, Find a flight and the 2D map.</li>
+      <li><b>Offline.</b> Every page and its code is kept once visited, so the app opens with no connection. A banner says when you are offline and how old the saved data is; live feeds are never passed off as fresh. Map tiles you have seen are kept for 30 days.</li>
+      <li><b>Updates.</b> When a new version is published the page offers a reload; nothing changes under you mid-visit.</li>
+      <li><b>Long press</b> (phones) on the globe or the 2D map opens that spot: its coordinates (decimal, degrees-minutes-seconds, MGRS), Copy, a link that opens the globe there with a pin, and on the globe the country and a pin in your drawing. A first-visit card shows the touch gestures once (<code>?hints=1</code> shows it again).</li>
+      <li><b>Keyboard and screen readers.</b> Every page has a skip link and focus rings for the keyboard; toolbars move with the arrow keys; the globe turns, zooms and tilts from the keyboard (see <a href="#keys">Keyboard</a>); a selected satellite, country, planet or plane is announced once. If your device asks for reduced motion, animations stop and camera flights jump.</li>
+    </ul>
+    <p>The download version leaves the offline copy off unless you open it with <code>?sw=1</code> (and <code>?sw=0</code> removes it), so several local copies don't get mixed up.</p>
+  </div>
+</section>
+
 <section id="claude" aria-labelledby="claude-h">
   <div class="wrap">
     <div class="eyebrow">MCP</div>
     <h2 id="claude-h">Ask Claude about the Earth</h2>
-    <p>Open Overwatch also comes as a small Model Context Protocol server, so Claude (and other AI apps that speak MCP) can answer questions from the same open data: earthquakes, where a satellite is and when you can see it, launches, who is in space, asteroid flybys, tropical storms, natural events, Baltic ships, bike share, the weather, the aurora and tonight's sky. Every answer carries a link that opens the globe there, and in Claude Desktop the globe appears in the chat. Install it from <code>open-overwatch.mcpb</code> on the <a href="https://github.com/destinjones/open-overwatch/releases/latest">latest release</a>; details in <a href="https://github.com/destinjones/open-overwatch/blob/main/mcp/README.md">mcp/README.md</a>. It runs on your computer, needs no key, and stores nothing.</p>
+    <p>Open Overwatch also comes as a small Model Context Protocol server, so Claude (and other AI apps that speak MCP) can answer questions from the same open data, with 29 tools: earthquakes, where a satellite is and when you can see it, launches, who is in space, asteroid flybys and close approaches in orbit, tropical storms, wildfires, natural events, volcanoes, Baltic ships, bike share, live transit, traffic cameras (with their latest pictures), measured road speeds, submarine cables, country briefings, the weather, the aurora, tonight's sky, the Sun and Moon, the planets, meteor showers, eclipses, distances, licence-plate readers and military areas. Every answer carries a link that opens the globe there, and in Claude Desktop the globe appears in the chat. Install it from <code>open-overwatch.mcpb</code> on the <a href="https://github.com/destinjones/open-overwatch/releases/latest">latest release</a>; details in <a href="https://github.com/destinjones/open-overwatch/blob/main/mcp/README.md">mcp/README.md</a>. It runs on your computer (over stdio, or Streamable HTTP on your own machine for clients that need it), needs no key, and stores nothing.</p>
   </div>
 </section>
 
@@ -565,7 +617,8 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
       <li><b>No accounts, ads, cookies or analytics.</b> Your settings (layers, keys, folded sections, a rounded location for Tonight) stay in your browser's own storage.</li>
       <li><b>Your browser talks to the data providers directly</b> to load the map and the data, and to a code CDN (jsDelivr, cdnjs) and Google Fonts. Those services can see your IP address under their own policies, and the map area you look at is requested from them.</li>
       <li><b>Your location</b> (Tonight, Look up, Around me) is used on your device. The cloud forecast for Tonight sends it to Open-Meteo rounded to about 10 km.</li>
-      <li><b>Searches and spoken places</b> send only the words to Photon (komoot). Directions go to the FOSSGIS routing servers; mapped cameras and buildings to the public Overpass API.</li>
+      <li><b>Searches and spoken places</b> send only the words to Photon (komoot). Directions go to the FOSSGIS routing servers; mapped cameras to the public Overpass API; buildings, military areas and plate readers come as map tiles from OpenFreeMap and FlockHopper.</li>
+      <li><b>Aircraft details</b> (type, owner, photo, route) are asked of adsbdb for the plane you open, and cockpit and airport weather of Open-Meteo for the plane's or the field's position. The offline copy lives in your browser's storage only.</li>
       <li><b>Voice</b> uses your browser's speech recognition: Chrome and Edge send the audio to Google or Microsoft, Safari to Apple. This site receives none of it, and the microphone listens for one command each time you press the mic or <kbd>V</kbd>, or while you hold <kbd>Space</kbd>.</li>
       <li><b>The public relay</b> on Cloudflare carries a few feeds a browser can't read directly (NOAA hurricanes, NYC cameras, some camera lists and pictures, cable routes). It carries only those and runs no logging code of its own.</li>
       <li><b>Weather forecasts</b> come straight from NOAA's and ECMWF's public files on Amazon Web Services; a spoken weather question sends the place it is about to Open-Meteo.</li>
@@ -608,5 +661,6 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     </div>
   </div>
 </footer>
+<script type="module" src="src/app/shell.js"></script>
 </body>
 </html>

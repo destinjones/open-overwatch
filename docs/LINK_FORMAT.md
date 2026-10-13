@@ -91,9 +91,9 @@ geostationary belt. The globe's camera stops at 600 million m; beyond about 300 
 `l=id,id,id` turns on the listed layers and **turns every other layer off**. Ids are the `id` fields of `LAYERS` in
 `src/globe/layers.js`:
 
-`stations` `visual` `gnss` `geo` `weather` `starlink` `active` `debris` `launches` `air` `mil` `quakes` `transit` `ships`
-`bikes` `traffic` `storms` `fires` `radio` `lighthouses` `sun` `terrain` `buildings` `cams` `cctv` `photoreal` `volcanoes`
-`companies` `aurora` `clouds` `night` `labels`
+`stations` `visual` `gnss` `geo` `weather` `starlink` `active` `debris` `launches` `air` `mil` `airports` `quakes`
+`transit` `ships` `bikes` `traffic` `storms` `fires` `radio` `lighthouses` `sun` `terrain` `buildings` `cams` `cctv`
+`alpr` `milareas` `photoreal` `volcanoes` `companies` `aurora` `clouds` `night` `labels`
 
 What each one shows is in the [user guide](../guide.html#layers). Each id must match `[a-z0-9_-]{1,24}` (case-insensitive)
 or it is dropped; at most 60 are read; ids the globe doesn't have are ignored. An empty `l=` turns every layer off.
@@ -363,9 +363,29 @@ nothing usable is ignored.
 Two query parameters also exist: `solar.html?focus=mars` opens at a body when there is no hash (anything unknown opens
 at Earth), and `solar.html?embed=1` is the mode the globe uses when it hands the camera over (not meant for links).
 
-### The 2D map and Tonight
+### The 2D map (`open-overwatch.html#…`)
 
-`open-overwatch.html` (the 2D map) and `tonight.html` take no link parameters.
+The 2D map reads and writes the **globe's format** (`src/map/share.js`, using `src/core/viewlink.js`), so a link made on
+either view opens the same area on the other:
+
+- `c` gives the centre; the height becomes a map zoom and back (`heightToZoom`, `zoomToHeight`: at zoom z a map ~950 px
+  wide shows about what a 60° camera sees from that height). The map writes heading 0 and pitch −90.
+- `l` with the **2D map's own layer ids** (listed in the [user guide](../guide.html#map2d)) sets exactly those layers. A
+  globe link's `l` or `a` instead switches on the 2D counterparts of its globe layers, leaving the others as they are:
+  `quakes`, `storms`, `cams`, `transit`, `bikes`, `aurora` (same ids), `ships` → `ships_fi`, `fires` → `hotspots` and
+  `fireperims`, `sun` → `terminator`, `mil` → `air_mil` (`mapLayersFor`; the globe's `air` switches nothing on, as the
+  2D aircraft layers query the area themselves). `x` switches 2D layers off.
+- The other way (`globeLayersFor`, the map's 3D globe button): the same pairs, plus `air_local` and `air_opensky` →
+  `air` and the keyed 2D `fires` → `fires` (`MAP_TO_GLOBE` in viewlink.js).
+- `d` carries the drawing (the 2D map has the same draw-and-measure tools).
+- The other parameters are ignored. Once applied, the hash is removed and the map keeps its own view.
+
+The map's **3D globe** button opens `globe.html` at the same place with `a=` for the matching globe layers and the
+drawing.
+
+### Tonight
+
+`tonight.html` takes no link parameters; it hands launches and eclipses to the globe with `#go=…&id=…`.
 
 ## Checklist
 

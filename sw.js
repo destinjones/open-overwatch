@@ -30,7 +30,7 @@ const DAY = 86400e3;
 const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
 
 // the pages and the small files that make the app open offline; the modules each page imports are found by crawling
-const PAGES = ['index.html', 'globe.html', 'open-overwatch.html', 'solar.html', 'tonight.html', 'about.html'];
+const PAGES = ['index.html', 'globe.html', 'open-overwatch.html', 'solar.html', 'tonight.html', 'about.html', 'guide.html'];
 const CORE = ['./', 'offline.html', 'manifest.webmanifest', 'brand/emblem/favicon.svg', 'brand/emblem/emblem-256.png',
   'brand/emblem/emblem-512.png', 'brand/emblem/apple-touch-icon.png'];
 const MAX_PRECACHE = 450;      // files; the whole of src/ is about 200

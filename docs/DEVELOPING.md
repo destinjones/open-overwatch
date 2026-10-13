@@ -34,8 +34,10 @@ import map in `solar.html`, Leaflet in `open-overwatch.html`).
 | `solar.html` → `src/solar/` | Solar System to cosmic web; `window.OOSS` |
 | `open-overwatch.html` → `src/map/` | the 2D map; `window.OW` |
 | `tonight.html` → `src/sky/main.js` | the Tonight card without the globe (reuses `src/globe/tonight.js`) |
-| `src/core/` | shared code with **no DOM and no three.js/Cesium imports**, so Node can test it |
-| `mcp/` | the MCP server (Node, stdio) |
+| `src/core/` | shared code with **no DOM and no three.js/Cesium imports**, so Node can test it ([CORE.md](CORE.md)) |
+| `src/app/` | the shell every page loads (`shell.js`): the installable app (`pwa.js`), the accessibility layer (`a11y.js`), touch hints and the long press (`gestures.js`, `spot.js`); `window.OOApp` |
+| `sw.js`, `offline.html`, `manifest.webmanifest` | the service worker (offline copy, updates), the page shown offline with nothing saved, the app manifest |
+| `mcp/` | the MCP server (Node; stdio, or Streamable HTTP on your own machine) |
 | `relay/` | the public relay, a Cloudflare Worker |
 | `serve.js`, `serve.py` | the local helper: static files + a locked-down relay |
 | `brand/tools/` | data builders, render and test tools |
@@ -76,6 +78,10 @@ OW.Sats.reload()               // the 2D map pauses feeds in hidden tabs: drive 
 
 A hidden browser tab runs at 0 fps; drive frames with `OO3D.viewer.render()` when testing in a background pane.
 
+On the local helper the service worker stays **off** (several copies of the site share `localhost:8787`, and a cached
+copy would hide your changes): `?sw=1` turns it on for that browser and `?sw=0` turns it off and removes it.
+`?hints=1` shows the first-run touch hints again.
+
 ### The MCP server
 
 ```bash
@@ -83,7 +89,8 @@ npm install                                          # once: satellite.js, the o
 node mcp/server.mjs --site http://localhost:8787/    # links and the chat panel point at your local copy
 ```
 
-`node mcp/server.mjs --version` prints the version. See [mcp/README.md](../mcp/README.md) for installing it into an MCP
+`node mcp/server.mjs --http 8793` serves Streamable HTTP on `http://127.0.0.1:8793/mcp` instead of stdio (your own
+machine only; `--allow-origin` lists web origins that may call it). `node mcp/server.mjs --version` prints the version. See [mcp/README.md](../mcp/README.md) for installing it into an MCP
 client.
 
 ## 3. Tests
@@ -106,15 +113,22 @@ Runs every `test/*.test.mjs` with Node's own runner. No dependencies except `sat
 | `gfs.test.mjs`, `wxmodels.test.mjs`, `grib2.test.mjs`, `aec.test.mjs`, `contour.test.mjs` | the weather timeline, the GFS and ECMWF files, GRIB2 decoding (simple, complex, JPEG 2000, CCSDS) checked against eccodes, model fields, isobars |
 | `solar.test.mjs` | comets on any conic, spacecraft tracks, the "where is it now?" search, Solar System links and sky positions, against JPL Horizons |
 | `roadtiles.test.mjs`, `traffic.test.mjs`, `gtfsrt.test.mjs` | vector tiles and roads, the traffic model, GTFS-RT |
-| `ais.test.mjs`, `bikes.test.mjs`, `transit.test.mjs`, `hazards.test.mjs`, `radio.test.mjs`, `campose.test.mjs`, `ascent.test.mjs` | the feeds' parsers and the models built on them |
+| `ais.test.mjs`, `bikes.test.mjs`, `transit.test.mjs`, `transitfeeds.test.mjs`, `hslrt.test.mjs`, `hazards.test.mjs`, `fireclusters.test.mjs`, `radio.test.mjs`, `campose.test.mjs`, `ascent.test.mjs` | the feeds' parsers and the models built on them |
+| `feeds.test.mjs`, `cables.test.mjs`, `cameras.test.mjs`, `camerasnear.test.mjs`, `aircraft.test.mjs` | the shared feed parsers (quakes, EONET, cyclones, GDACS, aurora, cables, cameras, aircraft records) the 2D map, the globe and the MCP server all use |
+| `aviation.test.mjs` | aircraft classes, adsbdb answers and route fits, ICAO address blocks, weather aloft, airport boards, runways, trails |
+| `osmtiles.test.mjs`, `overpass.test.mjs` | buildings, military areas and plate readers from vector tiles; the polite Overpass client |
+| `eclipselocal.test.mjs`, `solarsys.test.mjs` | eclipses from a place against NASA's, the planets from Earth |
+| `pwa.test.mjs`, `sw.test.mjs`, `spot.test.mjs`, `a11y.test.mjs` | the installable app's decisions, the service worker in a fake worker, the long-press spot card, and the accessibility check on every page |
 | `ops.test.mjs`, `inject.test.mjs`, `regress.test.mjs` | MGRS and the voice commands of the Ops pack; hostile input in numbers, ids and HTML stays harmless; regressions from the code reviews |
 | `relay.test.mjs` | the Cloudflare Worker against a stand-in upstream |
-| `mcp.test.mjs` | the MCP server: protocol, argument checks, every tool against canned answers, a stdio round trip |
+| `mcp.test.mjs` | the MCP server: protocol, argument checks, every tool against canned answers, a stdio round trip, the HTTP transport |
 | `docs.test.mjs` | these docs against the code: layer ids, link parameters, voice examples, band buttons, core modules and their exports |
 
 Run one file with `node --test test/measure.test.mjs`. CI (`.github/workflows/ci.yml`) runs on every push: a syntax
 check of every module and tool (`node --check`, `py_compile`), a check that every `src/…` module a page loads exists,
-then `npm ci` and `node --test`.
+the accessibility check (`node brand/tools/a11y_check.mjs`: names, alt text, labels, ids, colour contrast on every
+page), then `npm ci` and `node --test`. A new page goes into `PAGES` in `a11y_check.mjs`, the lists in
+`test/a11y.test.mjs` and `PAGES` in `sw.js` (so it works offline), and loads `src/app/shell.js`.
 
 **When to add a test.** Anything in `src/core/` gets one, in the file for its area (or a new `test/<area>.test.mjs`), and a section in
 [CORE.md](CORE.md).
@@ -215,7 +229,9 @@ switch calls. `src/globe/volcanoes.js` is the smallest complete example (28 line
 5. **Everything that names layers.**
    - `mcp/place.mjs` `LAYERS` (and the `layers_on` description in `mcp/tools.mjs`): `test/mcp.test.mjs` fails until
      the two lists match.
-   - The user guide's layer table (`guide.html`, `#layers`): `test/docs.test.mjs` fails until every id is there.
+   - The user guide's layer table (`guide.html`, `#layers`, in the dock's order) and the id list in LINK_FORMAT.md's `l`
+     section: `test/docs.test.mjs` fails until every id is in both.
+   - `MAP_TO_GLOBE` in `src/core/viewlink.js` if a 2D map layer shows the same thing, so links between the views carry it.
    - [DATA_SOURCES.md](DATA_SOURCES.md): the source, licence, refresh and accuracy.
    - The credits: a `new C.Credit('…')` on the imagery or an attribution on the card, as the source asks.
    - Search (`src/globe/search.js`) if people will look for its objects by name; voice (`src/core/voicecmd.js`) already
@@ -231,10 +247,13 @@ switch calls. `src/globe/volcanoes.js` is the smallest complete example (28 line
 ## 6. Adding a layer to the 2D map
 
 The 2D map has its own layer contract, enforced by `src/map/engine.js` (summarised from NOTES.md "2D map: adding a layer").
-Layers are defined in `src/map/feeds.js` (and `aircraft.js`, `satellites.js`).
+Layers are defined across `src/map/` (`feeds.js`, `aircraft.js`, `satellites.js`, `cities.js`, `hazards.js`,
+`osmlayers.js`); a feed both views show belongs in `src/core/` (as quakes, cyclones, cameras, transit and aurora now
+are) with the 2D file only placing it on the canvas.
 
 1. `Layers.add({ id, group, name, desc, color, default, points })` before `INIT`. `group` must be one of
-   `Layers.groups` (`Air`, `Space`, `Sea & sky`, `Ground`, `Weather & space weather`, `Infrastructure`) or it never shows.
+   `Layers.groups` (`Air`, `Space`, `Sea & sky`, `Ground`, `Cities`, `Weather & space weather`, `Infrastructure`) or it
+   never shows.
    Keep `id` to `[a-z0-9_]`; `points` must equal the Points set id.
 2. `Points.define(setId, ly.id, { minZoom })`, then `Points.set(setId, items)` in the fetch. Item colours must be `#hex`.
 3. `feed(ly, { interval, fetch: async () => { … }, viewDependent?, minZoom? })`. The fetch must **throw** on failure,
@@ -273,34 +292,49 @@ call. See NOTES.md "Public relay".
 
 ## 8. Adding an MCP tool
 
-The server is `mcp/`: `server.mjs` (the stdio command line) → `index.mjs` (assembly) → `protocol.mjs` (JSON-RPC by hand:
-initialize, tools, resources, cancellation, argument checks) + `tools.mjs` (the tools) + `place.mjs` (Photon places,
-framing a view, globe links) + `sats.mjs` (element sets and SGP4) + `feeds.mjs` (fetch with a cache, stale-if-error) +
-`panel.mjs` (the globe in the chat, an MCP App). No SDK; one dependency, satellite.js.
+The server is `mcp/`: `server.mjs` (the command line: stdio, or `--http`) → `index.mjs` (assembly) → `protocol.mjs`
+(JSON-RPC by hand: initialize, tools, resources, prompts, cancellation, argument checks) + `tools.mjs` (the first
+tools, and the list of all of them) + one file per newer tool or family (`cams.mjs`, `transit.mjs`, `fires.mjs`,
+`country.mjs`, `cables.mjs`, `solar.mjs`, `eclipses.mjs`, `distance.mjs`, `volcanoes.mjs`, `roads.mjs`, `conj.mjs`,
+`sun.mjs`, `meteors.mjs`, `osm.mjs`) + `place.mjs` (Photon places, framing a view, globe links) + `words.mjs` (shared
+wording: `iso`, `km`, `plural`, `areaData`, `limitProp`, `take`…) + `hazards.mjs` (quakes, events, storms through the
+core parsers) + `sats.mjs` (element sets and SGP4) + `feeds.mjs` (fetch with a cache, stale-if-error) + `prompts.mjs`
+(the ready-made prompts) + `panel.mjs` (the globe in the chat, an MCP App). Transports: `http.mjs` (Streamable HTTP on
+web Request/Response), `http-node.mjs` (serving it from Node), `worker.mjs` (a token-guarded fetch handler for Workers,
+not deployed). No SDK; one dependency, satellite.js.
 
-A tool is an object in `createTools(ctx)` in `mcp/tools.mjs`:
+A tool is an object `{ name, title, description, inputSchema, run }`. New tools go in their own file as a factory that
+takes `ctx` (see `mcp/volcanoes.mjs`), imported in `tools.mjs` and added to the array `createTools` returns:
 
 ```js
-const tides = {
-  name: 'tides',
-  title: 'Tide gauges',
-  description: 'Water levels now at NOAA tide gauges near a place, with a globe link.',   // for the model: what it answers, from where
-  inputSchema: {
-    type: 'object', additionalProperties: false,
-    properties: { ...areaProps('to look'), limit: limitProp(10, 50) },
-  },
-  async run(a, { signal }) {
-    const area = await resolveArea(a, feeds, { need: true, pointKm: 100, signal });
-    const d = await feeds.json('https://…', { ttl: 6 * 60e3, timeout: 20e3, signal });
-    // … pick, sort, take(list, a.limit || 10)
-    const url = link({ camera: frameArea(area), on: ['tides'] });
-    return { text: [`3 tide gauges near ${area.label}.`, /* one line each */ `On the globe: ${url}`].join('\n'),
-             data: { stations: [], area: areaData(area), url, source: 'NOAA CO-OPS (public domain)' } };
-  },
-};
+// mcp/tides.mjs
+import { areaProps, resolveArea, frameArea, globeUrl } from './place.mjs';
+import { areaData, limitProp, take } from './words.mjs';
+
+export function tidesTool(ctx) {
+  const { feeds } = ctx, link = v => globeUrl(feeds.siteBase, v);
+  return {
+    name: 'tides',
+    title: 'Tide gauges',
+    description: 'Water levels now at NOAA tide gauges near a place, with a globe link.',   // for the model: what it answers, from where
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { ...areaProps('to look'), limit: limitProp(10, 50) },
+    },
+    async run(a, { signal }) {
+      const area = await resolveArea(a, feeds, { need: true, pointKm: 100, signal });
+      const d = await feeds.json('https://…', { ttl: 6 * 60e3, timeout: 20e3, signal });
+      // … pick, sort, take(list, a.limit || 10)
+      const url = link({ camera: frameArea(area), on: ['tides'] });
+      return { text: [`3 tide gauges near ${area.label}.`, /* one line each */ `On the globe: ${url}`].join('\n'),
+               data: { stations: [], area: areaData(area), url, source: 'NOAA CO-OPS (public domain)' } };
+    },
+  };
+}
 ```
 
-Then add it to the array `createTools` returns.
+Then `import { tidesTool } from './tides.mjs'` in `tools.mjs` and add `tidesTool(ctx)` to the array `createTools`
+returns.
 
 - **Return** `{ text, data }`: `text` for people and models (short lines, units, times in UTC or the place's zone),
   `data` for programs, always with `url`, a globe link built with `link()` (`globeUrl` in `place.mjs`, see
@@ -318,6 +352,8 @@ Then add it to the array `createTools` returns.
 - **The bundle**: add the tool's name and a one-line description to `tools` in `mcp/manifest.json` (Claude Desktop's
   extension manifest); `test/mcp.test.mjs` checks the manifest lists exactly the server's tools. Add a row to the tools
   table in `mcp/README.md` and the source to DATA_SOURCES.md ("The MCP server").
+- **Pictures**: a tool may return images too (MCP image content), as `traffic_cameras` does with camera stills.
+- **Prompts** that should walk a model through several tools go in `mcp/prompts.mjs`.
 - **Test** it in `test/mcp.test.mjs`: add the source's answer to `ROUTES` (the pretend Internet; a captured answer in
   `test/fixtures/` for anything big) and a `test('mcp: …')` that calls the tool through the protocol and checks
   `text`, `data` and the link (`decodeView` on its hash). Nothing in the tests touches the network.
@@ -331,7 +367,8 @@ Only `show_on_globe` opens the globe panel in the chat (`ui: { resourceUri: PANE
 The browser never queries big catalogues. Scripts in `brand/tools/` download once (cached in the gitignored
 `brand/source/`) and write `data/`: `make_small_bodies.py` (1.57M asteroids), `make_stars.py`, `make_galaxies.py`,
 `make_exoplanets.py`, `make_moons.py`, `make_spacecraft.py`, `make_eclipses.py`, `make_countries.py` (facts and
-borders), `make_companies.py`, `make_volcanoes.py`, `make_lighthouses.py`, `make_constellations.py`. See each script's opening
+borders), `make_companies.py`, `make_volcanoes.py`, `make_lighthouses.py`, `make_constellations.py`, `make_airports.py`
+(OurAirports' airports, and with `--runways` their runways). See each script's opening
 comment for what it fetches and writes. Downloading a new dataset is a decision for the project owner: ask first.
 
 Live feed copies on the website (`data/tle/`, `data/launches.json`, `data/astronauts.json`, `data/flybys.json`,
@@ -353,9 +390,11 @@ As it is today:
    6 hours, and by hand. It builds the site with the current version at the root and every annotated `v*` tag frozen
    under `/v/<tag>/` (only `APP_PATHS` in `build_site.py` are copied there, so add every new runtime asset to that list),
    writes `versions.json` for the landing page's version picker, and refreshes the feed copies (TLE groups, launches,
-   crew, flybys, close approaches, headlines, wind). A copy it can't refresh keeps the live site's last good one.
+   crew, flybys, close approaches, headlines, wind). A copy it can't refresh keeps the live site's last good one. It
+   also stamps `sw.js`'s `BUILD` with the version and commit, so every published version is a new service worker
+   (visitors get a "new version" prompt).
 5. **The Release workflow** (`.github/workflows/release.yml`) runs on a `v*` tag: it builds `open-overwatch.zip` (the
-   download; keep its file list in step when the app needs new files) and `open-overwatch.mcpb` (the MCP server as a
+   download, with `sw.js` and `offline.html`; keep its file list in step when the app needs new files) and `open-overwatch.mcpb` (the MCP server as a
    Claude Desktop extension: `mcp/`, `src/core/`, satellite.js) and attaches both to a GitHub release. The landing
    page's download button points at `releases/latest/download/open-overwatch.zip`.
 6. **The relay** (`relay/`) is deployed separately with `npx wrangler deploy` on the owner's Cloudflare account, only

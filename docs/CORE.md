@@ -11,7 +11,8 @@ and degrees for anything geographic; vector functions write into an `out` object
 instead of allocating.
 
 "Used by" names the parts that import a module: **globe** (`src/globe/`), **solar** (`src/solar/`), **map** (the 2D
-map, `src/map/`), **sky** (`tonight.html`, `src/sky/`), **mcp** (`mcp/`), **core** (other core modules). Every module
+map, `src/map/`), **sky** (`tonight.html`, `src/sky/`), **app** (`src/app/`, the shell every page loads), **mcp**
+(`mcp/`), **tools** (`brand/tools/`), **core** (other core modules). Every module
 is also used by its tests in `test/`.
 
 ## Contents
@@ -19,14 +20,17 @@ is also used by its tests in `test/`.
 - [Time, units and frames](#time-units-and-frames): `time.js`, `units.js`, `rotation.js`
 - [Orbits and the Solar System](#orbits-and-the-solar-system): `kepler.js`, `planets.js`, `moons.js`, `smallbodies.js`, `comets.js`, `craft.js`, `accuracy.js`
 - [Satellites](#satellites): `tle.js`, `passes.js`, `observer.js`, `socrates.js`, `explain.js`
-- [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `orientation.js`
+- [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `orientation.js`
 - [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`
 - [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`
 - [Weather](#weather): `gfs.js`, `wxmodels.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`
-- [Hazards and imagery](#hazards-and-imagery): `hazards.js`
-- [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `gtfsrt.js`, `bikes.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
+- [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `aurora.js`, `fireclusters.js`, `fires.worker.js`
+- [Aviation](#aviation): `aircraft.js`, `actype.js`, `phase.js`, `airports.js`, `runways.js`, `aloft.js`, `trail.js`
+- [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `transitfeeds.js`, `gtfsrt.js`, `bikes.js`, `cameras.js`, `cables.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
+- [OpenStreetMap](#openstreetmap): `osmtiles.js`, `overpass.js`
 - [Links, words and the interface](#links-words-and-the-interface): `viewlink.js`, `solarlink.js`, `search.js`, `scene.js`, `voicecmd.js`, `format.js`, `ics.js`, `radio.js`
 - [Network and devices](#network-and-devices): `assets.js`, `relay.js`, `gpu.js`
+- [The app shell](#the-app-shell): `pwa.js`, `spot.js`, `a11ycheck.js`
 
 ## Time, units and frames
 
@@ -161,6 +165,8 @@ sunlight while your sky is dark). The caller supplies the satellite's Earth-fixe
 Sun's direction, so the module needs no orbit library. Used by globe, mcp, core.
 
 - `findPasses`: passes in a time window, each `{ rise, peak, set, maxEl, azRise, azPeak, azSet, visible }`.
+  `nextPass`: the next one within some hours. `ecfAt`: a satellite.js record as an Earth-fixed position function
+  (shared by the 2D map, Tonight and the MCP server).
 - `lookAngles`: elevation and azimuth of an Earth-fixed point from an observer.
 - `sunlit`: is a point in sunlight (cylindrical shadow)? `compass`: a bearing as a compass point.
 
@@ -223,6 +229,16 @@ the evening or the morning sky, and the constellation figure nearest it. Used by
 - `skyPhrase`: when to look, in words. `nearestConstellation`: the nearest stick figure. `angularSep`,
   `formatRaDec`.
 
+### `solarsys.js`
+
+The planets as seen from Earth, in the numbers people use: distance and light time, elongation and evening or morning
+side, how much is lit, visual magnitude (Meeus), and the next oppositions, conjunctions and greatest elongations. Used
+by mcp (its `solar_system` tool).
+
+- `planetFromEarth`, `moonFromEarth`: one body from Earth at a Julian Date. `SKY_PLANETS`.
+- `magnitude`, `saturnRingTilt`: brightness. `skyEvents`: the coming events. `visibility`: how easy it is to see, in a
+  phrase.
+
 ### `meteors.js`
 
 The major annual meteor showers (IMO working list) and how many you could really see: the radiant's height and the
@@ -250,6 +266,16 @@ with Cesium). Used by globe, sky.
 - `outline`: a shadow's outline on the ground. `rayEllipsoid`: a ray meeting the ellipsoid.
 - `seenFrom`: what an observer sees: the Sun's and Moon's sizes, separation and covered fraction (`overlapFraction`).
 - `interp`: interpolation in the per-minute Horizons table. `R_SUN`, `WGS84`.
+
+### `eclipselocal.js`
+
+Solar eclipses on the ground without Cesium: JPL Horizons' Sun and Moon (`data/eclipses.json`) turned Earth-fixed with
+IAU 1976 precession, the main nutation terms and apparent sidereal time (about 1 km on the ground), then `eclipse.js`'s
+cones. Used by mcp (its `eclipses` tool).
+
+- `greatestEclipse`: each eclipse's greatest point, kind, central duration and path width.
+- `localEclipse`: what a place sees: contacts, how much of the Sun is covered, the kind at maximum.
+- `prepareEclipse`, `icrfToFixed`, `ecef`, `geodetic`: the frames.
 
 ### `orientation.js`
 
@@ -436,6 +462,121 @@ Tropical cyclone forecasts, wildfires and recent satellite pictures, parsed. Use
   `IMAGERY`, `gibsTemplate` for the tiles.
 - `rings`, `paths`, `csvLine`: GeoJSON and CSV helpers.
 
+### `quakes.js`
+
+Earthquakes from the USGS real-time GeoJSON summaries: one parser for the 2D map, the globe and the MCP server. Used by
+globe, map, mcp.
+
+- `parseUsgs`: a summary → quakes. `usgsUrl`, `usgsFeedFor`, `USGS_FEEDS`, `USGS_BASE`: which summary to read.
+- `largest`, `quakeTitle`: "M6.2 · 34 km SW of Town".
+
+### `eonet.js`
+
+NASA EONET (open wildfires, storms, volcanoes, floods, ice…): one parser for the 2D map, the globe's cyclones and the
+MCP server. Used by map, mcp, core.
+
+- `parseEonet`: an answer → events with their newest position. `eonetUrl`, `EONET_CATS`, `EONET_COLOR`, `newestFirst`.
+
+### `cyclones.js`
+
+Tropical cyclones assembled once for every view: EONET tracks, NOAA NHC advisories (through a relay), NOAA's map
+service (forecast cones, watches, wind fields) and GDACS for every other basin. Fetching is injected, so the globe, the
+2D map and the tests share the whole recipe. Used by globe, map, mcp, core.
+
+- `loadCyclones`: every source, merged (`stormsFromEonet`, `mergeNhc`, `mergeNoaa`, `mergeGdacs`, `attach`).
+- `parseNhcCurrent`, `parseGdacsCyclones`: the sources' lists. `noaaLayerUrl`, `gdacsTcUrl`, `gdacsGeometryUrl`.
+- `category`, `catName`, `CYCLONE_CAT`, `NHC_CLASS`: Saffir-Simpson and NHC's codes. `activeLine`, `shortName`,
+  `stormSources`: words for labels and cards.
+
+### `gdacs.js`
+
+The GDACS disaster alert list behind the 2D map's "Disaster alerts" layer. Used by map.
+
+- `loadGdacsEvents`: every page of the last days. `parseGdacsEvents`, `gdacsEventsUrl`, `GDACS_TYPES`,
+  `GDACS_LEVEL_COLOR`.
+
+### `aurora.js`
+
+The aurora oval from NOAA SWPC's OVATION model: one grid and one colour ramp for the 2D map's overlay and the globe's
+layer. Pictures are RGBA arrays the views put on a canvas. Used by globe, map.
+
+- `parseOvation`, `ovationAt`: the grid and the chance over a place. `latestKp`: the K-index.
+- `paintEquirect`, `paintMercator`: the grid as a picture for the globe or the map. `auroraColor`, `auroraAlpha`,
+  `AURORA_STOPS`.
+
+### `fireclusters.js`
+
+Fire detections in an area made answerable: the GIBS tiles that cover it, and hot pixels grouped into fires (within
+about 2.5 km of each other), each with size, power and last sighting. Used by mcp (its `wildfires` tool).
+
+- `fireTilesAround`, `clusterFires`, `fireWords`, `perimeterRows`.
+
+### `fires.worker.js`
+
+A Web Worker (no exports) shared by the globe and the 2D map: it fetches a GIBS VIIRS thermal-anomaly vector tile,
+unzips and decodes it, and posts back the detections since a time, off the main thread.
+
+## Aviation
+
+### `aircraft.js`
+
+Aircraft records from the two kinds of feed both views read: readsb-style JSON (adsb.lol, adsb.fi, airplanes.live) and
+OpenSky's state vectors, in the feeds' own units plus SI. Used by globe, map.
+
+- `readsb`, `openskyState`: one record each. `cleanHex`, `EMERGENCY_SQUAWKS`, `FT`.
+
+### `actype.js`
+
+What kind of aircraft a record is (from its ICAO type designator, else the emitter category, else adsbdb's type text),
+adsbdb answers read into one record, whether a route on file fits where the plane actually is, and the country an ICAO
+address belongs to. Used by globe, core.
+
+- `classify`, `shapeOf`, `CLASSES`: the class and the 3D model drawn for it.
+- `parseAdsbdb`: an adsbdb answer → `{ aircraft, route }`. `routeFit`: does the route fit the plane? `gcKm`, `bearing`.
+- `hexCountry`: where an address was allocated. `classWord`, `typeMatcher`: search by kind or type ("helicopters",
+  "747").
+
+### `phase.js`
+
+What a plane is doing, in a pilot's words (parked, taxiing, take-off, climbing, cruise, descending, approach, final,
+landing roll), from its own fix and the nearest airport. Used by globe.
+
+- `flightPhase`: `{ phase, words, agl, apKm }`. `PHASES`. `greatCircle`: points along a great circle (the route arc).
+
+### `airports.js`
+
+Airport boards made from the live aircraft already on the globe, not from schedules: near an airport, a plane low and
+descending towards it is arriving, one climbing away is departing, one on the ground is at the gate or taxiing; a route
+on file makes the call firmer. Used by globe.
+
+- `parseAirports`, `AirportIndex`, `findAirport`: the OurAirports list, nearest and in view, by code, name or city.
+- `makeBoard`, `boardStatus`, `BOARD`: the board. `recentMove`: planes that just landed or took off. `etaText`.
+
+### `runways.js`
+
+Runways from OurAirports (`data/runways.json`): the wind along and across each runway end, the runway a plane is lined
+up with, and the runway in use. Used by globe.
+
+- `parseRunways`, `windOn`, `windTable`, `linedUp`, `finalFor`, `runwayInUse`.
+
+### `aloft.js`
+
+Weather at an aircraft for the cockpit HUD, from Open-Meteo's pressure levels: wind, temperature and cloud at its
+height, head and cross wind, true airspeed and Mach, the deviation from the standard atmosphere, an icing hint; and the
+weather and VFR/IFR category at an airport. Used by globe.
+
+- `aloftUrl`, `parseAloft`, `aloftEffects`, `aloftLines`, `bracket`, `LEVELS`: the cockpit.
+- `isaPressure`, `isaAltitude`, `isaTempC`: the standard atmosphere.
+- `airportWxUrl`, `airportWx`, `airportWxLine`, `flightCategory`, `oktas`, `weatherWords`: airport cards.
+
+### `trail.js`
+
+Flight trails: the last minutes of a plane's fixes, thinned in 3D (Douglas-Peucker) and coloured by altitude. Used by
+globe.
+
+- `Trail`: one aircraft's trail. `thin`, `flatM`: thinning. `altColor`, `altRampCss`: the colour ramp.
+- `trailStats`, `trailGeoJSON`: the numbers for the card, and the trail as GeoJSON with times.
+
 ## Things that move
 
 ### `flight.js`
@@ -465,6 +606,15 @@ agencies, and the motion model that turns a fix every few seconds into steady mo
 - `addFix`, `sample`, `ease`, `approach`, `lagMeter`: playback a little behind live, between real reports.
 - `inArea`: inside a circle or box.
 
+### `transitfeeds.js`
+
+Live transit feeds shared by the globe and the 2D map: which operators, where, how often, and the loops that run them
+(polling, and HSL's MQTT stream over a WebSocket). Fetch and WebSocket are injected. Used by globe, map, mcp.
+
+- `transitSources`, `TRANSIT_AREAS`, `sourcesAt`: the operators and where each runs. `enturBox`, `capmetroFile`.
+- `startSource`, `startPoll`, `startHsl`, `stopSource`: running them. `createFleet`: vehicles appearing and going.
+- `transitTip`, `transitRows`, `lateness`, `TRANSIT_MODES`: words for tips and cards.
+
 ### `gtfsrt.js`
 
 GTFS Realtime vehicle positions, read with the protobuf reader from `mvt.js`. Used by globe, core.
@@ -478,6 +628,23 @@ Bike share: the CityBikes directory (about 800 systems) and a system's stations.
 
 - `parseNetworks`, `parseStations`: the API's answers. `networksNear`: systems near a point.
 - `stationState`: offline, empty, low, full or ok. `cbTime`: CityBikes' unusual timestamps.
+
+### `cameras.js`
+
+Public traffic and weather cameras: every agency network the 2D map and the globe show, as one table (where its list
+is, the box it covers, its credit, a parser). Used by globe, map, mcp.
+
+- `CAMERA_NETS`, `CAMERA_GROUPS`, `netOf`, `CALTRANS_DISTRICTS`: the networks. `parseSingapore`, `xmlText`.
+- `camNetsNear`, `camsNear`, `camCoverage`: cameras near a place. `boxInView`, `bustUrl`, `isStream`, `imageType`.
+
+### `cables.js`
+
+Submarine cables and landing stations (TeleGeography's map data): where to get them, the cable under the pointer, and
+what comes ashore or runs near a place. Used by map, mcp.
+
+- `CABLE_URLS`, `LANDING_URLS`: live data (through a relay) then an older copy. `parseCables`, `parseLandings`,
+  `parseCable`, `parseLanding`.
+- `nearestCable`, `nearestOnLines`, `cablesNear`, `landingsNear`.
 
 ### `mvt.js`
 
@@ -506,6 +673,28 @@ publishes measured speeds and counts (NYC DOT, Fintraffic) they set the cars' sp
 - `parseNyc`, `linkPoints`, `zonedToUtc`, `parseTms`, `matchSpeeds`: measured speeds and counts onto the roads.
 - `ROAD`, `HIGHWAYS`, `LANE_W`, `maxspeed`, `drivesLeft`, `dist`, `bearing`, `turn`.
 
+## OpenStreetMap
+
+### `osmtiles.js`
+
+OpenStreetMap layers from vector tiles, without the Overpass API: 3D buildings (OpenFreeMap's buildings with their
+heights), military areas (land mapped as military, named from the military airfields inside) and licence-plate readers
+(DeFlock / FlockHopper's hourly tiles, US and Canada). Used by globe, map, mcp.
+
+- `tileBuildings`, `buildingTint`, `MAX_BUILDING_H`: buildings.
+- `tileMilitary`, `joinPieces`, `describeArea`, `areaWords`: military areas joined across tiles.
+- `tileCameras`, `cameraFacts`, `facings`, `readersAlong`, `makesWords`: plate readers (and those along a route).
+- `polygons`, `clipRing`, `outlineRuns`, `tilesAround`, `tilesInBox`, `routeTiles`, `pickZoom`, `tileBounds`: tile
+  geometry.
+
+### `overpass.js`
+
+One polite client for the public Overpass API, shared by every OpenStreetMap layer that still uses it and the 2D map's
+area scan: one request at a time, a pause at least as long as the last request took, and the quickest server that is
+answering. Used by globe, map.
+
+- `overpass`: run a query. `overpassHealth`: how each server has been doing.
+
 ## Links, words and the interface
 
 ### `viewlink.js`
@@ -513,6 +702,8 @@ publishes measured speeds and counts (NYC DOT, Fintraffic) they set the cars' sp
 The share link: a view as a URL hash and back (full format in [LINK_FORMAT.md](LINK_FORMAT.md)). Used by globe, mcp.
 
 - `encodeView`, `decodeView`: a view ↔ `c=…&l=…&…`. Nothing decoded is trusted.
+- `zoomToHeight`, `heightToZoom`: the 2D map's zoom and the globe's camera height, so a link made on one opens the
+  same area on the other. `MAP_TO_GLOBE`, `globeLayersFor`, `mapLayersFor`: the two views' layer ids.
 - `decodeExtras`: the parts that work without a camera: the panel to open, a flight, an item id. `GO`: the panels a
   link may open.
 
@@ -544,7 +735,8 @@ Director scenes: camera shots to fly through, as compact text for links and file
 
 Spoken commands without an AI service: a sentence in, one action out. Used by globe, mcp, core.
 
-- `parse`: a sentence → `{ act, … }` (go, track, layer, view, sensor, measure, route, weather, count, …). `normalize`
+- `parse`: a sentence → `{ act, … }` (go, track, layer, view, sensor, measure, route, weather, count, an airport's
+  board, what plane that is, trails, …). `normalize`
   strips the wake word, politeness and punctuation first.
 - `EXAMPLES`: the phrases the help card suggests. `SENSORS`: the Ops looks.
 - `skyWords`, `weatherSentence`, `seaWords`: weather readings in words (with gusts, pressure and its trend, and the sea
@@ -597,3 +789,29 @@ globe, map.
 GPU checks shared by the 3D views; the caller passes the WebGL context. Used by globe, solar.
 
 - `isSoftwareRenderer`: true when WebGL runs in software (every 3D view then crawls). `rendererName`. `SOFTWARE_HINT`.
+
+## The app shell
+
+### `pwa.js`
+
+The installable app's decisions: whether a page may run the site's service worker (never in an archived `/v/<tag>/`
+copy, on the local helper only with `?sw=1`), how to word the age of a saved copy, and when the first-run touch hints
+are due. Used by app.
+
+- `swDecision`, `swSwitch`, `isArchivedPath`, `isLocalHost`: the service worker.
+- `ageWords`, `offlineWords`: the offline banner. `hintsDue`, `hintsSeen`, `isLongPress`, `HINT_KEY`, `HINT_PAGES`.
+
+### `spot.js`
+
+"This spot": what a long press on the globe or the 2D map shows: the coordinates in the usual ways, and a link that
+opens the globe there with a pin. Used by app.
+
+- `describeSpot`, `spotLink`, `decimal`, `dms`, `plain`, `wrapLon`.
+
+### `a11ycheck.js`
+
+A small accessibility check over a page's HTML (names, alt text, labels, ids, contrast of the page's own colour
+tokens…): `test/a11y.test.mjs` runs it on every page, `brand/tools/a11y_check.mjs` from the command line. Used by tools.
+
+- `checkHtml`: errors and warnings for a page. `parseHtml`, `parseAttrs`, `walk`, `textOf`, `contrast`, `luminance`,
+  `rootTokens`.
