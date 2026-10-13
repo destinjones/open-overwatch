@@ -2,6 +2,7 @@
 import { $, $$, Log, Net, Sound, Store, cssVar, esc, hexA, isHttp, toast } from './util.js';
 import { map } from './mapview.js';
 import { Dyn } from './engine.js';
+import { tidyName, firstMirror, radioTagUrl, RADIO_HOSTS } from '../core/radio.js';
 
 /* ============================================================ AUDIO: generative soundtrack (original, synthesized live) + underground radio */
 export const Synth = {
@@ -80,17 +81,15 @@ export const Synth = {
 
 export const Radio = { // directory: radio-browser.info (community-maintained, open API); streams belong to their broadcasters
   TAGS: ['dark ambient', 'ambient', 'techno', 'dub techno', 'drum and bass', 'jungle', 'idm', 'downtempo', 'trip hop', 'dub', 'industrial', 'synthwave', 'lofi', 'breakbeat', 'deep house', 'psytrance'],
-  HOSTS: ['all', 'de1', 'de2'], cache: {}, // all.api… resolves to whichever mirrors are live (nl1/at1/fi1 are gone); de1/de2 as named fallbacks tag: Store.get('radio_tag', 'dark ambient'),
-  tidy(name) { // some directory entries carry keyword-stuffed names; keep the first clause, capped
-    let s = String(name || '').replace(/^[\s#\-–—|>*]+/, '').replace(/\s+/g, ' ').trim();
-    if (s.length > 42) { const re = /\s[-–—|:]\s|\s-{2,}|\s\|\|/g; let m; while ((m = re.exec(s))) { if (m.index > 8) { s = s.slice(0, m.index).trim(); break; } } }
-    if (s.length > 42) s = s.slice(0, 40).trim() + '…';
-    return s || 'Unnamed station';
-  },
+  HOSTS: RADIO_HOSTS, cache: {}, // the mirrors (core/radio.js)
+  tag: Store.get('radio_tag', 'dark ambient'),   // was inside the comment above, so the saved genre never came back
+  tidy: tidyName, // keyword-stuffed directory names: the first clause, capped (core/radio.js, as the globe's world radio)
   async list(tag) {
-    if (this.cache[tag] && Date.now() - this.cache[tag].t < 3600e3) return this.cache[tag].list; let err;
-    for (const h of this.HOSTS) { try { const d = await Net.json(`https://${h}.api.radio-browser.info/json/stations/bytag/${encodeURIComponent(tag)}?limit=14&hidebroken=true&order=clickcount&reverse=true`, { timeout: 12000 }); const list = (d || []).filter(x => isHttp(x.url_resolved || x.url)).map(x => ({ id: x.stationuuid, name: Radio.tidy(x.name), url: x.url_resolved || x.url, codec: x.codec, bitrate: x.bitrate, country: x.countrycode, homepage: x.homepage, tags: (x.tags || '').split(',').slice(0, 4).join(', ') })); this.cache[tag] = { t: Date.now(), list }; return list; } catch (e) { err = err || e; } }
-    throw new Error(`radio directory unreachable (tried ${this.HOSTS.join(', ')}.api.radio-browser.info${err && !/CORS|offline/.test(err.message) ? ': ' + err.message : ''})`); // a dead host looks like a CORS error to the browser
+    if (this.cache[tag] && Date.now() - this.cache[tag].t < 3600e3) return this.cache[tag].list;
+    try {
+      const { value: list } = await firstMirror(async host => (await Net.json(radioTagUrl(host, tag), { timeout: 12000 }) || []).filter(x => isHttp(x.url_resolved || x.url)).map(x => ({ id: x.stationuuid, name: Radio.tidy(x.name), url: x.url_resolved || x.url, codec: x.codec, bitrate: x.bitrate, country: x.countrycode, homepage: x.homepage, tags: (x.tags || '').split(',').slice(0, 4).join(', ') })));
+      this.cache[tag] = { t: Date.now(), list }; return list;
+    } catch (err) { throw new Error(`radio directory unreachable (tried ${RADIO_HOSTS.join(', ')}.api.radio-browser.info${err && !/CORS|offline/.test(err.message) ? ': ' + err.message : ''})`); } // a dead host looks like a CORS error to the browser
   },
 };
 export const Music = {
