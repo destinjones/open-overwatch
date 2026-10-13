@@ -45,25 +45,40 @@ export function escaping(c) {
 const KM3S2_TO_AU3D2 = 86400 * 86400 / (AU_KM * AU_KM * AU_KM);
 /** Is jd inside the craft's planet-centred stretch? */
 export const inLocal = (c, jd) => !!c.local && jd >= c.local.t0_jd - c.local.step_days / 2 && jd <= c.local.t0_jd + (c.local.el.length - 0.5) * c.local.step_days;
-/** The osculating orbit in force at jd (the nearest daily set) as conic elements in AU, radians and days: { q, e, i, node, peri, tp, mu }. */
+/**
+ * The osculating orbit in force at jd as conic elements in AU, radians and days: { q, e, i, node, peri, tp, mu }.
+ * Within 3 hours of a perijove: the nearest of the sets taken every 30 minutes around it (local.pj); elsewhere the
+ * nearest daily set, but never one from the far side of a perijove (two-body motion carried through a pass is
+ * thousands of km off: Jupiter's oblateness turns the orbit there).
+ */
+const toConic = (L, [q, e, i, node, peri, tp]) => ({ q: q / AU_KM, e, i: i * DEG, node: node * DEG, peri: peri * DEG, tp, mu: L.gm * KM3S2_TO_AU3D2 });
 export function localOrbit(c, jd) {
-  const L = c.local, k = Math.max(0, Math.min(L.el.length - 1, Math.round((jd - L.t0_jd) / L.step_days)));
+  const L = c.local;
   if (!L.cache) L.cache = new Map();
-  let o = L.cache.get(k);
-  if (!o) { const [q, e, i, node, peri, tp] = L.el[k]; o = { q: q / AU_KM, e, i: i * DEG, node: node * DEG, peri: peri * DEG, tp, mu: L.gm * KM3S2_TO_AU3D2, k }; if (L.cache.size > 64) L.cache.clear(); L.cache.set(k, o); }
+  const p = L.pj?.length ? L.pj[nearestPj(L, jd)] : null;
+  let key, set;
+  if (p && jd >= p.t0 - p.step / 2 && jd <= p.t0 + (p.el.length - 0.5) * p.step) {
+    const k = Math.max(0, Math.min(p.el.length - 1, Math.round((jd - p.t0) / p.step))); key = p.tp + ':' + k; set = () => p.el[k];
+  } else {
+    const n = L.el.length; let k = Math.max(0, Math.min(n - 1, Math.round((jd - L.t0_jd) / L.step_days)));
+    const ek = L.t0_jd + k * L.step_days;
+    if (p && (p.tp - ek) * (p.tp - jd) < 0) k = Math.max(0, Math.min(n - 1, k + (jd > ek ? 1 : -1)));   // the set is across the perijove: take the one on jd's side
+    key = k; set = () => L.el[k];
+  }
+  let o = L.cache.get(key);
+  if (!o) { o = toConic(L, set()); if (L.cache.size > 128) L.cache.clear(); L.cache.set(key, o); }
   return o;
+}
+function nearestPj(L, jd) {   // binary search in the perijoves (sorted by time)
+  let lo = 0, hi = L.pj.length - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (L.pj[m].tp < jd) lo = m; else hi = m; }
+  return Math.abs(L.pj[lo].tp - jd) < Math.abs(L.pj[hi].tp - jd) ? lo : hi;
 }
 /** Planet-centred position (AU, ecliptic J2000) at jd, or null outside the local stretch. */
 export function localPosition(c, jd, out = {}) { return inLocal(c, jd) ? cometPosition(localOrbit(c, jd), jd, out) : null; }
 
-/** Perijoves (or periapses) inside the local stretch: [jd], from the element sets' own periapsis times. */
-export function periapses(c) {
-  if (!c.local) return [];
-  const out = [], end = c.local.t0_jd + (c.local.el.length - 1) * c.local.step_days;
-  for (const e of c.local.el) if (e[1] < 1 && e[5] >= c.local.t0_jd && e[5] <= end && !out.some(t => Math.abs(t - e[5]) < 2)) out.push(e[5]);
-  // a set far from its periapsis may name one a whole orbit off; keep each passage once, from the set nearest it
-  return out.sort((a, b) => a - b);
-}
+/** Periapsis passages (Juno's perijoves) inside the local stretch: [jd], in time order. */
+export const periapses = c => (c.local?.pj || []).map(p => p.tp);
 
 const P = [{}, {}, {}, {}], LP = {}, CP = {};
 /**

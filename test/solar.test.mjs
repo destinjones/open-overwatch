@@ -402,3 +402,47 @@ test('comets: the peak of an apparition and the "bright now" and "coming up" lis
   for (const s of soon) assert.ok(s.peak.mag <= 12 && s.peak.jd > jd && s.peak.jd < jd + 1100);
   assert.equal(seeingWords(3), 'naked eye'); assert.equal(seeingWords(8), 'binoculars'); assert.equal(seeingWords(null), 'brightness unknown');
 });
+
+// ---------------------------------------------------------------- Juno around Jupiter (track.local)
+
+import { localPosition, localOrbit, inLocal, periapses } from '../src/core/craft.js';
+const PJ = read('test/fixtures/horizons_juno_perijoves.json');
+
+test('craft: Juno on its osculating orbits follows Horizons through three perijoves (within 150 km over two days)', () => {
+  const juno = CRAFT.find(c => c.name === 'Juno');
+  assert.ok(juno.local && juno.local.center === 'jupiter' && juno.local.el.length > 4000 && juno.step_days === 1);
+  for (const pass of PJ.passes) {
+    let worst = 0, rmin = Infinity;
+    for (const [t, x, y, z] of pass.rows) {
+      const p = localPosition(juno, t); worst = Math.max(worst, Math.hypot(p.x * AU_KM - x, p.y * AU_KM - y, p.z * AU_KM - z));
+      rmin = Math.min(rmin, Math.hypot(x, y, z));
+    }
+    assert.ok(worst < 150, `perijove ${pass.tp}: ${worst.toFixed(0)} km`);
+    assert.ok(rmin < 90000 && rmin > 71492, 'a real skim over the cloud tops');   // Jupiter's equatorial radius 71,492 km
+  }
+  // the old 3-day heliocentric samples were ~200,000 km off near perijove; one day is the floor the local orbit beats
+  const pj = periapses(juno);
+  assert.ok(pj.length > 100 && pj.every((t, i) => i === 0 || t - pj[i - 1] > 25), 'one entry per perijove, 33-53 days apart');
+  assert.ok(Math.abs(pj[0] - jdFromMs(Date.UTC(2016, 7, 27, 12, 50))) < 0.1, 'PJ1 2016-08-27 12:50 UT (NASA)');
+  assert.ok(!inLocal(juno, jdFromMs(Date.UTC(2015, 0, 1))) && inLocal(juno, jdFromMs(Date.UTC(2026, 9, 12))));
+});
+
+test('craft: a planet-centred track rides the planet the caller draws; never carries a set across a perijove', () => {
+  const juno = CRAFT.find(c => c.name === 'Juno'), t = jdFromMs(Date.UTC(2026, 9, 12));
+  const helio = trackPosition(juno, t, {}), jup = planetPosition('jupiter', t, {});
+  const local = trackPosition(juno, t, {}, (k, jd, out) => planetPosition(k, jd, out));
+  const rel = localPosition(juno, t);
+  assert.ok(Math.abs(local.x - jup.x - rel.x) < 1e-12 && Math.abs(local.z - jup.z - rel.z) < 1e-12);
+  // the heliocentric samples differ by the planet formula's own error: JPL's approximate Jupiter is 0.5-0.9 million km
+  // off Horizons' in 2020-2026, so on the samples Juno flew that far from the Jupiter on screen
+  const off = Math.hypot(local.x - helio.x, local.y - helio.y, local.z - helio.z);
+  assert.ok(off > 1e-4 && off < 0.008, `${off} AU`);
+  // half a day before a perijove whose nearest daily set is after it: the set used is from before
+  const L = juno.local, p = L.pj[40];
+  for (const dt of [-0.6, -0.3, 0.3, 0.6]) {
+    const o = localOrbit(juno, p.tp + dt); if (Math.abs(dt) * 24 <= 3) continue;
+    const k = Math.round((p.tp + dt - L.t0_jd) / L.step_days), epoch = L.t0_jd + k * L.step_days;
+    assert.ok(o.tp != null && ((epoch - p.tp) * dt > 0 || L.el.some((e, j) => e[5] === o.tp && (L.t0_jd + j - p.tp) * dt > 0)), `dt ${dt}`);
+  }
+  assert.equal(trackPosition(juno, t, {}, () => null) && true, true, 'no centre: back to the heliocentric samples');
+});
