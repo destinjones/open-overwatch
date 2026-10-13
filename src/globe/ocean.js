@@ -63,7 +63,7 @@ export const Buoys = {
   apply() {
     buoyPts.show = L.buoys.on; scene.requestRender();
     if (!L.buoys.on) return;
-    if (!this.loading && Date.now() - this.at > REFRESH) this.loading = this.load().catch(e => console.warn('buoys', e.message)).finally(() => { this.loading = null; });
+    if (!this.loading && Date.now() - this.at > REFRESH) this.loading = this.load().catch(e => { console.warn('buoys', e.message); toast('The NOAA buoy feed is not reachable right now (' + e.message + ')', 3500); }).finally(() => { this.loading = null; });
     if (!this.timer) this.timer = setInterval(() => { if (L.buoys.on && !document.hidden) this.apply(); }, REFRESH);
   },
 };
@@ -108,7 +108,7 @@ export const Darts = {
     dartPts.show = L.dart.on; scene.requestRender();
     if (L.dart.on && !this.loading && !this.list.length) {
       if (!relayed(NDBC_STATIONS)) { needsHelper(); return; }
-      this.loading = this.load().catch(e => console.warn('dart', e.message)).finally(() => { this.loading = null; });
+      this.loading = this.load().catch(e => { console.warn('dart', e.message); toast('The NOAA station list is not reachable right now (' + e.message + ')', 3500); }).finally(() => { this.loading = null; });
     }
   },
 };
@@ -151,6 +151,6 @@ export const Tides = {
   },
   apply() {
     tidePts.show = L.tides.on; scene.requestRender();
-    if (L.tides.on && !this.loading && !this.list.length) this.loading = this.load().catch(e => console.warn('tides', e.message)).finally(() => { this.loading = null; });
+    if (L.tides.on && !this.loading && !this.list.length) this.loading = this.load().catch(e => { console.warn('tides', e.message); toast('NOAA Tides & Currents is not answering right now', 3500); }).finally(() => { this.loading = null; });
   },
 };
