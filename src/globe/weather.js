@@ -93,6 +93,9 @@ export const Weather = {
     })().catch(e => { this.ready = null; throw e; });
     return this.ready;
   },
+  /** The model choice in a share link, beside the layer ids: 'ecmwf' (GFS is the default), 'compare'. */
+  shareTokens() { return [...(this.modelId !== 'gfs' ? [this.modelId] : []), ...(this.compare ? ['compare'] : [])]; },
+  fromTokens(list) { this.modelId = Object.keys(Models).find(id => id !== 'gfs' && list.includes(id)) || 'gfs'; this.compare = list.includes('compare'); },
   /** The chosen model's newest run; if it can't be reached, the other model's (and say so). */
   async findRun() {
     const run = await this.model.ready().catch(e => { console.warn('weather model', e.message); return null; });

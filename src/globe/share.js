@@ -27,7 +27,7 @@ export const Share = {
   link() {
     const c = camera.positionCartographic, drawing = hooks.drawState?.() || null;
     const hash = encodeView({ lon: C.Math.toDegrees(c.longitude), lat: C.Math.toDegrees(c.latitude), height: c.height, heading: C.Math.toDegrees(camera.heading), pitch: C.Math.toDegrees(camera.pitch),
-      layers: LAYERS.filter(l => l.on).map(l => l.id), weather: Weather.on ? Object.entries(Weather.sets).filter(([, s]) => s.on).map(([k]) => k) : null,
+      layers: LAYERS.filter(l => l.on).map(l => l.id), weather: Weather.on ? [...Object.entries(Weather.sets).filter(([, s]) => s.on).map(([k]) => k), ...Weather.shareTokens()] : null,
       time: Time.live ? null : { jd: Time.jd(), rate: Time.rate }, country: state.selected && state.selected.kind === 'country' ? state.selected.iso : null, flight: Flight.shareId, ops: hooks.opsState?.(), drawing });
     this.drawn = drawing ? (/(^|&)d=/.test(hash) ? drawing.length : -1) : 0;
     return location.origin + location.pathname + '#' + hash;
@@ -71,7 +71,7 @@ export const Share = {
     if (fly && !v.weather) camera.flyTo({ ...to, duration: 2.5 }); else camera.setView(to);   // weather opens on the whole Earth itself
     if (v.sat) this.follow(v.sat);
     if (v.drawing) hooks.applyDraw?.(v.drawing, { card: !v.country && !v.flight });   // its shapes are built at once (outlines once the borders load)
-    if (v.weather) { for (const [k, s] of Object.entries(Weather.sets)) s.on = v.weather.includes(k); await Weather.open(); Weather.build(); Weather.show(); }
+    if (v.weather) { for (const [k, s] of Object.entries(Weather.sets)) s.on = v.weather.includes(k); Weather.fromTokens(v.weather); await Weather.open(); Weather.build(); Weather.show(); }
     if (v.country) { const o = await Country.byIso(v.country).catch(() => null); if (o) select(o); }
     if (v.flight) Flight.find(v.flight);
     return true;

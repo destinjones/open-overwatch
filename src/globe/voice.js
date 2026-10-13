@@ -118,16 +118,19 @@ function describe(o) {
 const ago = ms => ms < 3600e3 ? Math.max(1, Math.round(ms / 60e3)) + ' minutes ago' : ms < 172800e3 ? Math.round(ms / 3600e3) + ' hours ago' : Math.round(ms / 864e5) + ' days ago';
 const ordinal = n => ['first', 'second', 'third', 'fourth', 'fifth', 'sixth'][n - 1] || n;
 const IMPERIAL = /^en-(us|lr)$|^my\b/i.test(navigator.language || '');
-/** The weather at a point: the model at the moment weather mode shows, else Open-Meteo for now. */
+/** The weather at a point: the model at the moment weather mode shows (with whatever layers are loaded: pressure,
+ *  gusts, waves), else Open-Meteo for now (with gusts, pressure and, over water, its marine model's waves). */
 async function weatherAt(lat, lon) {
   if (Weather.on && (Wind.cur || Wind.grid)) {
     const r = Wind.reading(lat, lon); if (r) { const w = windFrom(r.u, r.v); return { ...r, from: w.from, speed: w.speed, when: Wind.cur ? Weather.frames[Weather.frame] : null }; }
   }
-  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 6000);
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 6000), q = `latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}`;
   try {
-    const u = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&current=temperature_2m,wind_speed_10m,wind_direction_10m,cloud_cover,precipitation,weather_code&wind_speed_unit=ms`;
-    const c = (await (await fetch(u, { signal: ctl.signal })).json()).current;
-    return { temp: c.temperature_2m, speed: c.wind_speed_10m, from: c.wind_direction_10m, cloud: c.cloud_cover, rain: c.precipitation, code: c.weather_code, source: 'Open-Meteo' };
+    const u = `https://api.open-meteo.com/v1/forecast?${q}&current=temperature_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,cloud_cover,precipitation,weather_code&wind_speed_unit=ms`;
+    const sea = fetch(`https://marine-api.open-meteo.com/v1/marine?${q}&current=wave_height,wave_direction`, { signal: ctl.signal }).then(r => r.json()).then(j => j.current || {}).catch(() => ({}));   // waves: over water only (null on land)
+    const [c, m] = await Promise.all([fetch(u, { signal: ctl.signal }).then(r => r.json()).then(j => j.current), sea]);
+    return { temp: c.temperature_2m, speed: c.wind_speed_10m, from: c.wind_direction_10m, gust: c.wind_gusts_10m, pres: c.pressure_msl, cloud: c.cloud_cover, rain: c.precipitation, code: c.weather_code,
+      wave: m.wave_height ?? NaN, waveFrom: m.wave_direction ?? NaN, source: 'Open-Meteo' };
   } finally { clearTimeout(t); }
 }
 async function placeName(lat, lon) {

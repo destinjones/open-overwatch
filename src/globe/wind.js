@@ -253,14 +253,15 @@ export const Wind = {
       }
       cx.stroke();
     }
+    const centres = extrema(f, { radius: 9, depth: 250 }).slice(0, PHONE ? 16 : 32).map(e => ({ ...e, value: e.value / 100 }));
+    const nearCentre = (lat, lon) => centres.some(e => Math.abs(e.lat - lat) < 5 && Math.abs(((e.lon - lon) % 360 + 540) % 360 - 180) * Math.cos(lat * RAD) < 5);   // the H or L label sits there
     cx.font = `600 ${HI ? 15 : 11}px system-ui, sans-serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.lineWidth = HI ? 3.2 : 2.4;
     cx.strokeStyle = 'rgba(8,14,26,0.85)'; cx.fillStyle = '#ffffff';
     for (const { level, lines: ls } of lines) for (const line of ls) for (const s of labelSpots(line, { spacing: 40, minLen: 12 })) {
-      if (Math.abs(s.lat) > 75) continue;
+      if (Math.abs(s.lat) > 75 || nearCentre(s.lat, s.lon)) continue;
       const t = String(Math.round(level / 100)), x = X(s.lon), y = Y(s.lat);
       cx.strokeText(t, x, y); cx.fillText(t, x, y);
     }
-    const centres = extrema(f, { radius: 9, depth: 250 }).slice(0, PHONE ? 16 : 32).map(e => ({ ...e, value: e.value / 100 }));
     return { url: cv.toDataURL(), centres };
   },
   dropWashes() {
