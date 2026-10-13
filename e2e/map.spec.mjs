@@ -76,7 +76,7 @@ test('a first visit offers views to start from, and picking one applies it', asy
   expect(await page.evaluate(() => ['air_mil', 'quakes'].map(id => OW.Layers.on(id)))).toEqual([true, false]);
   await page.reload();
   await page.locator('#enterSilent').click();
-  await expect(page.locator('#splash')).toBeHidden();
+  await expect(page.locator('#splash')).toHaveClass(/out/);   // fading out (its hide timer waits on the test's frozen clock)
   await expect(card).toBeHidden();   // shown once
 });
 
