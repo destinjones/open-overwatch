@@ -182,3 +182,23 @@ export function airportWxLine(w) {
   if (w.qnh != null) parts.push(`QNH ${Math.round(w.qnh)}`);
   return parts.join(' · ');
 }
+
+/**
+ * The weather at airports for cards that re-render: one Open-Meteo request per field (rounded to 0.05°) per `ttl`,
+ * shared by every caller. `json(url)` is the view's fetch. get(ap) → Promise of airportWx's answer (null when it
+ * failed); peek(ap) → that answer, or undefined while nothing has come back yet.
+ */
+export function airportWxCache({ json, ttl = 15 * 60e3, now = () => Date.now() } = {}) {
+  const cache = new Map();   // key -> { t, w, pending }
+  return {
+    get(ap) {
+      const q = airportWxUrl(ap.lat, ap.lon), c = cache.get(q.key);
+      if (c && (c.pending || now() - c.t < ttl)) return c.pending || Promise.resolve(c.w);
+      const pending = Promise.resolve().then(() => json(q.url)).then(airportWx).catch(() => null)
+        .then(w => { cache.set(q.key, { t: now(), w }); return w; });
+      cache.set(q.key, { t: now(), w: c ? c.w : undefined, pending });
+      return pending;
+    },
+    peek(ap) { const c = cache.get(airportWxUrl(ap.lat, ap.lon).key); return c ? c.w : undefined; },
+  };
+}

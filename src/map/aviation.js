@@ -17,7 +17,7 @@ import { classify, kindWords, routeFit, hexCountry } from '../core/actype.js';
 import { flightPhase, phaseWords } from '../core/phase.js';
 import { parseAirports, AirportIndex, makeBoard, findAirport, BOARD, BOARD_SECTIONS, boardRowWords, planesNear, routeWords, ROUTE_CAVEAT } from '../core/airports.js';
 import { parseRunways, RunwayBook, windWords } from '../core/runways.js';
-import { airportWxUrl, airportWx, airportWxLine } from '../core/aloft.js';
+import { airportWxCache, airportWxLine } from '../core/aloft.js';
 
 const FT = 0.3048, KT = 0.514444, FPM = 0.00508, AP_COLOR = '#9fe3ff';
 const CAT_COLOR = { VFR: '#3ee08f', MVFR: '#5fb0ff', IFR: '#ff6b6b', LIFR: '#e070ff' };
@@ -56,14 +56,12 @@ export const Airports = {
   },
 };
 
-const wxCache = new Map();   // key -> { t, w | null, pending }: the weather at a field, 15 minutes
+/** The weather at a field, 15 minutes (core/aloft.js, as the globe's): what is known now; the card re-renders on news. */
+const fieldWx = airportWxCache({ json: url => fetch(url).then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))) });
 function fieldWeather(ap) {
-  const q = airportWxUrl(ap.lat, ap.lon), c = wxCache.get(q.key);
-  if (c && (c.pending || Date.now() - c.t < 15 * 60e3)) return c.w;
-  wxCache.set(q.key, { t: Date.now(), w: c ? c.w : undefined, pending: true });
-  fetch(q.url).then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))).then(j => airportWx(j)).catch(() => null)
-    .then(w => { wxCache.set(q.key, { t: Date.now(), w }); if (Sel.kind === 'airport') Detail.render(); });
-  return c ? c.w : undefined;
+  const had = fieldWx.peek(ap);
+  fieldWx.get(ap).then(w => { if (w !== had && Sel.kind === 'airport' && Sel.obj === ap) Detail.render(); });
+  return fieldWx.peek(ap);
 }
 
 /* ---- the layer: large fields from zoom 4, medium from 7; codes from 7 (large) and 9 */

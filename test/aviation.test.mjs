@@ -488,3 +488,16 @@ test('card words shared by both views: kind, phase, route', async () => {
   assert.equal(routeWords(rt, null).state, ''); assert.equal(routeWords({ airline: { name: 'X' } }, null), null);
   assert.match(ROUTE_CAVEAT, /usual route/);
 });
+test('airport weather cache: one request per field per 15 min, failures are null, shared by callers', async () => {
+  const { airportWxCache } = await import('../src/core/aloft.js');
+  let now = 0, asked = [];
+  const cur = { time: '2026-10-13T15:30', wind_speed_10m: 12, wind_direction_10m: 240, temperature_2m: 14, dew_point_2m: 9, visibility: 24000, cloud_cover_low: 20 };
+  const c = airportWxCache({ json: async url => { asked.push(url); if (url.includes('latitude=0&')) throw new Error('offline'); return { current: cur }; }, now: () => now });
+  const lhr = { lat: 51.4706, lon: -0.4619 };
+  assert.equal(c.peek(lhr), undefined);
+  const [a, b] = await Promise.all([c.get(lhr), c.get({ lat: 51.47, lon: -0.46 })]);
+  assert.equal(a, b); assert.equal(asked.length, 1, 'same 0.05° cell, one request'); assert.equal(a.windKt, 12); assert.equal(c.peek(lhr), a);
+  now += 10 * 60e3; await c.get(lhr); assert.equal(asked.length, 1);
+  now += 6 * 60e3; await c.get(lhr); assert.equal(asked.length, 2, 'after 15 min: asked again');
+  assert.equal(await c.get({ lat: 0, lon: 0 }), null); assert.equal(c.peek({ lat: 0, lon: 0 }), null);
+});

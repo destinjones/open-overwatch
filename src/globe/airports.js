@@ -16,7 +16,7 @@ import { select, flyToObject } from './ui.js';
 import { fetchAsset } from '../core/assets.js';
 import { parseAirports, AirportIndex, makeBoard, BOARD, BOARD_SECTIONS as SECTIONS, boardRowWords, planesNear } from '../core/airports.js';
 import { windWords } from '../core/runways.js';
-import { airportWxUrl, airportWx, airportWxLine } from '../core/aloft.js';
+import { airportWxCache, airportWxLine } from '../core/aloft.js';
 
 const pts = scene.primitives.add(new C.PointPrimitiveCollection());
 const labels = scene.primitives.add(new C.LabelCollection());
@@ -24,13 +24,8 @@ const COLOR = C.Color.fromCssColorString('#9fe3ff');
 const LOOKUPS_PER_BOARD = 8;   // adsbdb look-ups to name where the board's planes come from or go
 
 const CAT_COLOR = { VFR: '#3ee08f', MVFR: '#5fb0ff', IFR: '#ff6b6b', LIFR: '#e070ff' };
-const wxCache = new Map();   // key -> { t, w }: the weather at a field, 15 minutes
-async function fieldWeather(a) {
-  const q = airportWxUrl(a.lat, a.lon), c = wxCache.get(q.key);
-  if (c && Date.now() - c.t < 15 * 60e3) return c.w;
-  const w = airportWx(await getJSON(q.url, { timeout: 15000 }));
-  wxCache.set(q.key, { t: Date.now(), w }); return w;
-}
+const fieldWx = airportWxCache({ json: url => getJSON(url, { timeout: 15000 }) });   // the weather at a field, 15 minutes (core/aloft.js)
+const fieldWeather = a => fieldWx.get(a);
 
 function boardRow(e, ap) {
   const r = e.r, fin = e.status === 'arriving' ? Runways.final(ap, { ...r, lat: r.cur?.lat ?? r.lat, lon: r.cur?.lon ?? r.lon }) : null;

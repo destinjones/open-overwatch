@@ -615,6 +615,7 @@ weather and VFR/IFR category at an airport. Used by globe, map.
 - `aloftUrl`, `parseAloft`, `aloftEffects`, `aloftLines`, `bracket`, `LEVELS`: the cockpit.
 - `isaPressure`, `isaAltitude`, `isaTempC`: the standard atmosphere.
 - `airportWxUrl`, `airportWx`, `airportWxLine`, `flightCategory`, `oktas`, `weatherWords`: airport cards.
+  `airportWxCache`: one request per field per 15 minutes, for cards of either view that re-render.
 
 ### `trail.js`
 

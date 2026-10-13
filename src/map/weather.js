@@ -117,7 +117,12 @@ const WashLayer = L.GridLayer.extend({
     const c = Wx.cur, kind = this.kind; if (!c || !c.a[kind]) return tile;
     const ctx = tile.getContext('2d'), img = ctx.createImageData(256, 256), z = coords.z, x0 = coords.x * 256, y0 = coords.y * 256;
     const lat = new Float64Array(256); for (let y = 0; y < 256; y++) lat[y] = latAt(y0 + y + 0.5, z);   // Mercator: latitude by row, longitude by column
-    paintWash(kind, img.data, 256, 256, (x, y) => momentValue(c, kind, lat[Math.min(255, Math.round(y))], lonAt(x0 + x + 0.5, z)), z >= 7 ? 4 : 2);
+    // cloud and rain are nearly all-or-nothing from one grid cell to the next: plain bilinear shows the cells as squares
+    // under their steep colour ramps, so those two average four samples half a cell apart (a tent blur over one cell)
+    const d = kind === 'cloud' || kind === 'rain' ? c.a[kind].grid.di / 2 : 0;
+    const at = d ? (la, lo) => (momentValue(c, kind, la + d, lo + d) + momentValue(c, kind, la + d, lo - d) + momentValue(c, kind, la - d, lo + d) + momentValue(c, kind, la - d, lo - d)) / 4
+      : (la, lo) => momentValue(c, kind, la, lo);
+    paintWash(kind, img.data, 256, 256, (x, y) => at(lat[Math.min(255, Math.round(y))], lonAt(x0 + x + 0.5, z)), z >= 7 ? 4 : 2);
     ctx.putImageData(img, 0, 0);
     if (kind === 'wave') darts(ctx, c, coords);
     return tile;
@@ -251,7 +256,7 @@ const Bar = {
   },
   sync() {
     this.build(); const on = Wx.any();
-    if (this.el.hidden === on) { this.el.hidden = !on; document.body.classList.toggle('wx-on', on); }
+    if (this.el.hidden === on) { this.el.hidden = !on; document.body.classList.toggle('wx-on', on); if (on && !Wx.h) Wx.t0 = Math.floor(Date.now() / H) * H; }   // opened: "now" is this hour
     if (!on) Wx.play(false);
     this.label(); this.legend(); this.read();
   },
