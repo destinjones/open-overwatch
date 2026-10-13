@@ -227,6 +227,7 @@ test('trail: window, duplicates, jumps', () => {
   assert.equal(t.add({ t: ms + 1000, lat: 50 + 99 * 0.01, lon: 0, alt: 3990 }), false, 'parked/no move');
   t.add({ t: ms + 16000, lat: 10, lon: 10 }); assert.equal(t.length, 1, 'a jump restarts it');
   assert.equal(t.add({ t: NaN, lat: 1, lon: 1 }), false);
+  t.add({ t: ms + 30000, lat: 10.01, lon: 10, alt: 900, h: 950 }); assert.equal(t.pts[1].h, 950); assert.equal(t.pts[0].h, 0, 'h defaults to alt');
 });
 test('thinning keeps turns and climbs, drops straight cruise', () => {
   const pts = [];

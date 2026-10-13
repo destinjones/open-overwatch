@@ -10,6 +10,7 @@ import { Country } from './country.js';
 import { Volcanoes } from './volcanoes.js';
 import { Companies } from './companies.js';
 import { Lighthouses } from './lighthouses.js';
+import { Airports } from './airports.js';
 import { Flight } from './flight.js';
 import { Launches } from './launches.js';
 import { LookUp } from './lookup.js';
@@ -57,6 +58,10 @@ async function find(q) {
   const seqNow = seq;
   const countries = await Country.search(s).catch(() => []); if (seqNow !== seq) return null;
   for (const c of countries) out.push({ kind: 'country', iso: c.iso, label: `🏳 ${c.name}`, sub: 'Country dossier' });
+  // airports by code (LHR, EGLL) or name, once the layer has loaded
+  const code = Airports.index.get(s.toUpperCase());
+  const aps = [code, ...Airports.list.filter(a => a !== code && (a.name.toLowerCase().includes(s) || (s.length >= 3 && a.city.toLowerCase().startsWith(s)))).sort((a, b) => b.size - a.size)].filter(Boolean).slice(0, 4);
+  for (const a of aps) out.push({ kind: 'obj', obj: a, label: `🛫 ${a.name}`, sub: [a.iata || a.icao, a.city, 'arrivals and departures'].filter(Boolean).join(' · ') });
   // whatever else has loaded
   for (const [list, icon, what] of [[Volcanoes.list, '🌋', 'Volcano'], [Companies.list, '🏢', 'Employer'], [Lighthouses.list, '🗼', 'Lighthouse']]) {
     for (const o of list.filter(o => o.name && o.name.toLowerCase().includes(s)).slice(0, 4)) out.push({ kind: 'obj', obj: o, label: `${icon} ${o.name}`, sub: [what, o.country].filter(Boolean).join(' · ') });

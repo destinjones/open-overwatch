@@ -5,7 +5,8 @@
 
 const RAD = Math.PI / 180, M_PER_DEG = 111320;
 
-/** A trail for one aircraft. Fixes are { t (ms), lat, lon, alt (m), ground }. */
+/** A trail for one aircraft. Fixes are { t (ms), lat, lon, alt (m, barometric: the colour), h (m, where to draw it;
+ *  defaults to alt), ground }. */
 export class Trail {
   constructor({ minutes = 30, maxPoints = 600, tolM = 25 } = {}) { this.minutes = minutes; this.maxPoints = maxPoints; this.tolM = tolM; this.pts = []; this.version = 0; }
   /** Add a fix; returns true if the trail changed. Out-of-order or duplicate fixes are ignored; a jump faster than
@@ -19,7 +20,8 @@ export class Trail {
       if (m < 1 && Math.abs((f.alt || 0) - (last.alt || 0)) < 1) { last.t = f.t; return false; }   // parked: just extend
       if (m / dt > 1000) this.pts = [];
     }
-    this.pts.push({ t: f.t, lat: f.lat, lon: f.lon, alt: Number.isFinite(f.alt) ? f.alt : 0, ground: !!f.ground });
+    const alt = Number.isFinite(f.alt) ? f.alt : 0;
+    this.pts.push({ t: f.t, lat: f.lat, lon: f.lon, alt, h: Number.isFinite(f.h) ? f.h : alt, ground: !!f.ground });
     this.trim(f.t);
     if (this.pts.length > this.maxPoints) this.pts = thin(this.pts, this.tolM * 2);
     this.version++;
