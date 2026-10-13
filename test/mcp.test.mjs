@@ -145,7 +145,7 @@ test('mcp: initialize agrees a protocol version and says what the server offers'
 
 test('mcp: every tool is listed read-only with a schema; show_on_globe names the globe panel', async () => {
   const { server } = serve(), { tools } = (await rpc(server, 'tools/list')).result;
-  assert.equal(tools.length, 33);
+  assert.equal(tools.length, 35);
   for (const t of tools) {
     assert.match(t.name, /^[a-z_]+$/); assert.ok(t.description.length > 60, t.name); assert.equal(t.inputSchema.type, 'object');
     assert.equal(t.annotations.readOnlyHint, true); assert.equal(t.annotations.openWorldHint, true);
@@ -362,7 +362,7 @@ test('mcp: the stdio server answers a client and exits when stdin closes', async
   assert.equal(code, 0, err);
   const lines = out.trim().split('\n').map(l => JSON.parse(l)), byId = id => lines.find(l => l.id === id);   // answers may come in any order
   assert.equal(lines.length, 3, out);
-  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 33); assert.equal(byId(null).error.code, -32700);
+  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 35); assert.equal(byId(null).error.code, -32700);
   assert.match(err, /open-overwatch-mcp \d+\.\d+\.\d+ - links to https:\/\/destinjones\.github\.io\/open-overwatch\//);
 });
 
@@ -580,7 +580,7 @@ test('mcp http: one JSON-RPC message per POST, answered as JSON; notifications g
   assert.equal(init.status, 200); assert.match(init.headers.get('content-type'), /application\/json/); assert.equal(init.headers.get('mcp-protocol-version'), '2025-06-18');
   assert.equal((await init.json()).result.serverInfo.name, 'open-overwatch');
   const list = await (await h(post({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, { 'mcp-protocol-version': '2025-06-18' }))).json();
-  assert.equal(list.result.tools.length, 33);
+  assert.equal(list.result.tools.length, 35);
   const q = await (await h(post({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'earthquakes', arguments: {} } }))).json();
   assert.equal(q.result.structuredContent.total, 3);
   const n = await h(post({ jsonrpc: '2.0', method: 'notifications/initialized' })); assert.equal(n.status, 202); assert.equal(await n.text(), '');
@@ -645,7 +645,7 @@ test('mcp http: node mcp/server.mjs --http serves Streamable HTTP until stopped'
     let err = '';
     const url = await new Promise((res, rej) => { p.stderr.on('data', b => { err += b; const m = err.match(/Streamable HTTP at (http:\/\/127\.0\.0\.1:\d+\/mcp)/); if (m) res(m[1]); }); p.on('close', c => rej(new Error('exited ' + c + ': ' + err))); });
     const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
-    assert.equal(r.status, 200); assert.equal((await r.json()).result.tools.length, 33);
+    assert.equal(r.status, 200); assert.equal((await r.json()).result.tools.length, 35);
   } finally { p.kill(); }
   const bad = spawn(process.execPath, [new URL('mcp/server.mjs', root).pathname.replace(/^\/([A-Za-z]:)/, '$1'), '--http', '0', '--host', '0.0.0.0'], { stdio: ['ignore', 'pipe', 'pipe'] });
   let e2 = ''; bad.stderr.on('data', b => { e2 += b; });
@@ -955,4 +955,30 @@ test('mcp: airport weather decodes the METAR and TAF, says the category and the 
   const lhr = ok(await call(server, 'airport_weather', { airport: 'Heathrow' })); assert.match(lhr.content[0].text, /sent no METAR/); assert.match(lhr.content[0].text, /No TAF/);
   assert.equal((await call(server, 'airport_weather', { airport: 'Nowhere Intergalactic' })).isError, true);
   assert.equal((await call(server, 'airport_weather', {})).isError, true);
+});
+
+// ---- sea conditions and air quality (src/core/ocean.js; fixtures captured 2026-10-13) --------------------------------
+test('mcp: sea conditions near a place: the nearest buoys with their readings, the nearest tide gauge, honest times', async () => {
+  const fx = f => readFileSync(new URL('fixtures/ocean/' + f, import.meta.url), 'utf8');
+  const routes = [
+    ['https://www.ndbc.noaa.gov/data/latest_obs/latest_obs.txt', fx('ndbc-latest_obs.txt')],
+    ['https://www.ndbc.noaa.gov/activestations.xml', fx('ndbc-activestations.xml')],
+    ['https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json', fx('coops-stations.json')],
+    [/datagetter\?.*station=9414290.*product=water_level/, fx('coops-latest.json')],
+    [/datagetter\?.*station=9414290.*interval=hilo/, fx('coops-hilo.json')],
+    [/air-quality-api\.open-meteo\.com\/v1\/air-quality\?latitude=40\.7&longitude=-74/, JSON.parse(fx('openmeteo-aq.json'))[0]],
+    ...ROUTES];
+  const net = pretendInternet(routes), server = createOverwatchServer({ fetchImpl: net.fetchImpl, now: () => Date.parse('2026-10-13T20:00:00Z') });
+  const r = ok(await call(server, 'sea_conditions', { lat: 36.8, lon: -122.4, radius_km: 120 })), t = r.content[0].text, d = r.structuredContent;
+  assert.match(t, /^2 buoys and stations reporting within 120 km of/);
+  assert.equal(d.stations[0].id, '46042'); assert.equal(d.stations[0].water_temp_c, 17); assert.equal(d.stations[0].wind_ms, 7);
+  assert.match(t, /MONTEREY - 27NM WNW of Monterey, CA \(46042, moored buoy, [\d.]+ km away\): Wind: 7\.0 m\/s \(14 kn\) from the NW \(320°\)/);
+  assert.match(t, /Tide gauge San Francisco, CA \(9414290, [\d.]+ km away\): Water level: 2\.1 m .*Next high tide: 2026-10-13 20:14 UTC, 1\.8 m/);
+  assert.equal(d.tide_gauge.next_high.time, '2026-10-13T20:14:00.000Z'); assert.equal(d.tide_gauge.rising, true);
+  assert.deepEqual(hashOf(d.url).add, ['buoys', 'tides', 'sst']);
+  const far = ok(await call(server, 'sea_conditions', { lat: -60, lon: 60, radius_km: 100 }));
+  assert.match(far.content[0].text, /^No NOAA NDBC buoy or station has reported within 100 km/); assert.equal(far.structuredContent.tide_gauge, null);
+  const a = ok(await call(server, 'air_quality', { lat: 40.7, lon: -74 })), ad = a.structuredContent;
+  assert.match(a.content[0].text, /^Air quality at .*: moderate \(US AQI 86\), from the CAMS model for this hour \(not a measurement\)\./);
+  assert.equal(ad.pm2_5_ugm3, 21.9); assert.equal(ad.measured, false); assert.deepEqual(hashOf(ad.url).add, ['airq', 'smoke']);
 });

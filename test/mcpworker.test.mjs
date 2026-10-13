@@ -92,7 +92,7 @@ test('mcp worker: CORS for claude.ai and ChatGPT pages (and listed origins); oth
 test('mcp worker: the free plan leaves the heavy tools out; paid lists all; TOOLS_OFF and TOOLS_ON adjust', async () => {
   const { worker } = make(), names = async env => (await (await worker.fetch(post(LIST), { MCP_TOKEN: TOKEN, ...env })).json()).result.tools.map(t => t.name);
   const free = await names({}), paid = await names({ PLAN: 'paid' });
-  assert.equal(paid.length, 33); assert.equal(free.length, 33 - HEAVY.length);
+  assert.equal(paid.length, 35); assert.equal(free.length, 35 - HEAVY.length);
   for (const h of HEAVY) { assert.ok(paid.includes(h), h); assert.ok(!free.includes(h), h); }
   for (const keep of ['earthquakes', 'weather', 'weather_details', 'aircraft_lookup', 'where_in_space', 'show_on_globe']) assert.ok(free.includes(keep), keep);
   const tuned = await names({ TOOLS_OFF: 'aircraft_lookup, bike_share', TOOLS_ON: 'satellite_passes' });

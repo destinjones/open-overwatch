@@ -750,3 +750,26 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   navigation pad and lets it scroll sideways.
 - **Headless shots**: globe_shot blocks USGS, so the renders patch `fetch` for `earthquake.usgs.gov` to the captured
   fixture (`test/fixtures/earthnow/usgs_4.5_week_2026-10-13.json`); the other sections are live.
+
+## Oceans and air (ocean.js, seaair.js, map/ocean.js, core/ocean.js, mcp/ocean.mjs) — 2026-10-13 (branch grow3-ocean)
+- **CORS, checked 2026-10-13**: NDBC (`www.ndbc.noaa.gov`) sends none, so buoys and DART go through the local helper
+  (serve.js / serve.py / NEEDS_RELAY) and the public relay (worker TTL + PATHS + PUBLIC_RELAY_HOSTS; **needs a redeploy**
+  before the website can read it). NOAA's old ERDDAP copy of the buoys (`cwwcNDBCMet` on coastwatch/upwell) is gone (404).
+  CO-OPS, GIBS (tiles, colour maps, DescribeDomains) and Open-Meteo send `*`. OpenAQ v3 answers 401 without a key.
+- **Reading a picture back**: GIBS colour maps (v1.3 XML) give each colour a value range; `colormapValue` looks the
+  pixel up exactly (an exact RGB index: the PNGs are paletted, no blending at 1:1). Draw the tile at native size, read one
+  pixel, `imageSmoothingEnabled = false`. Open ends are `-INF` and `+INF` (the `+` tripped the first parser). The SST layer
+  read against 40 NDBC buoys' thermometers: median −0.5 °C (MUR is yesterday's pre-dawn temperature), −2.1 to +1.8.
+- **Dates**: DescribeDomains (`1.0.0/<layer>/default/<set>/all/<from>--<to>.xml`) names the newest day, so tile URLs
+  use it (cacheable) and the legend says which day. OMPS's newest day is the current UTC day, partly covered.
+- **DART**: in standard mode a buoy sends its 15-minute values every 6 hours (all the files ended at 18:00 UTC when read
+  at 20:00), so "late" starts at 7 hours. Event mode = any 1-minute or 15-second row in the last 6 hours. The water
+  column (~2,700-5,700 m) moves ~1 m with the tide: the card says the 6-hour change is mostly tide.
+- **CO-OPS** answers errors with HTTP 200 and `{ error: { message } }`; "The supported Datum values are: MSL, NAVD"
+  is parsed and retried with the first. Non-tidal river gauges (e.g. Carrollton, LA) may have no recent data at all.
+- **Air quality grid**: on round numbers (0.25° to 30°) so the 30-minute cache hits as the view moves; at most 48 points
+  per request (Open-Meteo counts each location as a call). The 2D map pauses feeds in a hidden tab, so a hidden preview
+  never fetches: drive `runFeed` by hand when testing.
+- **Globe clicks**: `hooks.seaAt(lon, lat)` in ui.js runs when a click lands on the Earth but in no country and a picture
+  layer is on; it opens a "value here" card. Land clicks still open the country.
+
