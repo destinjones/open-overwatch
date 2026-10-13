@@ -115,10 +115,14 @@ export function createEclipses({ scene, nav, clock, story }) {
     if (watch) { const first = e.type === 'occultation' ? e.jd - 1 / 24 : e.contacts.P1; clock.setJd(first - 10 / 1440); clock.setRate((e.type === 'occultation' ? 120 : 600) / 86400); }
     for (const b of [byKey.earth, byKey.moon]) b?.update?.(clock.jd);
     e.body.update(clock.jd);
+    // where to look from (unit vector, focus -> camera): a solar eclipse from the sunward side, a little off the shadow
+    // axis, so the dark spot sits on the lit globe; a lunar eclipse from Earth's side of the Moon, so its Earth-facing
+    // (sunlit, now shadowed) face shows inside the shadow's rings; an occultation from the side, Earth and Moon both in view
     const s = eph.sun(e.jd), su = new THREE.Vector3(s.x, s.y, s.z).normalize(), up = new THREE.Vector3(0, 0, 1);
-    // look across the Sun line (from the side and a little above), so the shadow and the alignment read at once
-    const side = new THREE.Vector3().crossVectors(su, up).normalize(), dir = side.multiplyScalar(-1).addScaledVector(up, 0.35).addScaledVector(su, 0.25).normalize();
-    const d = e.type === 'solar' ? 0.0042 : e.type === 'lunar' ? 0.0036 : 0.0011;
+    const side = new THREE.Vector3().crossVectors(su, up).normalize();
+    const dir = e.type === 'occultation' ? side.clone().multiplyScalar(-1).addScaledVector(up, 0.3).normalize()
+      : su.clone().multiplyScalar(e.type === 'solar' ? 1 : 1).addScaledVector(side, 0.45).addScaledVector(up, 0.25).normalize();
+    const d = e.type === 'solar' ? 0.00032 : e.type === 'lunar' ? 0.00026 : 0.0042;   // 48,000 km; 39,000 km; 630,000 km
     nav.focusOn(e.body, d, 2.4, true, dir);
   }
 
