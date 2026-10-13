@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseUsgs, usgsUrl, usgsFeedFor, largest, quakeTitle } from '../src/core/quakes.js';
 import { parseEonet, eonetUrl, newestFirst } from '../src/core/eonet.js';
-import { parseNhcCurrent, parseGdacsCyclones, stormsFromEonet, mergeNhc, mergeNoaa, mergeGdacs, loadCyclones, category, catName, compass16, gdacsTcUrl, NOAA_LAYERS, NHC_CURRENT, activeLine, shortName } from '../src/core/cyclones.js';
+import { parseNhcCurrent, parseGdacsCyclones, stormsFromEonet, mergeNhc, mergeNoaa, mergeGdacs, loadCyclones, category, catName, compass16, gdacsTcUrl, NOAA_LAYERS, NHC_CURRENT, activeLine, shortName, stormSources } from '../src/core/cyclones.js';
 import { parseGdacsEvents, loadGdacsEvents, gdacsEventsUrl, utc } from '../src/core/gdacs.js';
 import { parseOvation, ovationAt, paintEquirect, paintMercator, auroraColor, latestKp } from '../src/core/aurora.js';
 import { parseLandings, nearestCable, okColor } from '../src/core/cables.js';
@@ -107,7 +107,9 @@ test('cyclones: EONET, NHC, NOAA and GDACS merge into one storm each', async () 
   assert.equal(erin.src, 'NASA EONET'); assert.equal(erin.nhc.title, 'Hurricane Erin'); assert.equal(erin.kt, 105);   // NOAA's forecast "now" wins
   assert.equal(erin.fc.src, 'NOAA NHC'); assert.equal(erin.fc.coherent, true); assert.equal(erin.fc.cone.length, 1);
   assert.equal(erin.lat, 21.6);
-  assert.equal(bualoi.src, 'GDACS · JTWC'); assert.equal(bualoi.kt, Math.round(185 / 1.852)); assert.equal(bualoi.fc.track.length, 1);
+  assert.equal(stormSources(erin), 'NASA EONET + NOAA NHC');   // each source once
+  assert.equal(stormSources(list.find(s => /Bualoi/.test(s.title))), 'GDACS (JTWC)');
+  assert.equal(bualoi.src, 'GDACS (JTWC)'); assert.equal(bualoi.kt, Math.round(185 / 1.852)); assert.equal(bualoi.fc.track.length, 1);
   assert.equal(bualoi.fc.points.length, 1); assert.equal(bualoi.fc.points[0].label, '11/10 06:00');
   assert.ok(bualoi.links.some(l => l.text === 'GDACS report'));
   assert.equal(asked.filter(u => u.includes('getgeometry')).length, 1);   // Erin's GDACS entry is skipped: NOAA forecasts it

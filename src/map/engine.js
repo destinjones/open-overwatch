@@ -1,10 +1,21 @@
 // The canvas renderer for moving objects and point sets, the layer registry + panel, and the feed scheduler.
 import { $, C, FONT_MONO, Log, Store, debounce, destination, esc, fmt, hexA, rad } from './util.js';
 import { map } from './mapview.js';
+import { shipAt, shipKind, SHIP_KINDS, underway } from '../core/ais.js';
 
 /* ============================================================ dynamic objects + static point sets, all drawn on one canvas */
 export const Dyn = { air: new Map(), sats: [], ships: new Map(), balloons: new Map() };
 export const Sel = { kind: null, obj: null, id: null };
+const shipPos = { lat: 0, lon: 0, cog: null };
+/** Moving things drawn where they are now (ships, transit): Movers.define(id, { layerId, kind, minZoom, at(o, now, out) →
+ *  false to skip, else out = { lat, lon, hdg }, glyph(ctx, x, y, o, z, sel), tip(o), label(o) }), then Movers.items(id)
+ *  is a Map the feed fills. The canvas redraws a few times a second while any are shown. */
+export const Movers = {
+  sets: {}, order: [],
+  define(id, def) { this.sets[id] = { minZoom: 0, items: new Map(), ...def, id }; this.order.push(id); return this.sets[id].items; },
+  items(id) { return this.sets[id].items; },
+  shown() { for (const id of this.order) { const s = this.sets[id]; if (s.items.size && Layers.on(s.layerId)) return true; } return false; },
+};
 export const Points = { // static point layers: {id -> {layerId, minZoom, items:[{lat,lon,r,color,alpha,shape,kind,obj,tip}]}}
   sets: {}, order: [],
   define(id, layerId, { minZoom = 0 } = {}) { this.sets[id] = { id, layerId, minZoom, items: [] }; this.order.push(id); },
@@ -59,6 +70,21 @@ export const Glyphs = L.Layer.extend({
         }
       }
     }
+    // ---- movers (ships, transit): placed at `now` by their own motion model
+    const at = { lat: 0, lon: 0, hdg: null };
+    for (const id of Movers.order) {
+      const ms = Movers.sets[id]; if (!ms.items.size || !Layers.on(ms.layerId) || z < ms.minZoom) continue;
+      for (const o of ms.items.values()) {
+        if (ms.at(o, now, at) === false) continue;
+        for (const p of toPt(at.lat, at.lon)) {
+          const sel = Sel.kind === ms.kind && Sel.id === o.id;
+          ms.glyph(ctx, p.x, p.y, o, z, sel, at.hdg);
+          if (sel) ring(p.x, p.y, 10);
+          const lb = ms.label && ms.label(o, z, sel); if (lb) label(p.x, p.y, lb, sel ? C.accent : 'rgba(230,240,248,.9)');
+          hits.push({ x: p.x, y: p.y, r: 5, kind: ms.kind, obj: o, tip: ms.tip(o) });
+        }
+      }
+    }
     // ---- satellites
     if (Layers.on('sats')) {
       const showNames = Dyn.sats.length <= 80 || z >= 5;
@@ -82,10 +108,13 @@ export const Glyphs = L.Layer.extend({
       if (z >= 5) {
         for (const s of Dyn.ships.values()) {
           if (!shipOn(s)) continue;
-          for (const p of toPt(s.lat, s.lon)) {
+          const at = shipAt(s, (now - s.ts) / 1000, shipPos);   // along its course between reports (core/ais.js, as on the globe)
+          const col = s.type != null ? SHIP_KINDS[shipKind(s.type)][1] : C.ship;
+          for (const p of toPt(at.lat, at.lon)) {
             const sel = Sel.kind === 'ship' && Sel.id === s.id;
-            const hd = (s.heading != null && s.heading < 360) ? s.heading : (s.cog || 0);
-            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(rad(hd)); ctx.fillStyle = C.ship; ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(3.5, -1); ctx.lineTo(3.5, 5); ctx.lineTo(-3.5, 5); ctx.lineTo(-3.5, -1); ctx.closePath(); ctx.fill(); ctx.restore();
+            const hd = (s.heading != null && s.heading < 360) ? s.heading : (at.cog ?? s.cog ?? 0);
+            if (s.sog != null && !underway(s)) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.x, p.y, 2.8, 0, Math.PI * 2); ctx.fill(); }
+            else { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(rad(hd)); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(3.5, -1); ctx.lineTo(3.5, 5); ctx.lineTo(-3.5, 5); ctx.lineTo(-3.5, -1); ctx.closePath(); ctx.fill(); ctx.restore(); }
             if (sel) ring(p.x, p.y, 10);
             if (z >= 9 || sel) label(p.x, p.y, s.name || String(s.id), sel ? C.accent : hexA(C.ship, .9));
             hits.push({ x: p.x, y: p.y, r: 5, kind: 'ship', obj: s, tip: `${s.name || 'MMSI ' + s.id}${s.sog != null ? ' · ' + s.sog + ' kt' : ''}` });
@@ -152,8 +181,9 @@ export function drawPlane(ctx, x, y, track, color, s, emph) {
 /* ============================================================ layer registry + UI */
 export const Layers = {
   defs: [], byId: {}, state: Store.get('layers', {}),
-  opts: Object.assign({ air_labels: true, sat_groups: ['stations', 'visual'], sat_tracks: true, air_src: 'adsb.lol', cam_src: ['tfl', 'nyc', 'caltrans', 'singapore', 'finland'], news_q: 'military OR missile OR airstrike OR protest OR explosion', quake_feed: '2.5_day', ships_src: ['fi'] }, Store.get('opts', {})),
-  migrate() { if (!this.opts.cam_v2) { this.opts.cam_src = [...new Set([...(this.opts.cam_src || []), 'singapore', 'finland'])]; this.opts.cam_v2 = true; Store.set('opts', this.opts); } },
+  opts: Object.assign({ air_labels: true, sat_groups: ['stations', 'visual'], sat_tracks: true, air_src: 'adsb.lol', cam_src: ['tfl', 'nyc', 'caltrans', 'sg', 'finland', 'deldot', 'iowa', 'missouri', 'norway', 'bc', 'calgary', 'hk'], news_q: 'military OR missile OR airstrike OR protest OR explosion', quake_feed: '2.5_day', ships_src: ['fi'] }, Store.get('opts', {})),
+  migrate() { if (!this.opts.cam_v2) { this.opts.cam_src = [...new Set([...(this.opts.cam_src || []), 'singapore', 'finland'])]; this.opts.cam_v2 = true; Store.set('opts', this.opts); }
+    if (!this.opts.cam_v3) { this.opts.cam_src = [...new Set([...(this.opts.cam_src || []).map(x => x === 'singapore' ? 'sg' : x), 'deldot', 'iowa', 'missouri', 'norway', 'bc', 'calgary', 'hk'])]; this.opts.cam_v3 = true; Store.set('opts', this.opts); } },   // v3: the globe's networks (core/cameras.js)
   add(def) { if (!this._migrated) { this._migrated = true; this.migrate(); } this.defs.push(def); this.byId[def.id] = def; def.on = (def.id in this.state) ? !!this.state[def.id] : !!def.default; if (def.guard && def.on && !this.acked(def)) { def.on = false; this.state[def.id] = false; } return def; },
   /** A layer with a `guard` (a warning to read first) can only be switched on after the reader has accepted it, once per browser session. */
   _acked: new Set(),   // this page load, even where sessionStorage is blocked (accepting would otherwise re-open the warning for ever)
@@ -181,7 +211,7 @@ export const UI = {
       document.addEventListener('keydown', key, true); document.body.appendChild(root); root.querySelector('[data-no]').focus();   // the safe choice has the focus
     });
   },
-  groups: ['Air', 'Space', 'Sea & sky', 'Ground', 'Weather & space weather', 'Infrastructure'],
+  groups: ['Air', 'Space', 'Sea & sky', 'Ground', 'Cities', 'Weather & space weather', 'Infrastructure'],
   build() {
     const root = $('#layers'); root.innerHTML = '';
     for (const g of this.groups) {
@@ -224,7 +254,7 @@ export const UI = {
 export const glyphs = new Glyphs().addTo(map);
 export let drawQueued = false;
 export function requestDraw() { if (drawQueued) return; drawQueued = true; requestAnimationFrame(() => { drawQueued = false; glyphs.draw(); }); }
-setInterval(() => { if (!document.hidden && (Dyn.air.size || Dyn.sats.length)) requestDraw(); }, 500);
+setInterval(() => { if (!document.hidden && (Dyn.air.size || Dyn.sats.length || Dyn.ships.size || Movers.shown())) requestDraw(); }, 500);
 export const Feeds = { list: [], paused: false };
 export function feed(layerDef, { interval, fetch, errorInterval, viewDependent = false, minZoom = 0, startDelay = 0 }) {
   // errors retry after errorInterval (default 30 s-2 min), doubling per consecutive failure up to the normal interval

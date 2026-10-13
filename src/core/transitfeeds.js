@@ -131,8 +131,8 @@ export function stopSource(s) { if (!s.running) return false; s.running = false;
  * of hopping). hooks: add(v) when a vehicle appears, drop(v) when it goes. A vehicle: { kind: 'transit', id, src, info
  * (its latest fix: line, dest, mode...), fixes, gap, delay (ms behind live), lat, lon, hdg, at }.
  */
-export function createFleet(hooks = {}) {
-  const vehicles = new Map(), tmp = { lat: 0, lon: 0, hdg: null };
+export function createFleet(hooks = {}, vehicles = new Map()) {   // vehicles: the Map to keep them in (a view's own set)
+  const tmp = { lat: 0, lon: 0, hdg: null };
   const drop = v => { vehicles.delete(v.id); hooks.drop?.(v); };
   return {
     vehicles,

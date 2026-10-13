@@ -17,7 +17,7 @@ import { Sats, SatModels } from './satellites.js';
 import { Flight } from './flight.js';
 import { Launches } from './launches.js';
 import { Eclipses } from './eclipses.js';
-import { encodeView, decodeView, decodeExtras } from '../core/viewlink.js';
+import { encodeView, decodeView, decodeExtras, mapLayersFor } from '../core/viewlink.js';
 
 const r = (v, n) => +v.toFixed(n);
 
@@ -31,6 +31,12 @@ export const Share = {
       time: Time.live ? null : { jd: Time.jd(), rate: Time.rate }, country: state.selected && state.selected.kind === 'country' ? state.selected.iso : null, flight: Flight.shareId, ops: hooks.opsState?.(), drawing });
     this.drawn = drawing ? (/(^|&)d=/.test(hash) ? drawing.length : -1) : 0;
     return location.origin + location.pathname + '#' + hash;
+  },
+  /** The 2D map on this place: its counterparts of the layers on here switched on, the drawing carried (core/viewlink.js). */
+  mapLink() {
+    const c = camera.positionCartographic;
+    return 'open-overwatch.html#' + encodeView({ lon: C.Math.toDegrees(c.longitude), lat: C.Math.toDegrees(c.latitude), height: c.height, heading: 0, pitch: -90,
+      add: mapLayersFor(LAYERS.filter(l => l.on).map(l => l.id)), drawing: hooks.drawState?.() || null });
   },
   /** An <iframe> for someone else's page: this view, in embed mode. */
   embedCode() { const u = this.link().replace('#', '#embed=1&'); return `<iframe src="${u.replace(/"/g, '&quot;')}" width="100%" height="480" style="border:0;border-radius:12px" loading="lazy" allow="fullscreen" title="Open Overwatch: the Earth, live"></iframe>`; },
@@ -82,3 +88,6 @@ export const Share = {
     select(o); if (SatModels.classify(o)) SatModels.follow(o); else flyToObject(o);
   },
 };
+// the "Classic map" link opens the 2D map where the globe is (a middle-click or a new tab gets the same address)
+const classic = document.getElementById('btnClassic');
+if (classic) for (const ev of ['click', 'auxclick', 'contextmenu']) classic.addEventListener(ev, () => { classic.href = Share.mapLink(); });

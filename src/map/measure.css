@@ -1,0 +1,39 @@
+/* Draw and measure on the 2D map (src/map/measure.js): the card, the labels on the map, the ruler button. */
+#map.ms-armed, #map.ms-armed .leaflet-interactive { cursor: crosshair !important; }
+.ms-ctl a { display: flex !important; align-items: center; justify-content: center; }
+.ms-card { position: absolute; z-index: 800; top: 14px; right: 14px; width: 300px; max-height: calc(100% - 28px); overflow: auto; background: var(--panel, rgba(8, 12, 18, .92));
+  border: 1px solid var(--line-strong, #2a3a48); border-radius: 6px; padding: 10px 12px; font: 12.5px/1.4 var(--font-body, system-ui, sans-serif); color: var(--ink, #e6eef5);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .45); backdrop-filter: blur(6px); }
+.ms-card[hidden] { display: none; }
+.ms-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ms-top b { letter-spacing: .04em; text-transform: uppercase; font-size: 11px; color: #ffd45c; }
+.ms-x { background: none; border: 0; color: var(--ink-dim, #9fb0bf); cursor: pointer; font-size: 13px; padding: 2px 4px; }
+.ms-tools, .ms-acts { display: flex; gap: 4px; flex-wrap: wrap; margin: 6px 0; }
+.ms-tools button, .ms-acts button, .ms-country button { flex: 1; min-width: 0; background: var(--panel-2, #111a24); color: var(--ink, #e6eef5); border: 1px solid var(--line-strong, #2a3a48);
+  border-radius: 3px; padding: 5px 6px; font: inherit; font-size: 12px; cursor: pointer; }
+.ms-tools button.on { border-color: #ffd45c; color: #ffd45c; box-shadow: inset 0 0 0 1px #ffd45c55; }
+.ms-acts button:disabled { opacity: .4; cursor: default; }
+.ms-hint { color: var(--ink-dim, #9fb0bf); font-size: 11.5px; }
+.ms-road { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--ink-dim, #9fb0bf); margin-top: 4px; }
+.ms-read { margin: 8px 0 4px; padding: 7px 8px; background: rgba(255, 212, 92, .06); border-left: 2px solid #ffd45c; border-radius: 2px; }
+.ms-k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: #ffd45c; }
+.ms-n { font: 600 14px/1.35 var(--font-mono, ui-monospace, monospace); }
+.ms-dim { color: var(--ink-dim, #9fb0bf); font-size: 11.5px; }
+.ms-list { list-style: none; margin: 6px 0; padding: 0; max-height: 180px; overflow: auto; }
+.ms-list li { display: flex; gap: 2px; align-items: stretch; border-bottom: 1px solid var(--line, #1c2834); }
+.ms-list li.on { background: rgba(255, 212, 92, .07); }
+.ms-list button { background: none; border: 0; color: var(--ink, #e6eef5); font: inherit; cursor: pointer; padding: 4px 5px; text-align: left; }
+.ms-list button:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-list small { display: block; color: var(--ink-dim, #9fb0bf); font: 11px var(--font-mono, ui-monospace, monospace); }
+.ms-country { display: flex; gap: 4px; margin: 6px 0; }
+.ms-country input { flex: 2; min-width: 0; background: var(--panel-2, #111a24); color: var(--ink, #e6eef5); border: 1px solid var(--line-strong, #2a3a48); border-radius: 3px; padding: 5px 7px; font: inherit; }
+.ms-tag { background: rgba(8, 12, 18, .82); color: #fff; font: 600 11.5px/1.3 var(--font-mono, ui-monospace, monospace); padding: 3px 7px; border-radius: 3px; white-space: nowrap;
+  transform: translate(-50%, -50%); width: max-content !important; height: auto !important; border: 1px solid rgba(255, 212, 92, .35); }
+.ms-tag b { color: #ffd45c; display: block; }
+.ms-tag.ms-up { transform: translate(-50%, calc(-100% - 12px)); }
+.ms-tag.ms-leg { font-weight: 500; font-size: 10.5px; opacity: .9; }
+.ms-head svg { transform-origin: 11px 2px; display: block; }
+.ms-pin, .ms-head { background: none; border: 0; }
+@media (max-width: 900px) {
+  .ms-card { top: auto; bottom: 8px; left: 8px; right: 8px; width: auto; max-height: 46%; }
+}

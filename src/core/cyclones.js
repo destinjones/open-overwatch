@@ -109,7 +109,7 @@ export function mergeNoaa(list, forecasts) {
 export function mergeGdacs(list, gd) {
   for (const g of gd) {
     const f = g.fc, at = g.lat != null ? { lat: g.lat, lon: g.lon } : null, kt = g.kmh ? Math.round(g.kmh / 1.852) : null;
-    const s = attach(list, g.name, at, () => ({ kind: 'storm', id: 'gdacs-' + (f.id ?? g.eventid), title: g.nice, src: `GDACS · ${f.source || 'agency'}`,
+    const s = attach(list, g.name, at, () => ({ kind: 'storm', id: 'gdacs-' + (f.id ?? g.eventid), title: g.nice, src: `GDACS (${f.source || 'agency'})`,
       lat: at ? at.lat : 0, lon: at ? at.lon : 0, kt, track: [], links: [] }));
     s.fc = { src: `GDACS (${f.source || 'agency'})`, gdacs: { alert: g.alert, peak: g.peak, kmh: g.kmh, countries: g.countries }, cone: f.cone, track: f.forecast.map(x => x.path),
       past: f.past.map(x => ({ kind: x.kind, paths: [x.path] })), points: f.points.filter(q => q.forecast).map(q => ({ lat: q.lat, lon: q.lon, label: q.label.replace(' UTC', ''), kt: null })),
@@ -159,3 +159,5 @@ export async function loadCyclones({ json, nhc = false, kept = new Map(), now = 
 export const activeLine = (list, n = 4) => list.length ? `Active: ${list.slice(0, n).map(s => s.title).join(', ')}${list.length > n ? ' +' + (list.length - n) : ''}` : '';
 /** A storm's name without its class, for a label: "Hurricane Erin" → "Erin". */
 export const shortName = title => String(title || '').replace(/^(Tropical Storm|Tropical Depression|Hurricane|Typhoon|Super Typhoon|Cyclone|Tropical Cyclone|Subtropical Storm|Post-tropical Cyclone|Potential Tropical Cyclone)\s+/i, '');
+/** Who a storm's numbers come from, each once: "NASA EONET + NOAA NHC + GDACS (JTWC)". */
+export const stormSources = s => [...new Set([s.src, s.nhc ? 'NOAA NHC' : '', s.fc ? s.fc.src : ''].filter(Boolean))].join(' + ');

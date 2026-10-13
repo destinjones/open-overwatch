@@ -8,7 +8,7 @@ import { viewer, scene } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { hooks, state } from './state.js';
 import { WW } from '../core/hazards.js';
-import { loadCyclones, category, catName, KIND_KT, NHC_CURRENT } from '../core/cyclones.js';
+import { loadCyclones, category, catName, KIND_KT, NHC_CURRENT, stormSources } from '../core/cyclones.js';
 
 const pts = scene.primitives.add(new C.PointPrimitiveCollection());
 const lines = scene.primitives.add(new C.PolylineCollection());
@@ -65,7 +65,7 @@ function card(s, col) {
   const links = s.links.concat(n.url ? [{ text: 'NHC public advisory', url: n.url }] : []).filter(l => /^https:\/\//.test(l.url || ''));
   const fcRows = f ? f.points.filter(q => q.tau == null || q.tau > 0).slice(0, 6).map(q => `<dt>${esc(q.tau != null ? `+${q.tau} h` : 'Forecast')}</dt><dd>${esc(q.label)}${q.kt ? ` · ${q.kt} kt (${esc(catName(q.kt))})` : ''}</dd>`).join('') : '';
   const ww = f && f.warnings.length ? [...new Set(f.warnings.map(w => WW[w.code][0]))].join(', ') : '';
-  const srcs = [s.src, s.nhc && s.src !== 'NOAA NHC' ? 'NOAA NHC' : '', f && f.src !== s.src ? f.src : ''].filter(Boolean).join(' + ');
+  const srcs = stormSources(s);
   return `<div class="k" style="--c:${col}">Tropical cyclone · ${esc(srcs)}</div><h2>${esc(n.title || s.title)}</h2>
     <dl>${row('Strength', catName(s.kt))}${row('Max winds', s.kt ? `${s.kt} kt · ${fmt(s.kt * 1.852)} km/h` : '—')}${row('Pressure', n.pressure ? n.pressure + ' mb' : f && f.points[0] && f.points[0].mb ? f.points[0].mb + ' mb' : null)}${row('Moving', n.movement)}
     ${row('Position', `${Math.abs(s.lat).toFixed(1)}°${s.lat >= 0 ? 'N' : 'S'} ${Math.abs(s.lon).toFixed(1)}°${s.lon >= 0 ? 'E' : 'W'}`)}${row('Latest fix', s.date ? new Date(s.date).toISOString().slice(0, 16).replace('T', ' ') + ' UTC' : null)}
