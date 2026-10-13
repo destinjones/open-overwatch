@@ -10,6 +10,7 @@ import { state, hooks } from './state.js';
 import { Air, AirModels, airShown, airClass } from './aircraft.js';
 import { AcInfo } from './acinfo.js';
 import { CockpitWx } from './cockpitwx.js';
+import { TowerView } from './towerview.js';
 import { select, flyToObject } from './ui.js';
 import { fetchAsset } from '../core/assets.js';
 import { parseAirports, AirportIndex, makeBoard, etaText, BOARD } from '../core/airports.js';
@@ -92,10 +93,11 @@ export const Airports = {
       if (!L.air.on && !L.mil.on) { box.innerHTML = '<p class="note">Switch on the aircraft layers to see who is coming and going.</p>'; return; }
       const b = this.board(a), n = b.arriving.length + b.departing.length + b.ground.length + b.recent.length;
       const next = b.arriving.find(e => e.etaS != null);
-      box.innerHTML = (next ? `<div class="acts"><button class="chipbtn" data-next="${esc(next.r.hex)}" style="color:#7dffa6">Follow the next arrival · ${esc(next.r.flight || next.r.hex)}</button></div>` : '')
+      box.innerHTML = (next ? `<div class="acts"><button class="chipbtn" data-next="${esc(next.r.hex)}" style="color:#7dffa6">Follow the next arrival · ${esc(next.r.flight || next.r.hex)}</button><button class="chipbtn" data-tower="${esc(next.r.hex)}" style="color:#9fe3ff" title="Watch it come in from the tower">From the tower</button></div>` : '')
         + (n ? SECTIONS.map(([k, name, col]) => b[k].length ? `<h3 style="color:${col}">${name} · ${b[k].length}</h3>${b[k].map(e => boardRow(e, a)).join('')}` : '').join('')
         : `<p class="note">No aircraft near ${esc(a.iata || a.icao)} right now that the feeds can see.</p>`)
         + `<p class="note">From the live aircraft on the globe: arriving means low and descending towards ${esc(a.iata || a.icao)}, departing means climbing away from it (within ${BOARD.radiusKm} km); ✓ the route on file agrees. Not a timetable. Airport list: ${esc(this.credit)}.</p>`;
+      const tb = box.querySelector('[data-tower]'); if (tb) tb.onclick = () => { const r = Air.map.get(tb.dataset.tower); if (r) TowerView.start(a, r); };
       const nb = box.querySelector('[data-next]'); if (nb) nb.onclick = () => { const r = Air.map.get(nb.dataset.next); if (r) { select(r); AirModels.follow(r); } };
       box.querySelectorAll('[data-hex]').forEach(el => { el.onclick = () => { const r = Air.map.get(el.dataset.hex); if (r) select(r); }; });
       return b;

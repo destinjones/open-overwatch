@@ -211,6 +211,7 @@ export const AirModels = {
     }
     if (this.followed) want.add(this.followed);
     if (state.selected && state.selected.kind === 'air') want.add(state.selected);
+    if (hooks.towerAir) want.add(hooks.towerAir);   // towerview.js
     for (const r of [...this.pool.values()]) if (!want.has(r)) this.drop(r);
     for (const r of want) if (!r.ent && Air.map.has(r.hex)) this.ensure(r);
   },

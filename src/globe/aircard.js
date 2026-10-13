@@ -10,6 +10,7 @@ import { AcInfo } from './acinfo.js';
 import { Trails } from './trails.js';
 import { Airports } from './airports.js';
 import { LandWatch } from './landwatch.js';
+import { TowerView } from './towerview.js';
 import { altRampCss, trailGeoJSON } from '../core/trail.js';
 import { etaText } from '../core/airports.js';
 import { flightPhase } from '../core/phase.js';
@@ -58,6 +59,13 @@ function trailHtml(o) {
     + `<select data-tr="min" aria-label="Trail length">${[10, 30, 60].map(m => `<option value="${m}" ${m === Trails.minutes ? 'selected' : ''}>${m} min</option>`).join('')}</select></span></div>`;
 }
 
+function actsHtml(o) {
+  const tw = TowerView.towerFor(o, Airports.index), on = TowerView.on && TowerView.r === o;
+  const b = [o.ground ? '' : `<button class="chipbtn" data-lw="1" title="A notification when it is on final and when it lands (keep this tab open)">${LandWatch.has(o) ? 'Stop watching' : 'Tell me when it lands'}</button>`,
+    tw || on ? `<button class="chipbtn" data-tw="1" style="color:#9fe3ff" title="Watch it from the airport's tower, with a lens that keeps it in frame">${on ? 'Leave the tower' : `Watch from the ${esc(tw.iata || tw.icao)} tower`}</button>` : ''].join('');
+  return b ? `<div class="acts">${b}</div>` : '';
+}
+
 function box(card) {
   let b = card.querySelector('#acMore');
   if (!b) { b = document.createElement('div'); b.id = 'acMore'; b.innerHTML = '<div class="ac-static"></div><div class="ac-live"></div>'; card.insertBefore(b, card.querySelector('.acts') || null); }
@@ -69,8 +77,9 @@ function fillStatic(o, card) {
 function fillLive(o, card) {
   const live = box(card).querySelector('.ac-live');
   live.innerHTML = phaseHtml(o) + routeHtml(o) + trailHtml(o)
-    + (o.ground ? '' : `<div class="acts"><button class="chipbtn" data-lw="1" title="A notification when it is on final and when it lands (keep this tab open)">${LandWatch.has(o) ? 'Stop watching' : 'Tell me when it lands'}</button></div>`);
+    + actsHtml(o);
   live.querySelectorAll('[data-ap]').forEach(b => { b.onclick = () => hooks.openAirport?.(b.dataset.ap, o.info && o.info.route); });
+  const tw = live.querySelector('[data-tw]'); if (tw) tw.onclick = () => { if (TowerView.on && TowerView.r === o) TowerView.stop(); else TowerView.start(TowerView.towerFor(o, Airports.index), o); fillLive(o, card); };
   const lw = live.querySelector('[data-lw]'); if (lw) lw.onclick = () => LandWatch.toggle(o).then(() => fillLive(o, card));
   const pin = live.querySelector('[data-tr="pin"]'); if (pin) pin.onclick = () => { Trails.pin(o); fillLive(o, card); };
   const geo = live.querySelector('[data-tr="geo"]');
