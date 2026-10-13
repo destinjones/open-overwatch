@@ -381,3 +381,38 @@ test('board: landed and departed between two fixes', () => {
   const b = makeBoard(LHR, [{ hex: 'z', ...from(LHR, 0, 1), ground: true, gs: 0, ts: now - 60e3, was: w }], { now });
   assert.equal(b.recent.length, 1); assert.equal(b.recent[0].status, 'landed'); assert.equal(b.ground.length, 0, 'not listed twice');
 });
+
+// ------------------------------------------------------------------------------------------------ runways
+import { parseRunways, windOn, windTable, linedUp, finalFor, runwayInUse } from '../src/core/runways.js';
+// Heathrow's two runways (09L/27R north, 09R/27L south), thresholds as OurAirports gives them
+const RW = parseRunways({ runways: [
+  ['EGLL', '09L', '27R', 51.4775, -0.4850, 51.4777, -0.4334, 12799, 'ASP'],
+  ['EGLL', '09R', '27L', 51.4647, -0.4822, 51.4650, -0.4340, 12008, 'ASP'],
+  ['EGLL', 'H1', 'H1', 51.47, -0.46, 51.47, -0.46, 50, 'CON'],   // a helipad: dropped
+  ['XXXX', '01', '19', 'a', 0, 1, 1, 1, ''],                     // junk: dropped
+] }).get('EGLL');
+test('runways: parsing and headings', () => {
+  assert.equal(RW.length, 2); const [n09, n27] = RW[0].ends;
+  assert.equal(n09.ident, '09L'); assert.equal(n27.ident, '27R'); near(n09.hdg, 89.8, 0.5); near(n27.hdg, 269.8, 0.5);
+  assert.equal(n09.rw, RW[0]); assert.equal(RW[0].lengthFt, 12799);
+});
+test('runways: wind components and the table', () => {
+  const w = windOn(270, 300, 20); near(w.head, 20 * Math.cos(30 * Math.PI / 180), 1e-9); near(w.cross, 10, 1e-9, 'from the right');
+  near(windOn(90, 300, 20).head, -17.32, 0.01, 'a tailwind landing east');
+  const t = windTable(RW, 250, 15); assert.match(t[0].end.ident, /^27/); assert.ok(t[0].head > 13); assert.ok(t[t.length - 1].head < -13);
+});
+test('runways: lined up, the final, and the runway in use', () => {
+  const [, r27R] = RW[0].ends, [, r27L] = RW[1].ends;
+  const onFinal = { lat: r27L.lat + 0.0005, lon: r27L.lon + 0.12, alt: 600, track: 270, ground: false };   // ~8 km east of 27L
+  const l = linedUp(r27L, onFinal); assert.ok(l && l.km > 7 && l.km < 9 && l.off < 200, JSON.stringify(l));
+  assert.equal(linedUp(r27R, onFinal), null, 'the other runway is 1.4 km north');
+  assert.equal(finalFor(RW, onFinal).end.ident, '27L');
+  assert.equal(linedUp(r27L, { ...onFinal, track: 200 }), null, 'not tracking the runway');
+  assert.equal(linedUp(r27L, { ...onFinal, lon: r27L.lon - 0.05 }), null, 'past the threshold');
+  assert.equal(linedUp(r27L, { ...onFinal, ground: true }), null);
+  assert.equal(linedUp(r27L, { ...onFinal, lon: r27L.lon + 0.4 }), null, 'too far out');
+  const inUse = runwayInUse(RW, [onFinal, { ...onFinal, lon: onFinal.lon + 0.05 }, { lat: 51.6, lon: 0, track: 90 }], { dir: 90, speed: 20 });
+  assert.deepEqual([inUse.end.ident, inUse.how, inUse.n], ['27L', 'arrivals', 2], 'arrivals beat the wind');
+  const byWind = runwayInUse(RW, [], { dir: 90, speed: 12 }); assert.match(byWind.end.ident, /^09/); assert.equal(byWind.how, 'wind');
+  assert.equal(runwayInUse(RW, [], { dir: 90, speed: 3 }), null, 'light wind says little');
+});
