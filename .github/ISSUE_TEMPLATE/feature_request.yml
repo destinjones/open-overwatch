@@ -1,0 +1,47 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
+name: Feature idea
+description: Something Open Overwatch could show, answer or do.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are welcome, big or small. ROADMAP.md has what's already planned; if yours is there, say so and add what you'd want from it.
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What you'd see or be able to do, and who it's for.
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: Where it would live
+      description: Your best guess is fine; CONTRIBUTING.md and docs/ARCHITECTURE.md describe each part.
+      multiple: true
+      options:
+        - 3D globe (src/globe/)
+        - Solar System (src/solar/)
+        - 2D map (src/map/)
+        - Tonight (src/sky/)
+        - Shared core, maths or a feed parser (src/core/)
+        - MCP server / Claude extension (mcp/)
+        - The installable app, accessibility, touch (src/app/)
+        - Site build, data or docs
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: The data it needs
+      description: Which open source would feed it, if any. A new source? The data source template asks the three questions that decide whether the website can use it.
+  - type: dropdown
+    id: help
+    attributes:
+      label: Would you like to build it?
+      options:
+        - "Yes, I'd like to send a pull request"
+        - Maybe, with some pointers
+        - No, just suggesting

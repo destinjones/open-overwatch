@@ -1,0 +1,9 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
+blank_issues_enabled: true
+contact_links:
+  - name: Security problem (private)
+    url: https://github.com/destinjones/open-overwatch/security/advisories/new
+    about: Please report vulnerabilities privately, not as an issue. See SECURITY.md.
+  - name: How do I…? The user guide
+    url: https://destinjones.github.io/open-overwatch/guide.html
+    about: Every layer, panel, key and link parameter, explained.
