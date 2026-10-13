@@ -1,0 +1,498 @@
+# The shared core (`src/core/`)
+
+Every module in `src/core/` is plain JavaScript with **no DOM and no three.js or Cesium imports**, so the same code
+runs in the browser views, in Node's tests and in the MCP server. This page lists each module: what it is for, who uses
+it, and its main exports. The source is the authority (each module opens with a comment that says more); this is the
+map. `test/docs.test.mjs` checks that every module has a section here and that every export named here exists.
+
+Conventions (see [ARCHITECTURE.md](ARCHITECTURE.md)): the space frame is heliocentric ecliptic J2000 in AU; time is a
+Julian Date (`jd`) or, for things on Earth, milliseconds since 1970 (`ms`); angles are radians inside the orbital maths
+and degrees for anything geographic; vector functions write into an `out` object (`{ x, y, z }` or a `THREE.Vector3`)
+instead of allocating.
+
+"Used by" names the parts that import a module: **globe** (`src/globe/`), **solar** (`src/solar/`), **map** (the 2D
+map, `src/map/`), **sky** (`tonight.html`, `src/sky/`), **mcp** (`mcp/`), **core** (other core modules). Every module
+is also used by its tests in `test/`.
+
+## Contents
+
+- [Time, units and frames](#time-units-and-frames): `time.js`, `units.js`, `rotation.js`
+- [Orbits and the Solar System](#orbits-and-the-solar-system): `kepler.js`, `planets.js`, `moons.js`, `smallbodies.js`, `accuracy.js`
+- [Satellites](#satellites): `tle.js`, `passes.js`, `observer.js`, `socrates.js`, `explain.js`
+- [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `orientation.js`
+- [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`
+- [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`
+- [Weather](#weather): `gfs.js`, `grib2.js`
+- [Hazards and imagery](#hazards-and-imagery): `hazards.js`
+- [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `gtfsrt.js`, `bikes.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
+- [Links, words and the interface](#links-words-and-the-interface): `viewlink.js`, `scene.js`, `voicecmd.js`, `format.js`, `ics.js`, `radio.js`
+- [Network and devices](#network-and-devices): `assets.js`, `relay.js`, `gpu.js`
+
+## Time, units and frames
+
+### `time.js`
+
+Julian Dates and the simulation clock. `jd` is TT ≈ UTC: the 69 s difference is far below anything drawn. Used by
+globe, solar, sky, mcp, core.
+
+- `jdFromMs`, `msFromJd`, `jdNow`: conversions (`jd = ms / 86400000 + 2440587.5`).
+- `J2000`, `UNIX_EPOCH_JD`, `julianCenturies`: the epoch constants and centuries since J2000.
+- `formatUtc`: "2026-10-02 04:19 UTC".
+- `SimClock`: the simulation clock. `rate` is simulated days per real second; at `REAL_TIME` and in step with the wall
+  clock it is "live" and follows `Date.now()` exactly. Clamped to a `min`/`max` Julian Date (the Solar System view uses
+  1800 to 2200).
+
+### `units.js`
+
+Constants and the one rotation between the equatorial and ecliptic frames. Used by globe, solar, mcp, core.
+
+- `AU_KM`, `KM_AU`, `LY_AU`, `PC_AU`, `C_KM_S`, `C_AU_DAY`, `DEG`, `OBLIQUITY_J2000`.
+- `eqToEcl`, `eclToEq`: equatorial (ICRF/J2000) ↔ ecliptic J2000.
+- `radecToEcl`: the unit vector toward a right ascension and declination (degrees), in the ecliptic frame.
+- `GALACTIC`, `SUN_TO_GALACTIC_CENTRE_LY`: galactic axes in the ecliptic frame, and the Sun's distance from the centre.
+- `setXYZ`: write x, y, z into an `out` object.
+
+### `rotation.js`
+
+Which way each body faces: the IAU WGCCRE rotation models (main terms; periodic terms left out). Body-fixed axes have x
+on the prime meridian (texture longitude 0) and y toward the north pole, matching three.js sphere UVs. Used by solar.
+
+- `IAU_ROTATION`: pole right ascension and declination, prime meridian angle and their rates, per body.
+- `primeMeridian`: the prime meridian angle W at a Julian Date.
+- `bodyAxes`: the body-fixed axes as unit vectors in the ecliptic frame.
+
+## Orbits and the Solar System
+
+### `kepler.js`
+
+Two-body orbits. Elements are `{ a (AU), e, i, node, peri (radians), M0 (radians at epoch), epoch (jd) }`. Used by
+solar, core.
+
+- `solveKepler`: the eccentric anomaly by Newton's method, started at π for e ≥ 0.8 so it converges up to e → 1.
+- `positionAt`: position at a Julian Date. `orbitPoint`: position at an eccentric anomaly.
+- `orbitPath`: the whole ellipse as one flat typed array of points, evenly spaced in eccentric anomaly.
+- `meanMotion`, `periodDays`, `wrap2pi`, `TWO_PI`, `GAUSS_DEG_PER_DAY`.
+
+### `planets.js`
+
+The eight planets from JPL's "approximate positions" elements (E. M. Standish, valid 1800 to 2050) and the Moon from
+Paul Schlyter's elements with the main perturbations. Heliocentric (the Moon geocentric) ecliptic J2000 in AU. Used by
+globe, solar, core.
+
+- `planetPosition`, `planetElements`, `planetLongitude`: a planet's position, elements and heliocentric longitude.
+- `earthPosition`: Earth's **centre**, not the Earth-Moon barycentre (about 4,700 km away), using `MOON_MASS_FRACTION`.
+- `moonGeocentric`: the Moon (Schlyter's elements plus the largest longitude, latitude and distance terms).
+- `planetSpread`: the smallest arc holding all eight planets seen from the Sun ("Next planetary alignment").
+- `PLANET_KEYS`, `VALID_JD`, `PHYSICAL` (mean radius and flattening).
+
+Tested against JPL Horizons: planets within arcminutes, the Moon within about 0.3°.
+
+### `moons.js`
+
+The 20 major moons from Mars to Pluto: planet-centred orbits fitted to JPL Horizons over 2026 (`data/solar/moons.json`,
+made by `brand/tools/make_moons.py`), with linear rates for the mean longitude, node and periapsis. Good to about a
+degree for a few years around 2026. Used by solar, core.
+
+- `moonOffset`: a moon's planet-centred position at a Julian Date (AU, ecliptic J2000).
+- `moonPeriod`: its sidereal period in days.
+
+### `smallbodies.js`
+
+The packed asteroid format written by `brand/tools/make_small_bodies.py`: 15 bytes per object, column-major (Float32 a,
+Uint16 e, i, node, peri, M0, Uint8 class), all propagated to one common epoch. The Solar System view solves Kepler's
+equation for each point in a shader; this module decodes the same way on the CPU. Used by solar.
+
+- `viewSmallBodies`: typed-array views over one packed file (no copies). `RECORD_BYTES`, `DEFAULT_EPOCH`.
+- `decodeElements`: one record's elements, decoded exactly as the shader decodes them.
+- `cometElements`: a comet row from `small_bodies.json` as elements. `packSmallBodies`: elements back into the format.
+- `CLASSES`: Main belt, Near-Earth asteroids, Jupiter Trojans, Centaurs, Kuiper belt & beyond, Mars-crossers, Other.
+
+### `accuracy.js`
+
+Errors against JPL Horizons, measured with the same code the views run. Used by solar (the "Under the hood" panel loads
+the reference file and measures live in the browser) and by the tests (the thresholds).
+
+- `measureAgainstHorizons`: `{ name, what, deg, km }` for the planets, Earth's centre, the Moon and more.
+
+## Satellites
+
+### `tle.js`
+
+Satellite element sets for every view: where to get them, how long to keep them, how to read them. On the website the
+site's own copy (`data/tle/<group>.txt`, refreshed every 6 hours by the build) is read first, so visitors never ask
+CelesTrak. Used by globe, map, sky, mcp.
+
+- `createTleSource`: a source that tries the copy and CelesTrak in the right order, with a 2-hour cache (`CACHE_MS`).
+- `parseTle`: three-line or bare two-line text → `[{ id, name, l1, l2 }]`. `looksLikeTle` checks text first.
+- `tleEpochJd`: a TLE's epoch as a Julian Date.
+- `celestrakUrl`, `mirrorUrl`, `TLE_MIRROR`.
+
+### `passes.js`
+
+Satellite passes over an observer: rise, peak and set, look angles, and whether you could see it (the satellite in
+sunlight while your sky is dark). The caller supplies the satellite's Earth-fixed position at any time (SGP4) and the
+Sun's direction, so the module needs no orbit library. Used by globe, mcp, core.
+
+- `findPasses`: passes in a time window, each `{ rise, peak, set, maxEl, azRise, azPeak, azSet, visible }`.
+- `lookAngles`: elevation and azimuth of an Earth-fixed point from an observer.
+- `sunlit`: is a point in sunlight (cylindrical shadow)? `compass`: a bearing as a compass point.
+
+### `observer.js`
+
+An observer on the WGS84 ellipsoid in Earth-fixed coordinates, and the Sun's direction in the same frame, without
+Cesium: what `passes.js` needs on a page with no 3D globe. Used by globe, sky, mcp.
+
+- `observer`: `{ pos, east, north, up }` for a latitude, longitude and height.
+- `sunEcef`: the unit vector toward the Sun, Earth-fixed, at a time.
+
+### `socrates.js`
+
+Close approaches between objects in orbit from CelesTrak SOCRATES (conjunctions within 5 km over the next 7 days). The
+site build keeps the closest upcoming ones in `data/socrates.json`, which the globe's "Near misses" reads directly; this
+module parses the raw CSV for the tests.
+
+- `parseSocrates`: CSV → `{ a, b, tca, rangeKm, speedKmS, maxProb }`.
+- `upcoming`: the ones still ahead, closest first. `csvFields`: one RFC 4180 CSV line.
+
+### `explain.js`
+
+"What am I looking at?": one friendly sentence for a satellite card. Used by globe.
+
+- `explainSat`: a sentence from a satellite's name, layer and orbit (height, period).
+- `oceanAt`: which ocean or sea a point is over, roughly ("the ISS is over the Pacific").
+
+## The night sky
+
+### `sky.js`
+
+Your sky tonight in plain words: where the Sun, Moon and planets are for someone on the ground, the Moon's phase, which
+planets are worth stepping outside for, the aurora chance, passes as sentences, Starlink trains and meetings in the
+sky. Accuracy is "where to look" (a degree or so). Used by globe, sky, solar, mcp, core.
+
+- `bodyRaDec`, `altAz`, `gmst`, `sunAlt`: positions in the sky.
+- `darkWindow`: the dark part of the next 24 hours (Sun below −6°). `riseSet`: rise and set times for the Sun, the Moon
+  and twilight.
+- `moonPhase`, `nextFullMoon` (with its traditional name and whether it is a supermoon).
+- `planetsTonight`: the bright planets during the dark hours, with a sentence each.
+- `auroraAt`: the aurora chance overhead and on the horizon from NOAA's OVATION grid.
+- `describePass`: a pass as a sentence. `starlinkTrains`: recent Starlink launches still flying low as a train.
+- `meetings`: the Moon within 5° of a bright planet, two planets within 3°, over the next days.
+- `craftAt`: a spacecraft from `data/solar/spacecraft.json` at a Julian Date. `separation`: the angle between two
+  directions.
+
+### `skyfacts.js`
+
+What you are looking at in look-up mode, in a sentence or two: distance and light travel time. Used by globe.
+
+- `bodyFact`: a planet or the Moon at a Julian Date. `starFact`: a bright star ("the light reaching your eyes left
+  Vega in 2001"), with distances in `STAR_LY`.
+
+### `meteors.js`
+
+The major annual meteor showers (IMO working list) and how many you could really see: the radiant's height and the
+Moon cut the rate. Used by globe, mcp.
+
+- `SHOWERS`: name, peak, activity, radiant, ZHR, speed and parent body.
+- `showersFor`: active or coming showers for a place and night, with an honest rate, sorted by peak.
+- `activeShowers`: showers active at a moment (for marking radiants in look-up mode).
+
+### `clouds.js`
+
+"Will it be clear tonight?" from an Open-Meteo hourly forecast. Used by globe.
+
+- `hoursOf`: the forecast's hourly rows. `cloudAt`: the cloud cover at a moment.
+- `night`: the dark hours in words, with the clear spells. `sky`: a word for a cloud cover.
+
+### `eclipse.js`
+
+Solar eclipse geometry: the Moon's shadow cones, where they meet the WGS84 ellipsoid, the shadow's outline, and how
+much of the Sun is covered from a place. One Earth-centred frame in km (the globe turns Horizons' vectors Earth-fixed
+with Cesium). Used by globe, sky.
+
+- `cones`, `radiiAt`: the umbra and penumbra.
+- `shadowCenter`: where the shadow axis meets the Earth, and whether it is total or annular there.
+- `outline`: a shadow's outline on the ground. `rayEllipsoid`: a ray meeting the ellipsoid.
+- `seenFrom`: what an observer sees: the Sun's and Moon's sizes, separation and covered fraction (`overlapFraction`).
+- `interp`: interpolation in the per-minute Horizons table. `R_SUN`, `WGS84`.
+
+### `orientation.js`
+
+A phone's orientation (W3C DeviceOrientation) to where the back camera looks and which way is up on the screen, in
+east-north-up components: look-up mode. Used by globe.
+
+- `deviceVectors`: alpha, beta, gamma and the screen angle → view direction and screen-up.
+- `alphaFromCompass`: iOS's relative alpha plus `webkitCompassHeading` → an absolute alpha.
+- `azEl`: azimuth and elevation of a direction. `guide`: "turn right 32°, up 11°" toward a target.
+
+## Geometry on the Earth
+
+### `geo.js`
+
+Spherical-Earth geodesy for things that move (aircraft dead reckoning, ship tracks). Used by globe, mcp, core.
+
+- `haversine`: great-circle distance in metres. `destination`: the point reached along a bearing.
+- `deadReckon`: where a moving object is some seconds after its last fix. `deadReckonArc`: the same through a turn,
+  for an aircraft that was turning between its last two fixes.
+- `courseAxis`: the unit vector along a course, which Cesium uses to point an icon. `EARTH_RADIUS_M`.
+
+### `measure.js`
+
+Draw and measure on the WGS84 ellipsoid. Distances by Vincenty's formulae (within a millimetre of GeographicLib), with a
+bisection near the antipode where Vincenty's iteration fails; areas on the authalic sphere after splitting each edge
+every 20 km. Used by globe, core.
+
+- `inverse`: distance and bearings between two points. `direct`: where a path on a bearing ends. `bisect`: the
+  near-antipodal case.
+- `pathLength`, `densify`, `midpoint`, `centre`, `selfCrossing`: paths and rings.
+- `polygonArea`, `multiPolygonArea`: areas and perimeters (`AUTHALIC_R`, `EARTH_AREA`).
+- `groundProfile`: a path's length over the hills, with the climb and descent.
+- `lengthText`, `areaText`, `bearingText` and their spoken forms `lengthWords`, `areaWords`, `bearingWords`; metric or
+  imperial.
+- `toGeoJSON`: a drawing as GeoJSON (RFC 7946).
+- `encodeDrawing`, `decodeDrawing`: the drawing in a share link (`&d=`, see [LINK_FORMAT.md](LINK_FORMAT.md)).
+- `choosePair`: which two places "from A to B" means, from two lists of candidates.
+- `WGS84`, `MAX_POINTS` (512).
+
+### `borders.js`
+
+Which country is at a point: plain geometry on the simplified borders in `data/borders.json`. Used by globe, sky.
+
+- `prepare`: add the bounding boxes the lookups use (once, after loading).
+- `countryAt`: the border record at a point, or null at sea. `inCountry`: is a point inside one country?
+- `mainBox`: the biggest part's box, so a far island doesn't drag a fly-to off the mainland. `inRing`, `boxOf`.
+
+### `mgrs.js`
+
+Military Grid Reference System references for the tactical HUD: UTM by the Krüger series with the Norway and Svalbard
+exceptions. Null outside 80°S to 84°N (where MGRS uses the polar UPS grid). Used by globe.
+
+- `toMgrs`: "18S UJ 23487 06483" at 1, 10 or 100 m precision. `toUtm`, `utmZone`.
+
+### `route.js`
+
+Routes for Directions: OSRM steps as plain-English instructions, and a point along a polyline for the "fly it" camera.
+Used by globe.
+
+- `instruction`: one OSRM step as "Turn left onto Strand". `distanceText`, `durationText`.
+- `measure`: a polyline with cumulative distances. `pointAt`: the point at a distance along it.
+- `bearing`, `haversine`, `compass`.
+
+### `campose.js`
+
+Where a public traffic camera looks, as a best guess, and what it sees: a calibrated pose first, else the feed's own
+words ("West", "Zoom north"), else the road it stands on. Used by globe.
+
+- `estimatePose`: the pose guess for a camera. `bearingFromText`: a compass bearing from a feed's words.
+- `alongRoad`, `roadBearings`: headings from nearby OpenStreetMap roads. `angleDiff`.
+- `enuDir`, `axes`, `cornerRays`, `footprint`: the camera's view geometry and the patch of ground it sees.
+- `PRESETS`: a typical mount (height, tilt, field of view) per camera network.
+
+## Launches and people in space
+
+### `launches.js`
+
+Rocket launches from Launch Library 2, one mapping for the site build's copy (`data/launches.json`) and the live API.
+Used by globe, sky, mcp.
+
+- `fromLL2`: one launch (any response mode) → `{ id, name, mission, orbit, rocket, provider, net, windowStart,
+  windowEnd, precision, status, … }`.
+- `when`: how sure the time is, in words. `countdown`: "T-2 d 04:10:22".
+- `upcoming`: upcoming first; a launch stays listed for 2 hours after its time.
+
+### `ascent.js`
+
+A reconstructed rocket ascent from what a listing says (the pad and the target orbit). Not telemetry: a generic
+two-stage climb along the launch azimuth that reaches the target inclination. Used by globe.
+
+- `ascentProfile`: a profile for a launch. `sample`: where the rocket is t seconds after lift-off. `eventAt`: the latest
+  event ("Max Q (approx.)") by then; `EVENTS`, `T_ORBIT`.
+- `target`: inclination and height for an orbit name. `azimuth`: the launch azimuth for an inclination. `travel`: a
+  point along a great circle.
+
+### `crew.js`
+
+Who is in space right now, from Launch Library 2's astronauts. Which station each person is on isn't in the list, so it
+is inferred (China's crews: Tiangong; others: the ISS). Used by globe, mcp.
+
+- `fromLL2Astronaut`: one astronaut → `{ name, agency, countries, flag, days, since, human, wiki }`.
+- `whoIsUp`: people grouped by station. `crewSentence`: "10 people are in space right now: …". `durationDays`.
+
+## Weather
+
+### `gfs.js`
+
+NOAA's GFS model on AWS (keyless, CORS, byte ranges): which run to read, its files, the fields the globe draws, how a
+moment between two forecast hours blends them, and the weather timeline's moments. Used by globe, core.
+
+- `gfsCycles`, `cycleAt`, `gfsFile`: runs and files. `GFS_BUCKET`, `FIELDS`, `PARAM`.
+- `bracket`: the two forecast hours around a moment and the blend weight.
+- `timeline`: the observed frames then the forecast moments. `relTime`: "-2 h 30 min", "now", "+3 h".
+- `windFrom`: u and v → speed and the direction it blows from. `compass`: a bearing in words.
+
+### `grib2.js`
+
+GRIB2, just enough for GFS on its regular grid (simple packing, and complex packing with spatial differencing, as NCEP
+writes it), plus NOAA's `.idx` inventories so a browser fetches only the fields it wants. Matched to eccodes to 9e-7.
+Used by globe.
+
+- `decodeGrib2`: every message in a buffer → its parameter, forecast hour, grid and a `Float32Array` of values.
+  `sampleGrid`: a value at a point, bilinear, wrapping in longitude.
+- `parseIdx`: an inventory → byte offsets. `idxRanges`: byte ranges for wanted fields, neighbours merged.
+
+## Hazards and imagery
+
+### `hazards.js`
+
+Tropical cyclone forecasts, wildfires and recent satellite pictures, parsed. Used by globe.
+
+- `nhcForecasts`: NOAA NHC's map service → cones, tracks, watches and warnings, wind fields; `coherent` only when they
+  all come from the same advisory (`stormKey`, `WW`).
+- `gdacsForecast`: GDACS cones and tracks for every other basin.
+- `firePerimeters`: NIFC perimeters. `parseFires`, `fireTilesFor`, `fireTileDeg`: VIIRS hot spots from GIBS vector tiles.
+- `parseCmrCsv`, `imageryDates`, `pickPair`: Landsat and Sentinel-2 picture dates and the first before/after pair;
+  `IMAGERY`, `gibsTemplate` for the tiles.
+- `rings`, `paths`, `csvLine`: GeoJSON and CSV helpers.
+
+## Things that move
+
+### `flight.js`
+
+What someone types to find a plane, turned into what the feeds know: "BA 123" on a ticket is "BAW123" on the
+transponder. Also a callsign, an ICAO hex address or a registration. Used by globe.
+
+- `parseFlightQuery`: a query → `{ callsigns, hex, reg, label }`, or null. `matchesFlight`: does a feed record match?
+- `normCallsign`: upper case, no spaces, no leading zeros. `AIRLINES`: IATA → ICAO for common airlines.
+
+### `ais.js`
+
+Ships from AIS: Fintraffic Digitraffic's positions and ship details, AIS codes in words, and where a ship is between
+reports. Used by globe, mcp.
+
+- `parseAisLocations`, `parseAisVessels`: the feed's answers; "not available" codes become null.
+- `shipAt`: a ship's position now, along its course and through the turn it reports. `underway`.
+- `shipKind`, `SHIP_KINDS`, `shipTypeName`, `NAV_STATUS`, `flagOf`, `rotDegPerSec`, `etaParts`, `etaTime`: codes in
+  words (an AIS ETA has no year).
+
+### `transit.js`
+
+Live transit: parsers for MBTA, Entur and HSL, a minimal MQTT 3.1.1 codec for HSL's WebSocket broker, the GTFS-RT
+agencies, and the motion model that turns a fix every few seconds into steady movement. Used by globe.
+
+- `parseMbta`, `parseEntur` (with `enturQuery`), `parseHfp`, `fromGtfsRt`: fixes from each source. `mqtt`: the codec.
+- `addFix`, `sample`, `ease`, `approach`, `lagMeter`: playback a little behind live, between real reports.
+- `inArea`: inside a circle or box.
+
+### `gtfsrt.js`
+
+GTFS Realtime vehicle positions, read with the protobuf reader from `mvt.js`. Used by globe, core.
+
+- `parseVehiclePositions`: a feed → vehicles. `encodeVehiclePositions`: writes one (for tests).
+- `GTFS_STATUS`, `GTFS_OCCUPANCY`: codes in words.
+
+### `bikes.js`
+
+Bike share: the CityBikes directory (about 800 systems) and a system's stations. Used by globe, mcp.
+
+- `parseNetworks`, `parseStations`: the API's answers. `networksNear`: systems near a point.
+- `stationState`: offline, empty, low, full or ok. `cbTime`: CityBikes' unusual timestamps.
+
+### `mvt.js`
+
+Mapbox Vector Tiles: a small decoder for the layers you ask for, protocol buffers by hand. Used by globe, core.
+
+- `decodeTile`: named layers → features with geometry in tile units. `geometry`: the drawing commands.
+- `Pbf`: the protobuf reader (also used by `gtfsrt.js`). `tileAt`, `unproject`: Web Mercator tiles.
+
+### `roadtiles.js`
+
+Roads from vector tiles (OpenFreeMap's OpenMapTiles schema) as ways for the traffic graph: each line clipped to its
+tile and joined to its neighbour across the edge; junctions where lines share a vertex. Used by globe.
+
+- `prepareTile`: one tile, ready to join. `joinTiles`: tiles → `{ ways, signals }`. `clip`, `nodeKey`.
+
+### `traffic.js`
+
+Simulated cars on real roads. No open feed says where individual cars are, so the cars are a simulation; where a city
+publishes measured speeds and counts (NYC DOT, Fintraffic) they set the cars' speed and number. Used by globe, core.
+
+- `buildGraph`: ways → a road graph with signals and the street grid's main bearing. `densify`: points along long
+  segments so cars follow the ground.
+- `Sim`: the simulation. `follow`: car following (a simplified IDM). `nextEdge`, `along`, `laneOffset`, `green`
+  (`CYCLE`, `STOP_BACK`): driving, lanes and lights.
+- `busyness`, `localTime`, `expected`: how busy roads are by type and local hour, or from a measured count.
+- `parseNyc`, `linkPoints`, `zonedToUtc`, `parseTms`, `matchSpeeds`: measured speeds and counts onto the roads.
+- `ROAD`, `HIGHWAYS`, `LANE_W`, `maxspeed`, `drivesLeft`, `dist`, `bearing`, `turn`.
+
+## Links, words and the interface
+
+### `viewlink.js`
+
+The share link: a view as a URL hash and back (full format in [LINK_FORMAT.md](LINK_FORMAT.md)). Used by globe, mcp.
+
+- `encodeView`, `decodeView`: a view ↔ `c=…&l=…&…`. Nothing decoded is trusted.
+- `decodeExtras`: the parts that work without a camera: the panel to open, a flight, an item id. `GO`: the panels a
+  link may open.
+
+### `scene.js`
+
+Director scenes: camera shots to fly through, as compact text for links and files. Used by globe.
+
+- `encodeScene`, `decodeScene`: shots ↔ the `#scene=` text. `cleanShot`: range-checks a shot. `MAX_SHOTS` (40).
+- `parseSceneFile`, `sceneFile`: the `.oo-scene.json` file.
+
+### `voicecmd.js`
+
+Spoken commands without an AI service: a sentence in, one action out. Used by globe, mcp, core.
+
+- `parse`: a sentence → `{ act, … }` (go, track, layer, view, sensor, measure, route, weather, count, …). `normalize`
+  strips the wake word, politeness and punctuation first.
+- `EXAMPLES`: the phrases the help card suggests. `SENSORS`: the Ops looks.
+- `skyWords`, `weatherSentence`: weather readings in words, metric or imperial.
+
+### `format.js`
+
+Human-readable numbers and safe HTML. Used by globe, map, solar.
+
+- `esc`: escape text for HTML. `num`, `idArg`: values made safe for JavaScript inside an HTML attribute.
+- `distance`, `viewWidth`, `lightTime`, `period`, `bigNumber`: distances in the unit people think in at that scale,
+  light travel times, periods, big numbers in words.
+
+### `ics.js`
+
+A calendar file (iCalendar, RFC 5545) with a reminder: the one alert that reaches a phone with the site closed and no
+server. Used by globe.
+
+- `makeIcs`: events → the file's text.
+
+### `radio.js`
+
+The world radio layer's helpers. Used by globe.
+
+- `cleanStations`: radio-browser.info rows → stations with real coordinates and an https stream, one per station, in the API's
+  vote order.
+  `tidyName`: keyword-stuffed names cut to their first clause.
+- `tunerSet`, `dialPos`, `dialIndex`, `dLon`: the analog tuner's stations and dial.
+- `httpUrl`, `httpsUrl`: only http(s) links and https streams get through.
+
+## Network and devices
+
+### `assets.js`
+
+Fetch a data file, falling back to the published site: archived versions (`/v/<tag>/`) and partial checkouts don't
+carry the big data files. Used by globe, solar, sky, core.
+
+- `fetchAsset`: a path → an ArrayBuffer, JSON or text. `SITE`.
+
+### `relay.js`
+
+The public relay for the published website (`relay/worker.js`, a Cloudflare Worker) and the hosts it carries. Used by
+globe, map.
+
+- `PUBLIC_RELAY`, `PUBLIC_RELAY_HOSTS`: the Worker's address and its allowlist (= the Worker's `TTL` table).
+- `onPublishedSite`: true on the published site (the relay answers only that origin).
+
+### `gpu.js`
+
+GPU checks shared by the 3D views; the caller passes the WebGL context. Used by globe, solar.
+
+- `isSoftwareRenderer`: true when WebGL runs in software (every 3D view then crawls). `rendererName`. `SOFTWARE_HINT`.

@@ -1,10 +1,11 @@
-// The docs against the code: the user guide (guide.html), the link format (docs/LINK_FORMAT.md) and the developer guide
-// (docs/DEVELOPING.md) must name what the code has. A layer, link parameter, sensor, weather source, band button or
-// voice example added without a line in the docs fails here; so does a link in the docs to a file or anchor that is gone.
+// The docs against the code: the user guide (guide.html), the link format (docs/LINK_FORMAT.md), the developer guide
+// (docs/DEVELOPING.md) and the core reference (docs/CORE.md) must name what the code has. A layer, link parameter,
+// sensor, weather source, band button, voice example or core module added without a line in the docs fails here; so
+// does a link in the docs to a file or anchor that is gone, or an export the docs name that the code no longer has.
 // The globe's modules touch the DOM, so their lists are read from the source text, not imported.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { GO } from '../src/core/viewlink.js';
 import { SENSORS, EXAMPLES } from '../src/core/voicecmd.js';
 
@@ -114,6 +115,24 @@ test('docs: files and names DEVELOPING.md points at are real', () => {
   for (const f of ['serve.js', 'serve.py', 'Publish Update.bat', '.github/build_site.py', 'mcp/manifest.json', 'sitemap.xml', '.claude/launch.json']) assert.ok(devDoc.includes(f) && existsSync(new URL(f, root)), f);
   assert.match(read('src/globe/main.js'), /function applyAll\(\)/, 'DEVELOPING.md section 5 tells people to wire layers in applyAll()');
   assert.match(read('src/map/util.js'), /export const NEEDS_RELAY/, 'DEVELOPING.md section 6 says NEEDS_RELAY lives in src/map/util.js');
+});
+
+test('docs: CORE.md has a section for every core module, and every export it names exists', async () => {
+  const core = read('docs/CORE.md'), files = readdirSync(new URL('src/core/', root)).filter(f => f.endsWith('.js')).sort();
+  const sections = core.split(/^### `([\w-]+\.js)`$/m).slice(1);
+  const named = new Map(); for (let i = 0; i < sections.length; i += 2) named.set(sections[i], sections[i + 1]);
+  assert.deepEqual(files.filter(f => !named.has(f)), [], 'a "### `module.js`" section for each file in src/core/');
+  assert.deepEqual([...named.keys()].filter(f => !files.includes(f)), [], 'no section for a module that is gone');
+  for (const [file, body] of named) {
+    const mod = await import(new URL(`src/core/${file}`, root));
+    // an export is named as `name` followed by ':' ',' '.' ')' ' and' or ' (' (prose like "`webkitCompassHeading` →" is not a claim)
+    const listed = [...body.matchAll(/`([A-Za-z_$][\w$]*)`(?=[:,.)]| and | \(|$)/gm)].map(m => m[1]);
+    const exported = new Set(Object.keys(mod));
+    const notThere = listed.filter(n => !exported.has(n));
+    assert.deepEqual(notThere, [], `${file}: CORE.md names exports the module doesn't have`);
+    const mentioned = new Set(listed);
+    assert.ok([...exported].filter(n => mentioned.has(n)).length >= Math.min(2, exported.size), `${file}: CORE.md should name its main exports`);
+  }
 });
 
 test('docs: the landing page links to the guide', () => {

@@ -2,7 +2,8 @@
 
 How to run the project, test it, render it headless, add a layer to the globe or the 2D map, add an MCP tool, and how
 a change gets from your editor to the website. Pointers go to the code; the reasons behind most decisions are in
-[NOTES.md](NOTES.md) (one section per area), the structure in [ARCHITECTURE.md](ARCHITECTURE.md), the data in
+[NOTES.md](NOTES.md) (one section per area), the structure in [ARCHITECTURE.md](ARCHITECTURE.md), every shared core
+module in [CORE.md](CORE.md), the data in
 [DATA_SOURCES.md](DATA_SOURCES.md), the link format in [LINK_FORMAT.md](LINK_FORMAT.md) and the phone tooling in
 [TESTING.md](TESTING.md).
 
@@ -108,13 +109,14 @@ Runs every `test/*.test.mjs` with Node's own runner. No dependencies except `sat
 | `ops.test.mjs`, `inject.test.mjs`, `regress.test.mjs` | MGRS and the voice commands of the Ops pack; hostile input in numbers, ids and HTML stays harmless; regressions from the code reviews |
 | `relay.test.mjs` | the Cloudflare Worker against a stand-in upstream |
 | `mcp.test.mjs` | the MCP server: protocol, argument checks, every tool against canned answers, a stdio round trip |
-| `docs.test.mjs` | these docs against the code: layer ids, link parameters, voice examples, band buttons |
+| `docs.test.mjs` | these docs against the code: layer ids, link parameters, voice examples, band buttons, core modules and their exports |
 
 Run one file with `node --test test/measure.test.mjs`. CI (`.github/workflows/ci.yml`) runs on every push: a syntax
 check of every module and tool (`node --check`, `py_compile`), a check that every `src/…` module a page loads exists,
 then `npm ci` and `node --test`.
 
-**When to add a test.** Anything in `src/core/` gets one, in the file for its area (or a new `test/<area>.test.mjs`).
+**When to add a test.** Anything in `src/core/` gets one, in the file for its area (or a new `test/<area>.test.mjs`), and a section in
+[CORE.md](CORE.md).
 Prefer real reference data (Horizons vectors, GeographicLib values, a captured feed answer in `test/fixtures/`) over
 numbers the code produced itself. A bug that reached a user gets a line in `regress.test.mjs`.
 
