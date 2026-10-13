@@ -10,11 +10,11 @@ export const PHOTON = 'https://photon.komoot.io/api/';
 const D2R = Math.PI / 180;
 
 /** Every layer the globe has (src/globe/layers.js; test/mcp.test.mjs keeps the two in step). */
-export const LAYERS = Object.freeze(['stations', 'visual', 'gnss', 'geo', 'weather', 'starlink', 'active', 'debris', 'launches', 'air', 'mil', 'quakes', 'transit',
+export const LAYERS = Object.freeze(['stations', 'visual', 'gnss', 'geo', 'weather', 'starlink', 'active', 'debris', 'launches', 'air', 'mil', 'airports', 'quakes', 'transit',
   'ships', 'bikes', 'traffic', 'storms', 'fires', 'radio', 'lighthouses', 'sun', 'terrain', 'buildings', 'cams', 'cctv', 'photoreal', 'volcanoes', 'companies', 'aurora',
   'clouds', 'night', 'labels']);
 /** What weather mode can show (src/globe/weather.js sets). */
-export const WEATHER = Object.freeze(['ir', 'radar', 'rain', 'lightning', 'wind', 'temp']);
+export const WEATHER = Object.freeze(['ir', 'radar', 'rain', 'lightning', 'wind', 'temp', 'pres', 'gust', 'wave']);
 
 /** How big a place is when the geocoder gives no outline: km around its centre. */
 const SIZE_KM = { country: 900, state: 300, region: 250, province: 250, county: 40, city: 20, town: 8, village: 4, hamlet: 2, suburb: 4, district: 6, island: 25,

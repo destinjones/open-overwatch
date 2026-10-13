@@ -1,0 +1,71 @@
+/* Shared by every page (src/app/shell.js adds it): screen-reader-only text, the skip link, keyboard focus rings, the
+   top bar (offline / new version), the first-run touch hints, the long-press spot popup, and reduced motion. */
+
+.oo-sr{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+
+/* skip link: off screen until a keyboard lands on it */
+.oo-skip{position:fixed;left:12px;top:-60px;z-index:100000;padding:10px 14px;border-radius:8px;background:#7dffa6;color:#04060a;
+  font:600 13px/1 "IBM Plex Mono",ui-monospace,Consolas,monospace;text-decoration:none;box-shadow:0 6px 24px rgba(0,0,0,.5)}
+.oo-skip:focus{top:calc(10px + env(safe-area-inset-top,0px))}
+
+/* focus rings: keyboard only (:focus-visible), the same green on every page, visible on glass and on the canvas */
+:focus-visible{outline:2px solid #7dffa6!important;outline-offset:2px!important}
+html.oo-kbd :focus-visible{box-shadow:0 0 0 4px rgba(4,6,10,.75)}
+#globe:focus-visible,#map:focus-visible,#c:focus-visible{outline-offset:-4px!important}
+
+/* the top bar: offline, back online, a new version */
+/* left and right both set with an auto margin centre it at its own width; left:50% would squeeze it to half the screen */
+.oo-bar{position:fixed;left:10px;right:10px;margin:0 auto;width:fit-content;top:calc(10px + env(safe-area-inset-top,0px));z-index:100001;
+  display:flex;align-items:center;gap:8px;max-width:560px;padding:8px 8px 8px 14px;border-radius:12px;
+  background:rgba(8,12,18,.94);border:1px solid rgba(230,237,243,.14);box-shadow:0 10px 32px rgba(0,0,0,.5);color:#e6edf3;
+  font:500 13px/1.35 "Barlow",system-ui,sans-serif;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.oo-bar[hidden]{display:none}
+.oo-bar-offline{border-color:rgba(255,180,77,.55)} .oo-bar-offline::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:#ffb44d}
+.oo-bar-online::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:#7dffa6}
+.oo-bar-update{border-color:rgba(125,255,166,.45)}
+.oo-bar-t{flex:1;min-width:0}
+.oo-bar-b{flex:none;min-height:34px;padding:0 12px;border-radius:9px;border:1px solid rgba(230,237,243,.18);background:transparent;color:#e6edf3;
+  font:600 12px/1 "IBM Plex Mono",ui-monospace,Consolas,monospace;letter-spacing:.06em;cursor:pointer}
+.oo-bar-b.main{background:#7dffa6;border-color:#7dffa6;color:#04060a}
+.oo-bar-b:hover{border-color:#7dffa6}
+.oo-install[hidden]{display:none!important}
+
+/* first-run touch hints */
+#ooHints{position:fixed;inset:0;z-index:100002;display:flex;align-items:flex-end;justify-content:center;padding:16px 12px calc(16px + env(safe-area-inset-bottom,0px));
+  background:rgba(2,4,8,.55);opacity:0;transition:opacity .22s}
+#ooHints.in{opacity:1} #ooHints.out{opacity:0}
+.oo-hints-card{width:min(420px,100%);padding:18px 18px 14px;border-radius:16px;background:rgba(8,12,18,.96);border:1px solid rgba(125,255,166,.22);
+  box-shadow:0 16px 48px rgba(0,0,0,.55);color:#e6edf3;font:15px/1.4 "Barlow",system-ui,sans-serif;transform:translateY(16px);transition:transform .25s cubic-bezier(.2,.8,.2,1)}
+#ooHints.in .oo-hints-card{transform:none}
+.oo-hints-card h2{margin:0 0 10px;font:900 22px/1.05 "Big Shoulders Display","Arial Narrow",sans-serif;letter-spacing:.05em;text-transform:uppercase}
+.oo-hints-card ul{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:8px}
+.oo-hints-card li{display:flex;align-items:center;gap:12px}
+.oo-hints-card li b{color:#7dffa6;font-weight:600}
+.oo-hints-card svg{flex:none;width:44px;height:44px;fill:none;stroke:#8b9bab;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.oo-hints-card svg .f{fill:#7dffa6;stroke:none;opacity:.9}
+.oo-hints-card svg .ring{stroke:#7dffa6;opacity:.5}
+.oo-hints-ok{width:100%;min-height:46px;border:0;border-radius:11px;background:#7dffa6;color:#04060a;font:700 14px/1 "IBM Plex Mono",ui-monospace,Consolas,monospace;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+@keyframes oo-drag{0%,20%{transform:none}60%,100%{transform:translateX(12px)}}
+@keyframes oo-pa{0%,20%{transform:none}60%,100%{transform:translate(-5px,5px)}}
+@keyframes oo-pb{0%,20%{transform:none}60%,100%{transform:translate(5px,-5px)}}
+@keyframes oo-tilt{0%,20%{transform:none}60%,100%{transform:translateY(-9px)}}
+@keyframes oo-ring{0%{opacity:0;transform:scale(.5)}50%{opacity:.6}100%{opacity:0;transform:scale(1.1)}}
+@keyframes oo-tap{0%,100%{transform:none}30%{transform:scale(.8)}}
+.oo-hints-card svg *{transform-box:fill-box;transform-origin:center}
+.oo-hints-card .f-drag{animation:oo-drag 1.8s ease-in-out infinite alternate}
+.oo-hints-card .f-pa{animation:oo-pa 1.8s ease-in-out infinite alternate} .oo-hints-card .f-pb{animation:oo-pb 1.8s ease-in-out infinite alternate}
+.oo-hints-card .f-t{animation:oo-tilt 1.8s ease-in-out infinite alternate}
+.oo-hints-card .ring{animation:oo-ring 1.6s ease-out infinite} .oo-hints-card .ring.r2{animation-delay:.4s}
+.oo-hints-card .f-tap{animation:oo-tap 1.2s ease-in-out infinite}
+
+/* long press on the 2D map */
+.oo-spot b{display:block;margin-bottom:6px;font:600 11px/1 "IBM Plex Mono",ui-monospace,Consolas,monospace;letter-spacing:.14em;text-transform:uppercase;color:#7dffa6}
+.oo-spot dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:0 0 10px;font-size:12px}
+.oo-spot dt{color:#8b9bab} .oo-spot dd{margin:0;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+.oo-spot-acts{display:flex;flex-wrap:wrap;gap:6px}
+.oo-spot-acts .btn{min-height:34px}
+
+/* reduced motion: no animations or slides anywhere (the views' camera flights read the same setting) */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+}

@@ -1,9 +1,11 @@
-// DOM side of the Solar System view: time controls, layer switches, labels, the details card, search, captions and
-// the scale readout. Everything that touches document lives here.
+// DOM side of the Solar System view: time controls, layer switches, labels, the details card (with a mission timeline
+// and where the body is in Earth's sky), captions and the scale readout (search and share links: find.js). Everything that touches document lives here.
 import * as THREE from 'three';
 import { LY_AU } from '../core/units.js';
 import { REAL_TIME, formatUtc } from '../core/time.js';
 import { esc, viewWidth } from '../core/format.js';
+import { fetchAsset } from '../core/assets.js';
+import { skyPosition, skyPhrase, nearestConstellation, formatRaDec } from '../core/skyplace.js';
 import { PHONE } from './util.js';
 import { bodies, byKey, layers, layer, layerOn, applyLayers, bodyVisible } from './world.js';
 import { BANDS, RUNGS, RUNG_SHORT } from './story.js';
@@ -49,15 +51,38 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
   $('#rungs').innerHTML = RUNGS.map(([label], i) => `<button class="rung" data-i="${i}">${RUNG_SHORT[label] || label}</button>`).join('');
   document.querySelectorAll('.rung').forEach(b => { b.onclick = () => { story.stopTour(); const [, k, d] = RUNGS[+b.dataset.i]; nav.focusOn(byKey[k] || byKey.sun, d, k === 'gc' ? 3 : 2.4, false); }; });
 
-  // ---- details card
+  // ---- details card: the static part (title, fact, timeline, buttons) is drawn once per body; the numbers every second
   $('#cap').addEventListener('click', () => $('#cap').classList.add('hide'));
+  let figures = null, figuresAsked = false, onShare = () => {};
+  const needFigures = () => { if (figuresAsked) return; figuresAsked = true; fetchAsset('data/constellations.json', 'json').then(d => { figures = d.figures; }, () => {}); };
+  /** "In Earth's sky" rows for a Solar System body: when to look and among which stars. */
+  function skyRows(b) {
+    const E = byKey.earth;
+    if (!E || b === E || b.key === 'sun' || b.fixed || b.launched === false || b.kind === 'light delay' || b.pos.length() > 2e4) return [];
+    if (b.kind === 'moon' && b.key !== 'moon' && b.parent && byKey[b.parent]) return [];   // moons of other planets: see the planet
+    needFigures();
+    const sp = skyPosition(b.pos, E.pos), c = figures && nearestConstellation(sp.ra, sp.dec, figures);
+    return [["In Earth's sky", skyPhrase(sp) + (c ? ` · near ${c.name}` : '')], ['Direction', formatRaDec(sp) + ` · ${Math.round(sp.elong)}° from the Sun`]];
+  }
+  function rowsHtml(b) { return [...(b.info ? b.info() : []), ...skyRows(b)].map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join(''); }
+  function timelineHtml(b) {
+    const ev = b.timeline ? b.timeline() : null; if (!ev || !ev.length) return '';
+    return `<h3>Timeline</h3><ol class="tl">${ev.map(e => `<li data-jd="${+e[0]}"><button title="Set the clock to this moment (paused)"><b>${esc(formatUtc(e[0]).slice(0, 10))}</b> ${esc(e[1])}</button></li>`).join('')}</ol>`;
+  }
+  function markTimeline() {
+    const items = document.querySelectorAll('#cardB .tl li'); let nextSet = false;
+    items.forEach(li => { const past = +li.dataset.jd <= clock.jd; li.classList.toggle('past', past); li.classList.toggle('next', !past && !nextSet); if (!past) nextSet = true; });
+  }
   function showCard(b) {
     if (b && PHONE) $('#cap').classList.add('hide');
     if (!b) { $('#card').style.display = 'none'; delete $('#card').dataset.key; return; }
-    const rows = (b.info ? b.info() : []).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
-    $('#cardB').innerHTML = `<div class="k">${esc(b.kind)}</div><h2>${esc(b.name)}</h2><dl>${rows}</dl>${b.fact ? `<p>${esc(b.fact)}</p>` : ''}
-      ${b.key === 'earth' ? '<div class="row"><a class="btn" href="globe.html">Land on Earth: 3D globe</a></div>' : ''}`;
-    $('#card').style.display = 'block'; $('#card').dataset.key = b.key;
+    if ($('#card').dataset.key === b.key && $('#card').style.display !== 'none') { $('#cardDl').innerHTML = rowsHtml(b); markTimeline(); return; }
+    $('#cardB').innerHTML = `<div class="k">${esc(b.kind)}</div><h2>${esc(b.fullName || b.name)}</h2><dl id="cardDl">${rowsHtml(b)}</dl>${b.fact ? `<p>${esc(b.fact)}</p>` : ''}
+      ${timelineHtml(b)}
+      <div class="row">${b.key === 'earth' ? '<a class="btn" href="globe.html">Land on Earth: 3D globe</a>' : ''}<button class="btn" data-share>Share this view</button></div>`;
+    $('#card').style.display = 'block'; $('#card').dataset.key = b.key; markTimeline();
+    document.querySelectorAll('#cardB .tl li').forEach(li => { li.querySelector('button').onclick = () => { story.stopTour(); clock.setJd(+li.dataset.jd); clock.setRate(0); syncRate(); markTimeline(); }; });
+    $('#cardB [data-share]').onclick = () => onShare();
   }
   $('#cardX').onclick = () => showCard(null);
   $('#follow').onclick = () => nav.release();
@@ -119,27 +144,7 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
     if (best) nav.focusOn(best);
   });
 
-  // ---- search
-  let hits = [], sel = 0;
-  $('#q').addEventListener('input', () => {
-    const q = $('#q').value.trim().toLowerCase(); if (q.length < 2) { $('#hits').style.display = 'none'; return; }
-    const out = bodies.filter(b => !b.transient && b.name.toLowerCase().includes(q)).map(b => ({ name: b.name, kind: b.kind, go: () => nav.focusOn(b) }));
-    for (const n of small.search(q, 14)) if (out.length < 14 && !out.some(o => o.name === n[2]))
-      out.push({ name: n[2], kind: 'asteroid', go: () => { const b = small.asteroidBody(n); if (b) nav.focusOn(b, Math.max(b.pos.length() * 0.15, 0.05)); } });
-    if (exo) for (const s of exo.search(q, 6)) if (!out.some(o => o.name === s.host))
-      out.push({ name: s.host, kind: `${s.pl.length} planet${s.pl.length > 1 ? 's' : ''} · ${Math.round(s.ly)} ly`, go: () => nav.focusOn(exo.hostBody(s), exo.viewDistance(s)) });
-    hits = out.sort((a, b) => (b.name.toLowerCase().startsWith(q) ? 1 : 0) - (a.name.toLowerCase().startsWith(q) ? 1 : 0)).slice(0, 14); sel = 0;
-    $('#hits').innerHTML = hits.map((h, i) => `<button data-i="${i}" class="${i ? '' : 'sel'}">${esc(h.name)}<small>${esc(h.kind)}</small></button>`).join('') || '<div class="note">Nothing found</div>';
-    $('#hits').style.display = 'block';
-    document.querySelectorAll('#hits button').forEach(b => { b.onclick = () => pick(+b.dataset.i); });
-  });
-  function pick(i) { const h = hits[i]; if (!h) return; story.stopTour(); h.go(); $('#hits').style.display = 'none'; $('#q').value = ''; $('#q').blur(); }
-  $('#q').addEventListener('keydown', e => {
-    if (e.key === 'Enter') pick(sel);
-    if (e.key === 'Escape') { $('#hits').style.display = 'none'; $('#q').blur(); }
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + hits.length) % hits.length; document.querySelectorAll('#hits button').forEach((b, i) => b.classList.toggle('sel', i === sel)); e.preventDefault(); }
-  });
-  document.addEventListener('click', e => { if (!$('#search').contains(e.target)) $('#hits').style.display = 'none'; });
+  // ---- search: find.js
 
   // ---- per frame: date, scale readout, band caption, ladder highlight, labels
   let lastDate = 0, band = -1, started = false;
@@ -166,5 +171,5 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
   }
 
   renderLayers(); syncRate();
-  return { caption, showCard, renderLayers, tourLabel, frame, start() { started = true; } };
+  return { caption, showCard, renderLayers, tourLabel, frame, start() { started = true; }, set onShare(fn) { onShare = fn; } };
 }

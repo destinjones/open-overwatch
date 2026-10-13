@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04060a">
+<meta name="robots" content="noindex">
+<title>Open Overwatch · offline</title>
+<link rel="icon" href="brand/emblem/favicon.svg">
+<style>
+/* The page the service worker (sw.js) shows when a page you ask for was never saved and there is no connection. */
+:root{--bg:#04060a;--ink:#e6edf3;--dim:#8b9bab;--accent:#7dffa6;--line:#26343f;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:16px/1.5 "Barlow",system-ui,sans-serif}
+main{max-width:520px;margin:0 auto;padding:calc(48px + env(safe-area-inset-top,0px)) 20px 40px}
+img{width:72px;height:72px}
+h1{margin:14px 0 6px;font:900 34px/1.05 "Big Shoulders Display","Arial Narrow",sans-serif;letter-spacing:.04em;text-transform:uppercase}
+p{color:var(--dim);margin:0 0 18px}
+ul{list-style:none;margin:0 0 22px;padding:0;display:grid;gap:8px}
+li a,button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:48px;padding:10px 14px;border-radius:11px;border:1px solid var(--line);
+  background:#080c12;color:var(--ink);text-decoration:none;font:600 15px/1.2 "Barlow",system-ui,sans-serif;cursor:pointer}
+li a small{color:var(--dim);font-weight:400}
+li a:hover,button:hover{border-color:var(--accent)}
+button{justify-content:center;background:var(--accent);border-color:var(--accent);color:#04060a;font:700 14px/1 "IBM Plex Mono",ui-monospace,Consolas,monospace;letter-spacing:.08em;text-transform:uppercase}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.note{font-size:13px}
+</style>
+</head>
+<body>
+<main>
+  <img src="brand/emblem/emblem-256.png" alt="">
+  <h1>You are offline</h1>
+  <p>This page was not saved on this device yet, and there is no connection to fetch it. These views were saved earlier and open without one (live feeds wait until you are back online):</p>
+  <ul id="saved" aria-live="polite"><li><a href="index.html">Home <small>checking…</small></a></li></ul>
+  <button type="button" id="retry">Try again</button>
+  <p class="note" id="state" role="status"></p>
+</main>
+<script>
+// List the views this device has saved (the worker's page cache), and come back by itself when the connection does.
+(async () => {
+  const views = [['globe.html', '3D globe'], ['open-overwatch.html', 'Live map (2D)'], ['solar.html', 'Solar System'], ['tonight.html', 'Tonight above you'], ['index.html', 'Home'], ['about.html', 'About']];
+  const ul = document.getElementById('saved');
+  let found = [];
+  try {
+    const names = (await caches.keys()).filter(n => n.startsWith('oo-shell-'));
+    for (const [href, name] of views) {
+      const url = new URL(href, location.href).href;
+      for (const n of names) if (await (await caches.open(n)).match(url)) { found.push([href, name]); break; }
+    }
+  } catch (e) { /* no Cache Storage here */ }
+  ul.innerHTML = found.length ? found.map(([h, n]) => `<li><a href="${h}">${n}<small>saved</small></a></li>`).join('') : '<li><a href="index.html">Home <small>not saved yet</small></a></li>';
+})();
+const retry = () => location.reload();
+document.getElementById('retry').addEventListener('click', retry);
+addEventListener('online', () => { document.getElementById('state').textContent = 'Back online…'; setTimeout(retry, 600); });
+</script>
+</body>
+</html>

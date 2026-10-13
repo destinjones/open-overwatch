@@ -1,7 +1,7 @@
 // Selection, the details panel, tracks, hover tips, tabs and mobile sheets.
 import { $, $$, C, debounce, esc, fmt, isHttp, late, Log, PHONE, Sound, throttle } from './util.js';
 import { map } from './mapview.js';
-import { Dyn, Sel, glyphs, requestDraw } from './engine.js';
+import { Dyn, Movers, Sel, glyphs, requestDraw } from './engine.js';
 
 /* ============================================================ selection + detail panel */
 export const Detail = {
@@ -13,6 +13,7 @@ export const Detail = {
     else if (Sel.kind === 'sat') n = late.Sats.byId.get(id);
     else if (Sel.kind === 'balloon') n = Dyn.balloons.get(id);
     else if (Sel.kind === 'ship') { for (const s of Dyn.ships.values()) if (s.id === id && s.src === o.src) { n = s; break; } }
+    else for (const sid of Movers.order) { const m = Movers.sets[sid]; if (m.kind === Sel.kind) { n = m.items.get(id) || null; break; } }   // transit: the same object while it lives
     if (n) Sel.obj = n; return Sel.obj;
   },
   clear() { Sel.kind = null; Sel.obj = null; Sel.id = null; this.el.innerHTML = '<div class="empty"><b>Nothing selected.</b><br>Tap an aircraft, satellite, ship, camera, quake or event on the map. Tap open ground for a probe: weather, place, sun and an OSM scan of the area.</div>'; requestDraw(); Tracks.clear(); },
@@ -25,7 +26,7 @@ export const Detail = {
 };
 setInterval(() => { // live panels refresh every 2 s, but not while the user is selecting text in them (a re-render would drop it)
   const ts = getSelection(); if (ts && !ts.isCollapsed && Detail.el.contains(ts.anchorNode)) return;
-  if (Sel.kind && ['air', 'sat', 'ship', 'balloon'].includes(Sel.kind) && $('#tab-detail').classList.contains('on') && !document.hidden) Detail.render();
+  if (Sel.kind && ['air', 'sat', 'ship', 'balloon', 'transit'].includes(Sel.kind) && $('#tab-detail').classList.contains('on') && !document.hidden) Detail.render();
 }, 2000);
 window.flyTo = (lat, lon, z) => { map.flyTo([lat, lon], Math.max(map.getZoom(), z || 6), { duration: 0.8 }); };
 export const Tracks = { group: L.layerGroup().addTo(map), clear() { this.group.clearLayers(); } };
@@ -37,7 +38,7 @@ export const Hover = {
     const h = glyphs.hitTest(e.containerPoint); const mapEl = $('#map');
     if (!h) { if (this.last) { this.el.style.display = 'none'; mapEl.classList.remove('hit'); this.last = null; } return; }
     this.last = h; mapEl.classList.add('hit');
-    const kindName = { air: 'Aircraft', sat: 'Satellite', ship: 'Vessel', balloon: 'Balloon', cam: 'Camera', quake: 'Quake', event: 'Event', gdacs: 'Alert', news: 'News', storm: 'Storm', fire: 'Fire', landing: 'Landing station', osm: 'OSM', cluster: 'Ships' }[h.kind] || h.kind;
+    const kindName = { air: 'Aircraft', sat: 'Satellite', ship: 'Vessel', balloon: 'Balloon', cam: 'Camera', quake: 'Quake', event: 'Event', gdacs: 'Alert', news: 'News', storm: 'Storm', fire: 'Fire', landing: 'Landing station', osm: 'OSM', cluster: 'Ships', bike: 'Bike share', transit: 'Transit', hotspot: 'Fire', fireperim: 'Wildfire', shape: 'Drawing' }[h.kind] || h.kind;
     this.el.innerHTML = `<span class="k">${esc(kindName)}</span>${esc(h.tip || '')}`; this.el.style.display = 'block';
     const stage = $('#stage').getBoundingClientRect(), rect = mapEl.getBoundingClientRect(); let x = rect.left - stage.left + e.containerPoint.x + 14, y = rect.top - stage.top + e.containerPoint.y + 14;
     if (x + this.el.offsetWidth > stage.width - 8) x = rect.left - stage.left + e.containerPoint.x - this.el.offsetWidth - 10; if (y + this.el.offsetHeight > stage.height - 8) y -= this.el.offsetHeight + 24;
@@ -48,6 +49,7 @@ map.on('mousemove', throttle(e => { Hover.move(e); const h = $('#hudPos'); if (h
 map.on('zoomend', () => { const h = $('#hudPos'); if (h) h.textContent = `${fmt.ll(map.getCenter().lat, ((map.getCenter().lng + 540) % 360) - 180)} · Z${map.getZoom().toFixed(1)}`; });
 map.on('mouseout', () => { if (Hover.el) { Hover.el.style.display = 'none'; $('#map').classList.remove('hit'); Hover.last = null; } });
 map.on('click', e => {
+  if (late.Measure && late.Measure.armed) return;   // the measure tool takes the clicks
   const h = glyphs.hitTest(e.containerPoint);
   if (h) { if (h.kind === 'cluster') { map.flyTo([h.obj.lat, h.obj.lon], h.obj.z, { duration: .8 }); return; } Detail.show(h.kind, h.obj); return; }
   if (typeof late.cableHit === 'function') { const c = late.cableHit(e.latlng); if (c) { Detail.show('cable', c.properties, c.properties.id); return; } }

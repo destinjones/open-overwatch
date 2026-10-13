@@ -14,6 +14,7 @@ Binary layout (column-major, little-endian, N records):
 Usage:
   python brand/tools/make_small_bodies.py             # fetch (if not cached) + build
   python brand/tools/make_small_bodies.py --validate  # also compare decoded positions with JPL Horizons
+  python brand/tools/make_small_bodies.py --comets-only  # rewrite only the comets in small_bodies.json
 """
 import gzip
 import json
@@ -46,7 +47,9 @@ CLASS_CODE = {"MBA": 0, "IMB": 0, "OMB": 0,
               "APO": 1, "ATE": 1, "AMO": 1, "IEO": 1,
               "TJN": 2, "CEN": 3, "TNO": 4, "MCA": 5}
 # matched as prefixes of full_name (SBDB pdes for long-period comets has no "C/")
-FAMOUS_COMETS = ("1P/", "2P/", "67P/", "C/1995 O1", "C/2020 F3", "C/2023 A3", "109P/", "55P/")
+FAMOUS_COMETS = ("1P/", "2P/", "67P/", "C/1995 O1", "C/2020 F3", "C/2023 A3", "109P/", "55P/", "12P/", "13P/", "29P/",
+                 "C/2025 N1")
+RECENT_DAYS = 3 * 365.25         # open-orbit comets kept when perihelion is within this of EPOCH_JD
 
 
 # ---------------------------------------------------------------- fetch (cached)
@@ -186,7 +189,9 @@ def build_comets(fields, rows):
             continue
         name = r[ix["full_name"]].strip()
         fam = next((f for f in FAMOUS_COMETS if name.startswith(f)), None)
-        if e >= 1 and not fam:
+        # open orbits (parabolic, hyperbolic, interstellar): only the ones near perihelion now, which the view draws
+        # as bodies (src/core/comets.js solves any conic); the GPU point cloud takes elliptic orbits only
+        if e >= 1 and not fam and abs(tp - EPOCH_JD) > RECENT_DAYS:
             continue
         if fam:
             famous_found.add(fam)
@@ -299,7 +304,21 @@ def validate(jd=2461315.5):  # 2026-10-02 00:00 TT
         print(f"{label:14s} {p[0]:10.5f}{p[1]:11.5f}{p[2]:11.5f} {h[0]:10.5f}{h[1]:11.5f}{h[2]:11.5f} {d:9.5f} {r:6.2f}")
 
 
+def rebuild_comets():
+    """Rewrite only the comets in small_bodies.json from the cached SBDB comet query (no asteroid files needed)."""
+    path = OUT / "small_bodies.json"
+    meta = json.loads(path.read_text(encoding="utf-8"))
+    cf, crows = fetch_comets()
+    meta["comets"] = build_comets(cf, crows)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(meta, f, separators=(",", ":"), ensure_ascii=False)
+    print(f"comets: {len(meta['comets'])} ({sum(c[2] >= 1 for c in meta['comets'])} on open orbits)")
+
+
 if __name__ == "__main__":
+    if "--comets-only" in sys.argv:
+        rebuild_comets()
+        sys.exit()
     build()
     if "--validate" in sys.argv:
         validate()

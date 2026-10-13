@@ -11,10 +11,11 @@ import { frame, inArea, globeUrl, LAYERS, WEATHER } from '../mcp/place.mjs';
 import { decodeView } from '../src/core/viewlink.js';
 import { haversine } from '../src/core/geo.js';
 import { gzipSync } from 'node:zlib';
-import { CAM_NETS } from '../src/core/cams.js';
-import { HSL_PB, ENTUR_VEHICLES } from '../src/core/transit.js';
+import { CAMERA_NETS as CAM_NETS } from '../src/core/cameras.js';
+import { HSL_PB, ENTUR_URL as ENTUR_VEHICLES } from '../src/core/transitfeeds.js';
 import { encodeVehiclePositions } from '../src/core/gtfsrt.js';
-import { CABLE_GEO, LANDING_GEO, cableUrl, landingUrl } from '../src/core/cables.js';
+import { CABLE_URLS, LANDING_URLS, cableUrl, landingUrl } from '../src/core/cables.js';
+const [CABLE_GEO] = CABLE_URLS, [LANDING_GEO] = LANDING_URLS;
 import { createHttpHandler, originAllowed, MAX_BODY } from '../mcp/http.mjs';
 import { serveHttp } from '../mcp/http-node.mjs';
 

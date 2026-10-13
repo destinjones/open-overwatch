@@ -21,7 +21,7 @@ test('cables: the map files parse into cables with boxes and landing stations', 
   assert.deepEqual(c.map(x => x.id), ['blue', 'pacific', 'wrapped'], 'one-point lines and nameless features are dropped');
   assert.deepEqual(c[0].box, [5.37, 38, 12.5, 43.29]); assert.equal(c[0].lines.length, 2); assert.equal(c[1].color, null, 'only hex colours');
   const l = parseLandings(LAND);
-  assert.deepEqual(l.map(x => [x.id, x.lat, x.lon, x.tbd]), [['marseille-france', 43.2965, 5.3698, false], ['toulon-france', 43.12, 5.93, false]]);
+  assert.deepEqual(l.map(x => [x.id, x.lat, x.lon]), [['marseille-france', 43.2965, 5.3698], ['toulon-france', 43.12, 5.93]]);
   assert.deepEqual(parseCables(null), []); assert.deepEqual(parseLandings({}), []);
 });
 

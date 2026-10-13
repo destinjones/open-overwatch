@@ -49,3 +49,16 @@ export function networksNear(list, lat, lon, km = 40, max = 4) {
   for (const n of list) { const d = Math.hypot(n.lat - lat, (((n.lon - lon + 540) % 360) - 180) * k) * 111.32; if (d <= km) out.push([d, n]); }
   return out.sort((a, b) => a[0] - b[0]).slice(0, max).map(([, n]) => n);
 }
+
+export const CITYBIKES_API = 'https://api.citybik.es/v2/networks';
+/** How a station looks: [words, colour] per state, plus 'stale' (a system whose feed stopped: its last numbers, greyed). */
+export const BIKE_STATES = Object.freeze({ ok: ['plenty of bikes', '#7dffb0'], low: ['only a few bikes', '#ffb44d'], empty: ['no bikes', '#ff4d5e'], full: ['full: no free docks', '#5fb0ff'],
+  offline: ['closed', '#8b9bab'], stale: ['no recent numbers', '#56616c'] });
+export const BIKE_STALE_MS = 2 * 864e5;
+/** stationState, or 'stale' when its numbers are more than two days old. */
+export const bikeLook = (s, now = Date.now()) => (s.t && now - s.t > BIKE_STALE_MS ? 'stale' : stationState(s));
+/** "just now", "12 min ago", "3.5 h ago", or a date. */
+export const checkedAgo = (ms, t) => ms < 90e3 ? 'just now' : ms < 3600e3 ? Math.round(ms / 60e3) + ' min ago' : ms < 48 * 3600e3 ? (ms / 3600e3).toFixed(1).replace(/\.0$/, '') + ' h ago'
+  : 'on ' + new Date(t).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+/** A station in one line: "Station · 4 bikes · 7 free docks". */
+export const bikeTip = s => `${s.name || 'Bike station'} · ${s.bikes} bike${s.bikes === 1 ? '' : 's'}${s.docks != null ? ` · ${s.docks} free dock${s.docks === 1 ? '' : 's'}` : ''}`;

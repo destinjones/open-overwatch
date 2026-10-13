@@ -17,7 +17,7 @@ import { Sats, SatModels } from './satellites.js';
 import { Flight } from './flight.js';
 import { Launches } from './launches.js';
 import { Eclipses } from './eclipses.js';
-import { encodeView, decodeView, decodeExtras } from '../core/viewlink.js';
+import { encodeView, decodeView, decodeExtras, mapLayersFor } from '../core/viewlink.js';
 
 const r = (v, n) => +v.toFixed(n);
 
@@ -27,10 +27,16 @@ export const Share = {
   link() {
     const c = camera.positionCartographic, drawing = hooks.drawState?.() || null;
     const hash = encodeView({ lon: C.Math.toDegrees(c.longitude), lat: C.Math.toDegrees(c.latitude), height: c.height, heading: C.Math.toDegrees(camera.heading), pitch: C.Math.toDegrees(camera.pitch),
-      layers: LAYERS.filter(l => l.on).map(l => l.id), weather: Weather.on ? Object.entries(Weather.sets).filter(([, s]) => s.on).map(([k]) => k) : null,
+      layers: LAYERS.filter(l => l.on).map(l => l.id), weather: Weather.on ? [...Object.entries(Weather.sets).filter(([, s]) => s.on).map(([k]) => k), ...Weather.shareTokens()] : null,
       time: Time.live ? null : { jd: Time.jd(), rate: Time.rate }, country: state.selected && state.selected.kind === 'country' ? state.selected.iso : null, flight: Flight.shareId, ops: hooks.opsState?.(), drawing });
     this.drawn = drawing ? (/(^|&)d=/.test(hash) ? drawing.length : -1) : 0;
     return location.origin + location.pathname + '#' + hash;
+  },
+  /** The 2D map on this place: its counterparts of the layers on here switched on, the drawing carried (core/viewlink.js). */
+  mapLink() {
+    const c = camera.positionCartographic;
+    return 'open-overwatch.html#' + encodeView({ lon: C.Math.toDegrees(c.longitude), lat: C.Math.toDegrees(c.latitude), height: c.height, heading: 0, pitch: -90,
+      add: mapLayersFor(LAYERS.filter(l => l.on).map(l => l.id)), drawing: hooks.drawState?.() || null });
   },
   /** An <iframe> for someone else's page: this view, in embed mode. */
   embedCode() { const u = this.link().replace('#', '#embed=1&'); return `<iframe src="${u.replace(/"/g, '&quot;')}" width="100%" height="480" style="border:0;border-radius:12px" loading="lazy" allow="fullscreen" title="Open Overwatch: the Earth, live"></iframe>`; },
@@ -71,7 +77,7 @@ export const Share = {
     if (fly && !v.weather) camera.flyTo({ ...to, duration: 2.5 }); else camera.setView(to);   // weather opens on the whole Earth itself
     if (v.sat) this.follow(v.sat);
     if (v.drawing) hooks.applyDraw?.(v.drawing, { card: !v.country && !v.flight });   // its shapes are built at once (outlines once the borders load)
-    if (v.weather) { for (const [k, s] of Object.entries(Weather.sets)) s.on = v.weather.includes(k); await Weather.open(); Weather.build(); Weather.show(); }
+    if (v.weather) { for (const [k, s] of Object.entries(Weather.sets)) s.on = v.weather.includes(k); Weather.fromTokens(v.weather); await Weather.open(); Weather.build(); Weather.show(); }
     if (v.country) { const o = await Country.byIso(v.country).catch(() => null); if (o) select(o); }
     if (v.flight) Flight.find(v.flight);
     return true;
@@ -82,3 +88,6 @@ export const Share = {
     select(o); if (SatModels.classify(o)) SatModels.follow(o); else flyToObject(o);
   },
 };
+// the "Classic map" link opens the 2D map where the globe is (a middle-click or a new tab gets the same address)
+const classic = document.getElementById('btnClassic');
+if (classic) for (const ev of ['click', 'auxclick', 'contextmenu']) classic.addEventListener(ev, () => { classic.href = Share.mapLink(); });

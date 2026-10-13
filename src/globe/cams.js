@@ -17,35 +17,32 @@ import { L, setCount } from './layers.js';
 import { state, hooks } from './state.js';
 import { release } from './follow.js';
 import { Photoreal } from './photoreal.js';
-import { overpass } from './overpass.js';
+import { overpass } from '../core/overpass.js';
 import { estimatePose, footprint, axes, roadBearings } from '../core/campose.js';
-import { CAM_NETS } from '../core/cams.js';
+import { CAMERA_NETS, SG_URL, parseSingapore, netOf, bustUrl, isStream } from '../core/cameras.js';
 
 const PINK = '#ff6fb5', MAX_DIST = 300, FADE_FROM = 120;   // metres: the cast picture fades out on the ground between these
 const https = u => (typeof u === 'string' && /^https:\/\//i.test(u) ? u : '');
-const SG = CAM_NETS.sg.url;
 
 // ------------------------------------------------------------------------------------------------ networks
-// the lists and their parsers live in core/cams.js (the MCP server reads them too); here: how a browser loads them
-const NETS = Object.fromEntries(Object.entries(CAM_NETS).map(([id, n]) => [id, { ...n, async load() {
+// The table (where each list is, its box, credit and parser) is shared with the 2D map: core/cameras.js.
+const NETS = Object.fromEntries(Object.entries(CAMERA_NETS).map(([id, n]) => [id, { ...n, async load() {
   if (n.relay && !relayed(n.url)) return [];
-  const list = n.parse(await (n.as === 'text' ? getText : getJSON)(n.url, { relay: !!n.relay, timeout: 60000 }));
-  if (id === 'nyc') for (const c of list) c.image = relayed(c.image) || '';   // NYC's stills send no CORS headers either
+  const d = n.xml ? await getText(n.url, { timeout: 40000 }) : await getJSON(n.url, { relay: !!n.relay, timeout: 60000 });
   if (id === 'sg') sgAt = Date.now();
-  return list;
+  return n.parse(d).map(c => (c.relayImage ? { ...c, image: relayed(c.image) || '' } : c));
 } }]));
 
 /** Singapore's pictures have a new address every capture: re-read the list (at most once a minute). */
 let sgAt = 0;
 async function refreshSg() {
   if (Date.now() - sgAt < 60e3) return; sgAt = Date.now();
-  try { const d = await getJSON(SG, { timeout: 20000 }), m = new Map(((d.items || [])[0]?.cameras || []).map(c => ['sg:' + c.camera_id, https(c.image)]));
+  try { const m = new Map(parseSingapore(await getJSON(SG_URL, { timeout: 20000 })).map(c => [c.id, c.image]));
     for (const c of all) if (c.net === 'sg' && m.get(c.id)) c.image = m.get(c.id); } catch (e) { console.warn('singapore cameras', e.message); }
 }
 
 // ------------------------------------------------------------------------------------------------ live video
 const HLS_JS = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.light.mjs';
-const isStream = cam => /\.m3u8(\?|$)/i.test(cam?.video || '');
 let hlsLib = null;
 /** One live stream at a time (HLS), shared by the card and the projection; it closes once neither shows it. */
 export const Live = {
@@ -100,7 +97,7 @@ function card(cam) {
   const pose = cam.pose || estimatePose({ ...cam, calibrated: saved(cam.id) });
   const facing = `${Math.round(pose.heading)}° ${['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(pose.heading / 45) % 8]}`;
   const presets = cam.presets && cam.presets.length > 1 ? `<div class="acts">${cam.presets.map((p, i) => `<button class="chipbtn" data-cpre="${i}" style="${i === cam.preset ? 'color:' + PINK : ''}">${esc(p.name || 'View ' + (i + 1))}</button>`).join('')}</div>` : '';
-  return `<div class="k" style="--c:${PINK}">Traffic camera · ${esc(NETS[cam.net === 'caltrans' ? cam.id.slice(0, 4).replace(':', '') : cam.net]?.name || cam.net)}</div><h2>${esc(cam.name)}</h2>
+  return `<div class="k" style="--c:${PINK}">Traffic camera · ${esc(netOf(cam)?.name || cam.net)}</div><h2>${esc(cam.name)}</h2>
     ${isStream(cam) ? `<div class="cam-live cam-video" id="camMedia"${cam.image ? ` style="background-image:url('${esc(encodeURI(bust(cam.image, cam)).replace(/[()']/g, c => '%' + c.charCodeAt(0).toString(16)))}')"` : ''}><span class="cam-badge">LIVE</span></div>`
       : cam.image ? `<img class="cam-live" id="camLive"${cam.cors === false ? '' : ' crossorigin="anonymous"'} alt="Latest picture from ${esc(cam.name)}" src="${esc(bust(cam.image, cam))}">` : '<p class="note">No picture from this camera.</p>'}
     ${presets}<dl>${cam.view ? `<dt>View</dt><dd>${esc(cam.view)}</dd>` : ''}<dt>Facing</dt><dd>${esc(facing)} · ${esc(pose.source === 'calibrated' ? 'lined up' : 'estimated from ' + pose.source)}</dd>
@@ -108,7 +105,7 @@ function card(cam) {
     <div class="acts"><button class="chipbtn" id="camProj" style="color:${PINK}">${Proj.cam === cam ? 'Stop projecting' : 'Project into 3D'}</button><button class="chipbtn" id="camLook">Look through</button>${cam.video && !isStream(cam) ? '<button class="chipbtn" id="camVid">▶ Video clip</button>' : ''}${https(cam.link) ? `<a class="chipbtn" href="${esc(cam.link)}" target="_blank" rel="noopener">Source</a>` : ''}</div>
     <div class="note" style="margin-top:8px">${isStream(cam) ? 'The agency\'s live video.' : 'The agency\'s latest picture.'} Feeds don't publish where a camera points, so its aim here is a guess: <b>Look through</b>, then drag until the picture lines up with the world, and Save.</div>`;
 }
-const bust = (url, cam) => cam.net === 'nyc' || cam.fresh ? url : url + (url.includes('?') ? '&' : '?') + 't=' + Math.floor(Date.now() / 60000);   // a fresh still each minute (the relay caches NYC itself)
+const bust = (url, cam) => bustUrl(url, cam);   // a fresh still each minute (the relay caches NYC itself)
 /** A still WebGL may read: the picture itself where its server sends CORS, else through the relay, else none. */
 const texSrc = cam => !cam.image ? '' : cam.cors === false ? (relayed(cam.image) ? bust(relayed(cam.image), cam) : '') : bust(cam.image, cam);
 

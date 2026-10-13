@@ -197,10 +197,73 @@ Round 2 (2026-10-10, local):
       flat after the first use; launch labels of one site now share one label (+N)
 - [x] The measure card on iPhones: while placing points it is a 52 px strip above the dock (the running total, Undo,
       Finish, a chevron for the rest); card and dock went from 46% to 21% of the screen (WebKit iPhone 15 profile)
+- [x] Aviation (GEV item 17, branch grow-aviation): the aircraft card says what a plane is and where it is going (adsbdb:
+      type, registration, owner, a photo, the route its callsign flies, checked against where the plane really is) and
+      the type picks its model class (narrow/wide-body, regional, turboprop, business jet, helicopter, light, fighter,
+      military; core/actype.js tested: ~600 type codes, families, emitter categories); cockpit weather in the HUD
+      (Open-Meteo pressure levels: wind with head/tail and cross components, OAT against ISA, TAS and Mach, cloud,
+      visibility, an icing hint, nearest airport, destination; core/aloft.js tested); an Airports layer with
+      arrival/departure/ground boards from the live aircraft (OurAirports, public domain; core/airports.js tested);
+      trails of the followed, selected or pinned planes coloured by altitude, 10/30/60 min (core/trail.js tested)
+- [x] Aviation, round 2: flight phase (parked … cruise … on final; core/phase.js tested) on the card, in the cockpit HUD and
+      in spoken answers; the route arc to the destination (only for a route that fits); airport weather with a
+      VFR/MVFR/IFR/LIFR category (estimated cloud base); search "A380", "747", "helicopters", "private jets"; voice
+      "arrivals at Heathrow", "what's taking off from JFK?", "what plane is that?", "show trails"; boards list planes
+      that just landed or took off (from their last two fixes) and flag emergency squawks; "Tell me when it lands"
+      (a notification on final and at touchdown); trails as GeoJSON; type codes in DET labels; tower view (watch a
+      plane from the field's tower with a lens that keeps it framed)
+- [x] Runways (OurAirports, public domain; data/runways.json, 5,777 runways at 4,016 airports): the runway in use (what
+      arrivals are lined up with, else into the wind) and the wind on it on airport cards, "final 34R" on board rows,
+      "On final for 34R" on plane cards and in the cockpit HUD (core/runways.js tested)
+- [ ] Aviation next: the MCP server answering "what's landing at X" (Node reads the aircraft feeds directly),
+      business-jet and regional-jet models of their own instead of a scaled airliner
 - [x] NYC traffic: measured speeds were all dropped (NYC DOT publishes ~a day late; the cut-off was 4 h). Now up to 48 h,
       with the age said on the card; 70 measured road pieces around the FDR. Midtown's side streets have no sensors at all
+- [x] Solar System growth (2026-10-12, branch claude/grow-solar-ac7965): 22 Horizons missions (Juno, JWST, BepiColombo,
+      Solar Orbiter, Hera, OSIRIS-APEX, Hayabusa2, Cassini, Rosetta, Dawn, Galileo, Ulysses added) with flown/planned
+      paths, event markers, mission cards (signal time, next event countdown, timeline that sets the clock) and a
+      "missions now" list; comets with comae and physical ion + dust tails (exact syndyne), open orbits (3I/ATLAS),
+      perihelion timelines and a "comets near the Sun" list; "Where is it now?" ranked search over everything with
+      where-in-Earth's-sky; the view as a link (#f=, #t=, #d=, #q=); Sun-Earth L1/L2. Tests against Horizons fixtures
+- [ ] Solar: comet brightness (SBDB M1/K1 magnitude parameters, a new SBDB pull) so the list can say what is bright,
+      not just well placed; denser Juno track (1-day) for its perijoves
+- [x] Weather 2.0: ECMWF IFS open data (0.25°, CC BY 4.0) beside GFS, read in the browser by byte range like GFS (a
+      CCSDS decoder for its GRIB2, core/aec.js); a model switch and a side-by-side slider (washes split, streaks and H/L
+      follow their side); sea-level pressure as isobars every 4 hPa with H and L (core/contour.js); gusts; ocean waves
+      with direction darts (NOAA WAVEWATCH III via a JPEG 2000 decoder, core/jpx.js; ECMWF's wave model); a legend, a
+      point readout, and voice answers with gusts, pressure and its trend, the sea state (decoders checked against eccodes)
+- [x] Shared feed core (2026-10-12, branch grow-map-core): quakes, EONET, GDACS, cyclones, cameras, aurora, cables, aircraft,
+      transit feeds, Overpass, radio mirrors, OSRM and passes parsed once in src/core (tested) for the 2D map, the globe
+      and the MCP server; the views' own copies deleted
+- [x] The 2D map catches up: Baltic ships moving between reports (core/ais), bike share, live transit (Boston, Helsinki,
+      Norway, Austin, Minneapolis), cyclone cones / warnings / wind fields, keyless wildfire hot spots and US perimeters,
+      all twelve camera networks with live video, draw and measure (R), share links in the globe's format, and the map
+      and the globe open each other on the same place with the matching layers and the drawing
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
+
+### Installable app, touch hints, accessibility (grow-pwa-a11y, 2026-10-12, local)
+- [x] Service worker (sw.js, scope = the site root): the app opens offline (pages + every module, found by reading the
+      pages' imports at install), live-feed copies under data/ are network-first and come back marked when offline,
+      datasets and brand assets stale-while-revalidate, pinned CDN libraries and base-map tiles cache-first (CORS only),
+      live feeds and the relay untouched; offline banner, offline.html for unsaved pages, "new version" prompt with Reload
+      (build_site.py stamps the version + commit into sw.js), Install button on the landing page where Chrome offers it
+- [x] Archived /v/<tag>/ versions and the download (serve.js) are safe: archived pages never register or touch the
+      worker and it passes their requests through; on localhost it is off unless ?sw=1 (?sw=0 removes it).
+      brand/tools/pwa_check.mjs proves both on a Pages-like layout: Edge 10/10, WebKit iPhone 10/10; Android Chrome:
+      installable (no installability errors), offline landing + Solar System
+- [x] First-run touch hints on the globe and the 2D map (phones only, once per view, ?hints=1 again), and the long
+      press they teach: "This spot" (decimal, DMS, MGRS, Copy, Share with a pin, Pin it, the country) on the globe, a spot
+      popup (Copy, What's here, 3D globe) on the map. gesture_check.mjs: Edge Pixel, WebKit iPhone, Android emulator 8/8 each
+- [x] Accessibility layer (src/app/a11y.js) on all six pages: toolbars move with arrow keys, the map's panel is real tabs,
+      aria-pressed / -current / -expanded follow the views' classes, selections are said once in a live region (the
+      globe card no longer re-reads every tick), skip links, focus rings, the globe turns / zooms / tilts / picks from
+      the keyboard, the Solar System's search is a combobox; reduced motion stops CSS animation everywhere
+- [x] Contrast: the faint text colour #55667a (3.1-3.5:1) is now #738599 (4.6-5.4:1) on every page; symbol-only time
+      buttons and the Solar System search got names. HTML check (core/a11ycheck.js) in the tests and in CI
+- [ ] Solar System camera flights still swoop with reduced motion on (the globe's already jump): src/solar is another
+      session's this round
+- [ ] Real-phone check of install + offline (iOS: Add to Home Screen from Safari's Share menu; no install prompt there)
 
 ## Rules of thumb
 - One clear goal per session; read this file first, tick boxes as they land.

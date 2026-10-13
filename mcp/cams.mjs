@@ -1,7 +1,7 @@
-// traffic_cameras: the public traffic cameras near a place (the networks the globe's camera layer shows, src/core/cams.js),
+// traffic_cameras: the public traffic cameras near a place (the networks the globe and the 2D map show, src/core/cameras.js),
 // nearest first, with the latest still from the nearest few sent as pictures the model can look at. Live-video-only
 // cameras (Delaware, Missouri) are listed with their stream link. Lists are kept 10 minutes, pictures 30 seconds.
-import { CAM_NETS, camNetsNear, camsNear, camCoverage, netOf, imageType } from '../src/core/cams.js';
+import { CAMERA_NETS as CAM_NETS, camNetsNear, camsNear, camCoverage, netOf, imageType } from '../src/core/cameras.js';
 import { estimatePose } from '../src/core/campose.js';
 import { compass } from '../src/core/passes.js';
 import { ToolError } from './feeds.mjs';
@@ -14,8 +14,8 @@ export function camerasTool(ctx) {
   const { feeds } = ctx, site = feeds.siteBase;
   /** One network's cameras (its list cached 10 min; Singapore's a minute: its picture addresses change every capture). */
   async function load(id, signal) {
-    const n = CAM_NETS[id], ttl = n.fresh ? 60e3 : 10 * 60e3;
-    const d = await (n.as === 'text' ? feeds.text : feeds.json)(n.url, { ttl, timeout: 60e3, signal });
+    const n = CAM_NETS[id], ttl = id === 'sg' ? 60e3 : 10 * 60e3;
+    const d = await (n.xml ? feeds.text : feeds.json)(n.url, { ttl, timeout: 60e3, signal });
     return n.parse(d);
   }
   /** The camera's latest still as MCP image content, or null (no still, or the agency did not send a picture). */

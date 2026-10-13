@@ -1,32 +1,27 @@
-// Where the live transit feeds are, and HSL's GTFS-RT file read into lines and modes (src/core/transit.js additions).
+// HSL's GTFS-RT file read into lines and modes (src/core/transit.js), CapMetro's moving file, and the MCP transit box.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hslRoute, fromHslRt, transitAt, boxAround, capmetroFile, TRANSIT_AREAS, METRO_TRANSIT_ROUTES } from '../src/core/transit.js';
+import { hslRoute, fromHslRt } from '../src/core/transit.js';
+import { capmetroFile, sourcesAt } from '../src/core/transitfeeds.js';
+import { boxAround } from '../mcp/transit.mjs';
 import { encodeVehiclePositions, parseVehiclePositions } from '../src/core/gtfsrt.js';
 
-test('transit areas: which feed covers a point', () => {
-  assert.equal(transitAt(42.356, -71.062), 'mbta'); assert.equal(transitAt(60.17, 24.94), 'hsl'); assert.equal(transitAt(30.27, -97.74), 'capmetro');
-  assert.equal(transitAt(44.98, -93.27), 'metrotransit'); assert.equal(transitAt(59.91, 10.75), 'entur'); assert.equal(transitAt(69.65, 18.96), 'entur', 'Tromsø');
-  assert.equal(transitAt(59.33, 18.07), null, 'Stockholm: not Norway'); assert.equal(transitAt(48.86, 2.35), null);
-  assert.ok(TRANSIT_AREAS.every(a => a.src && (a.box || a.r)));
-  assert.equal(METRO_TRANSIT_ROUTES[901][1], 'METRO Blue Line');
-});
-
-test('transit areas: a box around a point for Entur, and CapMetro\'s current file', () => {
-  const [s, w, n, e] = boxAround(60, 10, 11.132);
-  assert.ok(Math.abs(n - s - 0.2) < 0.002 && Math.abs((e - w) - 0.4) < 0.005, `${[s, w, n, e]}`);
+test("transit: CapMetro's current file, and the MCP server's box around a place for Entur", () => {
   assert.equal(capmetroFile('abc-123'), 'https://data.texas.gov/api/views/eiei-9rpf/files/abc-123?filename=vehiclepositions.pb');
   assert.equal(capmetroFile('../etc'), null); assert.equal(capmetroFile(undefined), null);
+  const [s, w, n, e] = boxAround(60, 10, 11.132);
+  assert.ok(Math.abs(n - s - 0.2) < 0.002 && Math.abs((e - w) - 0.4) < 0.005, `${[s, w, n, e]}`);
+  assert.deepEqual([...sourcesAt(60.17, 24.94)], ['hsl']); assert.deepEqual([...sourcesAt(59.33, 18.07)], [], 'Stockholm: not Norway');
 });
 
-test('transit areas: HSL route ids as people know them', () => {
+test('transit: HSL route ids as people know them', () => {
   assert.deepEqual(hslRoute('1055'), ['bus', '55']); assert.deepEqual(hslRoute('2550'), ['bus', '550']); assert.deepEqual(hslRoute('4615'), ['bus', '615']);
   assert.deepEqual(hslRoute('2121A'), ['bus', '121A']); assert.deepEqual(hslRoute('1006T'), ['tram', '6T']); assert.deepEqual(hslRoute('1009'), ['tram', '9']);
   assert.deepEqual(hslRoute('1014'), ['bus', '14'], 'bus 14, not a tram'); assert.deepEqual(hslRoute('31M1'), ['metro', 'M1']); assert.deepEqual(hslRoute('31M2B'), ['metro', 'M2']);
   assert.deepEqual(hslRoute('3001R'), ['rail', 'R']); assert.deepEqual(hslRoute('1019'), ['ferry', '19']); assert.deepEqual(hslRoute('9785'), ['bus', '785']); assert.deepEqual(hslRoute(''), ['bus', '']);
 });
 
-test('transit areas: HSL\'s GTFS-RT file becomes fixes with modes and lines', () => {
+test('transit: HSL\'s GTFS-RT file becomes fixes with modes and lines', () => {
   const T = Date.parse('2026-10-12T10:00:00Z');
   const buf = encodeVehiclePositions({ t: T, vehicles: [
     { vehicleId: '18/167', lat: 60.1718, lon: 24.9437, hdg: 266, spd: 0.01, routeId: '1009', dir: 1, status: 1, t: T - 5000 },

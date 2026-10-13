@@ -55,11 +55,35 @@ same code runs in Node tests and in the render loop without allocating.
 | `mvt.js` | Mapbox Vector Tile decoding (protobuf by hand, wanted layers only), tile maths |
 | `roadtiles.js` | road lines from vector tiles: clipped per tile, joined across tile edges, junctions, names, lights where busy roads meet |
 | `traffic.js` | the traffic simulation: road graph, car following (IDM), lights, time-of-day busyness, NYC DOT / Fintraffic readings |
+| `pwa.js` | the installable app's decisions: may this page run the site worker (archived /v/ copies never, the local helper only with ?sw=1), offline words, when the touch hints are due, what a long press is |
+| `spot.js` | "this spot" (a long press): decimal / DMS / MGRS coordinates, a globe link with a pin on the spot |
+| `a11ycheck.js` | the HTML accessibility check (names, labels, alt, ids, tabindex, roles, text-colour contrast) that the tests run on every page |
 | `measure.js` | draw and measure: WGS84 distances and bearings (Vincenty; a bisection near the antipode), geodesic polygon areas (authalic sphere), ground length, the words for them, GeoJSON, the drawing in share links |
+| `quakes.js`, `eonet.js`, `gdacs.js` | USGS quakes, NASA EONET events (points and polygons, storm tracks), GDACS alerts: one parser for the 2D map, the globe and the MCP server |
+| `cyclones.js` | every active cyclone, merged per storm from EONET, NOAA NHC, NOAA's forecast layers and GDACS (`loadCyclones`, fetching injected); categories, sources |
+| `cameras.js` | the twelve agency camera networks (where the list is, the box, the credit, a parser each; Hong Kong's XML read here) |
+| `transitfeeds.js` | live transit sources and areas, the poll loop and HSL's MQTT stream, the fleet drawn behind live (`createFleet`) |
+| `aircraft.js`, `aurora.js`, `cables.js`, `overpass.js` | readsb / OpenSky records; OVATION grid and pictures, Kp; cable click test; the polite Overpass client |
+| `fires.worker.js` | GIBS VIIRS fire tiles off the main thread (fetch, gunzip, decode), used by both views |
+| `actype.js` | aircraft classes from ICAO type codes (then adsbdb words, emitter category) and the model each gets; adsbdb answers as plain records; whether a route on file fits where the plane is; ICAO address blocks to countries |
+| `aloft.js` | weather at an aircraft: ISA pressure altitude, the two Open-Meteo pressure levels around it, interpolation, head/cross wind, TAS, Mach, ISA deviation, icing hint, HUD lines |
+| `airports.js` | the airport list (OurAirports rows), a 1° grid index (nearest, near, in a box, by code), and boards: arriving, departing or on the ground from live aircraft |
+| `phase.js` | flight phase (parked, taxiing, take-off, climb, cruise, descent, approach, final) from a fix and the nearest field; great-circle points |
+| `runways.js` | runway ends and headings, wind along and across each, the runway a plane is lined up with, the runway in use |
+| `trail.js` | flight trails: a time window of fixes, 3D Douglas-Peucker thinning, the altitude colour ramp, trail stats |
 
 Accuracy, checked by the tests against JPL Horizons on 2026-10-02: planets within arcminutes (JPL's own stated
 error for these formulas), main-belt asteroids within ~3×10⁻⁴ AU, the Moon within ~0.3°, the other moons within 0.4° of their orbit.
 The moon fits drift slowly away from 2026 (no short-period terms); rerun `make_moons.py` with a new window then.
+
+## Every page (`src/app/`, `sw.js`)
+
+Each page loads `src/app/shell.js` (one script tag): `pwa.js` registers `sw.js` after the page has settled and shows the
+offline banner, the new-version prompt and the Install button; `a11y.js` adds keyboard moves, names, state attributes and
+announcements to the live DOM from a short description per page (so the views' own code stays untouched); `gestures.js`
+and `spot.js` (globe and 2D map only, loaded after the page) show the first-run touch hints and handle the long press.
+`shell.css` carries the shared focus rings, bar, hint card and reduced-motion rule. `sw.js` is a classic worker at the
+site root; `offline.html` is what it shows for a page that was never saved. Details in docs/NOTES.md.
 
 ## The 3D globe (`src/globe/`)
 

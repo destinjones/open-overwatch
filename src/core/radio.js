@@ -75,3 +75,17 @@ export function tunerSet(list, lon, lat, { n = 40, perSpot = 3 } = {}) {
 export const dialPos = (i, n) => n <= 1 ? 0.5 : Math.min(1, Math.max(0, i / (n - 1)));
 /** The detent nearest a dial position (0..1); -1 for an empty dial. */
 export const dialIndex = (x, n) => n <= 0 ? -1 : n === 1 ? 0 : Math.min(n - 1, Math.max(0, Math.round((Number.isFinite(x) ? x : 0) * (n - 1))));
+
+/** radio-browser.info mirrors: all.api… resolves to whichever are live (nl1/at1/fi1 are gone); de1/de2 as named fallbacks. */
+export const RADIO_HOSTS = Object.freeze(['all', 'de1', 'de2']);
+/** Ask each mirror in turn (a dead one looks like a CORS error to the browser): get(host) → its answer; the first that
+ *  answers wins, as { host, value }; else the first error. */
+export async function firstMirror(get, hosts = RADIO_HOSTS) {
+  let err;
+  for (const h of hosts) { const host = h + '.api.radio-browser.info'; try { return { host, value: await get(host) }; } catch (e) { err = err || e; } }
+  throw err || new Error('no mirror answered');
+}
+/** The best-voted geolocated stations with https streams (the globe's world radio). */
+export const radioSearchUrl = (host, max) => `https://${host}/json/stations/search?has_geo_info=true&is_https=true&hidebroken=true&order=votes&reverse=true&limit=${max | 0}`;
+/** The most-played stations with a tag (the 2D map's radio player). */
+export const radioTagUrl = (host, tag, limit = 14) => `https://${host}/json/stations/bytag/${encodeURIComponent(tag)}?limit=${limit | 0}&hidebroken=true&order=clickcount&reverse=true`;

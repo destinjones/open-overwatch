@@ -8,19 +8,16 @@ import { scene, camera, camHeight } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { state } from './state.js';
 import { Terrain } from './terrain.js';
-import { fireTilesFor, firePerimeters } from '../core/hazards.js';
+import { firePerimeters, FIRE_SAT_NAME as SAT_NAME, fireLook as look, FIRE_FRP as FRP, fireLevel, fireTilesWanted, NIFC_PERIMETERS as PERIM_URL, containColor, keptRings, perimeterCentre } from '../core/hazards.js';
 
-const SATS = { N20: 'VIIRS_NOAA20_Thermal_Anomalies_375m_All', N21: 'VIIRS_NOAA21_Thermal_Anomalies_375m_All' };
-const SAT_NAME = { N20: 'NOAA-20', N21: 'NOAA-21', N: 'Suomi NPP' };
 const MAX_H = 2.5e6, MAX_TILES = PHONE ? 2 : 4, COLOR = '#ff7a2f';
-const tileUrl = (layer, date, t) => `https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/${layer}/default/${date}/500m/${t.level}/${t.row}/${t.col}.mvt`;
 
 // ---- the worker: fetch, unzip, decode, filter
 let worker = null, seq = 0;
 const waiting = new Map();
 function viaWorker(url, since) {
   if (!worker) {
-    worker = new Worker(new URL('./fires.worker.js', import.meta.url), { type: 'module' });
+    worker = new Worker(new URL('../core/fires.worker.js', import.meta.url), { type: 'module' });
     worker.onmessage = e => { const w = waiting.get(e.data.id); if (!w) return; waiting.delete(e.data.id); e.data.error ? w.rej(new Error(e.data.error)) : w.res(e.data); };
     worker.onerror = e => { for (const w of waiting.values()) w.rej(new Error(e.message || 'fires worker failed')); waiting.clear(); worker = null; };   // a worker that fails to load would otherwise leave every tile 'loading' for good
   }
@@ -28,13 +25,9 @@ function viaWorker(url, since) {
 }
 
 // ---- hot spots: one point collection per tile and day, so a tile leaving the view is one switch, not 15,000 removals
-const FRP = [[100, '#fff1d6', 8], [20, '#ff5a2e', 6], [5, '#ff9f3c', 4.5], [0, '#ffd45c', 3.2]];
-const look = frp => FRP.find(([min]) => frp >= min);
 const COLORS = new Map(FRP.map(([, c]) => [c, C.Color.fromCssColorString(c)])), SCALE = new C.NearFarScalar(2e4, 1.6, 2.5e6, 0.7);
 const tiles = new Map();   // key -> { prims, fires, t, state: 'loading' | 'ok' | 'failed' }
 let active = new Set(), inflight = 0, told = false;
-const day = ms => new Date(ms).toISOString().slice(0, 10);
-const keyOf = (sat, date, t) => `${sat}/${date}/${t.level}/${t.row}/${t.col}`;
 
 const FireProto = {
   kind: 'fire',
@@ -77,16 +70,9 @@ function count() { let n = 0; for (const k of active) { const t = tiles.get(k); 
 /** The tiles for the view: a level whose tiles are about the view's size, the nearest few, two satellites x two days. */
 function wanted() {
   const h = camHeight(); if (h > MAX_H || state.lookup) return [];
-  const level = h > 1.2e6 ? 3 : h > 5e5 ? 4 : h > 1.5e5 ? 5 : 6;
   const p = camera.pickEllipsoid(new C.Cartesian2(scene.canvas.clientWidth / 2, scene.canvas.clientHeight / 2), C.Ellipsoid.WGS84) || camera.positionWC;
-  const g = C.Cartographic.fromCartesian(p), lat = C.Math.toDegrees(g.latitude), lon = C.Math.toDegrees(g.longitude);
-  const r = Math.min(30, h / 111e3 * 1.3), rl = r / Math.max(0.2, Math.cos(g.latitude));
-  const near = fireTilesFor(Math.max(-180, lon - rl), Math.max(-90, lat - r), Math.min(180, lon + rl), Math.min(90, lat + r), level)
-    .map(t => { const d = 288 / 2 ** t.level; return [t, Math.hypot(-180 + (t.col + 0.5) * d - lon, 90 - (t.row + 0.5) * d - lat)]; })
-    .sort((a, b) => a[1] - b[1]).slice(0, level <= 3 ? 2 : MAX_TILES).map(a => a[0]);
-  const now = Date.now(), out = [];
-  for (const t of near) for (const sat of Object.keys(SATS)) for (const d of [day(now), day(now - 864e5)]) out.push({ key: keyOf(sat, d, t), url: tileUrl(SATS[sat], d, t), today: d === day(now) });
-  return out;
+  const g = C.Cartographic.fromCartesian(p);
+  return fireTilesWanted(C.Math.toDegrees(g.latitude), C.Math.toDegrees(g.longitude), Math.min(30, h / 111e3 * 1.3), fireLevel(h / 1000), MAX_TILES);   // shared with the 2D map (core/hazards.js)
 }
 function tick() {
   if (!L.fires.on) return;
@@ -122,14 +108,12 @@ function seat() {
 // ---- US perimeters: every fire's rings in two primitives (fills, outlines), draped on the ground; a fire can have
 // hundreds of spot-fire rings, so each keeps its 30 largest over 2 ha
 let fillPrim = null, linePrim = null;
-const ringHa = r => { let a = 0; for (let i = 1; i < r.length; i++) a += r[i - 1][0] * r[i][1] - r[i][0] * r[i - 1][1]; return Math.abs(a) / 2 * 111.32 ** 2 * Math.cos(r[0][1] * Math.PI / 180) * 100; };
 function drawPerimeters(list) {
   for (const p of [fillPrim, linePrim]) if (p) scene.groundPrimitives.remove(p);
   const fills = [], outs = [];
   for (const f of list) {
     const col = C.Color.fromCssColorString(containColor(f));
-    const keep = f.rings.filter(r => r.length >= 4).map(r => [r, ringHa(r)]).filter(([, ha]) => ha >= 2).sort((a, b) => b[1] - a[1]).slice(0, 30).map(([r]) => r);
-    for (const r of keep) {
+    for (const r of keptRings(f)) {
       const pos = C.Cartesian3.fromDegreesArray(r.flat());
       fills.push(new C.GeometryInstance({ geometry: new C.PolygonGeometry({ polygonHierarchy: new C.PolygonHierarchy(pos) }), attributes: { color: C.ColorGeometryInstanceAttribute.fromColor(col.withAlpha(0.25)) }, id: f }));
       outs.push(new C.GeometryInstance({ geometry: new C.GroundPolylineGeometry({ positions: pos, width: 2 }), attributes: { color: C.ColorGeometryInstanceAttribute.fromColor(col.withAlpha(0.95)) }, id: f }));
@@ -140,19 +124,14 @@ function drawPerimeters(list) {
   linePrim = scene.groundPrimitives.add(new C.GroundPolylinePrimitive({ geometryInstances: outs, appearance: new C.PolylineColorAppearance(), classificationType: C.ClassificationType.BOTH }));
   fillPrim.show = linePrim.show = L.fires.on && !state.lookup;
 }
-const PERIM_URL = 'https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query?where=1%3D1'
-  + '&outFields=poly_IncidentName,attr_IncidentName,attr_IncidentSize,attr_PercentContained,attr_POOState,attr_FireDiscoveryDateTime,poly_DateCurrent,attr_UniqueFireIdentifier,attr_IncidentTypeCategory,attr_FireCause,attr_IncidentShortDescription'
-  + '&maxAllowableOffset=0.001&geometryPrecision=5&outSR=4326&f=geojson';
 let perimAt = 0, perimBusy = false, perimList = [];
-const containColor = f => f.rx ? '#9ad17a' : f.contained == null || f.contained < 30 ? '#ff3b2f' : f.contained < 70 ? '#ff8a3d' : f.contained < 100 ? '#ffc75a' : '#9aa5b1';
 async function loadPerimeters() {
   if (perimBusy || Date.now() - perimAt < 15 * 60e3) return;
   perimBusy = true; perimAt = Date.now();
   try {
     perimList = firePerimeters(await getJSON(PERIM_URL, { timeout: 45000 }));
     for (const f of perimList) {
-      const big = f.rings.reduce((a, r) => r.length > a.length ? r : a, f.rings[0]);   // where the card's buttons fly: the largest ring's middle
-      Object.assign(f, { kind: 'fireperim', lat: big.reduce((a, q) => a + q[1], 0) / big.length, lon: big.reduce((a, q) => a + q[0], 0) / big.length });
+      Object.assign(f, { kind: 'fireperim' }, perimeterCentre(f));   // where the card's buttons fly: the largest ring's middle
       f.tip = () => `🔥 ${f.name} fire · ${f.acres ? fmt(f.acres) + ' acres' : ''}${f.contained != null ? ` · ${f.contained}% contained` : ''}`;
       f.cardHtml = () => perimCard(f, containColor(f));
     }

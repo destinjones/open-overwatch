@@ -7,101 +7,18 @@ import { C, esc, fmt, getJSON, relayed } from './env.js';
 import { viewer, scene } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { hooks, state } from './state.js';
-import { nhcForecasts, gdacsForecast, WW } from '../core/hazards.js';
+import { WW } from '../core/hazards.js';
+import { loadCyclones, category, catName, KIND_KT, NHC_CURRENT, stormSources } from '../core/cyclones.js';
 
 const pts = scene.primitives.add(new C.PointPrimitiveCollection());
 const lines = scene.primitives.add(new C.PolylineCollection());
 const fc = new C.CustomDataSource('cyclone-forecasts'); viewer.dataSources.add(fc);
-const CAT = [[137, 5, '#ff4df0'], [113, 4, '#ff4d5e'], [96, 3, '#ff7b4f'], [83, 2, '#ffb44d'], [64, 1, '#ffe36e'], [34, 0, '#7fd0ff'], [0, -1, '#9fb3bf']];
-const category = kt => CAT.find(([min]) => (kt || 0) >= min);
-const catName = kt => { const c = category(kt)[1]; return c > 0 ? `Category ${c}` : c === 0 ? 'Tropical storm' : 'Depression or low'; };
-const CLASS = { HU: 'Hurricane', TS: 'Tropical Storm', TD: 'Tropical Depression', STS: 'Subtropical Storm', STD: 'Subtropical Depression', PTC: 'Potential Tropical Cyclone', PC: 'Post-tropical Cyclone', TY: 'Typhoon' };   // NHC's codes
-const dist = (a, b) => { const r = Math.PI / 180, x = (b.lon - a.lon) * r * Math.cos((a.lat + b.lat) / 2 * r), y = (b.lat - a.lat) * r; return Math.hypot(x, y) * 6371; };
-const KIND_KT = { TD: 30, TS: 50, HU: 80, TY: 80, MH: 100, STY: 130 };   // a track segment's colour from its category label
-
-// ---- forecasts
-const NOAA = 'https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather_summary/MapServer/';
-const noaaLayer = (id, fields) => getJSON(`${NOAA}${id}/query?where=1%3D1&outFields=${fields}&outSR=4326&geometryPrecision=3&f=geojson`, { timeout: 30000 }).then(d => d.features || []);
-async function noaaForecasts() {
-  const [points, tracks, cones, warnings, winds, past] = await Promise.all([[5, 'idp_source,stormname,tcdvlp,tau,maxwind,gust,mslp,datelbl,fldatelbl'],
-    [6, 'idp_source'], [7, 'idp_source,stormname'], [8, 'idp_source,tcww'], [16, 'stormid,radii,tau'], [11, 'idp_source,stormtype']].map(([id, f]) => noaaLayer(id, f).catch(() => [])));
-  return [...nhcForecasts({ points, tracks, cones, warnings, winds, past }).values()].filter(s => s.points.length || s.cone.length);
-}
 const gdacsKept = new Map();   // "event/episode" -> parsed geometry (an episode never changes)
-async function gdacsForecasts(skip) {
-  const day = ms => new Date(ms).toISOString().slice(0, 10);
-  const list = await getJSON(`https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventlist=TC&alertlevel=green;orange;red&fromdate=${day(Date.now() - 10 * 864e5)}&todate=${day(Date.now())}`, { timeout: 30000 });
-  const out = [];
-  for (const f of list.features || []) {
-    const p = f.properties || {}, name = String(p.eventname || '').replace(/-\d\d$/, '');
-    if (String(p.iscurrent) !== 'true' || skip.has(name.toLowerCase())) continue;   // NOAA's own forecast is drawn for its storms
-    const key = p.eventid + '/' + p.episodeid;
-    if (!gdacsKept.has(key)) {
-      try { gdacsKept.set(key, gdacsForecast(await getJSON(`https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=TC&eventid=${encodeURIComponent(p.eventid)}&episodeid=${encodeURIComponent(p.episodeid)}`, { timeout: 45000 }))); }
-      catch (e) { console.warn('GDACS', name, e.message); continue; }
-    }
-    const c = f.geometry && f.geometry.coordinates;
-    out.push({ ...gdacsKept.get(key), alert: String(p.alertlevel || ''), severity: String(p.severitydata && p.severitydata.severitytext || ''), kmh: p.severitydata && +p.severitydata.severity,
-      lat: c ? +c[1] : null, lon: c ? +c[0] : null, report: p.url && p.url.report });
-  }
-  return out;
-}
-/** The storm in `list` a forecast belongs to (same name, or within 300 km), or a new one for it. */
-function attach(list, name, at, make) {
-  const n = name.toLowerCase().split(/\s+/).pop();
-  let s = n.length > 2 ? list.find(x => x.title.toLowerCase().includes(n)) : null;
-  if (!s && at) s = list.find(x => dist(x, at) < 300);
-  if (!s) { s = make(); list.push(s); }
-  return s;
-}
 
 export const Storms = {
   list: [],
-  async load() {
-    const d = await getJSON('https://eonet.gsfc.nasa.gov/api/v3/events?status=open&category=severeStorms&days=10', { timeout: 30000 });
-    const list = [];
-    for (const ev of d.events || []) {
-      const track = (ev.geometry || []).filter(g => g.type === 'Point' && Array.isArray(g.coordinates)).map(g => ({ lon: +g.coordinates[0], lat: +g.coordinates[1], kt: g.magnitudeUnit === 'kts' ? +g.magnitudeValue : null, date: g.date }))
-        .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
-      if (!track.length) continue;
-      const last = track[track.length - 1];
-      list.push({ kind: 'storm', id: String(ev.id), title: String(ev.title || 'Storm'), src: 'NASA EONET', lat: last.lat, lon: last.lon, kt: last.kt, date: last.date, track,
-        links: [{ text: 'EONET event', url: ev.link }, ...(ev.sources || []).map(s => ({ text: 'Source: ' + s.id, url: s.url }))] });
-    }
-    // NOAA NHC: official name, pressure and movement for storms in its basins
-    const nhcUrl = 'https://www.nhc.noaa.gov/CurrentStorms.json';
-    if (relayed(nhcUrl)) {
-      try {
-        const n = await getJSON(nhcUrl, { relay: true, timeout: 25000 });
-        for (const st of n.activeStorms || []) {
-          const s = { lat: +st.latitudeNumeric, lon: +st.longitudeNumeric }; if (!Number.isFinite(s.lat)) continue;
-          const nhc = { title: `${CLASS[st.classification] || st.classification || ''} ${st.name || ''}`.trim(), kt: +st.intensity || null, pressure: st.pressure, movement: st.movementDir != null ? `${st.movementDir}° at ${st.movementSpeed} mph` : null, advisory: st.lastUpdate, url: st.publicAdvisory && st.publicAdvisory.url };
-          const nm = String(st.name || '').toLowerCase(), same = (nm.length > 2 && list.find(x => x.title.toLowerCase().includes(nm))) || list.find(x => dist(x, s) < 300);   // EONET's last fix can lag
-          if (same) Object.assign(same, { nhc, kt: same.kt || nhc.kt, lat: s.lat, lon: s.lon });
-          else list.push({ kind: 'storm', id: 'nhc-' + st.id, title: nhc.title, src: 'NOAA NHC', lat: s.lat, lon: s.lon, kt: nhc.kt, date: st.lastUpdate, track: [s], nhc, links: [] });
-        }
-      } catch (e) { console.warn('NHC advisories', e.message); }
-    }
-    // forecasts: NOAA's map service for its basins, GDACS for the rest
-    const noaa = await noaaForecasts().catch(e => { console.warn('NHC forecasts', e.message); return []; });
-    for (const f of noaa) {
-      const now = f.points[0], s = attach(list, f.name || f.id, now, () => ({ kind: 'storm', id: 'fc-' + f.id, title: f.name || f.id.toUpperCase(), src: 'NOAA NHC', lat: now ? now.lat : f.cone[0][0][1],
-        lon: now ? now.lon : f.cone[0][0][0], kt: now && now.kt, track: [], links: [] }));
-      s.fc = { src: 'NOAA NHC', ...f };
-      if (now) { s.kt = now.kt || s.kt; s.lat = now.lat; s.lon = now.lon; }
-    }
-    const skip = new Set(noaa.map(f => f.name.toLowerCase().split(/\s+/).pop()));
-    const gd = await gdacsForecasts(skip).catch(e => { console.warn('GDACS', e.message); return []; });
-    for (const g of gd) {
-      const at = g.lat != null ? { lat: g.lat, lon: g.lon } : null, kt = g.kmh ? Math.round(g.kmh / 1.852) : null;
-      const s = attach(list, g.name, at, () => ({ kind: 'storm', id: 'gdacs-' + g.id, title: g.name ? g.name[0] + g.name.slice(1).toLowerCase() : 'Storm', src: `GDACS · ${g.source || 'agency'}`,
-        lat: at ? at.lat : 0, lon: at ? at.lon : 0, kt, track: [], links: [] }));
-      s.fc = { src: `GDACS (${g.source || 'agency'})`, gdacs: g, cone: g.cone, track: g.forecast.map(x => x.path), past: g.past.map(x => ({ kind: x.kind, paths: [x.path] })),
-        points: g.points.filter(q => q.forecast).map(q => ({ lat: q.lat, lon: q.lon, label: q.label.replace(' UTC', ''), kt: null })), warnings: [], winds: [], coherent: true };
-      if (!s.kt && kt) s.kt = kt;
-      if (g.report && /^https:\/\//.test(g.report)) s.links.push({ text: 'GDACS report', url: g.report });
-    }
-    this.draw(list);
+  async load() {   // EONET, NHC, NOAA's forecasts and GDACS, merged per storm (core/cyclones.js, shared with the 2D map)
+    this.draw(await loadCyclones({ json: getJSON, nhc: !!relayed(NHC_CURRENT), kept: gdacsKept, warn: (what, e) => console.warn(what, e.message) }));
   },
   draw(list) {
     pts.removeAll(); lines.removeAll(); fc.entities.removeAll(); this.list = list;
@@ -148,7 +65,7 @@ function card(s, col) {
   const links = s.links.concat(n.url ? [{ text: 'NHC public advisory', url: n.url }] : []).filter(l => /^https:\/\//.test(l.url || ''));
   const fcRows = f ? f.points.filter(q => q.tau == null || q.tau > 0).slice(0, 6).map(q => `<dt>${esc(q.tau != null ? `+${q.tau} h` : 'Forecast')}</dt><dd>${esc(q.label)}${q.kt ? ` · ${q.kt} kt (${esc(catName(q.kt))})` : ''}</dd>`).join('') : '';
   const ww = f && f.warnings.length ? [...new Set(f.warnings.map(w => WW[w.code][0]))].join(', ') : '';
-  const srcs = [s.src, s.nhc && s.src !== 'NOAA NHC' ? 'NOAA NHC' : '', f && f.src !== s.src ? f.src : ''].filter(Boolean).join(' + ');
+  const srcs = stormSources(s);
   return `<div class="k" style="--c:${col}">Tropical cyclone · ${esc(srcs)}</div><h2>${esc(n.title || s.title)}</h2>
     <dl>${row('Strength', catName(s.kt))}${row('Max winds', s.kt ? `${s.kt} kt · ${fmt(s.kt * 1.852)} km/h` : '—')}${row('Pressure', n.pressure ? n.pressure + ' mb' : f && f.points[0] && f.points[0].mb ? f.points[0].mb + ' mb' : null)}${row('Moving', n.movement)}
     ${row('Position', `${Math.abs(s.lat).toFixed(1)}°${s.lat >= 0 ? 'N' : 'S'} ${Math.abs(s.lon).toFixed(1)}°${s.lon >= 0 ? 'E' : 'W'}`)}${row('Latest fix', s.date ? new Date(s.date).toISOString().slice(0, 16).replace('T', ' ') + ' UTC' : null)}

@@ -7,7 +7,7 @@ import { viewer, scene, camera, camAGL } from './viewer.js';
 import { Terrain } from './terrain.js';
 import { L } from './layers.js';
 import { state } from './state.js';
-import { overpass } from './overpass.js';
+import { overpass } from '../core/overpass.js';
 
 const CELL = 0.01, MAX_H = 2500, MAX_CELLS = 40, MAX_PER_CELL = 2500, GAP_MS = 6000;
 const cells = new Map();   // key -> { prim, t }  (prim null while loading or empty)

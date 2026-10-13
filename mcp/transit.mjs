@@ -1,8 +1,8 @@
 // transit_vehicles: the buses, trams, metros, trains and ferries moving near a place right now, from the same keyless
 // operator feeds as the globe's transit layer (src/core/transit.js): MBTA (Boston), HSL (Helsinki, its GTFS-RT file),
 // Entur (all of Norway), CapMetro (Austin) and Metro Transit (Minneapolis-St Paul; both GTFS-RT, read by core/gtfsrt.js).
-import { parseMbta, parseEntur, enturQuery, fromGtfsRt, fromHslRt, transitAt, boxAround, TRANSIT_AREAS, MBTA_VEHICLES, ENTUR_VEHICLES, METRO_TRANSIT_PB, CAPMETRO_VIEW, capmetroFile,
-  HSL_PB, METRO_TRANSIT_ROUTES, CAPMETRO_ROUTES } from '../src/core/transit.js';
+import { parseMbta, parseEntur, enturQuery, fromGtfsRt, fromHslRt } from '../src/core/transit.js';
+import { MBTA_URL, ENTUR_URL, HSL_PB, METRO_TRANSIT_PB, CAPMETRO_VIEW, capmetroFile, METRO_TRANSIT_ROUTES, CAPMETRO_ROUTES, TRANSIT_AREAS, sourcesAt } from '../src/core/transitfeeds.js';
 import { parseVehiclePositions } from '../src/core/gtfsrt.js';
 import { compass } from '../src/core/passes.js';
 import { ToolError } from './feeds.mjs';
@@ -14,18 +14,23 @@ const MODE_WORD = { bus: 'Bus', tram: 'Tram', lightrail: 'Light rail', metro: 'M
 const CREDIT = { mbta: 'MBTA v3 API (MassDOT developer licence)', hsl: 'HSL GTFS Realtime (CC BY 4.0)', entur: 'Entur (NLOD 2.0)', capmetro: 'CapMetro GTFS-RT via the Texas Open Data Portal',
   metrotransit: 'Metro Transit GTFS-RT (Metropolitan Council)' };
 const NAME = { mbta: 'MBTA', hsl: 'HSL', entur: 'Entur', capmetro: 'CapMetro', metrotransit: 'Metro Transit' };
+/** A box around a point: `km` each way, [s, w, n, e] rounded to 3 decimals. */
+export function boxAround(lat, lon, km) {
+  const dLat = km / 111.32, dLon = km / (111.32 * Math.max(0.2, Math.cos(lat * Math.PI / 180))), r = x => +x.toFixed(3);
+  return [r(lat - dLat), r(lon - dLon), r(lat + dLat), r(lon + dLon)];
+}
 const STALE = 10 * 60e3;   // a report older than this: parked, or a vehicle that has gone off the air
 
 export function transitTool(ctx) {
   const { feeds } = ctx, site = feeds.siteBase;
   const pb = async (url, signal) => parseVehiclePositions((await feeds.bytes(url, { ttl: 15e3, timeout: 30e3, maxBytes: 16e6, signal })).bytes);
   const FETCH = {
-    mbta: signal => feeds.json(MBTA_VEHICLES, { ttl: 15e3, timeout: 30e3, signal }).then(parseMbta),
+    mbta: signal => feeds.json(MBTA_URL, { ttl: 15e3, timeout: 30e3, signal }).then(parseMbta),
     hsl: signal => pb(HSL_PB, signal).then(fromHslRt),
     capmetro: async signal => { const f = capmetroFile((await feeds.json(CAPMETRO_VIEW, { ttl: 60e3, signal })).blobId); if (!f) throw new ToolError('CapMetro names no current vehicle file just now', 'unavailable'); return fromGtfsRt(await pb(f, signal), { prefix: 'capmetro', operator: 'CapMetro', routes: CAPMETRO_ROUTES }); },
     metrotransit: signal => pb(METRO_TRANSIT_PB, signal).then(f => fromGtfsRt(f, { prefix: 'mt', operator: 'Metro Transit', routes: METRO_TRANSIT_ROUTES })),
-    entur: (signal, area, radius) => { const [s, w, n, e] = boxAround(area.lat, area.lon, Math.max(1, radius));
-      return feeds.json(ENTUR_VEHICLES, { method: 'POST', body: JSON.stringify({ query: enturQuery(s, w, n, e) }), headers: { 'Content-Type': 'application/json', 'ET-Client-Name': 'openoverwatch-mcp' }, ttl: 15e3, timeout: 30e3, signal }).then(parseEntur); },
+    entur: (signal, area, radius) => { const [s, w, n, e] = boxAround(area.lat, area.lon, Math.max(1, radius));   // the place's own box, not the globe's view-sized one (core/transitfeeds.js enturBox)
+      return feeds.json(ENTUR_URL, { method: 'POST', body: JSON.stringify({ query: enturQuery(s, w, n, e) }), headers: { 'Content-Type': 'application/json', 'ET-Client-Name': 'openoverwatch-mcp' }, ttl: 15e3, timeout: 30e3, signal }).then(parseEntur); },
   };
 
   return {
@@ -43,7 +48,7 @@ export function transitTool(ctx) {
     },
     async run(a, { signal }) {
       const area = await resolveArea(a, feeds, { need: true, pointKm: 1, signal });
-      const src = transitAt(area.lat, area.lon);
+      const src = [...sourcesAt(area.lat, area.lon)][0] || null;
       if (!src) throw new ToolError(`${area.label} is outside the live transit this server reads: ${[...new Set(TRANSIT_AREAS.map(x => x.name))].join(', ')}`, 'unsupported');
       const radius = Math.min(30, a.radius_km ?? (area.kind === 'point' ? 1 : Math.min(area.radiusKm, 5))), t = ctx.now();
       const fixes = await FETCH[src](signal, area, radius);

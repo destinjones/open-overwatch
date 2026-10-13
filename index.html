@@ -39,7 +39,7 @@
 <style>
 :root{
   --bg:#04060a; --panel:#080c12; --panel-2:#0e141c; --line:#182230; --line-strong:#26343f;
-  --ink:#e6edf3; --ink-dim:#8b9bab; --ink-faint:#55667a;
+  --ink:#e6edf3; --ink-dim:#8b9bab; --ink-faint:#738599;
   --accent:#7dffa6; --accent-dim:rgba(125,255,166,.14);
   --civ:#5fd3ff; --mil:#ffb44d; --emg:#ff4d5e; --sat:#d9ccff; --ship:#62e0c8; --qk:#ff7b4f; --evt:#ffd45c; --cam:#ff6fb5;
   --display:"Big Shoulders Display","Arial Narrow",sans-serif;
@@ -640,6 +640,7 @@ footer a{color:var(--ink-dim)}
     <div>
       <p>Data: adsb.lol, adsb.fi, airplanes.live, OpenSky, CelesTrak, USGS, NOAA/NHC/NWS, NASA EONET &amp; FIRMS, GDACS, GDELT, Digitraffic, aisstream.io, SondeHub, RainViewer, TeleGeography, CityBikes, and the transit and road agencies named in the notices. Basemap © Esri. Night lights: NASA Black Marble.</p>
       <p><a href="https://github.com/destinjones/open-overwatch">GitHub</a> · <a href="https://github.com/destinjones/open-overwatch/releases">Releases</a> · <a href="https://github.com/destinjones/open-overwatch/issues">Report a bug</a> · <a href="about.html">About</a> · <a href="#legal">Notices</a></p>
+      <p><a href="guide.html">User guide</a>: every view and layer, keyboard shortcuts, voice commands, sharing and privacy.</p>
       <p>By <a href="about.html">Destin Jones</a>, vibe coded with Claude. Fork it, build on it, or take it over. Also: <a href="https://destinjones.github.io/godot-open-rts/">Ironbound</a>, a free open source RTS, and <a href="https://destinjones.github.io/carfinder/">CarFinder</a>.</p>
     </div>
   </div>
@@ -830,5 +831,6 @@ fetch('versions.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : Promis
   $('#verList').innerHTML = '<div class="vrow muted">The full version history is on the published site: <a href="https://destinjones.github.io/open-overwatch/#launch">destinjones.github.io/open-overwatch</a>.</div>';
 });
 </script>
+<script type="module" src="src/app/shell.js"></script>
 </body>
 </html>

@@ -25,7 +25,8 @@ async function lookup(q) {   // a fresh fix from adsb.lol (download version only
   for (const u of urls) {
     const d = await getJSON(u, { relay: true, timeout: 15000 }).catch(() => null), now = Date.now();
     const a = (d && d.ac || []).find(x => x.lat != null && x.lon != null && matchesFlight({ hex: x.hex, reg: x.r, flight: x.flight }, q));
-    if (a) { Air.upsert(fromAdsb(a, now)); return Air.map.get(a.hex); }
+    const r = a && fromAdsb(a, now);
+    if (r) { Air.upsert(r); return Air.map.get(r.hex); }
   }
   return null;
 }

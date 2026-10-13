@@ -86,7 +86,8 @@ copies and `/data/` out of search results and points at `sitemap.xml`: bump its 
 util (helpers, Store, Log/toast/Sound, Net + Relay, clock; `late` registry) · mapview (Leaflet map, base maps, Sun) ·
 engine (Glyphs canvas renderer, Points, Layers registry + panel, feed scheduler) · detail (Detail panel, tracks, hover,
 tabs/sheets) · aircraft · satellites (TLEs via src/core/tle.js) · feeds (all point/vector layers) · presets (views,
-legend, Locate, Fun/ISS follow) · brief (Brief, Welcome) · audio · setup (Setup tab, Probe, search) · main (INIT, OW).
+legend, Locate, Fun/ISS follow) · brief (Brief, Welcome) · audio · setup (Setup tab, Probe, search) · cities (bike share, live
+transit) · hazards (fire hot spots, US perimeters) · measure (draw and measure) · share (links, hand-off to the globe) · main (INIT, OW).
 Modules import only from earlier ones; the five names used before they are defined (Sats, cableHit, Probe, Brief, Keys)
 are read through `late.X`. OW_VERSION stays a classic <script> const in the HTML (Publish Update.bat edits that line).
 A hidden tab pauses feeds by design: drive them with OW.Sats.reload() etc. when testing in a background pane.
@@ -101,7 +102,8 @@ A hidden tab pauses feeds by design: drive them with OW.Sats.reload() etc. when 
 4. `Detail.renderers[kind] = obj => html`. **Escape every upstream string with `esc()`** — `Detail.kv` values and
    the `Detail.head` sub-argument go into innerHTML raw. Check link schemes with `isHttp()`.
 5. CORS-blocked source: add the host to `NEEDS_RELAY` in the html AND `ALLOWED_HOSTS` in serve.js AND serve.py.
-Moving-object types (like aircraft/ships) have no generic path: they need a hand-written branch in Glyphs.draw.
+Moving objects: `Movers.define(id, { layerId, kind, minZoom, at(o, now, out), glyph, tip, label })` (engine.js) draws a Map
+the feed fills, placed by its own motion model each frame (transit uses it); aircraft and ships keep their own branches.
 A top-level exception anywhere aborts INIT, so test every new layer in the browser.
 
 ## Feed status as of 2026-10-02
@@ -182,6 +184,38 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
 - The battery saver uses Cesium's `targetFrameRate` (cheap idle RAF ticks), not `requestRenderMode`: every per-frame
   updater keeps working, just less often. The quality auto step-down must ignore those slow frames (it did not at first).
 - Push-to-talk ignores Space on buttons (a focused chip would also be clicked) and in text fields.
+
+## Weather 2.0: ECMWF, pressure, gusts, waves (model.js, wind.js, core/aec.js, jpx.js, contour.js, wxmodels.js) — 2026-10-12
+- ECMWF open data on AWS (`ecmwf-forecasts`, eu-central-1) sends CORS * and allows `Range`, like the GFS bucket; each
+  step's `.index` is one JSON object a line (`_offset`, `_length`), turned into `.idx`-shaped rows so `idxRanges` serves
+  both. Only the 00/12 UTC runs: 06/18 are the `scda` stream and stop at +90 h. A run is complete ~7.5 h after it starts.
+- That bucket sheds load with **503 Slow Down, sent without CORS headers**: in a browser it is a plain "Failed to fetch".
+  When a run was new, 3-4 requests in 8 got it. The worker retries (backoff, 8 tries) and runs at most 4 requests at a
+  time; the run probe retries too, else it wrongly falls back to an older run.
+- ECMWF packs with CCSDS (GRIB2 template 5.42, libaec): `core/aec.js`. Details the standard leaves to libaec: the
+  zero-block "rest of segment" code (fs+1 = 5) means min(blocks left in the interval, 64 − b mod 64); larger codes are
+  one less; the second extension's first pair in a reference block has an implied 0. Flags 14 = MSB | 3-byte | preprocess.
+- NOAA's WAVEWATCH III (GFS-Wave, same bucket as GFS) is JPEG 2000 (template 5.40, JasPer): `core/jpx.js`. With a
+  bitmap the image is ONE ROW of the packed points (568,137 × 1), so its width exceeds the default precinct (2^15):
+  dozens of precincts per resolution, and LH/HH bands are empty. eccodes' "lossy" JPEG is reversible 5/3 cut short:
+  reconstruct each coefficient at the middle of its own last decoded plane (as OpenJPEG does), not one plane for all.
+- Field codes: ECMWF cloud is a local fraction (0.6.192, ×100), rain rate is 0.1.52, `10fg` is the strongest gust in
+  the hour before the step (template 4.8: forecast time = step − 1), `msl` is 0.3.0 against GFS's `PRMSL` 0.3.1; its
+  grid starts at 180° E. ECMWF has no gusts or rain rate at step 0: a kind missing from one hour takes the other's.
+- Both decoders equal eccodes (pip `eccodes`, a dev check) on real fields: CCSDS exactly (~80 ms a 0.25° field in
+  Node), JPEG 2000 to float32 rounding (~200-360 ms). test/fixtures/wx holds small messages eccodes wrote, with sums
+  and samples of eccodes' own decoding.
+- Volume: ECMWF at 0.25° is ~0.5-1.3 MB a field (~6 MB an hour with every layer); the worker thins it to 0.5° (1° on
+  phones) before handing it over. Waves are ~1.3 MB an hour either way.
+- Isobars: blended in time, averaged to 1° first (a 0.25° field wiggles over every mountain), every 4 hPa from 1000,
+  heavier every 20, labelled along the lines; H/L are points highest/lowest within 9° that stand 2.5 hPa off the rim's
+  mean. Drawn into a clear image so the split works; the H/L labels aren't imagery, so a postRender hook shows each
+  model's only on its side.
+- Side by side: every wash is two imagery layers with `splitDirection` LEFT/RIGHT at `scene.splitPosition`; a wind
+  streak takes the model of the side it was on last frame. The before/after slider (imagery.js) uses the same
+  `splitPosition`; don't run both at once.
+- Editing on Windows: Python's text mode writes CRLF; use `open(..., newline='')`, or the MCP test that reads
+  weather.js's `sets:` line (and others) fails.
 
 ## More live feeds (ships.js, bikes.js, transit GTFS-RT, cams live video) — 2026-10-11
 - A Primitive's geometry is baked into world coordinates (and projected for 2D) unless the viewer is `scene3DOnly`, which
@@ -264,6 +298,56 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
 - Not done: states and provinces ("outline Texas" needs a boundary dataset: the user's OK to download), dragging a
   corner to edit.
 
+## Aviation (acinfo, aircard, trails, cockpitwx, airports; core actype, aloft, airports, trail) — 2026-10-12
+- One import in main.js (`aviation.js`); ui.js calls `hooks.airCard(o, card)` for aircraft cards; aircraft.js calls
+  `hooks.airFix(r)` on every upsert (trails record it) and classifies with core/actype.js (`airClass`: the designator,
+  then adsbdb's words, then the readsb emitter category, then slow-and-low = light). The class picks the sprite and the
+  glTF shape plus a scale (business jet = airliner x0.5, regional x0.78, turboprop = the tprop model x0.8): no new models.
+- adsbdb: CORS `*`, keyless, rate-limited per IP (429 body "rate limited for N seconds"). Its route data may not be
+  copied into other databases: browser cache only, never in the repo or a mirror. A route is a callsign's usual
+  route: `routeFit` (inside the 1.2x ellipse + 150 km; heading within 70° of the destination when far from both ends)
+  labels a mismatch instead of trusting it. Live: a 777 under a DEN-LGA callsign was flagged; ASA400 "SEA-BNA" flying
+  north near Eugene passed at 100° (98° off), hence 70°. The route arc (routeline.js) is drawn only for a route that fits.
+- Boards (core/airports.js `boardStatus`): within 90 km and 7,500 m above the field. Arriving = descending (< -1 m/s),
+  within 55° of pointing at the field and under a lax glide (120 m + 330 m/km), or in the circuit (< 12 km, < 900 m).
+  Departing = climbing and pointing away (or in the circuit), < 6,000 m, < 70 km. Ground = on the ground within 5 km
+  (taxiing over 3 m/s). A route on file naming the airport makes a level plane in the hold count; one naming other
+  airports drops it. A plane goes to the airport it fits best (score = km x (1 + degrees off / 45)), so Heathrow and
+  City, or Denver and its neighbours, don't count the same plane. ETA: along-track distance / ground speed, nudged by
+  the descent rate. A route that contradicts the board (starts here on a plane landing here) is not shown on the row.
+- Cockpit weather: the barometric altitude as an ISA pressure altitude picks the two Open-Meteo levels around it
+  (1000..30 hPa), interpolated in log-pressure, wind mixed as vectors (350° and 10° make 0°). TAS = |ground velocity -
+  wind velocity| (the feeds have no heading), Mach from the OAT. Open-Meteo takes pressure-level variables in
+  `current=`. The block sits under the HUD's top-left text (the card covers the right); on phones at 244 px from the top.
+- Trails: OpenSky's 15-min snapshots are not recorded (straight lines through turns) except for a watched plane. One
+  Cesium Primitive per drawn trail (PolylineGeometry, a colour per vertex, rebuilt at most once a second when it
+  changed, plus the stretch to where the plane is drawn now). adsb.lol answered 429 to this PC while the pane polled
+  every 5 s, so followed planes are polled every 10 s, others 20 s, with a 2-min back-off.
+- Renders: globe_shot blocks the aircraft feeds, so the shots inject test planes (`src: 'adsb.lol (test fixture)'`);
+  adsbdb and Open-Meteo answers in them are real. With other sessions rendering too, set `OW_WORK` to a folder of your
+  own: cdp.mjs's orphan reaper in one run kills another run's Edge (headless Edge re-parents, so it looks orphaned);
+  the symptom is "CDP connection closed" at a random step.
+- Round 2 (same day): `routeline.js` draws a dashed great circle (core/phase.js `greatCircle`, continuous across the
+  antimeridian) to the destination, holding the plane's height and easing down over the last 200 km, and a fainter one
+  back to the origin, only while the route fits. `landwatch.js` watches planes from their cards (pinned trails keep them
+  polled) and notifies through alerts.js: on final (core flightPhase), on the ground (and where), or lost low near a
+  field. Boards' "just landed / took off" comes from `r.was` (aircraft.js keeps the fix before) via core `recentMove`;
+  a plane that just landed is listed there and not again under "on the ground". `towerview.js`: eye 45 m over the field
+  (over Terrain.near when terrain is on: OurAirports elevations are above sea level, Cesium heights above the
+  ellipsoid), camera set every preUpdate, fov = 3 x the angle of 90 m at the plane's distance (0.6-60°), wheel/pinch
+  zoom; `hooks.towerAir` keeps the plane's model alive in AirModels.refresh. Airport weather: Open-Meteo surface values
+  in knots, cloud base estimated from the temperature/dew point spread (400 ft per °C) only under ≥50% low cloud, FAA
+  categories from that and the visibility: labelled estimated.
+- Runways (`runways.js`, core/runways.js): headings from the two thresholds (OurAirports' le/he coordinates), lined up =
+  within 20 km of a threshold, before it, within 1 km of the centre line (4° further out), tracking within 20°. The
+  runway in use: most arrivals lined up, else most headwind when the wind is 5 kt or more. data/runways.json matches
+  runways by OurAirports ident (= ICAO for 4,016 of the 4,579 fields). Checked with a test arrival on Denver 34R.
+- The pane only renders while it is shown: a hidden pane runs no preUpdate (tower view, cockpit, trails look frozen).
+  Check such things with globe_shot instead. Reloading the pane often earned 429s from adsb.lol's /mil.
+- The scene renders on request: in the pane, call `scene.requestRender()` before trusting a screenshot of a change, and
+  `viewer.clock.currentTime` lags the wall clock while idle (it ticks only on rendered frames). The violet vertical
+  lines over cities are the Big-employers towers (Michelin at Clermont-Ferrand), not a stray polyline.
+
 ## Public relay (relay/, Cloudflare Worker) — 2026-10-10
 `relay/worker.js` on the owner's Cloudflare account (`npx wrangler deploy` from relay/, after `npx wrangler login`):
 https://open-overwatch-relay.destinjones123.workers.dev/?url=… . Allowlist = `PUBLIC_RELAY_HOSTS` in src/core/relay.js
@@ -305,9 +389,10 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   `open-overwatch.mcpb` (Claude Desktop's one-click install: manifest.json at the root, mcp/, src/core/, node_modules/
   satellite.js; ~320 KB) and attaches it to the release next to the zip.
 - 0.2.0 (2026-10-12): 20 tools. The tools live in one file each beside tools.mjs (`cams`, `transit`, `fires`, `country`,
-  `cables`, `solar`.mjs); shared formatting in `words.mjs`, the hazard feeds three tools read in `hazards.mjs`. The globe's
-  camera networks and transit feed addresses moved to src/core (`cams.js`, `transit.js`), so the globe and the server read
-  the same lists; the globe adds only its relay rules (`relay: true` lists, NYC stills through the relay).
+  `cables`, `solar`.mjs); shared formatting in `words.mjs`, the hazard feeds three tools read in `hazards.mjs`. The tools
+  read the same shared core as the globe and the 2D map: cameras from core/cameras.js (plus camNetsNear, camsNear,
+  imageType), transit from core/transitfeeds.js (plus HSL_PB, METRO_TRANSIT_PB, capmetroFile; core/transit.js hslRoute
+  reads HSL's route ids), cables from core/cables.js, hazards from core/quakes.js, eonet.js and cyclones.js.
 - Tools may return `images: [{ data, mimeType }]`: sent as MCP image content after the text. Camera stills are sniffed
   by their first bytes (an agency's "offline" page is HTML with a 200), at most 1.5 MB, base64 without Node's Buffer.
 - feeds.mjs grew `bytes()` (pictures, GTFS-RT, gzipped vector tiles), POST bodies (Entur's GraphQL; the body is part of the
@@ -340,3 +425,92 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
 - Its ~150 sensor links in Manhattan are all on the edges (FDR, West Side Hwy / 12th Ave, tunnels, bridges); Midtown's
   streets have none, so a Midtown view correctly shows no measured roads. A query ordered by data_as_of over the whole
   table is slow (minutes for count(distinct)); keep the ordered $limit query (1200 rows ≈ every link).
+
+## Solar System: missions, comets, search and links (solar/spacecraft.js, comets.js, find.js, lists.js) — 2026-10-12
+- Spacecraft: 22 tracks from `make_spacecraft.py` (Horizons, 2-5-day samples to 2035, cached in brand/source/horizons/;
+  each entry now has agency, status, alias). `core/craft.js` interpolates with a Catmull-Rom cubic: ~300-1,600 km off
+  Horizons half-way between samples (samples are rounded to 1e-5 AU = 1,500 km); linear was off up to 200,000 km, so
+  `sky.js craftAt` (Tonight's "farthest things we built") uses it too. Subtracting the planet for craft in orbit
+  (Juno, Cassini) does not help: interpolation is linear in the samples, so it cancels; only denser data would.
+  Past the last sample a craft coasts on only if it is above solar escape speed (Voyagers, Pioneers, New Horizons);
+  others have no position there (Cassini after 2017 is hidden, its card says why). Statuses ("Ended 2017") are today's;
+  lines of missions over for a year are hidden unless focused. Unfocused tracks draw the last year flown and the next
+  half year; the focused one draws everything plus event markers (22 full tracks were orange spaghetti).
+- Comets (`core/comets.js`): conics of any e from SBDB q, e, i, node, peri, tp (Barker for parabolas, Newton on
+  e sinh H - H = M for hyperbolas; elements may carry their own mu). Checked on 2026-10-12 against Horizons: 12
+  comets within 0.3% of r except Halley (0.5%, elements from 1968) and 67P (7%, a 2015 orbit before a Jupiter
+  approach). Ion tail = solar wind (400 km/s radial) minus the comet's velocity; dust tail = exact syndyne (each grain
+  released at t - tau with the comet's state, then two-body with GM (1 - beta)). The first version pushed grains by
+  1/2 beta g tau^2 at the release distance: a sungrazer just past perihelion threw a tail 100 AU long. Tail lengths
+  are illustrative; we have no absolute magnitudes, so famous comets are drawn bright and others faint, and the list
+  says "best placed", not "brightest". Fragments (-B, -AA) and D/ comets are left out of "near now".
+  `make_small_bodies.py --comets-only` rewrites only the comets (keeps open orbits within 3 years of perihelion).
+- Search (`core/search.js`): exact > prefix > word prefix > substring > 1-2 typos; then kind, fame, length. Compact
+  forms make "voyager1" work; digit-only substrings need 5+ characters ("67p" used to hit every asteroid numbered
+  ...67 starting with p). Indexes are built lazily: bodies, all comets, 26,000 named asteroids, exoplanet hosts.
+- Links (`core/solarlink.js`): `#f=<body key>&t=YYYY-MM-DDTHH:MM&r=<days/s>&d=<AU>`, or `#q=<search>`. The hash follows
+  the view (replaceState every 2 s and on focus), but only after a link we opened was applied (find.ready).
+- Card: "In Earth's sky" from `core/skyplace.js`: elongation and side (evening/morning) and the nearest constellation
+  *figure* (data/constellations.json stick figures, not IAU boundaries: the galactic centre comes out "near
+  Ophiuchus"). Checked: Halley in Jan 1986 "low in the west after sunset, near Aquarius", as it was.
+- Renders: parallel sessions' globe_shot runs reap each other's headless Edge (cdp.mjs reapOrphans); set
+  `OW_WORK="$LOCALAPPDATA\oo-brand-<name>"` per session. The Browser pane, when hidden, draws no frames at all.
+## Shared feed core and the 2D map catching up — 2026-10-12 (branch grow-map-core)
+- One parser per feed, in src/core, for the 2D map, the globe and the MCP server: quakes, eonet, gdacs, cyclones,
+  cameras, aurora, cables, aircraft, transitfeeds, overpass, radio mirrors, OSRM (route.js), passes (ecfAt/nextPass).
+  Fetching stays in the views (the map's Net with its relay and throttles, the globe's getJSON) and goes in as a
+  function (`loadCyclones({ json })`, `startPoll(s, { fetch })`, `overpass(q, { fetch })`), so Node tests run the whole
+  recipe with fakes (test/feeds, cameras, transitfeeds, aircraft, overpass).
+- Cyclones on the 2D map now have what the globe had: NOAA forecast cones, tracks, coastal watches and warnings, the wind
+  field and GDACS cones for other basins. NHC's `movementSpeed` is mph (the old 2D card said kt).
+- Cameras: the 2D map shows all twelve networks (it had five); a stream-only camera (DelDOT, MoDOT, Iowa, Norway) plays
+  in the panel through hls.js (the globe's version, loaded on first use). Live video starts from a data attribute: the
+  injection test forbids interpolating anything but num()/idArg() into inline handlers.
+- Live transit on the canvas: a vehicle is stepped (core fleet) when the canvas draws it, so motion runs at the draw
+  rate (~2 Hz idle, every frame while panning). The map's "height" for Entur's box is `zoomToHeight` (core/viewlink).
+- Fire hot spots: the same tiles as the globe (fireTilesWanted), the worker moved to src/core/fires.worker.js; a 1,000 km
+  view over Zambia in October: 12,000 detections, drawn on the shared canvas without trouble.
+- Share links: the globe's format. The map's zoom ↔ the globe's height (`zoomToHeight`, `heightToZoom`: London at zoom
+  12 ≈ 20 km up). A 2D link names its layers exactly (`l=`); between views the layers go as `a=` through MAP_TO_GLOBE, so
+  the other view keeps its own. "3D globe" (rail) and the globe's "Classic map" open each other on the same place with
+  the drawing. The 2D hash is cleared once applied (the map then remembers its own view).
+- Found on the way: the 2D radio's saved genre was inside a comment (never loaded: the station list asked for tag
+  "undefined" until one was picked); the HSL stream's stop() left its ping and sweep timers running when a socket closed
+  without an onclose; storm cards named NOAA NHC twice.
+- brand/tools/cdp.mjs kills "orphaned" Edge from other runs in the same work folder: with several sessions rendering, set
+  OW_WORK to a folder of your own. brand/tools/page_check.mjs renders any page (the 2D map too) and lists script errors.
+## Installable app, touch hints, accessibility (sw.js, src/app/, core/pwa.js, core/spot.js, core/a11ycheck.js) — 2026-10-12
+- **Where the worker runs.** `src/app/pwa.js` registers `sw.js` (scope = the site root, `updateViaCache: 'none'`) only on
+  the website. Archived `/v/<tag>/` pages are inside that scope, so two guards: their pages never register or talk to the
+  worker (`isArchivedPath`), and the worker passes through any request under `v/` or whose referrer is an archived page
+  (the Solar System's root-copy fallback). On localhost (serve.js, the download, every dev session sharing :8787) it is off
+  unless `?sw=1` (remembered as `oo-sw`); `?sw=0` unregisters it and clears its caches. Never add sw.js to APP_PATHS.
+- **Versions.** build_site.py `stamp_worker` writes `<OW_VERSION>+<commit>` into `const BUILD = 'dev'` of the site's
+  copy (it stops the build if that line is missing). A new commit on main = new worker bytes = the "new version · Reload"
+  bar; the 6-hourly data rebuilds of the same commit are byte-identical (no prompt). Caches: `oo-shell-<BUILD>` (pages
+  and code, dropped with the old worker), `oo-data-v1`, `oo-asset-v1`, `oo-lib-v1`, `oo-tile-v1` (kept across versions,
+  bounded). The globe's own `oo3d*` caches are not the worker's and are never touched.
+- **Strategies** are listed at the top of sw.js. The rule that matters: copies of live feeds (data/tle, wind, launches,
+  news, …, versions.json) are network-first; offline they come back with an `x-oo-offline: <Date>` header. Our own files
+  are kept even though serve.js says `no-store` to everything (that is a dev convenience, not a "never store").
+- **Precache = a crawl**, not a list: the pages, then every `src=`, stylesheet, `import … from`, `import('…')` and
+  `new URL('…', import.meta.url)` they reach (about 170 files, after load + idle so it never competes with the
+  globe's start). A module only reached by a computed path would be missed: keep imports literal. Save-Data: pages only.
+- **Libraries via `<script>` are no-cors**; the worker refetches pinned CDN files with CORS so the cache holds readable
+  copies (an opaque one counts as ~7 MB of quota in Chrome). Leaflet's base tiles are `crossOrigin: false`: OSM and Esri
+  answer CORS, so they are kept; anything that does not is passed through uncached.
+- **Testing offline in WebKit:** Playwright's `setOffline` with a service worker makes WebKit fail with "internal error";
+  pwa_check.mjs drops the connections in its own server instead (and also sets offline in Chromium for the banner).
+- **Touch hints** (`gestures.js`): phones only (`pointer: coarse` without a fine pointer), not in embeds, after the
+  globe's boot screen or the map's splash and welcome are gone; `oo-hints` remembers per view. The journeys pre-set it.
+- **Long press** (`spot.js`): 550 ms, 10 px slop, one finger. On the globe, lifting the finger is also a Cesium click
+  that would open the country over the card: the press sets `state.picking` until 350 ms after the finger is up (ui.js
+  ignores clicks while picking). The card is a self-describing object for ui.js `select()` (`cardHtml`/`afterCard`), so
+  Fly to and Nearest camera come for free. On the map the following click is swallowed for 800 ms (else the probe opens).
+- **a11y.js works on the live DOM** from a per-page description (toolbars, toggles, tabs, the card to announce): new
+  band or dock buttons other modules add are covered without changes. Announcements go to one polite region; a card is
+  said once per selection (kind + heading), map popups by their heading. `fixNames` gives symbol-only buttons their title.
+- **The HTML check** (core/a11ycheck.js, test/a11y.test.mjs, CI) fails on a button named only by a symbol, an input
+  with only a placeholder, an img without alt, duplicate ids, tabindex > 0, an unlabelled role, and text-colour tokens
+  (`--ink*`, `--dim`, `--faint`, …) under 4.5:1 against `--bg` / `--panel-solid` / `--panel-2`. Viewports that block zoom
+  are only warnings on the three views that handle pinch themselves.

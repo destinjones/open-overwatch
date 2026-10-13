@@ -17,7 +17,7 @@
 <style>
 /* Tonight above you, without the 3D globe: the same card as the globe's Tonight (src/globe/tonight.js), full page, fast on phones. */
 :root{
-  --bg:#04060a; --glass:rgba(8,12,18,.62); --edge-dim:rgba(230,237,243,.08); --ink:#e6edf3; --dim:#8b9bab; --faint:#55667a; --accent:#7dffa6;
+  --bg:#04060a; --glass:rgba(8,12,18,.62); --edge-dim:rgba(230,237,243,.08); --ink:#e6edf3; --dim:#8b9bab; --faint:#738599; --accent:#7dffa6;
   --display:"Big Shoulders Display","Arial Narrow",sans-serif; --body:"Barlow",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
   color-scheme:dark;
 }
@@ -60,5 +60,6 @@ button:focus-visible,a:focus-visible,h3:focus-visible{outline:2px solid #7dffa6;
 <script src="https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/dist/satellite.min.js"></script>
 <script>if (location.protocol === 'file:') document.querySelector('#card .note').innerHTML = 'This page needs the local helper: run <b>Start Open Overwatch.bat</b>, then open http://127.0.0.1:8787/tonight.html';</script>
 <script type="module" src="src/sky/main.js"></script>
+<script type="module" src="src/app/shell.js"></script>
 </body>
 </html>
