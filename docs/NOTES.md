@@ -86,7 +86,8 @@ copies and `/data/` out of search results and points at `sitemap.xml`: bump its 
 util (helpers, Store, Log/toast/Sound, Net + Relay, clock; `late` registry) · mapview (Leaflet map, base maps, Sun) ·
 engine (Glyphs canvas renderer, Points, Layers registry + panel, feed scheduler) · detail (Detail panel, tracks, hover,
 tabs/sheets) · aircraft · satellites (TLEs via src/core/tle.js) · feeds (all point/vector layers) · presets (views,
-legend, Locate, Fun/ISS follow) · brief (Brief, Welcome) · audio · setup (Setup tab, Probe, search) · main (INIT, OW).
+legend, Locate, Fun/ISS follow) · brief (Brief, Welcome) · audio · setup (Setup tab, Probe, search) · cities (bike share, live
+transit) · hazards (fire hot spots, US perimeters) · measure (draw and measure) · share (links, hand-off to the globe) · main (INIT, OW).
 Modules import only from earlier ones; the five names used before they are defined (Sats, cableHit, Probe, Brief, Keys)
 are read through `late.X`. OW_VERSION stays a classic <script> const in the HTML (Publish Update.bat edits that line).
 A hidden tab pauses feeds by design: drive them with OW.Sats.reload() etc. when testing in a background pane.
@@ -101,7 +102,8 @@ A hidden tab pauses feeds by design: drive them with OW.Sats.reload() etc. when 
 4. `Detail.renderers[kind] = obj => html`. **Escape every upstream string with `esc()`** — `Detail.kv` values and
    the `Detail.head` sub-argument go into innerHTML raw. Check link schemes with `isHttp()`.
 5. CORS-blocked source: add the host to `NEEDS_RELAY` in the html AND `ALLOWED_HOSTS` in serve.js AND serve.py.
-Moving-object types (like aircraft/ships) have no generic path: they need a hand-written branch in Glyphs.draw.
+Moving objects: `Movers.define(id, { layerId, kind, minZoom, at(o, now, out), glyph, tip, label })` (engine.js) draws a Map
+the feed fills, placed by its own motion model each frame (transit uses it); aircraft and ships keep their own branches.
 A top-level exception anywhere aborts INIT, so test every new layer in the browser.
 
 ## Feed status as of 2026-10-02
@@ -312,3 +314,28 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
 - Its ~150 sensor links in Manhattan are all on the edges (FDR, West Side Hwy / 12th Ave, tunnels, bridges); Midtown's
   streets have none, so a Midtown view correctly shows no measured roads. A query ordered by data_as_of over the whole
   table is slow (minutes for count(distinct)); keep the ordered $limit query (1200 rows ≈ every link).
+
+## Shared feed core and the 2D map catching up — 2026-10-12 (branch grow-map-core)
+- One parser per feed, in src/core, for the 2D map, the globe and the MCP server: quakes, eonet, gdacs, cyclones,
+  cameras, aurora, cables, aircraft, transitfeeds, overpass, radio mirrors, OSRM (route.js), passes (ecfAt/nextPass).
+  Fetching stays in the views (the map's Net with its relay and throttles, the globe's getJSON) and goes in as a
+  function (`loadCyclones({ json })`, `startPoll(s, { fetch })`, `overpass(q, { fetch })`), so Node tests run the whole
+  recipe with fakes (test/feeds, cameras, transitfeeds, aircraft, overpass).
+- Cyclones on the 2D map now have what the globe had: NOAA forecast cones, tracks, coastal watches and warnings, the wind
+  field and GDACS cones for other basins. NHC's `movementSpeed` is mph (the old 2D card said kt).
+- Cameras: the 2D map shows all twelve networks (it had five); a stream-only camera (DelDOT, MoDOT, Iowa, Norway) plays
+  in the panel through hls.js (the globe's version, loaded on first use). Live video starts from a data attribute: the
+  injection test forbids interpolating anything but num()/idArg() into inline handlers.
+- Live transit on the canvas: a vehicle is stepped (core fleet) when the canvas draws it, so motion runs at the draw
+  rate (~2 Hz idle, every frame while panning). The map's "height" for Entur's box is `zoomToHeight` (core/viewlink).
+- Fire hot spots: the same tiles as the globe (fireTilesWanted), the worker moved to src/core/fires.worker.js; a 1,000 km
+  view over Zambia in October: 12,000 detections, drawn on the shared canvas without trouble.
+- Share links: the globe's format. The map's zoom ↔ the globe's height (`zoomToHeight`, `heightToZoom`: London at zoom
+  12 ≈ 20 km up). A 2D link names its layers exactly (`l=`); between views the layers go as `a=` through MAP_TO_GLOBE, so
+  the other view keeps its own. "3D globe" (rail) and the globe's "Classic map" open each other on the same place with
+  the drawing. The 2D hash is cleared once applied (the map then remembers its own view).
+- Found on the way: the 2D radio's saved genre was inside a comment (never loaded: the station list asked for tag
+  "undefined" until one was picked); the HSL stream's stop() left its ping and sweep timers running when a socket closed
+  without an onclose; storm cards named NOAA NHC twice.
+- brand/tools/cdp.mjs kills "orphaned" Edge from other runs in the same work folder: with several sessions rendering, set
+  OW_WORK to a folder of your own. brand/tools/page_check.mjs renders any page (the 2D map too) and lists script errors.

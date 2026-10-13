@@ -56,6 +56,12 @@ same code runs in Node tests and in the render loop without allocating.
 | `roadtiles.js` | road lines from vector tiles: clipped per tile, joined across tile edges, junctions, names, lights where busy roads meet |
 | `traffic.js` | the traffic simulation: road graph, car following (IDM), lights, time-of-day busyness, NYC DOT / Fintraffic readings |
 | `measure.js` | draw and measure: WGS84 distances and bearings (Vincenty; a bisection near the antipode), geodesic polygon areas (authalic sphere), ground length, the words for them, GeoJSON, the drawing in share links |
+| `quakes.js`, `eonet.js`, `gdacs.js` | USGS quakes, NASA EONET events (points and polygons, storm tracks), GDACS alerts: one parser for the 2D map, the globe and the MCP server |
+| `cyclones.js` | every active cyclone, merged per storm from EONET, NOAA NHC, NOAA's forecast layers and GDACS (`loadCyclones`, fetching injected); categories, sources |
+| `cameras.js` | the twelve agency camera networks (where the list is, the box, the credit, a parser each; Hong Kong's XML read here) |
+| `transitfeeds.js` | live transit sources and areas, the poll loop and HSL's MQTT stream, the fleet drawn behind live (`createFleet`) |
+| `aircraft.js`, `aurora.js`, `cables.js`, `overpass.js` | readsb / OpenSky records; OVATION grid and pictures, Kp; cable click test; the polite Overpass client |
+| `fires.worker.js` | GIBS VIIRS fire tiles off the main thread (fetch, gunzip, decode), used by both views |
 
 Accuracy, checked by the tests against JPL Horizons on 2026-10-02: planets within arcminutes (JPL's own stated
 error for these formulas), main-belt asteroids within ~3×10⁻⁴ AU, the Moon within ~0.3°, the other moons within 0.4° of their orbit.
