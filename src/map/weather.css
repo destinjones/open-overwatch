@@ -30,3 +30,14 @@
   body.wx-on #hud { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .wx-streaks { opacity: .85; } }
+/* the divider between two models side by side */
+.wx-cmp.on { border-color: var(--accent, #7dffa6); color: var(--accent, #7dffa6); }
+.wx-split { position: absolute; z-index: 810; top: 0; bottom: 0; width: 0; touch-action: none; cursor: ew-resize; }
+.wx-split[hidden] { display: none; }
+.wx-split i { position: absolute; top: 0; bottom: 0; left: -1px; width: 2px; background: rgba(255, 255, 255, .85); box-shadow: 0 0 6px rgba(0, 0, 0, .6); }
+.wx-split::before { content: ''; position: absolute; top: 0; bottom: 0; left: -14px; width: 28px; }   /* an easy target */
+.wx-split::after { content: '⇆'; position: absolute; top: 50%; left: -15px; width: 30px; height: 30px; margin-top: -15px; border-radius: 50%;
+  background: var(--panel-solid, #080c12); border: 1px solid rgba(255, 255, 255, .85); color: #fff; font: 600 14px/28px system-ui, sans-serif; text-align: center; }
+.wx-split:focus-visible::after { outline: 2px solid var(--accent, #7dffa6); }
+.wx-split span { position: absolute; top: 12px; padding: 2px 6px; border-radius: 3px; background: rgba(4, 7, 10, .8); font: 600 11px/1.3 var(--font-mono, ui-monospace, monospace); color: #fff; white-space: nowrap; }
+.wx-split-l { right: 10px; } .wx-split-r { left: 10px; }

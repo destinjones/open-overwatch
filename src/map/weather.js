@@ -31,9 +31,9 @@ const latAt = (y, z) => Math.atan(Math.sinh(Math.PI * (1 - 2 * y / worldPx(z))))
 const xAt = (lon, z) => (lon + 180) / 360 * worldPx(z);
 const yAt = (lat, z) => { const s = Math.sin(Math.max(-85.06, Math.min(85.06, lat)) * RAD); return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * worldPx(z); };
 
-map.createPane('wxWash').style.zIndex = 330;   // over the base map and the satellite / radar tiles, under vectors and glyphs
-map.createPane('wxTop').style.zIndex = 390;
-for (const p of ['wxWash', 'wxTop']) map.getPane(p).style.pointerEvents = 'none';
+// over the base map and the satellite / radar tiles, under vectors and glyphs; the R panes hold the second model's
+// layers when two are side by side (each side's panes are clipped at the divider), the streaks have their own
+for (const [p, z] of [['wxWash', 330], ['wxWashR', 331], ['wxTop', 390], ['wxTopR', 391], ['wxStreak', 392]]) { map.createPane(p).style.zIndex = z; map.getPane(p).style.pointerEvents = 'none'; }
 
 /* ============================================================ the moment */
 export const Wx = {
@@ -43,21 +43,27 @@ export const Wx = {
   h: 0,                                  // hours ahead of t0 shown
   cur: null,                             // the moment shown: { a, b, w, h0, h1, run, model } (core/wxload.js)
   key: '', loading: null, playing: false, timer: 0, checked: 0, charts: new Map(),
+  compare: !!Store.get('wx.compare', false),   // both models side by side: this one left of the divider, the other right
+  split: 0.5,                                  // where the divider is, as a fraction of the map's width
+  cmp: null,                                   // the other model's moment while comparing
+  get other() { return Object.values(Models).find(m => m !== this.model); },
+  data(side) { return side === 'cmp' ? this.cmp : this.cur; },
   t() { return this.t0 + this.h * H; },
   /** The fields the switched-on layers need. */
   kinds() { return Object.entries(KINDS).filter(([id]) => Layers.on(id)).map(([, k]) => k); },
   any() { return Object.keys(KINDS).some(id => Layers.on(id)); },
   /** The moment with every field the layers on need (one load shared by all of them; a newer request wins). */
   load() {
-    const kinds = this.kinds(), t = this.t(), model = this.model, key = `${model.id}|${t}|${kinds.join(',')}`;
+    const kinds = this.kinds(), t = this.t(), model = this.model, other = this.compare ? this.other : null, key = `${model.id}|${other ? other.id : '-'}|${t}|${kinds.join(',')}`;
     if (this.key === key && this.loading) return this.loading;
     this.key = key;
     this.loading = (async () => {
       if (Date.now() - this.checked > 20 * 60e3) { this.checked = Date.now(); if (await model.refresh().catch(() => false)) this.t0 = Math.floor(Date.now() / H) * H; }   // a newer run is out
-      const c = await momentOf(model, t, kinds, { still: () => this.key === key });
+      const still = () => this.key === key;
+      const [c, d] = await Promise.all([momentOf(model, t, kinds, { still }), other ? momentOf(other, t, kinds, { still }) : null]);
       if (this.key !== key) return this.cur;   // a later moment was asked for meanwhile
       if (!c) throw new Error(`${model.def.short} is not reachable right now`);
-      this.cur = c; this.charts.clear(); this.repaint();
+      this.cur = c; this.cmp = d; this.charts.clear(); this.repaint();
       return c;
     })();
     this.loading.catch(() => { if (this.key === key) this.key = ''; });   // the next try fetches again
@@ -69,20 +75,26 @@ export const Wx = {
   setHour(h) { this.h = Math.max(0, Math.min(MAX_H, h)); Bar.label(); this.reloadSoon(); },
   setModel(id) {
     if (!(id in Models) || id === this.modelId) return;
-    this.modelId = id; Store.set('wx.model', id); this.cur = null; this.charts.clear(); this.key = '';
-    credit(); this.repaint(); this.reload();
+    this.modelId = id; Store.set('wx.model', id); this.cur = this.cmp = null; this.charts.clear(); this.key = '';
+    credit(); Divider.sync(); this.repaint(); this.reload();
+  },
+  /** Both models side by side, or one. */
+  setCompare(on) {
+    if (on === this.compare) return;
+    this.compare = on; Store.set('wx.compare', on); this.cmp = null; this.charts.clear(); this.key = '';
+    for (const [id, k] of Object.entries(KINDS)) if (Layers.on(id)) showKind(k, true);
+    Divider.sync(); credit(); this.repaint(); this.reload();
   },
   repaint() {
-    for (const [kind, l] of Object.entries(washes)) if (l._map) l.redraw();
-    if (isobars._map) isobars.redraw();
+    for (const side of SIDES) { for (const l of Object.values(washes[side])) if (l._map) l.redraw(); if (isobars[side]._map) isobars[side].redraw(); }
     streaks.fresh();
     Bar.label(); Bar.legend(); Bar.read();
   },
   /** The isobar chart of the moment, with value labels spaced for zoom z (cached per moment). */
-  chart(z) {
-    const c = this.cur; if (!c || !c.a.pres) return null;
+  chart(z, side = 'main') {
+    const c = this.data(side); if (!c || !c.a.pres) return null;
     const spacing = Math.max(6, 40 / 2 ** Math.max(0, Math.floor(z) - 3));
-    let ch = this.charts.get(spacing);
+    let ch = this.charts.get(side + spacing);
     if (!ch) {
       ch = pressureChart(c.a.pres, c.b.pres, c.w, { maxCentres: SMALL ? 16 : 32, spacing, minLen: Math.min(12, spacing / 2) });
       // flat-map pieces: longitudes into -180..180, cut where a line crosses the date line; each with its box
@@ -92,7 +104,7 @@ export const Wx = {
         ch.pieces.push({ bold, p, w, e, s, n });
       }
       for (const l of ch.labels) l.lon = ((l.lon + 180) % 360 + 360) % 360 - 180;
-      this.charts.set(spacing, ch);
+      this.charts.set(side + spacing, ch);
     }
     return ch;
   },
@@ -105,16 +117,17 @@ export const Wx = {
       const next = this.h + 3 > MAX_H ? 0 : Math.floor(this.h / 3) * 3 + 3;
       this.setHour(next); Bar.slider.value = String(next);
       this.model.prefetch(this.t0 + (next + 3) * H, this.kinds());   // the hour after, quietly
+      if (this.compare) this.other.prefetch(this.t0 + (next + 3) * H, this.kinds());
     }, SMALL ? 1400 : 1000);
   },
 };
 
 /* ============================================================ washes: one grid layer per field, painted per tile */
 const WashLayer = L.GridLayer.extend({
-  initialize(kind) { L.GridLayer.prototype.initialize.call(this, { pane: 'wxWash', opacity: WASH_ALPHA[kind], tileSize: 256, updateWhenZooming: false, keepBuffer: 1, className: 'wx-' + kind }); this.kind = kind; },
+  initialize(kind, side = 'main') { L.GridLayer.prototype.initialize.call(this, { pane: side === 'cmp' ? 'wxWashR' : 'wxWash', opacity: WASH_ALPHA[kind], tileSize: 256, updateWhenZooming: false, keepBuffer: 1, className: 'wx-' + kind }); this.kind = kind; this.side = side; },
   createTile(coords) {
     const tile = document.createElement('canvas'); tile.width = tile.height = 256;
-    const c = Wx.cur, kind = this.kind; if (!c || !c.a[kind]) return tile;
+    const c = Wx.data(this.side), kind = this.kind; if (!c || !c.a[kind]) return tile;
     const ctx = tile.getContext('2d'), img = ctx.createImageData(256, 256), z = coords.z, x0 = coords.x * 256, y0 = coords.y * 256;
     const lat = new Float64Array(256); for (let y = 0; y < 256; y++) lat[y] = latAt(y0 + y + 0.5, z);   // Mercator: latitude by row, longitude by column
     // cloud and rain are nearly all-or-nothing from one grid cell to the next: plain bilinear shows the cells as squares
@@ -143,14 +156,15 @@ function darts(ctx, c, { x, y, z }) {
   }
   ctx.stroke();
 }
-const washes = Object.fromEntries(['temp', 'cloud', 'rain', 'gust', 'wave'].map(k => [k, new WashLayer(k)]));
+const SIDES = ['main', 'cmp'];
+const washes = Object.fromEntries(SIDES.map(side => [side, Object.fromEntries(['temp', 'cloud', 'rain', 'gust', 'wave'].map(k => [k, new WashLayer(k, side)]))]));
 
 /* ============================================================ isobars, values and the highs and lows, per tile */
 const IsobarLayer = L.GridLayer.extend({
-  initialize() { L.GridLayer.prototype.initialize.call(this, { pane: 'wxTop', tileSize: 256, updateWhenZooming: false, keepBuffer: 1, className: 'wx-pres' }); },
+  initialize(side = 'main') { L.GridLayer.prototype.initialize.call(this, { pane: side === 'cmp' ? 'wxTopR' : 'wxTop', tileSize: 256, updateWhenZooming: false, keepBuffer: 1, className: 'wx-pres' }); this.side = side; },
   createTile(coords) {
     const tile = document.createElement('canvas'), dpr = Math.min(2, devicePixelRatio || 1); tile.width = tile.height = 256 * dpr;
-    const ch = Wx.chart(coords.z); if (!ch) return tile;
+    const ch = Wx.chart(coords.z, this.side); if (!ch) return tile;
     const ctx = tile.getContext('2d'), z = coords.z, x0 = coords.x * 256, y0 = coords.y * 256, pad = 40;
     ctx.scale(dpr, dpr);
     const w = lonAt(x0 - pad, z), e = lonAt(x0 + 256 + pad, z), n = latAt(y0 - pad, z), s = latAt(y0 + 256 + pad, z);
@@ -177,13 +191,13 @@ const IsobarLayer = L.GridLayer.extend({
     return tile;
   },
 });
-const isobars = new IsobarLayer();
+const isobars = { main: new IsobarLayer('main'), cmp: new IsobarLayer('cmp') };
 
 /* ============================================================ wind streaks: particles carried by the wind on a canvas */
 const COUNT = SMALL ? 900 : 2600;
 const Streaks = L.Layer.extend({
   onAdd(m) {
-    this.cv = L.DomUtil.create('canvas', 'wx-streaks leaflet-zoom-hide'); m.getPane('wxTop').appendChild(this.cv);
+    this.cv = L.DomUtil.create('canvas', 'wx-streaks leaflet-zoom-hide'); m.getPane('wxStreak').appendChild(this.cv);
     this.ctx = this.cv.getContext('2d'); this.parts = [];
     m.on('moveend zoomend resize viewreset', this.reset, this); m.on('movestart zoomstart', this.hold, this);
     this.reset(); this.loop(); return this;
@@ -216,8 +230,9 @@ const Streaks = L.Layer.extend({
     const o = m.project(m.containerPointToLatLng([0, 0]), z);   // the canvas's top-left in world pixels
     ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = SMALL ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.08)'; ctx.fillRect(0, 0, W, Hh); ctx.globalCompositeOperation = 'source-over';
     const k = (SMALL ? 0.3 : 0.18) / (worldPx(z) / 360), wv = [0, 0], buckets = WIND_COLORS.map(() => []);   // the same screen speed per m/s at every zoom
+    const two = Wx.compare && Wx.cmp && Wx.cmp.a.wind, cut = Wx.split * W;   // side by side: each streak follows the model on its side
     for (const p of this.parts) {
-      momentWind(Wx.cur, p.lat, p.lon, wv);
+      momentWind(two && p.px >= cut ? Wx.cmp : Wx.cur, p.lat, p.lon, wv);
       const cl = Math.cos(p.lat * RAD);
       p.lon += wv[0] * k; p.lat += wv[1] * k * cl; p.age++;   // Mercator is conformal: north-south the same screen speed as east-west
       if (p.age > p.life || p.lat > this.box.n || p.lat < this.box.s || p.lon < this.box.w || p.lon > this.box.e) { this.spawn(p); continue; }
@@ -232,6 +247,35 @@ const Streaks = L.Layer.extend({
 });
 const streaks = new Streaks();
 
+/* ============================================================ the divider between two models */
+// Each side's panes are clipped at the divider. Panes move with the map pane while it is dragged, so the clip is in the
+// pane's own coordinates: the divider's container x minus the map pane's offset, kept current on every move.
+const Divider = {
+  el: null,
+  build() {
+    if (this.el) return;
+    const el = this.el = document.createElement('div'); el.className = 'wx-split'; el.hidden = true;
+    el.setAttribute('role', 'slider'); el.setAttribute('aria-label', 'Where the two models meet'); el.setAttribute('aria-valuemin', '5'); el.setAttribute('aria-valuemax', '95'); el.tabIndex = 0;
+    el.innerHTML = '<span class="wx-split-l"></span><i></i><span class="wx-split-r"></span>';
+    $('#mapwrap').appendChild(el); L.DomEvent.disableClickPropagation(el);
+    const move = x => { const r = $('#map').getBoundingClientRect(); Wx.split = Math.max(0.05, Math.min(0.95, (x - r.left) / r.width)); this.place(); };
+    el.addEventListener('pointerdown', e => {
+      e.preventDefault(); el.setPointerCapture(e.pointerId); map.dragging.disable();
+      const mv = ev => move(ev.clientX), up = () => { el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); map.dragging.enable(); Bar.read(); };
+      el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up);
+    });
+    el.addEventListener('keydown', e => { const d = e.key === 'ArrowLeft' ? -0.02 : e.key === 'ArrowRight' ? 0.02 : 0; if (d) { e.preventDefault(); Wx.split = Math.max(0.05, Math.min(0.95, Wx.split + d)); this.place(); } });
+  },
+  sync() { this.build(); this.el.hidden = !(Wx.compare && Wx.any()); $('.wx-split-l', this.el).textContent = Wx.model.def.short; $('.wx-split-r', this.el).textContent = Wx.other.def.short; this.place(); },
+  place() {
+    const on = !this.el.hidden, W = map.getSize().x, pos = map._getMapPanePos(), cut = Wx.split * W - pos.x;
+    this.el.style.left = (Wx.split * 100).toFixed(2) + '%'; this.el.setAttribute('aria-valuenow', String(Math.round(Wx.split * 100)));
+    for (const p of ['wxWash', 'wxTop']) map.getPane(p).style.clipPath = on ? `inset(-100000px ${(-cut).toFixed(1)}px -100000px -100000px)` : '';
+    for (const p of ['wxWashR', 'wxTopR']) map.getPane(p).style.clipPath = on ? `inset(-100000px -100000px -100000px ${cut.toFixed(1)}px)` : '';
+  },
+};
+map.on('move zoom resize viewreset zoomend', () => { if (Divider.el && !Divider.el.hidden) Divider.place(); });
+
 /* ============================================================ the timeline bar */
 const when = t => new Date(t).toLocaleString([], { weekday: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const Bar = {
@@ -244,6 +288,7 @@ const Bar = {
       + `<input type="range" class="wx-slider" min="0" max="${MAX_H}" step="1" value="0" aria-label="Hours ahead">`
       + `<span class="wx-when" aria-live="off"></span>`
       + `<select class="wx-model" aria-label="Forecast model">${Object.values(Models).map(m => `<option value="${esc(m.id)}">${esc(m.def.short)}</option>`).join('')}</select>`
+      + `<button type="button" class="wx-btn wx-cmp" aria-pressed="false" aria-label="Compare the two models side by side" title="Both models side by side, split by a divider you can drag">⇆</button>`
       + `<button type="button" class="wx-btn wx-x" aria-label="Switch the forecast layers off">✕</button></div>`
       + `<div class="wx-legend"></div><div class="wx-read"></div><div class="wx-src"></div>`;
     $('#mapwrap').appendChild(el);
@@ -252,6 +297,7 @@ const Bar = {
     this.slider.addEventListener('input', () => { Wx.play(false); Wx.setHour(+this.slider.value); });
     $('.wx-play', el).addEventListener('click', () => Wx.play());
     const sel = $('.wx-model', el); sel.value = Wx.modelId; sel.addEventListener('change', () => Wx.setModel(sel.value));
+    $('.wx-cmp', el).addEventListener('click', () => Wx.setCompare(!Wx.compare));
     $('.wx-x', el).addEventListener('click', () => { Wx.play(false); for (const id of Object.keys(KINDS)) Layers.set(id, false); });
   },
   sync() {
@@ -264,8 +310,10 @@ const Bar = {
     if (!this.el) return;
     $('.wx-play', this.el).textContent = Wx.playing ? '❚❚' : '▶'; $('.wx-play', this.el).setAttribute('aria-label', Wx.playing ? 'Pause' : 'Play the forecast');
     $('.wx-when', this.el).textContent = `${when(Wx.t())} · ${Wx.h ? '+' + Wx.h + ' h' : 'now'}`;
-    const c = Wx.cur;
-    $('.wx-src', this.el).textContent = c ? `${c.model.def.name}, ${runWords(c.run)}: a forecast, blended between its 3-hourly steps` : `${Wx.model.def.name}: looking for its newest run…`;
+    const c = Wx.cur, d = Wx.cmp, cmpB = $('.wx-cmp', this.el);
+    cmpB.setAttribute('aria-pressed', String(Wx.compare)); cmpB.classList.toggle('on', Wx.compare);
+    const run = (x, m) => x ? `${x.model.def.name}, ${runWords(x.run)}` : `${m.def.name}: looking for its newest run…`;
+    $('.wx-src', this.el).textContent = Wx.compare ? `Left: ${run(c, Wx.model)} · right: ${run(d, Wx.other)}` : (c ? `${run(c)}: a forecast, blended between its 3-hourly steps` : run(null, Wx.model));
   },
   legend() {
     if (!this.el) return;
@@ -278,7 +326,7 @@ const Bar = {
   /** Every field at the pointer (or the map's centre on touch screens). */
   read(ll = this.at) {
     if (!this.el || this.el.hidden) return;
-    const c = Wx.cur, p = ll || map.getCenter();
+    const p = ll || map.getCenter(), right = Wx.compare && map.latLngToContainerPoint(p).x >= Wx.split * map.getSize().x, c = right ? Wx.cmp : Wx.cur;
     if (!c) { $('.wx-read', this.el).textContent = ''; return; }
     const lon = ((p.lng + 540) % 360) - 180, r = momentReading(c, p.lat, lon), out = [];
     const spd = v => IMPERIAL ? `${Math.round(v * 2.23694)} mph` : `${Math.round(v * 3.6)} km/h`;
@@ -289,7 +337,7 @@ const Bar = {
     if (Number.isFinite(r.cloud)) out.push(`${Math.round(r.cloud)}% cloud`);
     if (Number.isFinite(r.rain) && r.rain >= 0.1) out.push(`rain ${r.rain.toFixed(1)} mm/h`);
     if (Number.isFinite(r.wave)) out.push(`waves ${IMPERIAL ? Math.round(r.wave * 3.28084) + ' ft' : r.wave.toFixed(1) + ' m'}${Number.isFinite(r.waveFrom) ? ' from the ' + compass(r.waveFrom) : ''}`);
-    $('.wx-read', this.el).textContent = out.length ? `${ll ? 'Here' : 'Map centre'}: ${out.join(' · ')}` : '';
+    $('.wx-read', this.el).textContent = out.length ? `${ll ? 'Here' : 'Map centre'}${Wx.compare ? ' (' + c.model.def.short + ')' : ''}: ${out.join(' · ')}` : '';
   },
 };
 map.on('mousemove', throttle(e => { if (Bar.el && !Bar.el.hidden) { Bar.at = e.latlng; Bar.read(); } }, 120));
@@ -297,7 +345,7 @@ map.on('mouseout', () => { Bar.at = null; Bar.read(); });
 map.on('moveend', () => { if (!Bar.at) Bar.read(); });
 let shownCredit = '';
 function credit() {
-  const want = Wx.any() ? CREDIT[Wx.modelId] : '';
+  const want = !Wx.any() ? '' : Wx.compare ? Object.values(CREDIT).join(' · ') : CREDIT[Wx.modelId];
   if (want === shownCredit) return;
   if (shownCredit) map.attributionControl.removeAttribution(shownCredit);
   if (want) map.attributionControl.addAttribution(want);
@@ -305,12 +353,19 @@ function credit() {
 }
 
 /* ============================================================ the layers */
-const leafletOf = kind => kind === 'wind' ? streaks : kind === 'pres' ? isobars : washes[kind];
+/** Put a field's Leaflet layers on the map (both sides while comparing) or take them off. */
+function showKind(kind, on) {
+  if (kind === 'wind') { if (on) streaks.addTo(map); else map.removeLayer(streaks); return; }
+  for (const side of SIDES) {
+    const l = kind === 'pres' ? isobars[side] : washes[side][kind];
+    if (on && (side === 'main' || Wx.compare)) l.addTo(map); else map.removeLayer(l);
+  }
+}
 /** A forecast layer: its Leaflet layer on and off with it, and a feed whose status says whether the model answered. */
 function wxLayer(ly) {
   const kind = KINDS[ly.id], base = ly.desc;
-  ly.enable = () => { Bar.sync(); credit(); leafletOf(kind).addTo(map); };
-  ly.disable = () => { map.removeLayer(leafletOf(kind)); Bar.sync(); credit(); if (!Wx.any()) { Wx.cur = null; Wx.key = ''; } };
+  ly.enable = () => { Bar.sync(); credit(); showKind(kind, true); Divider.sync(); };
+  ly.disable = () => { showKind(kind, false); Bar.sync(); credit(); Divider.sync(); if (!Wx.any()) { Wx.cur = Wx.cmp = null; Wx.key = ''; } };
   feed(ly, { interval: 900, errorInterval: 60, fetch: async () => {
     const c = await Wx.load();
     if (!c || !c.a[kind]) throw new Error(`${Wx.model.def.short} has no ${kind === 'pres' ? 'pressure' : kind} for this hour`);
@@ -328,7 +383,7 @@ wxLayer(Layers.add({ id: 'wx_cloud', group: G, name: 'Cloud cover (forecast)', d
 wxLayer(Layers.add({ id: 'wx_rain', group: G, name: 'Rain (forecast)', desc: 'The model’s rain rate in radar colours · not observed: Precipitation radar shows now', color: '#3ee08f', default: false }));
 wxLayer(Layers.add({ id: 'wx_wave', group: G, name: 'Ocean waves (forecast)', desc: 'Significant wave height, darts where they run · WAVEWATCH III with GFS, ECMWF’s wave model with ECMWF', color: '#46b4dc', default: false }));
 // layers switched on by a saved state or a link before INIT: the bar and the drawing follow once the map is up
-setTimeout(() => { if (Wx.any()) { Bar.sync(); credit(); for (const [id, k] of Object.entries(KINDS)) if (Layers.on(id)) leafletOf(k).addTo(map); } }, 0);
+setTimeout(() => { if (Wx.any()) { Bar.sync(); credit(); for (const [id, k] of Object.entries(KINDS)) if (Layers.on(id)) showKind(k, true); Divider.sync(); } }, 0);
 
-export const Weather2D = { Wx, Bar, Models, washes, isobars, streaks };
+export const Weather2D = { Wx, Bar, Divider, Models, washes, isobars, streaks };
 late.Wx = Wx;

@@ -568,9 +568,18 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   are gone for core's (core/sky.js `subsolar`, `nightRing` against `sunAlt`; core/geo.js; core/format.js, now
   null-safe). An `export { esc } from …` creates no local binding: util.js used esc itself and INIT died with
   "esc is not defined" (caught in the pane; import it, then export it).
-- Not on the 2D map: the globe's side-by-side model comparison (a clipped second set of panes was not worth it), the
-  observed frames of weather mode (the map has its own radar and IR layers), cockpit weather, trails by altitude,
-  tower view and the landing watch.
+- Side by side (⇆ on the bar): the second model's washes and isobars are their own grid layers in panes `wxWashR` /
+  `wxTopR`; each side's panes get a `clip-path: inset()` at the divider. Panes ride on the map pane, which Leaflet
+  translates while dragging, so the inset is the divider's container x minus `map._getMapPanePos().x`, set again on
+  every move and zoom (a 0×0 pane clips its children fine with negative insets). Streaks are one canvas in a pane of
+  their own (`wxStreak`, never clipped); each particle follows the model on its side, as on the globe.
+- The aircraft card also says what the air is doing at the plane's height (Open-Meteo's two pressure levels around
+  it, core/aloft.js `aloftWords`: head/tail and cross wind, temperature against ISA, true airspeed and Mach, cloud and
+  an icing hint), asked once per 10 minutes per 0.25° cell and level pair, only for the open card. Trails are core
+  `Trail`s per aircraft (the map's old raw `rec.trail` arrays are gone): drawn for the open, followed and pinned planes
+  as runs of same-coloured polylines (a few dozen for 30 minutes), with stats and GeoJSON on the card; "Trail" pins.
+- Not on the 2D map: the observed frames of the globe's weather mode (the map has its own radar and IR layers), the
+  tower view, the landing watch and the route arc.
 - Renders: brand/tools/page_check.mjs (screenshots + script errors) works for the map. From Git Bash, give OW_WORK as
   a Windows path (`C:\Users\…`): with `$LOCALAPPDATA/…` Edge started but cdp.mjs never found DevToolsActivePort.
 

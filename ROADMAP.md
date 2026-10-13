@@ -257,7 +257,9 @@ Round 2 (2026-10-10, local):
 - [x] Shared with the globe through src/core (tested): the model loader and its worker (wxload), how fields are drawn
       (wxpaint), adsbdb (acinfo), board/card/route/runway words; the map's own sun model, geodesy and escaper deleted
       for core's (subsolar, nightRing, geo, format)
-- [ ] 2D map: the side-by-side model comparison, trails by altitude and cockpit weather are still globe-only
+- [x] 2D map, round 2 continued: the two models side by side with a draggable divider; the weather at a plane's height
+      on its card (core/aloft.js aloftWords); trails coloured by altitude with stats and GeoJSON (core/trail.js)
+- [ ] 2D map: the tower view, the landing watch and the route arc are still globe-only
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 
