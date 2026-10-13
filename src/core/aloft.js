@@ -136,3 +136,49 @@ export function aloftLines(p, w, e = aloftEffects(p, w)) {
   if (e && e.icing) out.push('ICING POSSIBLE (0 to −20 °C in cloud)');
   return out;
 }
+
+// ------------------------------------------------------------------------------------------------ at an airport
+const SFC_VARS = ['wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m', 'temperature_2m', 'dew_point_2m', 'visibility', 'cloud_cover_low', 'cloud_cover_mid', 'cloud_cover_high', 'weather_code', 'pressure_msl'];
+/** Open-Meteo request for the weather now at an airport (rounded to 0.05°, so one answer serves a field). */
+export function airportWxUrl(lat, lon, base = 'https://api.open-meteo.com/v1/forecast') {
+  const qLat = Math.round(lat * 20) / 20, qLon = Math.round(lon * 20) / 20;
+  return { url: `${base}?latitude=${qLat}&longitude=${qLon}&current=${SFC_VARS.join(',')}&wind_speed_unit=kn&timezone=UTC`, key: `${qLat},${qLon}` };
+}
+/**
+ * The weather at a field, METAR-like: { time, windDir, windKt, gustKt, tempC, dewC, vis (m), cloudLow/Mid/High (%),
+ * baseFt (estimated: 400 ft per °C of temperature/dew point spread, the convective cloud base; only when low cloud
+ * covers half the sky or more), qnh (hPa), weatherCode, category ('VFR'|'MVFR'|'IFR'|'LIFR'), estimated: true }.
+ * The category follows the FAA bands on the visibility and that estimated ceiling: a model's guess, not a METAR.
+ */
+export function airportWx(json) {
+  const c = json && json.current; if (!c || typeof c !== 'object') return null;
+  const w = { time: typeof c.time === 'string' ? c.time : '', windDir: n(c.wind_direction_10m), windKt: n(c.wind_speed_10m), gustKt: n(c.wind_gusts_10m),
+    tempC: n(c.temperature_2m), dewC: n(c.dew_point_2m), vis: n(c.visibility), cloudLow: n(c.cloud_cover_low), cloudMid: n(c.cloud_cover_mid), cloudHigh: n(c.cloud_cover_high),
+    weatherCode: n(c.weather_code), qnh: n(c.pressure_msl), baseFt: null, category: null, estimated: true };
+  if (w.windKt == null && w.tempC == null && w.vis == null) return null;
+  if (w.tempC != null && w.dewC != null && w.cloudLow != null && w.cloudLow >= 50) w.baseFt = Math.max(0, Math.round((w.tempC - w.dewC) * 400 / 100) * 100);
+  w.category = flightCategory(w.vis, w.baseFt);
+  return w;
+}
+/** FAA flight category from visibility (m) and ceiling (ft, null = none): LIFR < 500 ft or < 1 sm; IFR < 1,000 ft or
+ *  < 3 sm; MVFR <= 3,000 ft or <= 5 sm; else VFR. */
+export function flightCategory(visM, ceilFt) {
+  if (visM == null && ceilFt == null) return null;
+  const sm = visM == null ? Infinity : visM / 1609.344, c = ceilFt == null ? Infinity : ceilFt;
+  if (c < 500 || sm < 1) return 'LIFR';
+  if (c < 1000 || sm < 3) return 'IFR';
+  if (c <= 3000 || sm <= 5) return 'MVFR';
+  return 'VFR';
+}
+/** One line for the airport card: "Wind 240° 12 kt gusting 22 · 14 °C · vis 10+ km · low cloud BKN, base ~1,200 ft (est.) · light rain". */
+export function airportWxLine(w) {
+  if (!w) return '';
+  const parts = [];
+  if (w.windKt != null) parts.push(w.windKt < 1 ? 'Calm' : `Wind ${String(Math.round(w.windDir ?? 0) % 360).padStart(3, '0')}° ${Math.round(w.windKt)} kt${w.gustKt != null && w.gustKt >= w.windKt + 10 ? ` gusting ${Math.round(w.gustKt)}` : ''}`);
+  if (w.tempC != null) parts.push(`${Math.round(w.tempC)} °C${w.dewC != null ? ` (dew point ${Math.round(w.dewC)})` : ''}`);
+  if (w.vis != null) parts.push(`vis ${w.vis >= 10000 ? '10+ km' : (w.vis / 1000).toFixed(w.vis < 5000 ? 1 : 0) + ' km'}`);
+  if (w.cloudLow != null) parts.push(`low cloud ${oktas(w.cloudLow)}${w.baseFt != null ? `, base ~${w.baseFt.toLocaleString('en-US')} ft (est.)` : ''}`);
+  const ww = weatherWords(w.weatherCode); if (ww && !/clear|cloudy|overcast/.test(ww)) parts.push(ww);
+  if (w.qnh != null) parts.push(`QNH ${Math.round(w.qnh)}`);
+  return parts.join(' · ');
+}

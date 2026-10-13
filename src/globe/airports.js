@@ -3,7 +3,7 @@
 // its board: the live aircraft near it that are arriving (low, descending towards it), departing (climbing away) or on
 // the ground, worked out from the planes already on the globe (core/airports.js) and firmed up by the route on file
 // where adsbdb knows one. It is not a timetable: a plane counts once it is close and low enough to tell.
-import { C, $, esc, fmt, PHONE } from './env.js';
+import { C, $, esc, fmt, PHONE, getJSON } from './env.js';
 import { scene, camHeight } from './viewer.js';
 import { L, setCount, syncDock } from './layers.js';
 import { state, hooks } from './state.js';
@@ -13,11 +13,21 @@ import { CockpitWx } from './cockpitwx.js';
 import { select, flyToObject } from './ui.js';
 import { fetchAsset } from '../core/assets.js';
 import { parseAirports, AirportIndex, makeBoard, etaText, BOARD } from '../core/airports.js';
+import { airportWxUrl, airportWx, airportWxLine } from '../core/aloft.js';
 
 const pts = scene.primitives.add(new C.PointPrimitiveCollection());
 const labels = scene.primitives.add(new C.LabelCollection());
 const COLOR = C.Color.fromCssColorString('#9fe3ff');
 const LOOKUPS_PER_BOARD = 8;   // adsbdb look-ups to name where the board's planes come from or go
+
+const CAT_COLOR = { VFR: '#3ee08f', MVFR: '#5fb0ff', IFR: '#ff6b6b', LIFR: '#e070ff' };
+const wxCache = new Map();   // key -> { t, w }: the weather at a field, 15 minutes
+async function fieldWeather(a) {
+  const q = airportWxUrl(a.lat, a.lon), c = wxCache.get(q.key);
+  if (c && Date.now() - c.t < 15 * 60e3) return c.w;
+  const w = airportWx(await getJSON(q.url, { timeout: 15000 }));
+  wxCache.set(q.key, { t: Date.now(), w }); return w;
+}
 
 const SECTIONS = [['arriving', 'Arriving', '#7dffa6'], ['departing', 'Departing', '#ffd27a'], ['ground', 'On the ground', '#9fb3c8']];
 const STATUS = { taxiing: 'taxiing', ground: 'parked' };
@@ -66,10 +76,14 @@ export const Airports = {
   cardHtml(a) {
     return `<div class="k" style="--c:#9fe3ff">${a.size === 2 ? 'Large airport' : 'Airport'}</div><h2>${esc(a.name)}</h2>`
       + `<dl>${a.iata ? `<dt>IATA</dt><dd>${esc(a.iata)}</dd>` : ''}<dt>ICAO</dt><dd>${esc(a.icao)}</dd>${a.city ? `<dt>City</dt><dd>${esc(a.city)}${a.cc ? ' · ' + esc(a.cc) : ''}</dd>` : ''}<dt>Elevation</dt><dd>${fmt(a.elevM / 0.3048)} ft</dd></dl>`
-      + '<div id="apBoard" class="ap-board"><p class="note">Reading the sky…</p></div>';
+      + '<p id="apWx" class="ap-wx note">Weather…</p><div id="apBoard" class="ap-board"><p class="note">Reading the sky…</p></div>';
   },
   afterCard(a, card) {
     this.open = a; clearInterval(this.timer);
+    fieldWeather(a).then(w => {   // the weather now at the field, METAR-like (a model's values: Open-Meteo)
+      const el = card.querySelector('#apWx'); if (!el || state.selected !== a) return;
+      el.innerHTML = w ? `${w.category ? `<b class="ap-cat" style="--c:${CAT_COLOR[w.category]}" title="Flight category from the model's visibility and an estimated cloud base">${w.category}</b> ` : ''}${esc(airportWxLine(w))} <span class="ap-src">Open-Meteo model${w.time ? ', ' + esc(w.time.slice(11, 16)) + 'Z' : ''}</span>` : '';
+    }).catch(() => { const el = card.querySelector('#apWx'); if (el) el.remove(); });
     const draw = () => {
       const box = card.querySelector('#apBoard');
       if (!box || state.selected !== a || !card.classList.contains('show')) { clearInterval(this.timer); this.open = null; return; }

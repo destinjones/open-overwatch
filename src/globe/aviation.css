@@ -1,6 +1,8 @@
 /* Aviation: the aircraft card's extra section (aircard.js), airport boards (airports.js), cockpit weather (cockpitwx.js) */
 #acMore{margin-top:6px}
 #acMore .ac-dl{margin-top:0}
+.ac-phase{margin:6px 0 4px;font-size:12.5px;color:var(--faint,#9fb3c8)}
+.ac-phase b{color:#7dffa6;font-weight:600}
 .ac-route{margin:8px 0;padding:8px 10px;border:1px solid rgba(95,211,255,.28);border-radius:8px;background:rgba(95,211,255,.06)}
 .ac-route.off{border-color:rgba(255,180,77,.35);background:rgba(255,180,77,.06)}
 .ac-route .note{margin:6px 0 0}
@@ -18,6 +20,9 @@
 .ac-ramp{width:44px;height:6px;border-radius:3px}
 .ac-tbtns{grid-column:1/-1;display:flex;gap:6px;align-items:center}
 .ac-tbtns select{background:rgba(0,0,0,.35);color:inherit;border:1px solid rgba(230,237,243,.25);border-radius:6px;padding:3px 4px;font:inherit;font-size:12px}
+.ap-wx{margin:8px 0 2px;line-height:1.45}
+.ap-cat{display:inline-block;padding:0 6px;border:1px solid var(--c);border-radius:4px;color:var(--c);font:600 11px/16px var(--mono,monospace);letter-spacing:.08em}
+.ap-src{opacity:.6;font-size:10px}
 .ap-board h3{margin:10px 0 4px;font:600 11px/1.2 var(--mono,"IBM Plex Mono",monospace);letter-spacing:.12em;text-transform:uppercase}
 .ap-board .ab-row{grid-template-columns:1fr;width:100%;margin:0 0 4px}
 .ap-board .ab-row b{grid-row:auto;min-width:0;font:600 13px/1.2 var(--mono);color:#e6edf3}

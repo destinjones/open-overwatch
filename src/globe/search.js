@@ -5,7 +5,7 @@ import { $, esc, fmt } from './env.js';
 import { state, hooks } from './state.js';
 import { L, syncDock } from './layers.js';
 import { Sats } from './satellites.js';
-import { Air } from './aircraft.js';
+import { Air, airClass } from './aircraft.js';
 import { Country } from './country.js';
 import { Volcanoes } from './volcanoes.js';
 import { Companies } from './companies.js';
@@ -16,6 +16,7 @@ import { Launches } from './launches.js';
 import { LookUp } from './lookup.js';
 import { select, flyToObject, PRESETS } from './ui.js';
 import { parseFlightQuery, matchesFlight } from '../core/flight.js';
+import { classWord, typeMatcher, CLASSES } from '../core/actype.js';
 import { findPlaces, flyToPlace, placesCredit } from './places.js';
 
 // everyday names for famous objects -> NORAD numbers
@@ -42,6 +43,14 @@ async function find(q) {
     const here = [...Air.map.values()].filter(r => matchesFlight(r, fq)).slice(0, 3);
     for (const r of here) out.push({ kind: 'obj', obj: r, label: `✈ ${r.flight || r.hex}`, sub: `${r.reg ? r.reg + ' · ' : ''}${r.ground ? 'on the ground' : fmt((r.alt || 0) / 0.3048) + ' ft'}` });
     if (!here.length && fq.callsigns.length) out.push({ kind: 'flight', q: q.trim(), label: `✈ Find flight ${fq.callsigns[0]}`, sub: 'Look it up and follow it' });
+  }
+  // aircraft by type ("A380", "747") or kind ("helicopters", "private jets"): the ones on the globe now, highest first
+  const kind = classWord(s), isType = !kind && s.length >= 3 && /\d/.test(s) ? typeMatcher(q) : null;
+  if (kind || isType) {
+    const tc = r => r.type || (r.info && r.info.aircraft && r.info.aircraft.icaoType) || '';
+    const hits = [...Air.map.values()].filter(r => kind ? airClass(r).cls === kind && airClass(r).why !== 'guess' : isType(tc(r))).sort((a, b) => (b.alt || 0) - (a.alt || 0));
+    for (const r of hits.slice(0, 6)) out.push({ kind: 'obj', obj: r, label: `✈ ${r.flight || r.hex} · ${tc(r) || CLASSES[airClass(r).cls].name}`, sub: `${r.ground ? 'on the ground' : fmt((r.alt || 0) / 0.3048) + ' ft'}${r.reg ? ' · ' + r.reg : ''}` });
+    if (hits.length > 6) out.push({ kind: 'note', label: `${fmt(hits.length)} on the globe now`, sub: 'The six highest are listed; type codes come with the military feed and the planes you open' });
   }
   // launches (by rocket or mission name)
   for (const o of Launches.list.filter(o => o.name.toLowerCase().includes(s)).slice(0, 4)) out.push({ kind: 'obj', obj: o, label: `🚀 ${o.mission}`, sub: `${o.rocket} · ${o.place || o.pad}` });

@@ -81,6 +81,10 @@ test('route fit: on the way, off it, heading away', () => {
   assert.equal(routeFit(route, { lat: 60, lon: 25, track: 200, gs: 230 }).fits, false, 'Helsinki is not on the way');
   const away = routeFit(route, { ...mid, track: 50 }); assert.equal(away.fits, false); assert.match(away.why, /heading away/);
   assert.equal(routeFit(route, { lat: 47.99, lon: 10.24, track: 50, gs: 0, ground: true }).fits, true, 'parked at the origin');
+  const sea = { lat: 47.45, lon: -122.31 }, bna = { lat: 36.12, lon: -86.68 };
+  const asa = routeFit({ origin: sea, destination: bna }, { lat: 44.95, lon: -123.0, track: 357, gs: 192 });
+  assert.equal(asa.fits, false, 'flying north out of Oregon is not Seattle to Nashville (seen live: 98° off)');
+  assert.equal(routeFit({ origin: sea, destination: bna }, { lat: 46.0, lon: -117.0, track: 110, gs: 220 }).fits, true);
   assert.equal(routeFit(null, mid), null); assert.equal(routeFit(route, { lat: NaN, lon: 0 }), null);
 });
 test('great circle and bearing', () => {
@@ -254,4 +258,73 @@ test('altitude colours', () => {
   assert.deepEqual(altColor(10000 * 0.3048), [120, 220, 60]);
   const mid = altColor(7000 * 0.3048); assert.ok(mid[0] > 120 && mid[0] < 255);
   assert.match(altRampCss(), /^linear-gradient\(90deg,rgb\(180,180,180\) 0%/);
+});
+
+// ------------------------------------------------------------------------------------------------ flight phase
+import { flightPhase, greatCircle, PHASES } from '../src/core/phase.js';
+test('flight phase on the ground and in the air', () => {
+  const ph = (p, ap = LHR) => flightPhase(p, ap).phase;
+  const at = (deg, km) => from(LHR, deg, km);
+  assert.equal(ph({ ...at(0, 0.5), ground: true, gs: 0 }), 'parked');
+  assert.equal(ph({ ...at(0, 0.5), ground: true, gs: 8 }), 'taxiing');
+  assert.equal(ph({ ...at(0, 0.5), ground: true, gs: 70 }), 'roll');
+  assert.equal(ph({ ...at(270, 3), alt: 25 + 250, vr: 8, gs: 85, track: 270 }), 'takeoff');
+  assert.equal(ph({ ...at(270, 30), alt: 3000, vr: 10, gs: 140, track: 270 }), 'climb');
+  assert.equal(ph({ ...at(90, 300), alt: 11000, vr: 0, gs: 240, track: 270 }), 'cruise');
+  assert.equal(ph({ ...at(90, 300), alt: 3000, vr: 0, gs: 140, track: 270 }), 'level');
+  assert.equal(ph({ ...at(90, 200), alt: 8000, vr: -8, gs: 200, track: 270 }), 'descent');
+  assert.equal(ph({ ...at(90, 30), alt: 2000, vr: -5, gs: 120, track: 200 }), 'approach');
+  assert.equal(ph({ ...at(90, 10), alt: 600, vr: -3.5, gs: 75, track: 270 }), 'final');
+  assert.equal(ph({ ...at(90, 10), alt: 600, vr: -3.5, gs: 75, track: 90 }), 'approach', 'not lined up');
+  assert.equal(ph({ ...at(90, 5), alt: 300, vr: 0, gs: 70, track: 270 }), 'final', 'level on a short final');
+  assert.equal(ph({ ...at(0, 5), alt: 300, vr: 0, gs: 5, cls: 'helicopter', track: 0 }), 'hover');
+  assert.equal(ph({ ...at(0, 5), alt: 1000, vr: 2, gs: 40, cls: 'helicopter', track: 0 }), 'climb', 'helicopters climb slower');
+  assert.equal(ph({ ...at(90, 30), alt: 2000, vr: -5, gs: 120, track: 200 }, null), 'descent', 'no airport known');
+  const f = flightPhase({ ...at(90, 10), alt: 600, vr: -3.5, gs: 75, track: 270 }, LHR);
+  near(f.agl, 600 - LHR.elevM, 1e-9); near(f.apKm, 10, 0.05); assert.equal(f.words, PHASES.final);
+  assert.equal(flightPhase(null).phase, 'unknown');
+});
+test('great circle points', () => {
+  const g = greatCircle(51.47, -0.45, 40.64, -73.78, 32);
+  assert.equal(g.length, 33); near(g[0][0], 51.47, 1e-9); near(g[32][1], -73.78, 1e-9);
+  assert.ok(Math.max(...g.map(p => p[0])) > 52, 'the arc bends north of both ends');
+  let km = 0; for (let i = 1; i < g.length; i++) km += gcKm(g[i - 1][0], g[i - 1][1], g[i][0], g[i][1]);
+  near(km, gcKm(51.47, -0.45, 40.64, -73.78), 0.5, 'segments add up to the great circle');
+  const pac = greatCircle(35.5, 139.8, 37.6, -122.4, 16);
+  for (let i = 1; i < pac.length; i++) assert.ok(Math.abs(pac[i][1] - pac[i - 1][1]) < 30, 'continuous across the antimeridian');
+  assert.ok(pac[16][1] > 180, 'runs past 180 instead of jumping');
+  assert.deepEqual(greatCircle(10, 10, 10, 10, 2).map(p => p.map(v => Math.round(v * 1e6) / 1e6)), [[10, 10], [10, 10], [10, 10]]);
+});
+
+// ------------------------------------------------------------------------------------------------ airport weather
+import { airportWxUrl, airportWx, flightCategory, airportWxLine } from '../src/core/aloft.js';
+test('airport weather: request, parsing, cloud base and category', () => {
+  const q = airportWxUrl(39.8617, -104.6731); assert.equal(q.key, '39.85,-104.65'); assert.match(q.url, /wind_speed_unit=kn/); assert.match(q.url, /dew_point_2m/);
+  const w = airportWx({ current: { time: '2026-10-13T03:00', wind_speed_10m: 12.4, wind_direction_10m: 238, wind_gusts_10m: 24, temperature_2m: 9, dew_point_2m: 6, visibility: 8000, cloud_cover_low: 75, cloud_cover_mid: 10, cloud_cover_high: 0, weather_code: 61, pressure_msl: 1008.6 } });
+  assert.equal(w.baseFt, 1200); assert.equal(w.category, 'MVFR');
+  assert.equal(airportWxLine(w), 'Wind 238° 12 kt gusting 24 · 9 °C (dew point 6) · vis 8 km · low cloud BKN, base ~1,200 ft (est.) · light rain · QNH 1009');
+  const clear = airportWx({ current: { wind_speed_10m: 0.4, wind_direction_10m: 0, temperature_2m: 20, dew_point_2m: 5, visibility: 30000, cloud_cover_low: 10, weather_code: 0 } });
+  assert.equal(clear.baseFt, null, 'no ceiling with little low cloud'); assert.equal(clear.category, 'VFR'); assert.match(airportWxLine(clear), /^Calm · 20 °C/);
+  assert.equal(airportWx({ current: {} }), null); assert.equal(airportWx(null), null); assert.equal(airportWxLine(null), '');
+});
+test('flight categories (FAA bands)', () => {
+  assert.equal(flightCategory(30000, null), 'VFR'); assert.equal(flightCategory(30000, 3500), 'VFR');
+  assert.equal(flightCategory(30000, 3000), 'MVFR'); assert.equal(flightCategory(7000, null), 'MVFR');
+  assert.equal(flightCategory(30000, 900), 'IFR'); assert.equal(flightCategory(3000, null), 'IFR');
+  assert.equal(flightCategory(30000, 400), 'LIFR'); assert.equal(flightCategory(1000, null), 'LIFR');
+  assert.equal(flightCategory(null, null), null);
+});
+
+// ------------------------------------------------------------------------------------------------ search words
+import { classWord, typeMatcher } from '../src/core/actype.js';
+test('search: class words and type codes', () => {
+  assert.equal(classWord('Helicopters'), 'helicopter'); assert.equal(classWord('private jets'), 'bizjet'); assert.equal(classWord('jumbo'), 'widebody');
+  assert.equal(classWord('fighter jets'), 'fighter'); assert.equal(classWord('tankers'), 'military'); assert.equal(classWord('london'), null);
+  const a380 = typeMatcher('A380'); assert.ok(a380('A388')); assert.ok(!a380('A320')); assert.ok(!a380('A359'));
+  const b747 = typeMatcher('747'); assert.ok(b747('B744')); assert.ok(b747('B748')); assert.ok(!b747('B738'));
+  const b777 = typeMatcher('Boeing 777'); assert.ok(b777('B77W')); assert.ok(b777('B772'));
+  const a320 = typeMatcher('a320'); assert.ok(a320('A320')); assert.ok(a320('A321'), 'the A320 family'); assert.ok(a320('A20N') === false, 'the neo has its own code');
+  const a321 = typeMatcher('A321'); assert.ok(a321('A321')); assert.ok(!a321('A320'));
+  const exact = typeMatcher('B38M'); assert.ok(exact('B38M')); assert.ok(!exact('B39M'));
+  assert.equal(typeMatcher('hello world'), null); assert.equal(typeMatcher(''), null);
 });

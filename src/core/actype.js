@@ -137,14 +137,15 @@ const angDiff = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
  * Does a route on file fit the plane? adsbdb's routes are what a callsign usually flies; callsigns get reused, so it
  * can be wrong. p: { lat, lon, track, gs (m/s) }. Returns { fits, flownKm, leftKm, totalKm, progress (0-1), etaS, why }.
  * Fits when the plane is inside the ellipse origin-plane-destination <= 1.2 x the direct distance + 150 km and, when
- * airborne far from both ends, heads within 100° of the destination.
+ * airborne far from both ends, heads within 70° of the destination (a plane flying north out of Oregon is not on its
+ * way from Seattle to Nashville, though it is inside that ellipse).
  */
 export function routeFit(route, p) {
   if (!route || !route.origin || !route.destination || !p || !Number.isFinite(p.lat) || !Number.isFinite(p.lon)) return null;
   const o = route.origin, d = route.destination;
   const totalKm = gcKm(o.lat, o.lon, d.lat, d.lon), flownKm = gcKm(o.lat, o.lon, p.lat, p.lon), leftKm = gcKm(p.lat, p.lon, d.lat, d.lon);
   let fits = flownKm + leftKm <= totalKm * 1.2 + 150, why = fits ? 'on the way' : 'off the route on file';
-  if (fits && p.track != null && !p.ground && leftKm > 80 && flownKm > 80 && angDiff(p.track, bearing(p.lat, p.lon, d.lat, d.lon)) > 100) { fits = false; why = 'heading away from the destination on file'; }
+  if (fits && p.track != null && !p.ground && leftKm > 80 && flownKm > 80 && angDiff(p.track, bearing(p.lat, p.lon, d.lat, d.lon)) > 70) { fits = false; why = 'heading away from the destination on file'; }
   const progress = Math.max(0, Math.min(1, flownKm / Math.max(1, flownKm + leftKm)));
   const etaS = fits && p.gs > 30 ? leftKm * 1000 / p.gs : null;
   return { fits, flownKm, leftKm, totalKm, progress, etaS, why };
@@ -175,4 +176,39 @@ export function hexCountry(hex) {
   const v = parseInt(h, 16);
   for (const [start, size, name] of BLOCKS) if (v >= start && v < start + size) return name;
   return '';
+}
+
+// ------------------------------------------------------------------------------------------------ search words
+const CLASS_WORDS = [
+  ['helicopter', /^(helicopters?|helis?|choppers?|rotorcraft)$/],
+  ['bizjet', /^(business ?jets?|bizjets?|private ?jets?|corporate jets?)$/],
+  ['widebody', /^(wide-?bod(y|ies)|jumbos?|jumbo jets?|heavies)$/],
+  ['narrowbody', /^(narrow-?bod(y|ies)|airliners?)$/],
+  ['regional', /^(regional ?jets?|regionals?)$/],
+  ['turboprop', /^(turboprops?|props?)$/],
+  ['light', /^(light aircraft|small planes?|light planes?|cessnas?)$/],
+  ['fighter', /^(fighters?|fighter jets?|jet fighters?)$/],
+  ['military', /^(tankers?|military transports?|transports?|awacs)$/],
+  ['glider', /^(gliders?|balloons?)$/],
+  ['drone', /^(drones?|uavs?)$/],
+];
+/** The class a search word names ("helicopters", "private jets", "jumbo"), or null. */
+export function classWord(s) {
+  const t = String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  for (const [cls, re] of CLASS_WORDS) if (re.test(t)) return cls;
+  return null;
+}
+/** A query naming a type, as a test on a record's ICAO designator: a Boeing 7x7 ("747", "B777", "Boeing 737") is the
+ *  whole family (B74x, B77x, B73x), an Airbus round number ("A380", "A320") its family (A38x, A32x: the A320 family
+ *  includes the A321), anything else an exact designator ("B38M"). null if it can't be a type. */
+export function typeMatcher(s) {
+  const t = String(s || '').trim().toUpperCase().replace(/[\s-]/g, '');
+  if (!/^([A-Z]{0,2}|BOEING|AIRBUS)\d{2,3}[A-Z0-9]?$/.test(t) &&!/^[A-Z]{2,4}\d{0,2}[A-Z]?$/.test(t)) return null;
+  const m = t.match(/^(A|B|BOEING|AIRBUS)?(3[0-9]{2}|7[0-9]{2})$/);   // "A380", "747", "Boeing 777": the family
+  if (m) {
+    const num = m[2], maker = (m[1] && m[1][0] === 'B') || (!m[1] && num[0] === '7') ? 'B' : 'A';
+    const fam = maker + num.slice(0, 2), exact = maker + num, family = maker === 'B' || num[2] === '0';
+    return code => { const c = String(code || '').toUpperCase(); return c === exact || (family && c.length === 4 && c.startsWith(fam)); };
+  }
+  return code => String(code || '').toUpperCase() === t;
 }

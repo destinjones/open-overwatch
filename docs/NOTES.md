@@ -271,8 +271,9 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   glTF shape plus a scale (business jet = airliner x0.5, regional x0.78, turboprop = the tprop model x0.8): no new models.
 - adsbdb: CORS `*`, keyless, rate-limited per IP (429 body "rate limited for N seconds"). Its route data may not be
   copied into other databases: browser cache only, never in the repo or a mirror. A route is a callsign's usual
-  route: `routeFit` (inside the 1.2x ellipse + 150 km; heading within 100° of the destination when far from both ends)
-  labels a mismatch instead of trusting it. In the first live test a 777 under a DEN-LGA callsign was flagged.
+  route: `routeFit` (inside the 1.2x ellipse + 150 km; heading within 70° of the destination when far from both ends)
+  labels a mismatch instead of trusting it. Live: a 777 under a DEN-LGA callsign was flagged; ASA400 "SEA-BNA" flying
+  north near Eugene passed at 100° (98° off), hence 70°. The route arc (routeline.js) is drawn only for a route that fits.
 - Boards (core/airports.js `boardStatus`): within 90 km and 7,500 m above the field. Arriving = descending (< -1 m/s),
   within 55° of pointing at the field and under a lax glide (120 m + 330 m/km), or in the circuit (< 12 km, < 900 m).
   Departing = climbing and pointing away (or in the circuit), < 6,000 m, < 70 km. Ground = on the ground within 5 km
