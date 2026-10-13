@@ -501,3 +501,15 @@ test('airport weather cache: one request per field per 15 min, failures are null
   now += 6 * 60e3; await c.get(lhr); assert.equal(asked.length, 2, 'after 15 min: asked again');
   assert.equal(await c.get({ lat: 0, lon: 0 }), null); assert.equal(c.peek({ lat: 0, lon: 0 }), null);
 });
+test('weather aloft as sentences for a card', async () => {
+  const { aloftWords } = await import('../src/core/aloft.js');
+  const w = { windDir: 270, windSpeed: 40, tempC: -50, cloudPct: 70, rh: 90 };
+  const p = { track: 270, gs: 200, alt: 11000 };   // flying west into a 78 kt westerly
+  const lines = aloftWords(p, w);
+  assert.equal(lines[0], 'Wind from 270° at 78 kt: 78 kt headwind, 0 kt from the right');
+  assert.equal(lines[1], '-50 °C outside, 7° warmer than the standard atmosphere · true airspeed about 467 kt, Mach 0.80');   // ISA at 11 km: -56.5 °C; TAS = 200 + 40 m/s
+  assert.equal(lines[2], 'In cloud (BKN, 70%)', 'too cold to ice');
+  assert.equal(aloftWords({ track: 90, gs: 100, alt: 3000 }, { windDir: 180, windSpeed: 10, tempC: -5, cloudPct: 95 })[2], 'In cloud (OVC, 95%): icing possible');
+  assert.deepEqual(aloftWords({ ground: true, track: 0, gs: 0, alt: 0 }, { windDir: 90, windSpeed: 0.5, tempC: 20, cloudPct: 5 }), ['Calm at its height', '20 °C outside, 5° warmer than the standard atmosphere', 'Clear air at its level']);
+  assert.deepEqual(aloftWords(p, null), []);
+});

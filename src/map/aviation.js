@@ -17,7 +17,7 @@ import { classify, kindWords, routeFit, hexCountry } from '../core/actype.js';
 import { flightPhase, phaseWords } from '../core/phase.js';
 import { parseAirports, AirportIndex, makeBoard, findAirport, BOARD, BOARD_SECTIONS, boardRowWords, planesNear, routeWords, ROUTE_CAVEAT } from '../core/airports.js';
 import { parseRunways, RunwayBook, windWords } from '../core/runways.js';
-import { airportWxCache, airportWxLine } from '../core/aloft.js';
+import { airportWxCache, airportWxLine, aloftUrl, parseAloft, aloftWords } from '../core/aloft.js';
 
 const FT = 0.3048, KT = 0.514444, FPM = 0.00508, AP_COLOR = '#9fe3ff';
 const CAT_COLOR = { VFR: '#3ee08f', MVFR: '#5fb0ff', IFR: '#ff6b6b', LIFR: '#e070ff' };
@@ -136,6 +136,26 @@ Detail.renderers.airport = a => {
 };
 
 /* ============================================================ more on the aircraft card */
+// the weather at the plane's height (Open-Meteo pressure levels, as the globe's cockpit HUD): asked for its 0.25° cell
+// and level pair once per 10 minutes, one request at a time, only for the plane whose card is open
+const aloft = new Map();   // key -> { t, json }
+let aloftAsking = null;
+function aloftAt(p) {
+  const q = aloftUrl(p.lat, p.lon, p.alt), c = aloft.get(q.key);
+  if ((c && Date.now() - c.t < 10 * 60e3) || aloftAsking) return c ? c.json : undefined;
+  aloftAsking = fetch(q.url).then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+    .then(json => { aloft.set(q.key, { t: Date.now(), json }); if (aloft.size > 12) aloft.delete(aloft.keys().next().value); if (Sel.kind === 'air') Detail.render(); })
+    .catch(() => aloft.set(q.key, { t: Date.now() - 9 * 60e3, json: null }))   // failed: try again in a minute
+    .finally(() => { aloftAsking = null; });
+  return c ? c.json : undefined;
+}
+function aloftHtml(a, p) {
+  if (!p || a.ground || !Number.isFinite(p.alt)) return '';
+  const json = aloftAt(p), w = json ? parseAloft(json, p.alt) : null;
+  if (!w) return json === undefined ? '<p class="note">Asking Open-Meteo about the weather at its height…</p>' : '';
+  return `<div class="ac-wx"><h4>At its height <small>Open-Meteo model${w.time ? ', ' + esc(w.time.slice(11, 16)) + 'Z' : ''}</small></h4>${aloftWords(p, w).map(l => `<p>${esc(l)}</p>`).join('')}</div>`;
+}
+
 /** The aviation section of an aircraft card (aircraft.js puts it under the photo). */
 Air.more = a => {
   if (a.info === undefined && !AcInfo.limited) AcInfo.get(a).then(v => { if (v && Sel.kind === 'air' && Sel.id === a.hex) Detail.render(); });
@@ -158,6 +178,7 @@ Air.more = a => {
       + `<div class="note">${esc(rw.places)}${rw.state ? ' · ' + esc(rw.state) : ''}${rw.off ? ` · <b>${esc(rw.off)}</b>: ${esc(ROUTE_CAVEAT)}` : ''}</div></div>`;
   } else if (rt && rt.airline) html += `<p class="note">${esc(rt.airline.name)}${rt.iata ? ' ' + esc(rt.iata) : ''} · no route on file for this callsign</p>`;
   if (ac && ac.thumb && Photos.cache.get(a.hex) === null) html += `<a class="ac-photo" href="${esc(ac.photo || ac.thumb)}" target="_blank" rel="noopener"><img src="${esc(ac.thumb)}" alt="Photo of ${esc(ac.reg || a.hex)}" loading="lazy" referrerpolicy="no-referrer"><span>photo: airport-data.com</span></a>`;
+  html += aloftHtml(a, p) + (late.Trails ? late.Trails.html(a) : '');
   if (AcInfo.limited) html += '<p class="note">adsbdb asked us to slow down: details again in a minute.</p>';
   else if (v === undefined) html += '<p class="note">Asking adsbdb what it is and where it is going…</p>';
   return `<div class="ac-more">${html}<p class="note">Type, owner and route: adsbdb.com (a route is the callsign's usual one).</p></div>`;

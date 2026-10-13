@@ -137,6 +137,21 @@ export function aloftLines(p, w, e = aloftEffects(p, w)) {
   return out;
 }
 
+/**
+ * The same for a card, as sentences: what the wind at its height is and does to it, the air's temperature against
+ * the standard atmosphere with the true airspeed and Mach, and the cloud it is in. p as aloftEffects (its gs in m/s).
+ */
+export function aloftWords(p, w, e = aloftEffects(p, w)) {
+  if (!w) return [];
+  const kt = v => Math.round(Math.abs(v) * 1.943844), out = [];
+  if (w.windSpeed != null) out.push(w.windSpeed < 1 ? 'Calm at its height' : `Wind from ${String(Math.round(w.windDir ?? 0) % 360).padStart(3, '0')}° at ${kt(w.windSpeed)} kt`
+    + (e && e.head != null && !p.ground ? `: ${kt(e.head)} kt ${e.head >= 0 ? 'headwind' : 'tailwind'}, ${kt(e.cross)} kt from the ${e.cross >= 0 ? 'right' : 'left'}` : ''));
+  if (w.tempC != null) out.push(`${Math.round(w.tempC)} °C outside${e && e.isaDev != null && Math.abs(e.isaDev) >= 1 ? `, ${Math.abs(Math.round(e.isaDev))}° ${e.isaDev > 0 ? 'warmer' : 'colder'} than the standard atmosphere` : ''}`
+    + (e && e.tas != null && !p.ground ? ` · true airspeed about ${kt(e.tas)} kt${e.mach != null && e.mach > 0.3 ? `, Mach ${e.mach.toFixed(2)}` : ''}` : ''));
+  if (w.cloudPct != null) out.push(w.cloudPct >= 50 ? `In cloud (${oktas(w.cloudPct)}, ${Math.round(w.cloudPct)}%)${e && e.icing ? ': icing possible' : ''}` : w.cloudPct >= 12 ? `Scattered cloud at its level (${Math.round(w.cloudPct)}%)` : 'Clear air at its level');
+  return out;
+}
+
 // ------------------------------------------------------------------------------------------------ at an airport
 const SFC_VARS = ['wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m', 'temperature_2m', 'dew_point_2m', 'visibility', 'cloud_cover_low', 'cloud_cover_mid', 'cloud_cover_high', 'weather_code', 'pressure_msl'];
 /** Open-Meteo request for the weather now at an airport (rounded to 0.05°, so one answer serves a field). */

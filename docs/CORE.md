@@ -615,12 +615,13 @@ weather and VFR/IFR category at an airport. Used by globe, map.
 - `aloftUrl`, `parseAloft`, `aloftEffects`, `aloftLines`, `bracket`, `LEVELS`: the cockpit.
 - `isaPressure`, `isaAltitude`, `isaTempC`: the standard atmosphere.
 - `airportWxUrl`, `airportWx`, `airportWxLine`, `flightCategory`, `oktas`, `weatherWords`: airport cards.
-  `airportWxCache`: one request per field per 15 minutes, for cards of either view that re-render.
+  `airportWxCache`: one request per field per 15 minutes, for cards of either view that re-render. `aloftWords`: the
+  weather at a plane's height as sentences for a card (the 2D map's).
 
 ### `trail.js`
 
 Flight trails: the last minutes of a plane's fixes, thinned in 3D (Douglas-Peucker) and coloured by altitude. Used by
-globe.
+globe, map.
 
 - `Trail`: one aircraft's trail. `thin`, `flatM`: thinning. `altColor`, `altRampCss`: the colour ramp.
 - `trailStats`, `trailGeoJSON`: the numbers for the card, and the trail as GeoJSON with times.

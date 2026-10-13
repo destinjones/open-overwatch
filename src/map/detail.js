@@ -26,6 +26,7 @@ export const Detail = {
 };
 setInterval(() => { // live panels refresh every 2 s, but not while the user is selecting text in them (a re-render would drop it)
   const ts = getSelection(); if (ts && !ts.isCollapsed && Detail.el.contains(ts.anchorNode)) return;
+  if (document.activeElement && document.activeElement.tagName === 'SELECT' && Detail.el.contains(document.activeElement)) return;   // a menu in use (the trail length)
   if (Sel.kind && ['air', 'sat', 'ship', 'balloon', 'transit', 'airport'].includes(Sel.kind) && $('#tab-detail').classList.contains('on') && !document.hidden) Detail.render();
 }, 2000);
 window.flyTo = (lat, lon, z) => { map.flyTo([lat, lon], Math.max(map.getZoom(), z || 6), { duration: 0.8 }); };

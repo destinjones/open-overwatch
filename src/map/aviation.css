@@ -36,3 +36,12 @@
 .ap-rw .ap-end td:first-child { padding-left: 12px; }
 .ap-rw .ap-end.on td { color: #7dffa6; }
 .ap-rw em { color: #ffb347; font-style: normal; }
+.ac-wx { margin: 8px 0; }
+.ac-wx h4 { margin: 0 0 3px; font: 700 11px/1.2 var(--font-display, inherit); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim, #8b9bab); }
+.ac-wx h4 small { font: 10.5px var(--font-body, system-ui, sans-serif); letter-spacing: 0; text-transform: none; color: var(--ink-faint, #738599); }
+.ac-wx p { margin: 2px 0; font-size: 12.5px; line-height: 1.4; }
+.ac-trail { display: grid; gap: 4px; margin: 8px 0; }
+.ac-ramp { display: block; height: 5px; border-radius: 2px; }
+.ac-trail .note { margin: 0; }
+.ac-tbtns { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.ac-tbtns select { background: var(--panel-2, #0e141c); color: var(--ink, #e6edf3); border: 1px solid var(--line-strong, #26343f); border-radius: 3px; padding: 2px 4px; font: 11.5px var(--font-mono, ui-monospace, monospace); }

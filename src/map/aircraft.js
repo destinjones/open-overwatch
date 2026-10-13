@@ -1,6 +1,6 @@
 // Aircraft: ADS-B sources swept tile by tile, OpenSky, emergencies, photos.
 import { num, idArg } from '../core/format.js';
-import { $, C, Log, Net, Store, debounce, destination, esc, fmt, haversine, rad, regionOf, toast } from './util.js';
+import { $, C, Log, Net, Store, debounce, destination, esc, fmt, haversine, late, rad, regionOf, toast } from './util.js';
 import { map, vecRenderer } from './mapview.js';
 import { Dyn, Layers, Sel, UI, airAt, feed, requestDraw } from './engine.js';
 import { Detail, Tracks } from './detail.js';
@@ -56,7 +56,7 @@ export const Air = {
       const x = readsb(a, { mil: tag === 'mil' }); if (!x) continue;   // core/aircraft.js (the globe reads the same records); hex kept to its charset, as it lands in handlers
       const hex = x.hex; n++; this.lastHexes.push(hex);
       let rec = Dyn.air.get(hex);
-      if (!rec) { rec = { hex, trail: [], first: now, tags: new Set() }; Dyn.air.set(hex, rec); }
+      if (!rec) { rec = { hex, first: now, tags: new Set() }; Dyn.air.set(hex, rec); }
       const wasEmerg = !!rec.emerg;
       if (rec.lat != null && (rec.lat !== x.lat || rec.lon !== x.lon || rec.ground !== x.ground)) rec.was = { lat: rec.lat, lon: rec.lon, ground: rec.ground, gs: rec.gs, ts: rec.ts };   // the fix before: airport boards tell a landing or take-off from it
       Object.assign(rec, {
@@ -70,18 +70,18 @@ export const Air = {
       if (rec.emerg && !wasEmerg) this.raiseEmergency(rec);
       rec.lowNic = !x.ground && rec.nic != null && rec.nic <= 5 && (rec.gs || 0) > 100 && (rec.alt || 0) > 5000;
       if (tag) rec.tags.add(tag);
-      const last = rec.trail[rec.trail.length - 1];
-      if (!last || haversine(last[0], last[1], a.lat, a.lon) > 150) { rec.trail.push([a.lat, a.lon, now]); const maxTrail = (rec.mil || rec.emerg || Sel.id === hex) ? 150 : 25; while (rec.trail.length > maxTrail) rec.trail.shift(); }
+      this.onFix?.(rec);   // trails.js records it (core/trail.js, coloured by altitude)
     }
     return n;
   },
   prune() { const now = Date.now(); const civTtl = Math.max(75e3, (AirSweep.passMs || 0) * 3 + 30e3); for (const [k, a] of Dyn.air) { const ttl = a.src === 'opensky' ? 400e3 : a.emerg ? 240e3 : a.mil ? 150e3 : civTtl; if (now - a.ts > ttl) Dyn.air.delete(k); } },
   counts() { let mil = 0, emg = 0; for (const a of Dyn.air.values()) { if (a.mil) mil++; if (a.emerg) emg++; } return { all: Dyn.air.size, mil, emg }; },
+  /** Pin its trail (trails.js keeps it drawn after the card closes) and draw where the next 10 minutes take it. */
   trail(hex) {
     const a = Dyn.air.get(hex); if (!a) return; Tracks.clear();
-    if (a.trail.length > 1) L.polyline(a.trail.map(p => [p[0], p[1]]), { color: a.mil ? C.mil : C.civ, weight: 2, opacity: .8, renderer: vecRenderer }).addTo(Tracks.group);
+    const n = late.Trails ? late.Trails.pin(hex, true) : 0;
     if (a.gs > 30 && a.track != null && !a.ground) { const ahead = destination(a.lat, a.lon, a.track, a.gs * 0.514444 * 600); L.polyline([[a.lat, a.lon], ahead], { color: C.accent, weight: 1, dashArray: '4 6', opacity: .7, renderer: vecRenderer }).addTo(Tracks.group); }
-    toast(`Trail: ${a.trail.length} fixes · dashed line = next 10 min at current track`);
+    toast(`Trail pinned: ${n} fixes, coloured by altitude · dashed line = the next 10 min at this track`);
   },
   follow(hex) { this.following = this.following === hex ? null : hex; Detail.render(); toast(this.following ? 'Following — pan the map to stop' : 'Stopped following'); },
   // ICAO type designators → rough role. Heuristic, good enough for a picture of what is up.
@@ -237,7 +237,7 @@ feed(lyOpenSky, {
     for (const s of (d.states || [])) {
       const x = openskyState(s); if (!x) continue;   // core/aircraft.js, as the globe's snapshot
       const hex = x.hex, ex = Dyn.air.get(hex); if (ex && ex.src !== 'opensky') continue;
-      const rec = ex || { hex, trail: [], first: now, tags: new Set(['opensky']) }; Dyn.air.set(hex, rec); const wasEmerg = !!rec.emerg;
+      const rec = ex || { hex, first: now, tags: new Set(['opensky']) }; Dyn.air.set(hex, rec); const wasEmerg = !!rec.emerg;
       Object.assign(rec, { lat: x.lat, lon: x.lon, alt: x.altFt, ground: x.ground, gs: x.gsKt, track: x.track, vr: x.rateFpm, squawk: x.squawk, flight: x.flight, country: x.country, ts: now, seen_pos: x.tpos ? Math.max(0, now / 1000 - x.tpos) : 0, src: 'opensky', mil: false, emerg: x.emerg, lowNic: false, dbFlags: 0 });
       if (rec.emerg && !wasEmerg) Air.raiseEmergency(rec);
       n++;
