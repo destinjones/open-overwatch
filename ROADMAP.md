@@ -189,6 +189,16 @@ Round 2 (2026-10-10, local):
       flat after the first use; launch labels of one site now share one label (+N)
 - [x] The measure card on iPhones: while placing points it is a 52 px strip above the dock (the running total, Undo,
       Finish, a chevron for the rest); card and dock went from 46% to 21% of the screen (WebKit iPhone 15 profile)
+- [x] Aviation (GEV item 17, branch grow-aviation): the aircraft card says what a plane is and where it is going (adsbdb:
+      type, registration, owner, a photo, the route its callsign flies, checked against where the plane really is) and
+      the type picks its model class (narrow/wide-body, regional, turboprop, business jet, helicopter, light, fighter,
+      military; core/actype.js tested: ~600 type codes, families, emitter categories); cockpit weather in the HUD
+      (Open-Meteo pressure levels: wind with head/tail and cross components, OAT against ISA, TAS and Mach, cloud,
+      visibility, an icing hint, nearest airport, destination; core/aloft.js tested); an Airports layer with
+      arrival/departure/ground boards from the live aircraft (OurAirports, public domain; core/airports.js tested);
+      trails of the followed, selected or pinned planes coloured by altitude, 10/30/60 min (core/trail.js tested)
+- [ ] Aviation next: boards by voice ("arrivals at Heathrow"), the MCP server answering "what's landing at X" (Node
+      reads the aircraft feeds directly), business-jet and regional-jet models of their own instead of a scaled airliner
 - [ ] NYC traffic: Midtown showed no roads with measured speeds in the phone test, though NYC DOT speeds are promised
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above

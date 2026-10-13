@@ -56,6 +56,10 @@ same code runs in Node tests and in the render loop without allocating.
 | `roadtiles.js` | road lines from vector tiles: clipped per tile, joined across tile edges, junctions, names, lights where busy roads meet |
 | `traffic.js` | the traffic simulation: road graph, car following (IDM), lights, time-of-day busyness, NYC DOT / Fintraffic readings |
 | `measure.js` | draw and measure: WGS84 distances and bearings (Vincenty; a bisection near the antipode), geodesic polygon areas (authalic sphere), ground length, the words for them, GeoJSON, the drawing in share links |
+| `actype.js` | aircraft classes from ICAO type codes (then adsbdb words, emitter category) and the model each gets; adsbdb answers as plain records; whether a route on file fits where the plane is; ICAO address blocks to countries |
+| `aloft.js` | weather at an aircraft: ISA pressure altitude, the two Open-Meteo pressure levels around it, interpolation, head/cross wind, TAS, Mach, ISA deviation, icing hint, HUD lines |
+| `airports.js` | the airport list (OurAirports rows), a 1° grid index (nearest, near, in a box, by code), and boards: arriving, departing or on the ground from live aircraft |
+| `trail.js` | flight trails: a time window of fixes, 3D Douglas-Peucker thinning, the altitude colour ramp, trail stats |
 
 Accuracy, checked by the tests against JPL Horizons on 2026-10-02: planets within arcminutes (JPL's own stated
 error for these formulas), main-belt asteroids within ~3×10⁻⁴ AU, the Moon within ~0.3°, the other moons within 0.4° of their orbit.

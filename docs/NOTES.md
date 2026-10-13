@@ -264,6 +264,38 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
 - Not done: states and provinces ("outline Texas" needs a boundary dataset: the user's OK to download), dragging a
   corner to edit.
 
+## Aviation (acinfo, aircard, trails, cockpitwx, airports; core actype, aloft, airports, trail) — 2026-10-12
+- One import in main.js (`aviation.js`); ui.js calls `hooks.airCard(o, card)` for aircraft cards; aircraft.js calls
+  `hooks.airFix(r)` on every upsert (trails record it) and classifies with core/actype.js (`airClass`: the designator,
+  then adsbdb's words, then the readsb emitter category, then slow-and-low = light). The class picks the sprite and the
+  glTF shape plus a scale (business jet = airliner x0.5, regional x0.78, turboprop = the tprop model x0.8): no new models.
+- adsbdb: CORS `*`, keyless, rate-limited per IP (429 body "rate limited for N seconds"). Its route data may not be
+  copied into other databases: browser cache only, never in the repo or a mirror. A route is a callsign's usual
+  route: `routeFit` (inside the 1.2x ellipse + 150 km; heading within 100° of the destination when far from both ends)
+  labels a mismatch instead of trusting it. In the first live test a 777 under a DEN-LGA callsign was flagged.
+- Boards (core/airports.js `boardStatus`): within 90 km and 7,500 m above the field. Arriving = descending (< -1 m/s),
+  within 55° of pointing at the field and under a lax glide (120 m + 330 m/km), or in the circuit (< 12 km, < 900 m).
+  Departing = climbing and pointing away (or in the circuit), < 6,000 m, < 70 km. Ground = on the ground within 5 km
+  (taxiing over 3 m/s). A route on file naming the airport makes a level plane in the hold count; one naming other
+  airports drops it. A plane goes to the airport it fits best (score = km x (1 + degrees off / 45)), so Heathrow and
+  City, or Denver and its neighbours, don't count the same plane. ETA: along-track distance / ground speed, nudged by
+  the descent rate. A route that contradicts the board (starts here on a plane landing here) is not shown on the row.
+- Cockpit weather: the barometric altitude as an ISA pressure altitude picks the two Open-Meteo levels around it
+  (1000..30 hPa), interpolated in log-pressure, wind mixed as vectors (350° and 10° make 0°). TAS = |ground velocity -
+  wind velocity| (the feeds have no heading), Mach from the OAT. Open-Meteo takes pressure-level variables in
+  `current=`. The block sits under the HUD's top-left text (the card covers the right); on phones at 244 px from the top.
+- Trails: OpenSky's 15-min snapshots are not recorded (straight lines through turns) except for a watched plane. One
+  Cesium Primitive per drawn trail (PolylineGeometry, a colour per vertex, rebuilt at most once a second when it
+  changed, plus the stretch to where the plane is drawn now). adsb.lol answered 429 to this PC while the pane polled
+  every 5 s, so followed planes are polled every 10 s, others 20 s, with a 2-min back-off.
+- Renders: globe_shot blocks the aircraft feeds, so the shots inject test planes (`src: 'adsb.lol (test fixture)'`);
+  adsbdb and Open-Meteo answers in them are real. With other sessions rendering too, set `OW_WORK` to a folder of your
+  own: cdp.mjs's orphan reaper in one run kills another run's Edge (headless Edge re-parents, so it looks orphaned);
+  the symptom is "CDP connection closed" at a random step.
+- The scene renders on request: in the pane, call `scene.requestRender()` before trusting a screenshot of a change, and
+  `viewer.clock.currentTime` lags the wall clock while idle (it ticks only on rendered frames). The violet vertical
+  lines over cities are the Big-employers towers (Michelin at Clermont-Ferrand), not a stray polyline.
+
 ## Public relay (relay/, Cloudflare Worker) — 2026-10-10
 `relay/worker.js` on the owner's Cloudflare account (`npx wrangler deploy` from relay/, after `npx wrangler login`):
 https://open-overwatch-relay.destinjones123.workers.dev/?url=… . Allowlist = `PUBLIC_RELAY_HOSTS` in src/core/relay.js
