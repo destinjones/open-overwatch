@@ -36,6 +36,11 @@ import { windFrom } from '../core/gfs.js';
 import { shipTypeName } from '../core/ais.js';
 import { inCountry } from '../core/borders.js';
 import { findAirport, etaText } from '../core/airports.js';
+import { metarWords, tafWords, tafWorst, CAT_WORDS } from '../core/metar.js';
+import { historyText } from '../core/runwaylog.js';
+import { FieldWx } from './fieldwx.js';
+import { FieldWatch } from './fieldwatch.js';
+import { Runways } from './runways.js';
 import { flightPhase } from '../core/phase.js';
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -312,6 +317,28 @@ async function run(cmd, heard) {
       const top = list.slice(0, 3).map(e => `${nameOf(e.r)}${e.status === 'arriving' && e.etaS != null ? ` in ${etaText(e.etaS)}` : ''}`).join(', ');
       listed = { items: list.map(e => e.r), t: performance.now() };   // "the second one" opens it
       return say(`${a.name}: ${b.arriving.length} arriving, ${b.departing.length} departing. ${cmd.which === 'departing' ? 'Departing' : cmd.which === 'arriving' ? 'Next in' : 'First'}: ${top}.`, heard);
+    }
+    case 'airwx': {   // the airport's METAR / TAF in words (download version), or the runways it is using
+      await Airports.load();
+      const a = findAirport(Airports.list, cmd.place); if (!a) return say(`I don't know an airport called ${cmd.place}.`, heard);
+      await Airports.show(a.icao);
+      if (cmd.what === 'runway') {
+        const s = FieldWatch.available ? FieldWatch.log.summary(a.icao, Date.now(), 60) : null;
+        if (s && s.total) return say(`${a.name}, the last hour: ${historyText(s)}`, heard);
+        await Runways.load();
+        const b = Airports.board(a), use = Runways.inUse(a, b.arriving.map(e => ({ ...e.r, lat: e.r.cur?.lat ?? e.r.lat, lon: e.r.cur?.lon ?? e.r.lon })), null);
+        return say(use ? `${a.name}: arrivals are lined up with runway ${use.end.ident}.` : `${a.name}: I can't tell yet. The card counts the runways as planes land and take off while it is open.`, heard);
+      }
+      if (!FieldWx.available) return say(`${a.name}: its METAR and TAF need the download version; the card shows the model weather.`, heard);
+      if (cmd.what === 'taf') {
+        const t = await FieldWx.taf(a.icao).catch(() => null);
+        if (!t) return say(`${a.name} has no TAF on the Aviation Weather Center.`, heard);
+        const lines = tafWords(t, { hours: 12 }).slice(0, 3).map(l => l.text), worst = tafWorst(t, { hours: 6 });
+        return say(`${a.name} forecast${worst ? `, at worst ${worst} in the next 6 hours` : ''}. ${lines.join('. ')}.`, heard);
+      }
+      const m = await FieldWx.metar(a.icao).catch(() => null);
+      if (!m) return say(`${a.name} has no recent METAR on the Aviation Weather Center.`, heard);
+      return say(`${a.name}: ${m.category ? CAT_WORDS[m.category] + '. ' : ''}${metarWords(m).slice(0, 5).map(w => w.text).join(' ')}`, heard);
     }
     case 'trails': Trails.setOn(cmd.on); return say(cmd.on ? 'Trails on: the plane you follow or open draws where it has been.' : 'Trails off.', heard);
     case 'help': return say(`Try: ${EXAMPLES.slice(0, 5).join(' · ')}.`, heard);

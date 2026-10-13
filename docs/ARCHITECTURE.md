@@ -50,6 +50,7 @@ same code runs in Node tests and in the render loop without allocating.
 | `passes.js` | satellite passes over an observer (rise / peak / set, look angles, sunlit + dark-sky visibility) |
 | `orientation.js` | W3C device orientation → camera direction and screen-up (look-up mode) |
 | `eclipse.js` | Moon shadow cones, where they meet the WGS84 ellipsoid, shadow outlines, what an observer sees |
+| `syzygy.js` | eclipses (solar, lunar) and lunar occultations 2026-2030 from a Chebyshev fit of Horizons' Sun and Moon (`data/solar/ephem.json`) |
 | `accuracy.js` | errors against JPL Horizons (shared by the tests and the in-app "Under the hood" panel) |
 | `gpu.js` | software-WebGL detection |
 | `mvt.js` | Mapbox Vector Tile decoding (protobuf by hand, wanted layers only), tile maths |
@@ -70,6 +71,9 @@ same code runs in Node tests and in the render loop without allocating.
 | `airports.js` | the airport list (OurAirports rows), a 1° grid index (nearest, near, in a box, by code), and boards: arriving, departing or on the ground from live aircraft |
 | `phase.js` | flight phase (parked, taxiing, take-off, climb, cruise, descent, approach, final) from a fix and the nearest field; great-circle points |
 | `runways.js` | runway ends and headings, wind along and across each, the runway a plane is lined up with, the runway in use |
+| `metar.js` | METAR and TAF decoded into numbers and plain words, flight categories, the forecast in force at a time |
+| `eta.js` | arrival/departure estimates with ranges (distance, ground speed, descent) and their track record per airport |
+| `runwaylog.js` | landings and take-offs found in trails, the runway each used, runway use over the last hour |
 | `trail.js` | flight trails: a time window of fixes, 3D Douglas-Peucker thinning, the altitude colour ramp, trail stats |
 
 Accuracy, checked by the tests against JPL Horizons on 2026-10-02: planets within arcminutes (JPL's own stated
@@ -112,7 +116,8 @@ gitignored `brand/source/`), compress and write `data/solar/`:
 
 - `asteroids_a.bin` / `asteroids_b.bin` — all 1.57M SBDB asteroids, 15 bytes each, propagated on the GPU
 - `small_bodies.json` — named objects and comets · `stars.bin` / `stars.json` — HYG v4.1 in ecliptic light-years
-- `spacecraft.json` — JPL Horizons trajectories at fixed steps · `moons.json` — 20 moon orbits fitted to Horizons
+- `spacecraft.json` — JPL Horizons trajectories at fixed steps (Juno also as osculating orbits around Jupiter) · `moons.json` — 20 moon orbits fitted to Horizons
+- `ephem.json` — the Sun and Moon from Earth 2026-2030 as Chebyshev series (Horizons), for eclipses and occultations
 - `galaxies.bin` / `galaxies.json` — 43,480 2MASS Redshift Survey galaxies (Mpc, equatorial, Hubble-law distances)
 
 Live feeds (satellites, aircraft, quakes, …) are fetched by the page; satellite TLEs come from a copy the site build

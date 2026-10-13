@@ -21,6 +21,7 @@ const ALLOWED_HOSTS = new Set([
   'www.submarinecablemap.com',                                              // submarine cables (live TeleGeography data)
   'www.drivebc.ca', 'traveler.modot.org',                                   // camera lists (British Columbia, Missouri)
   'kamera.atlas.vegvesen.no', 'atmsqf.iowadot.gov', 'trafficcam.calgary.ca', 'images.data.gov.sg', // camera stills sent without CORS
+  'aviationweather.gov',                                                    // METAR and TAF (the globe's airport cards)
 ]); // keep in sync with NEEDS_RELAY in open-overwatch.html and ALLOWED_HOSTS in serve.py
 const FORWARD_HEADERS = ['x-windy-api-key', 'accept'];
 const UA = 'OpenOverwatch/1.0 (local helper; personal use)';

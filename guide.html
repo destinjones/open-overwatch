@@ -120,7 +120,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     </div>
     <div class="toc" aria-label="On this page">
       <a href="#views">The views</a><a href="#moving">Moving around</a><a href="#band">The band</a>
-      <a href="#layers">Globe layers</a><a href="#cards">Clicking things</a><a href="#aviation">Planes and airports</a><a href="#sky">Tonight and look up</a>
+      <a href="#layers">Globe layers</a><a href="#cards">Clicking things</a><a href="#aviation">Planes and airports</a><a href="#sky">Tonight and look up</a><a href="#now">Earth now</a>
       <a href="#weather">Weather timeline</a><a href="#measure">Draw and measure</a><a href="#ops">Ops looks</a>
       <a href="#voice">Voice commands</a><a href="#keys">Keyboard</a><a href="#share">Share and embed</a>
       <a href="#map2d">The 2D map</a><a href="#solar">Solar System</a><a href="#download">Download version</a>
@@ -179,6 +179,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <div class="tbl"><table>
       <thead><tr><th>Button</th><th>What it does</th></tr></thead>
       <tbody>
+        <tr><td><code>Earth now</code></td><td>What is happening on the planet right now, in one panel: earthquakes, tropical cyclones, aurora, launches, people in space, asteroid flybys, wildfires and the weather extremes. <kbd>E</kbd> opens it. See <a href="#now">Earth now</a>.</td></tr>
         <tr><td><code>⌕ Search</code></td><td>Search satellites (by name, NORAD number or everyday name such as ISS, Hubble, Tiangong), countries, flight numbers, aircraft by type or kind ("A380", "helicopters"), airports by code, name or city, places by name (Photon, OpenStreetMap), the views in this band, and volcanoes, big employers and lighthouses once their layers have loaded. <kbd>/</kbd> opens it.</td></tr>
         <tr><td><code>Street</code></td><td>Flies to London at about 3.5 km, tilted, to show street-level detail.</td></tr>
         <tr><td><code>Airspace</code></td><td>Europe from 1,400 km: the air traffic picture.</td></tr>
@@ -289,8 +290,36 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     </ul>
     <h3>Airport boards</h3>
     <p>Click an airport (the <code>airports</code> layer) for its board: the planes arriving (low and descending towards it), departing (climbing away), on the ground, and those that just landed or took off, worked out from the live aircraft around it, with emergency squawks standing out. It is not a timetable: a plane counts once it is close and low enough to tell. The card also has the weather at the field with its VFR or IFR category, the runway in use and the wind on each runway, <b>Follow the next arrival</b> and <b>From the tower</b>.</p>
+    <p>Arrival times are estimates with a range, such as <i>≈ 12 min (9–17)</i>: worked out from how far the plane is, how fast it is going and how fast it is coming down. The range is narrow once it is lined up with a runway and wide when it is far out or still has to turn round, because approaches add holds and vectors no feed can see. Departures say about how long ago they took off.</p>
+    <p>In the download version the card also shows:</p>
+    <ul>
+      <li><b>The airport's METAR and TAF</b> (from the Aviation Weather Center) in plain words: wind, visibility, weather, cloud, temperature and pressure now, and the forecast period by period with its flight category, plus the reports exactly as sent. Airport dots in view are coloured by flight category: green VFR, blue MVFR, red IFR, magenta LIFR. The website shows the model weather instead, because aviationweather.gov does not answer websites.</li>
+      <li><b>Runways used, last hour</b>: while the card is open (or after <b>Keep watching</b>, up to three airports), planes near the field are asked for a fresh position every 15 seconds, and each landing and take-off is matched to its runway. The card counts them per runway and says when the airport changed direction. Each landing also scores the arrival estimates made for it, and the card says how they have been doing at that airport.</li>
+    </ul>
     <h3>Cockpit weather</h3>
     <p>Riding a plane in the cockpit (or with the HUD on while following one), the HUD shows its flight phase and the weather where it is: the wind at its height and whether it is a head or tail wind, the outside temperature against the standard atmosphere, true airspeed and Mach, cloud at its level, an icing hint, and the nearest airport and destination. From Open-Meteo, asked only when the plane moves to another cell or level.</p>
+  </div>
+</section>
+
+<section id="now" aria-labelledby="now-h">
+  <div class="wrap">
+    <div class="eyebrow">The dashboard</div>
+    <h2 id="now-h">Earth now</h2>
+    <p><b>Earth now</b> in the band, the <kbd>E</kbd> key or a <code>globe.html#go=now</code> link opens a panel that sums up what is happening right now, from the same feeds the globe draws. Every line is a button: it switches the right layer on and flies there (and opens the card where there is one). On a desktop the panel sits on the left, where the layer list steps aside for it; on a phone it is a sheet above the bottom bar that folds down to its title while the camera flies (tap the title to unfold it).</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Section</th><th>What it shows</th><th>From</th></tr></thead>
+      <tbody>
+        <tr><td>Earthquakes</td><td>How many M2.5+ quakes in the last 24 hours, how many were M6 or more, the strongest, the busiest regions (tap one to fly to its strongest quake), and a chart of quakes per day: the last 7 days at M2.5+ or the last 30 at M4.5+. Today's bar is faint: the day isn't over.</td><td>USGS real-time feeds</td></tr>
+        <tr><td>Tropical cyclones</td><td>Every active storm, strongest first, with its wind in knots, pressure and movement where NOAA gives them.</td><td>NOAA NHC, GDACS, NASA EONET</td></tr>
+        <tr><td>Aurora</td><td>The planetary K index now, in words (quiet, unsettled, active, or a G1 to G5 storm), how far from the poles the aurora may reach, and a chart of the last 3 days and the next day's forecast (faint) with the G1 storm line. The line flies to the night side of the Arctic with the aurora layer on.</td><td>NOAA SWPC</td></tr>
+        <tr><td>Launches</td><td>Launches in the next 24 hours with live countdowns, the full list, and how many launches are listed per month. The list holds only the next few dozen launches, so the current month (launches already flown are gone from it) and months past the end of the list are faint.</td><td>Launch Library 2 (the website's copy)</td></tr>
+        <tr><td>People in space</td><td>How many people are in orbit and on which station; tap a station to fly to it.</td><td>Launch Library 2</td></tr>
+        <tr><td>Near-Earth flybys</td><td>How many asteroids pass within 20 lunar distances this week and the closest one.</td><td>NASA/JPL CNEOS</td></tr>
+        <tr><td>Wildfires</td><td>Named wildfires that are still open, with prescribed burns counted apart, the largest reported and where most of them are. These are incident reports, mostly from the US and Canada, not every fire on Earth: the Wildfires layer adds what the satellites see.</td><td>NASA EONET</td></tr>
+        <tr><td>Weather extremes</td><td>The hottest and coldest air (2 m) and the strongest wind (10 m) anywhere on Earth at the model hour nearest now, with the country under it. A tap opens weather mode with that layer on and flies there. These are model grid cells, open sea and Antarctica included, not weather-station records. On a phone this section waits for a tap (it downloads about 1 MB).</td><td>NOAA GFS</td></tr>
+      </tbody>
+    </table></div>
+    <p>The charts are drawn in the page: hover a bar (or tap it) for its value; screen readers hear every value. The panel refreshes every five minutes while it is open, and <b>↻</b> refreshes it now. Nothing is downloaded while it is closed.</p>
   </div>
 </section>
 
@@ -396,7 +425,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
       <li>Walking route from Big Ben to the Tower of London</li><li>How many satellites are in view?</li><li>What's this?</li><li>Show me the launches</li>
       <li>Zoom out to a globe view</li><li>What's the weather in Paris?</li><li>How many planes over Texas?</li><li>Measure from Paris to Berlin</li>
       <li>Outline France</li><li>How big is Brazil?</li><li>Draw an area</li><li>Clear the drawing</li>
-      <li>Arrivals at Heathrow</li><li>What's taking off from JFK?</li><li>What plane is that?</li>
+      <li>Arrivals at Heathrow</li><li>What's taking off from JFK?</li><li>What plane is that?</li><li>METAR at Denver</li><li>Which runway is Heathrow using?</li>
     </ul>
     <h3>Everything it understands</h3>
     <div class="tbl"><table>
@@ -433,6 +462,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <h3>3D globe</h3>
         <div class="tbl"><table><tbody>
           <tr><td><kbd>/</kbd></td><td>Search</td></tr>
+          <tr><td><kbd>E</kbd></td><td>Earth now: open or close</td></tr>
           <tr><td><kbd>+</kbd> <kbd>−</kbd></td><td>Zoom in, out</td></tr>
           <tr><td><kbd>N</kbd></td><td>North up and level</td></tr>
           <tr><td><kbd>T</kbd></td><td>Look straight down</td></tr>
@@ -556,19 +586,22 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
       <li><b>Planet orbits</b> and <b>Labels</b>.</li>
       <li><b>Moons</b>: 20 major moons from Mars to Pluto, on orbits fitted to JPL Horizons.</li>
       <li><b>Dwarf planets</b>, <b>Asteroids</b> (1.57 million from JPL's Small-Body Database, each class switchable: main belt, near-Earth, Jupiter Trojans, Centaurs, Kuiper belt and beyond, Mars-crossers, other) and <b>Comets</b>.</li>
-      <li><b>Spacecraft</b>: trajectories from JPL Horizons, Voyager included.</li>
+      <li><b>Spacecraft</b>: trajectories from JPL Horizons, Voyager included. Juno flies its real orbit around Jupiter, skimming the cloud tops at every perijove (its card says when the next one is).</li>
+      <li><b>Eclipses &amp; occultations</b>: the shadows during the solar and lunar eclipses of 2026 to 2030 and the Moon passing in front of bright stars and planets (see below).</li>
       <li><b>Stars near the Sun</b> (HYG catalogue) and <b>Our radio bubble</b>: how far our broadcasts have travelled since 1920, with the stars inside tinted.</li>
       <li><b>Planets of other stars</b>: 6,339 exoplanets from the NASA Exoplanet Archive at their stars; fly into a system to see real sizes and the habitable zone.</li>
       <li><b>Light delay</b>: a ghost of the focused body where Earth sees it, because its light is minutes or hours old.</li>
       <li><b>Milky Way &amp; galaxies</b>: our galaxy seen from outside and 43,480 galaxies of the 2MASS Redshift Survey, with the big clusters named.</li>
       <li><b>Graphics</b>: Auto or a fixed level.</li>
     </ul>
+    <h3>Eclipses and occultations, from space</h3>
+    <p><b>Eclipses &amp; occultations 2026-2030</b> (left panel) lists every solar and lunar eclipse and every time the Moon covers Aldebaran, Regulus, Spica, Antares, the Pleiades or one of the five bright planets, with where on Earth it is seen. <b>Jump</b> sets the clock to the greatest moment and turns the view to look at it; <b>▶</b> plays it from the start at ten minutes a second. During a solar eclipse the Moon's shadow is a dark spot crossing the globe, outlined, with its shadow cones reaching back to the Moon; during a lunar eclipse the Moon turns red inside rings that mark Earth's umbra and penumbra; for an occultation a tube shows the Moon's "shadow" from the star sweeping over Earth. Each event also has a card (search "eclipse 2027" or "Regulus") whose timeline holds its contacts. The Sun and Moon come from NASA JPL Horizons; the times agree with NASA's eclipse canon to within two minutes.</p>
     <h3>Where is it now?</h3>
     <p>The search box finds planets, moons, dwarf planets, spacecraft, every comet, about 26,000 named asteroids, nearby stars and other planetary systems, by name, nickname or a near-miss spelling ("Halley", "Juno", "Eros"), and flies there.</p>
     <h3>Share a view</h3>
     <p>The address follows what you fly to: copy it, or press the share button on a body's card, and the link opens the same body at the same moment and distance (or live, if the clock was live). The format is in <a href="https://github.com/destinjones/open-overwatch/blob/main/docs/LINK_FORMAT.md">docs/LINK_FORMAT.md</a>.</p>
     <h3>Wow</h3>
-    <p><b>Guided tour: Earth to Andromeda</b>, <b>Send a light pulse from the Sun</b> (a shell of light spreads out at 60 times its real speed and names each planet it reaches), <b>Next planetary alignment</b>, and <b>Under the hood</b>: speed, and the positions' error measured live against NASA JPL Horizons. Two lists: <b>Deep-space missions now</b> (every mission with its distance and signal time to Earth, nearest first, and what it does next) and <b>Comets near the Sun</b> (the best placed comets, with their next perihelion). Comets near the Sun grow a straight blue ion tail and a curved dust tail; the Sun-Earth L1 and L2 points, where SOHO, JWST, Gaia and others work, ride along with Earth. The time bar runs from a year a second backwards to a year a second forwards; planet positions are good from 1800 to 2050.</p>
+    <p><b>Guided tour: Earth to Andromeda</b>, <b>Send a light pulse from the Sun</b> (a shell of light spreads out at 60 times its real speed and names each planet it reaches), <b>Next planetary alignment</b>, and <b>Under the hood</b>: speed, and the positions' error measured live against NASA JPL Horizons. Three lists: <b>Deep-space missions now</b> (every mission with its distance and signal time to Earth, nearest first, and what it does next), <b>Comets: brightest now</b> (the brightest comets with their predicted magnitude and when each peaks, the ones due to peak brighter than magnitude 12 in the next three years, then the best placed ones; magnitudes from JPL's comet parameters, and comets often beat or miss them) and <b>Eclipses &amp; occultations 2026-2030</b>. Comets near the Sun grow a straight blue ion tail and a curved dust tail; the Sun-Earth L1 and L2 points, where SOHO, JWST, Gaia and others work, ride along with Earth. The time bar runs from a year a second backwards to a year a second forwards; planet positions are good from 1800 to 2050.</p>
   </div>
 </section>
 
@@ -605,7 +638,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   <div class="wrap">
     <div class="eyebrow">MCP</div>
     <h2 id="claude-h">Ask Claude about the Earth</h2>
-    <p>Open Overwatch also comes as a small Model Context Protocol server, so Claude (and other AI apps that speak MCP) can answer questions from the same open data, with 32 tools: earthquakes, where a satellite is and when you can see it, launches, who is in space, asteroid flybys and close approaches in orbit, tropical storms, wildfires, natural events, volcanoes, Baltic ships, bike share, live transit, traffic cameras (with their latest pictures), measured road speeds, submarine cables, country briefings, the weather (with pressure, gusts, waves and whether the models agree), what a plane is and where a flight goes, where any spacecraft, comet or asteroid is, the aurora, tonight's sky, the Sun and Moon, the planets, meteor showers, eclipses, distances, licence-plate readers and military areas. Every answer carries a link that opens the globe there, and in Claude Desktop the globe appears in the chat. Install it from <code>open-overwatch.mcpb</code> on the <a href="https://github.com/destinjones/open-overwatch/releases/latest">latest release</a>; details in <a href="https://github.com/destinjones/open-overwatch/blob/main/mcp/README.md">mcp/README.md</a>. It runs on your computer (over stdio, or Streamable HTTP on your own machine for clients that need it), needs no key, and stores nothing. A remote version for claude.ai and ChatGPT connectors, on Cloudflare Workers, is ready in <code>mcp-worker/</code> but not deployed yet.</p>
+    <p>Open Overwatch also comes as a small Model Context Protocol server, so Claude (and other AI apps that speak MCP) can answer questions from the same open data, with 33 tools: earthquakes, where a satellite is and when you can see it, launches, who is in space, asteroid flybys and close approaches in orbit, tropical storms, wildfires, natural events, volcanoes, Baltic ships, bike share, live transit, traffic cameras (with their latest pictures), measured road speeds, submarine cables, country briefings, the weather (with pressure, gusts, waves and whether the models agree), what a plane is and where a flight goes, where any spacecraft, comet or asteroid is, the aurora, tonight's sky, the Sun and Moon, the planets, meteor showers, eclipses, distances, licence-plate readers, military areas and airport weather (METAR and TAF in plain words). Every answer carries a link that opens the globe there, and in Claude Desktop the globe appears in the chat. Install it from <code>open-overwatch.mcpb</code> on the <a href="https://github.com/destinjones/open-overwatch/releases/latest">latest release</a>; details in <a href="https://github.com/destinjones/open-overwatch/blob/main/mcp/README.md">mcp/README.md</a>. It runs on your computer (over stdio, or Streamable HTTP on your own machine for clients that need it), needs no key, and stores nothing. A remote version for claude.ai and ChatGPT connectors, on Cloudflare Workers, is ready in <code>mcp-worker/</code> but not deployed yet.</p>
   </div>
 </section>
 

@@ -48,7 +48,8 @@
     { "name": "military_areas", "description": "Land mapped as military in OpenStreetMap near a place, worldwide." },
     { "name": "weather_details", "description": "Pressure and its tendency, gusts, thunderstorm energy, fog, waves and swell at a point, and whether the ECMWF, GFS and ICON models agree." },
     { "name": "aircraft_lookup", "description": "What a plane is (type, owner, photo) by registration or hex, and the route a flight callsign flies (adsbdb)." },
-    { "name": "where_in_space", "description": "Where a planet, moon, spacecraft (Voyager, JWST), comet or named asteroid is now: distance, light time, speed, where to look; or every mission, or the comets best placed." }
+    { "name": "where_in_space", "description": "Where a planet, moon, spacecraft (Voyager, JWST), comet or named asteroid is now: distance, light time, speed, where to look; or every mission, or the comets best placed." },
+    { "name": "airport_weather", "description": "An airport's METAR and TAF (Aviation Weather Center) in plain words, its flight category and the runway the wind favours." }
   ],
   "prompts_generated": true,
   "keywords": ["globe", "aircraft", "spacecraft", "comets", "earth", "satellites", "earthquakes", "launches", "weather", "aurora", "wildfires", "transit", "traffic cameras", "planets", "open data", "maps"],

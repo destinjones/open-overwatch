@@ -8,7 +8,13 @@ Requests are sequential and at least 1 s apart.
 
 Output data/solar/spacecraft.json:
   [{name, id, launch_jd, desc, events: [[jd, text], ...], t0_jd, step_days, n, end_jd, agency, status, alias,
-    xyz: [x0, y0, z0, x1, ...]}]   # sample i is at t0_jd + i*step_days (uniform; interpolate by index)
+    xyz: [x0, y0, z0, x1, ...],      # sample i is at t0_jd + i*step_days (uniform; interpolate by index)
+    local?: {center, gm, t0_jd, step_days, el: [[q km, e, i, node, peri (deg), tp], ...],
+             pj: [{tp, t0, step, el: [sets every 30 min for +-3 h around each perijove]}]}}]
+  `local` (a craft in orbit around a planet, Juno): Horizons' osculating elements around the planet (CENTER 500@599,
+  ecliptic J2000, TDB), one set a day; src/core/craft.js flies the nearest set as a two-body orbit around the planet as
+  the view draws it. Perijove passes come out within tens of km (test/fixtures/horizons_juno_perijoves.json: 20-minute
+  Horizons vectors for a day either side of three perijoves, written by this script as well).
 """
 import datetime as dt, hashlib, json, math, os, re, sys, time, urllib.parse, urllib.request
 
@@ -20,7 +26,7 @@ API = 'https://ssd.jpl.nasa.gov/api/horizons.api'
 GRID0 = 2440000.5            # sample times are GRID0 + k*step (0h TDB), so 5-day craft share planet samples
 LIMIT_JD = None              # set in main(): 2035-01-01 00:00 TDB
 CHECK_DATE = '2026-10-02'
-MAX_POINTS = 5000
+MAX_POINTS = 7000
 
 # events: (date 'YYYY-MM-DD[ HH:MM]' | 'auto', text, body for the closest-approach check or None)
 # 'auto' events take the closest approach to `body` in the window (date range) given as the 4th item;
@@ -89,7 +95,8 @@ CRAFT = [
                  ('auto', 'Final Earth gravity assist', '399', ('2028-11-01', '2029-03-31')),
                  ('end', 'Jupiter arrival (end of the published trajectory)', None)]),
     # ---- added 2026-10-12: missions that orbit, land or sit at L2, and the classics
-    dict(name='Juno', id=-61, launch='2011-08-05 16:25', step=3, agency='NASA', status='Orbiting Jupiter',
+    dict(name='Juno', id=-61, launch='2011-08-05 16:25', step=1, agency='NASA', status='Orbiting Jupiter',
+         local=dict(center='599', key='jupiter', since='2016-07-05 12:00'),
          desc="Jupiter polar orbiter: skims the cloud tops every few weeks, mapping gravity, magnetism and the deep atmosphere.",
          events=[('auto', 'Earth gravity assist', '399', ('2013-09-15', '2013-10-31')),
                  ('2016-07-05 03:53', 'Jupiter orbit insertion', '599'),
@@ -291,6 +298,88 @@ def fetch_track(craft):
     return start, rows
 
 
+def horizons_q(params, key):
+    """A cached Horizons call with arbitrary parameters (elements, planet-centred vectors)."""
+    url = API + '?' + urllib.parse.urlencode(params)
+    path = os.path.join(CACHE, re.sub(r'[^0-9A-Za-z_-]', '_', key) + '_' + hashlib.sha1(url.encode()).hexdigest()[:8] + '.json')
+    if os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            return json.load(f)
+    wait = 1.0 - (time.time() - _last[0])
+    if wait > 0:
+        time.sleep(wait)
+    print(f'  horizons {key}')
+    req = urllib.request.Request(url, headers={'User-Agent': 'open-overwatch make_spacecraft.py'})
+    with urllib.request.urlopen(req, timeout=180) as r:
+        data = json.loads(r.read().decode('utf-8'))
+    _last[0] = time.time()
+    os.makedirs(CACHE, exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f)
+    return data
+
+
+def fetch_local(craft, end_jd):
+    """Daily osculating elements around the planet: {center, gm, t0_jd, step_days, el}."""
+    L = craft['local']
+    t0 = GRID0 + math.ceil((jd_of(L['since']) - GRID0))   # first 0h TDB after `since`
+    data = horizons_q(dict(format='json', COMMAND=f"'{craft['id']}'", OBJ_DATA="'NO'", MAKE_EPHEM="'YES'", EPHEM_TYPE="'ELEMENTS'",
+                           CENTER=f"'500@{L['center']}'", REF_PLANE="'ECLIPTIC'", REF_SYSTEM="'ICRF'", OUT_UNITS="'KM-S'", CSV_FORMAT="'YES'",
+                           START_TIME=f"'JD{t0:.1f}'", STOP_TIME=f"'JD{end_jd:.1f}'", STEP_SIZE="'1 d'"), f"el_{craft['id']}_{L['center']}_{t0}_{end_jd}")
+    res = data['result']
+    gm = float(re.search(r'Keplerian GM\s*:\s*([0-9.Ee+-]+)', res).group(1))
+    body = res.split('$$SOE', 1)[1].split('$$EOE', 1)[0]
+    el = []
+    for line in body.strip().splitlines():
+        c = [x.strip() for x in line.split(',')]
+        jd, ec, qr, inc, om, w, tp = float(c[0]), float(c[2]), float(c[3]), float(c[4]), float(c[5]), float(c[6]), float(c[7])
+        el.append([round(qr), round(ec, 7), round(inc, 5), round(om % 360, 5), round(w % 360, 5), round(tp, 5)])   # ~1 km
+    # each perijove once (the daily sets name it from either side: take it from the set nearest to it), then element
+    # sets every 30 minutes for 3 hours either side of it (fetched every 15 minutes for 6 hours): near the planet its
+    # oblateness turns the osculating orbit fast, and a set an hour away already misses the pass by ~1,000 km
+    by = {}
+    for k, e in enumerate(el):
+        if e[1] >= 1:
+            continue
+        key = round(e[5] / 3)
+        if key not in by or abs(t0 + k - e[5]) < abs(t0 + by[key][0] - by[key][1]):
+            by[key] = (k, e[5])
+    tps = sorted(v[1] for v in by.values() if t0 + 1 < v[1] < t0 + len(el) - 2)
+    tps = [t for i, t in enumerate(tps) if i == 0 or t - tps[i - 1] > 2]
+    pj = []
+    for tp in tps:
+        a = round(tp * 96) / 96 - 0.25   # on a 15-minute grid
+        d = horizons_q(dict(format='json', COMMAND=f"'{craft['id']}'", OBJ_DATA="'NO'", MAKE_EPHEM="'YES'", EPHEM_TYPE="'ELEMENTS'",
+                            CENTER=f"'500@{L['center']}'", REF_PLANE="'ECLIPTIC'", REF_SYSTEM="'ICRF'", OUT_UNITS="'KM-S'", CSV_FORMAT="'YES'",
+                            START_TIME=f"'JD{a:.6f}'", STOP_TIME=f"'JD{a + 0.5:.6f}'", STEP_SIZE="'15 m'"), f"elpj15_{craft['id']}_{a:.4f}")
+        sets = []
+        for line in d['result'].split('$$SOE', 1)[1].split('$$EOE', 1)[0].strip().splitlines():
+            c = [x.strip() for x in line.split(',')]
+            sets.append([round(float(c[3])), round(float(c[2]), 7), round(float(c[4]), 5), round(float(c[5]) % 360, 5), round(float(c[6]) % 360, 5), round(float(c[7]), 6)])
+        # keep every other set for 3 h either side (checked against the fixture: worst 122 km off Horizons over the
+        # day around a pass, vs 66 km for all of them at twice the size)
+        pj.append(dict(tp=round(tp, 6), t0=round(a + 0.125, 6), step=1 / 48, el=sets[12:37:2]))
+    return dict(center=L['key'], gm=gm, t0_jd=t0, step_days=1, el=el, pj=pj)
+
+
+def perijove_fixture(craft, local, n=3):
+    """20-minute planet-centred Horizons vectors (km, TDB) for +-1 day around three perijoves -> the test fixture."""
+    tps = [p['tp'] for p in local['pj']]
+    pick = [tps[1], tps[len(tps) // 2], tps[-2]] if len(tps) > 3 else tps[:n]
+    out = {'source': f"JPL Horizons, {craft['name']} around {local['center']} (500@{craft['local']['center']}), ecliptic J2000, km, JD TDB", 'passes': []}
+    for tp in pick:
+        a, b = tp - 1, tp + 1
+        data = horizons_q(dict(format='json', COMMAND=f"'{craft['id']}'", OBJ_DATA="'NO'", MAKE_EPHEM="'YES'", EPHEM_TYPE="'VECTORS'",
+                               CENTER=f"'500@{craft['local']['center']}'", REF_PLANE="'ECLIPTIC'", REF_SYSTEM="'ICRF'", VEC_TABLE="'1'",
+                               OUT_UNITS="'KM-S'", CSV_FORMAT="'YES'", VEC_LABELS="'NO'", START_TIME=f"'JD{a:.6f}'", STOP_TIME=f"'JD{b:.6f}'", STEP_SIZE="'20 m'"),
+                         f"pj_{craft['id']}_{tp}")
+        out['passes'].append({'tp': tp, 'rows': [[r[0], round(r[1], 2), round(r[2], 2), round(r[3], 2)] for r in parse_vectors(data)]})
+    path = os.path.join(ROOT, 'test', 'fixtures', 'horizons_juno_perijoves.json')
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(out, f, separators=(',', ':'))
+    print(f"  fixture {os.path.basename(path)}: perijoves {[date_of(t) for t in pick]}")
+
+
 def lagrange3(times, xyz, t):
     """Quadratic interpolation of a uniform series at time t."""
     step = times[1] - times[0]
@@ -371,10 +460,15 @@ def main():
         xyz = []
         for r in rows:
             xyz.extend(round(v, 5) for v in r[1:])
+        if c.get('local'):
+            local = fetch_local(c, rows[-1][0])
+            print(f"  {c['name']}: {len(local['el'])} daily element sets around {local['center']}, GM {local['gm']}")
+            perijove_fixture(c, local)
         out.append(dict(name=c['name'], id=c['id'], launch_jd=round(jd_of(c['launch']), 4), desc=c['desc'],
                         events=events, t0_jd=rows[0][0], step_days=step, n=len(rows), end_jd=rows[-1][0],
                         coverage_start_jd=round(start, 4), agency=c.get('agency') or STATUS[c['name']][0],
-                        status=c.get('status') or STATUS[c['name']][1], alias=c.get('alias', []), xyz=xyz))
+                        status=c.get('status') or STATUS[c['name']][1], alias=c.get('alias', []), xyz=xyz,
+                        **({'local': local} if c.get('local') else {})))
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, 'w', encoding='utf-8') as f:

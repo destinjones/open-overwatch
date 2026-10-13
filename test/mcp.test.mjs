@@ -144,7 +144,7 @@ test('mcp: initialize agrees a protocol version and says what the server offers'
 
 test('mcp: every tool is listed read-only with a schema; show_on_globe names the globe panel', async () => {
   const { server } = serve(), { tools } = (await rpc(server, 'tools/list')).result;
-  assert.equal(tools.length, 32);
+  assert.equal(tools.length, 33);
   for (const t of tools) {
     assert.match(t.name, /^[a-z_]+$/); assert.ok(t.description.length > 60, t.name); assert.equal(t.inputSchema.type, 'object');
     assert.equal(t.annotations.readOnlyHint, true); assert.equal(t.annotations.openWorldHint, true);
@@ -361,7 +361,7 @@ test('mcp: the stdio server answers a client and exits when stdin closes', async
   assert.equal(code, 0, err);
   const lines = out.trim().split('\n').map(l => JSON.parse(l)), byId = id => lines.find(l => l.id === id);   // answers may come in any order
   assert.equal(lines.length, 3, out);
-  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 32); assert.equal(byId(null).error.code, -32700);
+  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 33); assert.equal(byId(null).error.code, -32700);
   assert.match(err, /open-overwatch-mcp \d+\.\d+\.\d+ - links to https:\/\/destinjones\.github\.io\/open-overwatch\//);
 });
 
@@ -579,7 +579,7 @@ test('mcp http: one JSON-RPC message per POST, answered as JSON; notifications g
   assert.equal(init.status, 200); assert.match(init.headers.get('content-type'), /application\/json/); assert.equal(init.headers.get('mcp-protocol-version'), '2025-06-18');
   assert.equal((await init.json()).result.serverInfo.name, 'open-overwatch');
   const list = await (await h(post({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, { 'mcp-protocol-version': '2025-06-18' }))).json();
-  assert.equal(list.result.tools.length, 32);
+  assert.equal(list.result.tools.length, 33);
   const q = await (await h(post({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'earthquakes', arguments: {} } }))).json();
   assert.equal(q.result.structuredContent.total, 3);
   const n = await h(post({ jsonrpc: '2.0', method: 'notifications/initialized' })); assert.equal(n.status, 202); assert.equal(await n.text(), '');
@@ -644,7 +644,7 @@ test('mcp http: node mcp/server.mjs --http serves Streamable HTTP until stopped'
     let err = '';
     const url = await new Promise((res, rej) => { p.stderr.on('data', b => { err += b; const m = err.match(/Streamable HTTP at (http:\/\/127\.0\.0\.1:\d+\/mcp)/); if (m) res(m[1]); }); p.on('close', c => rej(new Error('exited ' + c + ': ' + err))); });
     const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
-    assert.equal(r.status, 200); assert.equal((await r.json()).result.tools.length, 32);
+    assert.equal(r.status, 200); assert.equal((await r.json()).result.tools.length, 33);
   } finally { p.kill(); }
   const bad = spawn(process.execPath, [new URL('mcp/server.mjs', root).pathname.replace(/^\/([A-Za-z]:)/, '$1'), '--http', '0', '--host', '0.0.0.0'], { stdio: ['ignore', 'pipe', 'pipe'] });
   let e2 = ''; bad.stderr.on('data', b => { e2 += b; });
@@ -926,4 +926,32 @@ test('mcp: where in space without a name: the missions nearest first, or the com
   assert.equal(cd.comets.length, 10); assert.match(cd.note, /not by brightness/);
   for (const x of cd.comets) { assert.ok(x.sun_au <= 4, x.name); if (x.perihelion_estimated) assert.ok(Math.abs(Date.parse(x.perihelion) - NOW) < (x.period_years / 2 + 0.01) * 3.156e10, `${x.name}: the return nearest now`); }
   assert.match(c.content[0].text, /how bright each is isn't in the data/);
+});
+
+// ---- airport weather (METAR and TAF from the Aviation Weather Center) ------------------------------------------------
+ROUTES.unshift(
+  [SITE + 'data/airports.json', readFileSync(new URL('data/airports.json', root), 'utf8')],
+  [SITE + 'data/runways.json', readFileSync(new URL('data/runways.json', root), 'utf8')],
+  ['https://aviationweather.gov/api/data/metar?ids=KDEN&', [{ icaoId: 'KDEN', obsTime: Date.parse('2026-10-01T17:53:00Z') / 1000,
+    rawOb: 'METAR KDEN 011753Z 06010KT 3/4SM R35L/P6000FT BR OVC003 09/08 A2999 RMK AO2 SLP100 T00890078' }]],
+  ['https://aviationweather.gov/api/data/taf?ids=KDEN&', [{ icaoId: 'KDEN', validTimeFrom: Date.parse('2026-10-01T18:00:00Z') / 1000, validTimeTo: Date.parse('2026-10-03T00:00:00Z') / 1000,
+    rawTAF: 'TAF KDEN 011720Z 0118/0300 05010KT 5SM BR OVC003 TEMPO 0118/0120 2SM -DZ BR FM012000 06007KT P6SM BKN008 OVC020 FM020200 04010KT P6SM SCT040' }]],
+  ['https://aviationweather.gov/api/data/metar?ids=EGLL&', []],
+  ['https://aviationweather.gov/api/data/taf?ids=EGLL&', []],
+);
+test('mcp: airport weather decodes the METAR and TAF, says the category and the runway the wind favours', async () => {
+  const { server, net } = serve(), r = ok(await call(server, 'airport_weather', { airport: 'DEN' })), d = r.structuredContent, text = r.content[0].text;
+  assert.equal(d.airport.icao, 'KDEN'); assert.equal(d.metar.category, 'LIFR'); assert.equal(d.metar.visibility_sm, 0.8); assert.equal(d.metar.ceiling_ft, 300); assert.equal(d.metar.temperature_c, 8.9);
+  assert.match(text, /^Denver International Airport \(KDEN\/DEN\), METAR 17:53Z \(7 min ago\): Low IFR: cloud under 500 ft or under a mile\./);
+  assert.match(text, /Visibility 3\/4 of a mile\.\nMist\.\nOvercast at 300 feet\./);
+  assert.match(d.favoured_runway.runway, /^0[78]$/, 'a wind from 060° favours the east-facing runways'); assert.ok(Math.abs(d.favoured_runway.headwind_kt - 8.7) < 0.3);
+  assert.equal(d.taf.worst_next_hours, 'LIFR'); assert.equal(d.taf.periods[0].text, 'Now until 20Z: wind 050° 10 kt, 5 miles, mist, overcast at 300 ft');
+  assert.ok(d.taf.periods.some(p => p.text === '18Z–20Z, at times: 2 miles, light drizzle, mist'));
+  assert.equal(hashOf(d.url).add.includes('airports'), true);
+  assert.ok(net.asked.some(u => u.startsWith('https://aviationweather.gov/api/data/metar?ids=KDEN&format=json')), 'straight to AWC: Node needs no relay');
+  assert.equal(ok(await call(server, 'airport_weather', { airport: 'Denver' })).structuredContent.airport.icao, 'KDEN', 'a city: its largest airport');
+  assert.equal(ok(await call(server, 'airport_weather', { lat: 39.9, lon: -104.6 })).structuredContent.airport.icao, 'KDEN', 'a point: the nearest');
+  const lhr = ok(await call(server, 'airport_weather', { airport: 'Heathrow' })); assert.match(lhr.content[0].text, /sent no METAR/); assert.match(lhr.content[0].text, /No TAF/);
+  assert.equal((await call(server, 'airport_weather', { airport: 'Nowhere Intergalactic' })).isError, true);
+  assert.equal((await call(server, 'airport_weather', {})).isError, true);
 });
