@@ -9,12 +9,12 @@ import { L, setCount } from './layers.js';
 import { state, hooks } from './state.js';
 import { Follow, MODEL_FIX } from './follow.js';
 import { deadReckonArc, courseAxis } from '../core/geo.js';
+import { readsb, openskyState, EMERGENCY_SQUAWKS as EMERGENCY } from '../core/aircraft.js';
 import { Terrain } from './terrain.js';
 import { Time } from './time.js';
 
 const DR_MAX_S = 900;              // dead-reckoning horizon: the global snapshot refreshes every 15 min
 export const AIR_ICON_RANGE = 2.5e6; // planes become heading icons below ~2,500 km camera distance
-const EMERGENCY = ['7500', '7600', '7700'];
 
 // sprite shape by ICAO type code (brand/tools/plane_sprites.py renders one per shape and colour)
 const SPRITE_SIZE = { airliner: 30, prop: 26, heli: 26, fighter: 24, heavy: 36, tprop: 32 };
@@ -62,12 +62,11 @@ function renderHeight(r, p, near = true) {
 const AX = new C.Cartesian3();
 
 /** An adsb.lol (readsb) aircraft as one of ours; mil: true for the /mil feed, else from its database flags. */
-export function fromAdsb(a, now, mil = !!(a.dbFlags & 1)) {
-  const ground = a.alt_baro === 'ground';
-  return { hex: a.hex, flight: (a.flight || '').trim(), type: a.t, reg: a.r, lon: a.lon, lat: a.lat, alt: ground ? 0 : (a.alt_baro || 0) * 0.3048, ground,
-    altG: ground || a.alt_geom == null ? null : a.alt_geom * 0.3048,   // readsb: geometric, WGS84 ellipsoid
-    gs: a.gs != null ? a.gs * 0.514444 : null, track: a.track, vr: a.baro_rate != null ? a.baro_rate * 0.00508 : 0, squawk: a.squawk, emerg: EMERGENCY.includes(a.squawk),
-    mil, ts: now - (a.seen_pos || 0) * 1000, src: 'adsb.lol' };
+export function fromAdsb(a, now, mil = false) {   // read by core/aircraft.js, like the 2D map's; null without a position
+  const x = readsb(a, { mil }); if (!x) return null;
+  return { hex: x.hex, flight: x.flight, type: x.type, reg: x.reg, lon: x.lon, lat: x.lat, alt: x.altM || 0, ground: x.ground,
+    altG: x.geomM,   // readsb: geometric, WGS84 ellipsoid
+    gs: x.gsMs, track: x.track, vr: x.rateMs ?? 0, squawk: x.squawk, emerg: EMERGENCY.includes(x.squawk), mil: x.mil, ts: now - x.seenPos * 1000, src: 'adsb.lol' };
 }
 
 const layerOf = r => L[r.mil ? 'mil' : 'air'];
@@ -106,18 +105,18 @@ export const Air = {
     if (c && Date.now() - c.t < 15 * 60e3) rows = c.rows;   // anonymous OpenSky: 400 credits/day, a global snapshot costs 4
     else {
       const d = await getJSON('https://opensky-network.org/api/states/all', { relay: true, timeout: 60000 });
-      rows = (d.states || []).filter(s => s[5] != null && s[6] != null).map(s => [s[0], (s[1] || '').trim(), s[2], s[5], s[6], s[8] ? 0 : s[7], s[8] ? 1 : 0, s[9], s[10], s[14], s[11], s[3], s[13]]);   // + time of the position, geometric altitude
+      rows = (d.states || []).map(openskyState).filter(Boolean).map(x => [x.hex, x.flight, x.country, x.lon, x.lat, x.altM, x.ground ? 1 : 0, x.gsMs, x.track, x.squawk, x.rateMs, x.tpos, x.geomM]);   // compact for the cache: + time of the position, geometric altitude
       await bigStore.set('opensky', { t: Date.now(), rows });
     }
     const now = Date.now(), ts = (c && rows === c.rows) ? c.t : now;
-    for (const [hex, flight, country, lon, lat, alt, ground, gs, track, squawk, vr, tpos, geo] of rows)   // dead-reckon from when each position was heard, not when we asked
+    for (const [hex, flight, country, lon, lat, alt, ground, gs, track, squawk, vr, tpos, geo] of rows)   // dead-reckon from when each position was heard, not when we asked (rows: core/aircraft.js openskyState, cached)
       this.upsert({ hex, flight, country, lon, lat, alt: alt || 0, ground: !!ground, gs, track, vr: vr ?? 0, squawk, emerg: EMERGENCY.includes(squawk), mil: false,
         ts: tpos > 0 && tpos * 1000 <= ts && ts - tpos * 1000 < DR_MAX_S * 1000 ? tpos * 1000 : ts, altG: !ground && geo != null ? geo : null, src: 'OpenSky' });
     this.snapshotAt = ts; setCount('air', rows.length); hooks.updateStats();
   },
   async military() {
     const d = await getJSON('https://api.adsb.lol/v2/mil', { relay: true }), now = Date.now(); let n = 0; this.milAt = now;
-    for (const a of d.ac || []) { if (a.lat == null || a.lon == null) continue; n++; this.upsert(fromAdsb(a, now, true)); }
+    for (const a of d.ac || []) { const r = fromAdsb(a, now, true); if (!r) continue; n++; this.upsert(r); }
     setCount('mil', n); hooks.updateStats();
   },
   prune() {

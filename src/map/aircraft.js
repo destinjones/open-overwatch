@@ -4,6 +4,7 @@ import { $, C, Log, Net, Store, debounce, destination, esc, fmt, haversine, rad,
 import { map, vecRenderer } from './mapview.js';
 import { Dyn, Layers, Sel, UI, feed, requestDraw } from './engine.js';
 import { Detail, Tracks } from './detail.js';
+import { readsb, openskyState } from '../core/aircraft.js';
 
 /* ============================================================ AIRCRAFT (ADS-B) */
 export const AIR_SRC = { 'adsb.lol': 'https://api.adsb.lol', 'adsb.fi': 'https://opendata.adsb.fi/api', 'airplanes.live': 'https://api.airplanes.live' };
@@ -52,23 +53,21 @@ export const Air = {
   ingest(data, tag) {
     const list = data.ac || data.aircraft || []; const now = Date.now(); const src = data._src || 'adsb'; let n = 0; this.lastHexes = []; // hexes stored by this call, for lookups
     for (const a of list) {
-      const hex = String(a.hex || '').toLowerCase().replace(/[^0-9a-f~]/g, ''); // hex also lands in onclick handlers: keep it to its real charset
-      if (a.lat == null || a.lon == null || !hex) continue; n++; this.lastHexes.push(hex);
+      const x = readsb(a, { mil: tag === 'mil' }); if (!x) continue;   // core/aircraft.js (the globe reads the same records); hex kept to its charset, as it lands in handlers
+      const hex = x.hex; n++; this.lastHexes.push(hex);
       let rec = Dyn.air.get(hex);
       if (!rec) { rec = { hex, trail: [], first: now, tags: new Set() }; Dyn.air.set(hex, rec); }
       const wasEmerg = !!rec.emerg;
-      const ground = a.alt_baro === 'ground';
-      const alt = ground ? 0 : (typeof a.alt_baro === 'number' ? a.alt_baro : (typeof a.alt_geom === 'number' ? a.alt_geom : rec.alt));
       Object.assign(rec, {
-        lat: a.lat, lon: a.lon, alt, altGeom: a.alt_geom, ground, gs: a.gs ?? rec.gs, track: a.track ?? a.true_heading ?? rec.track,
-        vr: a.baro_rate ?? a.geom_rate ?? null, squawk: a.squawk, emergency: a.emergency, flight: (a.flight || '').trim(), r: a.r, t: a.t, desc: a.desc,
-        ownOp: a.ownOp, year: a.year, category: a.category, nic: a.nic, nacp: a.nac_p, rssi: a.rssi, seen_pos: a.seen_pos, seen: a.seen,
-        mlat: !!(a.mlat && a.mlat.length), tisb: !!(a.tisb && a.tisb.length), dbFlags: a.dbFlags || 0, msgs: a.messages, ts: now, src, msgType: a.type,
+        lat: x.lat, lon: x.lon, alt: x.ground ? 0 : (x.altFt ?? x.geomFt ?? rec.alt), altGeom: x.geomFt, ground: x.ground, gs: x.gsKt ?? rec.gs, track: x.track ?? rec.track,
+        vr: x.rateFpm, squawk: x.squawk, emergency: x.emergency, flight: x.flight, r: x.reg, t: x.type, desc: x.desc,
+        ownOp: x.ownOp, year: x.year, category: x.category, nic: x.nic, nacp: x.nacp, rssi: x.rssi, seen_pos: x.seenPos, seen: x.seen,
+        mlat: x.mlat, tisb: x.tisb, dbFlags: x.dbFlags, msgs: x.msgs, ts: now, src, msgType: x.msgType,
       });
-      rec.mil = !!(rec.dbFlags & 1) || tag === 'mil'; rec.interesting = !!(rec.dbFlags & 2); rec.pia = !!(rec.dbFlags & 4); rec.ladd = !!(rec.dbFlags & 8);
-      rec.emerg = (!!rec.emergency && rec.emergency !== 'none') || ['7500', '7600', '7700'].includes(rec.squawk);
+      rec.mil = x.mil; rec.interesting = !!(rec.dbFlags & 2); rec.pia = !!(rec.dbFlags & 4); rec.ladd = !!(rec.dbFlags & 8);
+      rec.emerg = x.emerg;
       if (rec.emerg && !wasEmerg) this.raiseEmergency(rec);
-      rec.lowNic = !ground && rec.nic != null && rec.nic <= 5 && (rec.gs || 0) > 100 && (rec.alt || 0) > 5000;
+      rec.lowNic = !x.ground && rec.nic != null && rec.nic <= 5 && (rec.gs || 0) > 100 && (rec.alt || 0) > 5000;
       if (tag) rec.tags.add(tag);
       const last = rec.trail[rec.trail.length - 1];
       if (!last || haversine(last[0], last[1], a.lat, a.lon) > 150) { rec.trail.push([a.lat, a.lon, now]); const maxTrail = (rec.mil || rec.emerg || Sel.id === hex) ? 150 : 25; while (rec.trail.length > maxTrail) rec.trail.shift(); }
@@ -235,10 +234,10 @@ feed(lyOpenSky, {
   interval: 900, errorInterval: 900, fetch: async () => {
     const d = await Net.json('https://opensky-network.org/api/states/all', { timeout: 45000 }); const now = Date.now(); let n = 0;
     for (const s of (d.states || [])) {
-      const [icao, cs, country, tpos, , lon, lat, balt, onground, vel, trk, vr, , , squawk] = s; if (lat == null || lon == null) continue;
-      const hex = String(icao || '').toLowerCase().replace(/[^0-9a-f~]/g, ''); if (!hex) continue; const ex = Dyn.air.get(hex); if (ex && ex.src !== 'opensky') continue;
+      const x = openskyState(s); if (!x) continue;   // core/aircraft.js, as the globe's snapshot
+      const hex = x.hex, ex = Dyn.air.get(hex); if (ex && ex.src !== 'opensky') continue;
       const rec = ex || { hex, trail: [], first: now, tags: new Set(['opensky']) }; Dyn.air.set(hex, rec); const wasEmerg = !!rec.emerg;
-      Object.assign(rec, { lat, lon, alt: onground ? 0 : (balt != null ? balt / 0.3048 : null), ground: !!onground, gs: vel != null ? vel / 0.514444 : null, track: trk, vr: vr != null ? vr / 0.3048 * 60 : null, squawk, flight: (cs || '').trim(), country, ts: now, seen_pos: tpos ? Math.max(0, now / 1000 - tpos) : 0, src: 'opensky', mil: false, emerg: ['7500', '7600', '7700'].includes(squawk), lowNic: false, dbFlags: 0 });
+      Object.assign(rec, { lat: x.lat, lon: x.lon, alt: x.altFt, ground: x.ground, gs: x.gsKt, track: x.track, vr: x.rateFpm, squawk: x.squawk, flight: x.flight, country: x.country, ts: now, seen_pos: x.tpos ? Math.max(0, now / 1000 - x.tpos) : 0, src: 'opensky', mil: false, emerg: x.emerg, lowNic: false, dbFlags: 0 });
       if (rec.emerg && !wasEmerg) Air.raiseEmergency(rec);
       n++;
     }
