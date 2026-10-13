@@ -32,16 +32,16 @@ export function cablesTool(ctx) {
       const radius = Math.min(2000, a.radius_km ?? Math.max(50, Math.min(area.radiusKm, 2000)));
       const lands = landingsNear(m.landings, area.lat, area.lon, radius), passing = cablesNear(m.cables, area.lat, area.lon, radius);
       const stations = (await Promise.all(lands.slice(0, 4).map(l => station(l.id, signal)))).filter(Boolean);
-      const atStation = new Map();   // cable id -> the nearby station it lands at
-      for (const s of stations) for (const c of s.cables) if (!atStation.has(c.id)) atStation.set(c.id, s.name);
+      const atStation = new Map(), told = new Map();   // cable id -> the nearby station it lands at, and what the station says of it
+      for (const s of stations) for (const c of s.cables) if (!atStation.has(c.id)) { atStation.set(c.id, s.name); told.set(c.id, c); }
       const byId = new Map(m.cables.map(c => [c.id, c])), near = new Map(passing.map(p => [p.id, p]));
       const ids = [...new Set([...atStation.keys(), ...passing.map(p => p.id)])].filter(id => byId.has(id) || atStation.has(id));
       ids.sort((x, y) => (atStation.has(y) - atStation.has(x)) || ((near.get(x) || { km: 1e9 }).km - (near.get(y) || { km: 1e9 }).km));
       const want = ids.slice(0, a.limit || 10), info = await Promise.all(want.slice(0, 12).map(id => detail(id, signal)));
       const rows = want.map((id, i) => {
-        const d = info[i] || {}, c = byId.get(id) || {}, p = near.get(id);
-        return { id, name: d.name || c.name || id, lands_here: atStation.get(id) || null, closest_km: p ? r1(p.km) : null, closest_point: p ? { lat: r2(p.at.lat), lon: r2(p.at.lon) } : null,
-          length_km: d.length_km ?? null, ready: d.ready_text ?? null, planned: d.planned ?? null, owners: d.owners || [], landings: (d.landings || []).map(l => l.name), url: cablePage(id) };
+        const d = info[i] || {}, c = byId.get(id) || {}, p = near.get(id), st = told.get(id) || {};   // the cable's own record, else what the map and the station say
+        return { id, name: d.name || c.name || st.name || id, lands_here: atStation.get(id) || null, closest_km: p ? r1(p.km) : null, closest_point: p ? { lat: r2(p.at.lat), lon: r2(p.at.lon) } : null,
+          length_km: d.length_km ?? null, ready: d.ready_text ?? (st.ready ? String(st.ready) : null), planned: d.planned ?? st.planned ?? null, owners: d.owners || [], landings: (d.landings || []).map(l => l.name), url: cablePage(id) };
       });
       const yearNow = new Date(ctx.now()).getUTCFullYear();
       const lines = rows.map(r => `${r.name}${r.lands_here ? ` · lands at ${r.lands_here}` : r.closest_km != null ? ` · passes ${km(r.closest_km)} away` : ''}${r.length_km ? ` · ${Math.round(r.length_km).toLocaleString('en-US')} km long` : ''}${r.ready ? ` · ${r.planned || +r.ready > yearNow ? 'planned for' : 'in service since'} ${r.ready}` : ''}${r.owners.length ? ` · ${r.owners.slice(0, 4).join(', ')}${r.owners.length > 4 ? ` +${r.owners.length - 4}` : ''}` : ''}${r.landings.length ? ` · ${plural(r.landings.length, 'landing')}` : ''}`);

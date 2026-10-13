@@ -31,7 +31,8 @@ export function firesTool(ctx) {
   const placeName = async (lat, lon, signal) => {
     const d = await feeds.json(`${PHOTON.replace(/api\/$/, 'reverse')}?lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}&lang=en&limit=1`, { ttl: 7 * 864e5, timeout: 10e3, signal }).catch(() => null);
     const p = d && d.features && d.features[0] && d.features[0].properties; if (!p) return null;
-    return [p.city || p.town || p.village || p.county || p.name, p.state, p.country].filter(Boolean).filter((x, i, a) => a.indexOf(x) === i).join(', ') || null;
+    const named = p.osm_key === 'highway' || /^(street|house)$/.test(p.type || '') ? null : p.name;   // a settlement, else a named feature (not a street), else the county
+    return [p.city || p.town || p.village || named || p.county, p.state, p.country].filter(Boolean).filter((x, i, a) => a.indexOf(x) === i).join(', ') || null;
   };
 
   return {
