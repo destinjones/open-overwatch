@@ -5,16 +5,18 @@ import { $, esc, fmt } from './env.js';
 import { state, hooks } from './state.js';
 import { L, syncDock } from './layers.js';
 import { Sats } from './satellites.js';
-import { Air } from './aircraft.js';
+import { Air, airClass } from './aircraft.js';
 import { Country } from './country.js';
 import { Volcanoes } from './volcanoes.js';
 import { Companies } from './companies.js';
 import { Lighthouses } from './lighthouses.js';
+import { Airports } from './airports.js';
 import { Flight } from './flight.js';
 import { Launches } from './launches.js';
 import { LookUp } from './lookup.js';
 import { select, flyToObject, PRESETS } from './ui.js';
 import { parseFlightQuery, matchesFlight } from '../core/flight.js';
+import { classWord, typeMatcher, CLASSES } from '../core/actype.js';
 import { findPlaces, flyToPlace, placesCredit } from './places.js';
 
 // everyday names for famous objects -> NORAD numbers
@@ -42,6 +44,14 @@ async function find(q) {
     for (const r of here) out.push({ kind: 'obj', obj: r, label: `✈ ${r.flight || r.hex}`, sub: `${r.reg ? r.reg + ' · ' : ''}${r.ground ? 'on the ground' : fmt((r.alt || 0) / 0.3048) + ' ft'}` });
     if (!here.length && fq.callsigns.length) out.push({ kind: 'flight', q: q.trim(), label: `✈ Find flight ${fq.callsigns[0]}`, sub: 'Look it up and follow it' });
   }
+  // aircraft by type ("A380", "747") or kind ("helicopters", "private jets"): the ones on the globe now, highest first
+  const kind = classWord(s), isType = !kind && s.length >= 3 && /\d/.test(s) ? typeMatcher(q) : null;
+  if (kind || isType) {
+    const tc = r => r.type || (r.info && r.info.aircraft && r.info.aircraft.icaoType) || '';
+    const hits = [...Air.map.values()].filter(r => kind ? airClass(r).cls === kind && airClass(r).why !== 'guess' : isType(tc(r))).sort((a, b) => (b.alt || 0) - (a.alt || 0));
+    for (const r of hits.slice(0, 6)) out.push({ kind: 'obj', obj: r, label: `✈ ${r.flight || r.hex} · ${tc(r) || CLASSES[airClass(r).cls].name}`, sub: `${r.ground ? 'on the ground' : fmt((r.alt || 0) / 0.3048) + ' ft'}${r.reg ? ' · ' + r.reg : ''}` });
+    if (hits.length > 6) out.push({ kind: 'note', label: `${fmt(hits.length)} on the globe now`, sub: 'The six highest are listed; type codes come with the military feed and the planes you open' });
+  }
   // launches (by rocket or mission name)
   for (const o of Launches.list.filter(o => o.name.toLowerCase().includes(s)).slice(0, 4)) out.push({ kind: 'obj', obj: o, label: `🚀 ${o.mission}`, sub: `${o.rocket} · ${o.place || o.pad}` });
   // satellites
@@ -57,6 +67,10 @@ async function find(q) {
   const seqNow = seq;
   const countries = await Country.search(s).catch(() => []); if (seqNow !== seq) return null;
   for (const c of countries) out.push({ kind: 'country', iso: c.iso, label: `🏳 ${c.name}`, sub: 'Country dossier' });
+  // airports by code (LHR, EGLL) or name, once the layer has loaded
+  const code = Airports.index.get(s.toUpperCase());
+  const aps = [code, ...Airports.list.filter(a => a !== code && (a.name.toLowerCase().includes(s) || (s.length >= 3 && a.city.toLowerCase().startsWith(s)))).sort((a, b) => b.size - a.size)].filter(Boolean).slice(0, 4);
+  for (const a of aps) out.push({ kind: 'obj', obj: a, label: `🛫 ${a.name}`, sub: [a.iata || a.icao, a.city, 'arrivals and departures'].filter(Boolean).join(' · ') });
   // whatever else has loaded
   for (const [list, icon, what] of [[Volcanoes.list, '🌋', 'Volcano'], [Companies.list, '🏢', 'Employer'], [Lighthouses.list, '🗼', 'Lighthouse']]) {
     for (const o of list.filter(o => o.name && o.name.toLowerCase().includes(s)).slice(0, 4)) out.push({ kind: 'obj', obj: o, label: `${icon} ${o.name}`, sub: [what, o.country].filter(Boolean).join(' · ') });

@@ -189,6 +189,26 @@ Round 2 (2026-10-10, local):
       flat after the first use; launch labels of one site now share one label (+N)
 - [x] The measure card on iPhones: while placing points it is a 52 px strip above the dock (the running total, Undo,
       Finish, a chevron for the rest); card and dock went from 46% to 21% of the screen (WebKit iPhone 15 profile)
+- [x] Aviation (GEV item 17, branch grow-aviation): the aircraft card says what a plane is and where it is going (adsbdb:
+      type, registration, owner, a photo, the route its callsign flies, checked against where the plane really is) and
+      the type picks its model class (narrow/wide-body, regional, turboprop, business jet, helicopter, light, fighter,
+      military; core/actype.js tested: ~600 type codes, families, emitter categories); cockpit weather in the HUD
+      (Open-Meteo pressure levels: wind with head/tail and cross components, OAT against ISA, TAS and Mach, cloud,
+      visibility, an icing hint, nearest airport, destination; core/aloft.js tested); an Airports layer with
+      arrival/departure/ground boards from the live aircraft (OurAirports, public domain; core/airports.js tested);
+      trails of the followed, selected or pinned planes coloured by altitude, 10/30/60 min (core/trail.js tested)
+- [x] Aviation, round 2: flight phase (parked … cruise … on final; core/phase.js tested) on the card, in the cockpit HUD and
+      in spoken answers; the route arc to the destination (only for a route that fits); airport weather with a
+      VFR/MVFR/IFR/LIFR category (estimated cloud base); search "A380", "747", "helicopters", "private jets"; voice
+      "arrivals at Heathrow", "what's taking off from JFK?", "what plane is that?", "show trails"; boards list planes
+      that just landed or took off (from their last two fixes) and flag emergency squawks; "Tell me when it lands"
+      (a notification on final and at touchdown); trails as GeoJSON; type codes in DET labels; tower view (watch a
+      plane from the field's tower with a lens that keeps it framed)
+- [x] Runways (OurAirports, public domain; data/runways.json, 5,777 runways at 4,016 airports): the runway in use (what
+      arrivals are lined up with, else into the wind) and the wind on it on airport cards, "final 34R" on board rows,
+      "On final for 34R" on plane cards and in the cockpit HUD (core/runways.js tested)
+- [ ] Aviation next: the MCP server answering "what's landing at X" (Node reads the aircraft feeds directly),
+      business-jet and regional-jet models of their own instead of a scaled airliner
 - [x] NYC traffic: measured speeds were all dropped (NYC DOT publishes ~a day late; the cut-off was 4 h). Now up to 48 h,
       with the age said on the card; 70 measured road pieces around the FDR. Midtown's side streets have no sensors at all
 - [x] Solar System growth (2026-10-12, branch claude/grow-solar-ac7965): 22 Horizons missions (Juno, JWST, BepiColombo,

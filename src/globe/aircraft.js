@@ -12,25 +12,20 @@ import { deadReckonArc, courseAxis } from '../core/geo.js';
 import { readsb, openskyState, EMERGENCY_SQUAWKS as EMERGENCY } from '../core/aircraft.js';
 import { Terrain } from './terrain.js';
 import { Time } from './time.js';
+import { classify } from '../core/actype.js';
 
 const DR_MAX_S = 900;              // dead-reckoning horizon: the global snapshot refreshes every 15 min
 export const AIR_ICON_RANGE = 2.5e6; // planes become heading icons below ~2,500 km camera distance
 
-// sprite shape by ICAO type code (brand/tools/plane_sprites.py renders one per shape and colour)
+// sprite shape by aircraft class (core/actype.js: the ICAO type code, adsbdb's type, or the emitter category;
+// brand/tools/plane_sprites.py renders one per shape and colour)
 const SPRITE_SIZE = { airliner: 30, prop: 26, heli: 26, fighter: 24, heavy: 36, tprop: 32 };
-const TYPES = [
-  ['heli', /^(H\d|EC\d|AS\d|S6|S7|S9|NH90|A1\d9|MI\d|KA\d|UH|AH|CH|B06|B4\d\d|LYNX|PUMA|TIGR|AW1|R44|R22|B505)/],
-  ['fighter', /^(F1[4-8]|F22|F35|F5|FA|EUFI|RFAL|TOR|JAS|GRIF|HAWK|T38|T45|A10|MG\d|SU\d|M2T|MIR|L159|AV8|AJET|F4|J10|J20|LCA|KFIR|T50|M346)/],
-  ['tprop', /^(C130|C30J|A400|C27J|CN35|C295|AN12$|AN2[46]|AN32|P3|E2|L188|ATLA|C160|Y8|Y9|V22)/],
-  ['heavy', /^(K35|KC|K46|C17|C5|E3|E6|E8|R135|C135|B52|B1|B2|IL7|AN12[45]|A33|A31|B74|B76|B77|DC10|MD11)/],
-  ['prop', /^(C12|BE\d|PC12|PC21|PC9|T6|DHC|C208|G120|TEX|SR2|C17[0-9]|DA4|U28|MQ|RQ|L410|SW4)/],
-];
-export function airShape(r) {
-  const t = String(r.type || '').toUpperCase();
-  if (t) for (const [shape, re] of TYPES) if (re.test(t)) return shape;
-  if (!r.ground && r.gs != null && r.gs < 85 && (r.alt || 0) < 5000) return 'prop';   // slow and low without a type: GA
-  return 'airliner';
+/** The class of a plane from everything known about it (an adsbdb answer fills in what the feed lacks). */
+export function airClass(r) {
+  const a = r.info && r.info.aircraft;
+  return classify({ type: r.type || (a && a.icaoType), desc: r.desc || (a && [a.manufacturer, a.type].filter(Boolean).join(' ')), cat: r.cat, mil: r.mil, gs: r.gs, alt: r.alt, ground: r.ground });
 }
+export const airShape = r => airClass(r).shape;
 
 /** Where an aircraft is at time ms: along its track for up to 15 min (planes never freeze between snapshots), through the
  *  turn it was making for up to 2 min, climbing or descending at its vertical rate for up to 1 min. alt: barometric
@@ -53,7 +48,7 @@ export function displayAt(r, ms) {
 }
 /** The height to draw at (m above the ellipsoid): geometric altitude where the feed has it, else barometric. On the 3D
  *  terrain, planes on the ground stand on it and low ones never dip into it (the feeds and the terrain are both rough). */
-function renderHeight(r, p, near = true) {
+export function renderHeight(r, p, near = true) {
   const h = p.altE ?? p.alt;
   if (!Terrain.on) return r.ground ? 3 : h;
   if (r.ground) return Terrain.near(p.lat, p.lon, 4, near ? 0.3 : 0) + 2;   // parked or taxiing: on the ground (the most detailed near the view)
@@ -64,7 +59,7 @@ const AX = new C.Cartesian3();
 /** An adsb.lol (readsb) aircraft as one of ours; mil: true for the /mil feed, else from its database flags. */
 export function fromAdsb(a, now, mil = false) {   // read by core/aircraft.js, like the 2D map's; null without a position
   const x = readsb(a, { mil }); if (!x) return null;
-  return { hex: x.hex, flight: x.flight, type: x.type, reg: x.reg, lon: x.lon, lat: x.lat, alt: x.altM || 0, ground: x.ground,
+  return { hex: x.hex, flight: x.flight, type: x.type, reg: x.reg, desc: x.desc, op: x.ownOp, cat: x.category, lon: x.lon, lat: x.lat, alt: x.altM || 0, ground: x.ground,
     altG: x.geomM,   // readsb: geometric, WGS84 ellipsoid
     gs: x.gsMs, track: x.track, vr: x.rateMs ?? 0, squawk: x.squawk, emerg: EMERGENCY.includes(x.squawk), mil: x.mil, ts: now - x.seenPos * 1000, src: 'adsb.lol' };
 }
@@ -86,6 +81,7 @@ export const Air = {
       const now = Date.now(), before = r.cur && airShown(r) ? displayAt(r, now) : null;   // where we drew it
       const dt = (a.ts - r.ts) / 1000;   // turn rate (deg/s) from consecutive fixes: banks the model, curves the dead reckoning; short gaps only
       r.turn = (a.track != null && r.track != null && dt >= 2 && dt <= 120) ? (((a.track - r.track + 540) % 360) - 180) / dt : 0;
+      if (a.ts > r.ts) r.was = { ground: r.ground, ts: r.ts, lat: r.lat, lon: r.lon, alt: r.alt, gs: r.gs };   // the fix before: boards tell a landing or a take-off from it
       Object.assign(r, a); r.corr = null;
       if (before) {   // ease from where it was drawn to where the new fix says it is (not across the world: a reused address)
         const after = aircraftAt(r, now), dLat = before.lat - after.lat, dLon = ((before.lon - after.lon + 540) % 360) - 180;
@@ -95,9 +91,16 @@ export const Air = {
       }
     }
     r.pt.color = C.Color.fromCssColorString(r.emerg ? '#ff4d5e' : r.mil ? '#ffb44d' : '#5fd3ff');
-    const shape = airShape(r), img = `brand/sprites/${shape}_${r.emerg ? 'emg' : r.mil ? 'mil' : 'civ'}.png`;
-    if (r.sprite !== img) { r.sprite = img; r.shape = shape; r.icon.image = img; r.icon.width = r.icon.height = SPRITE_SIZE[shape]; }
+    this.restyle(r);
     const on = airShown(r); r.pt.show = on && !r.ent; r.icon.show = on && !r.ent;
+    hooks.airFix?.(r);   // trails.js records it
+  },
+  /** Sprite and model from the class (again when a fresher fix or an adsbdb answer brings a type). */
+  restyle(r) {
+    const k = airClass(r), shape = k.shape, img = `brand/sprites/${shape}_${r.emerg ? 'emg' : r.mil ? 'mil' : 'civ'}.png`;
+    r.cls = k.cls; r.scale = k.scale;
+    if (r.sprite !== img) { r.sprite = img; r.shape = shape; r.icon.image = img; }
+    r.icon.width = r.icon.height = Math.round(SPRITE_SIZE[shape] * (0.55 + 0.45 * k.scale));   // a business jet's sprite is smaller than an airliner's
     if (r.ent) AirModels.restyle(r);
   },
   async opensky() {
@@ -172,6 +175,7 @@ export const AirModels = {
   restyle(r) { // shape/colour can change when a fresher fix arrives (a type code, a squawk)
     const m = r.ent.model; if (!m) return;
     const uri = this.uri(r); if (m.uri.getValue() !== uri) m.uri = uri;
+    if (m.scale.getValue() !== (r.scale || 1)) m.scale = r.scale || 1;
     m.silhouetteColor = C.Color.fromCssColorString('#ff4d5e'); m.silhouetteSize = r.emerg ? 2.0 : 0.0;
   },
   ensure(r) {
@@ -180,7 +184,7 @@ export const AirModels = {
     r.ent = viewer.entities.add({
       position: new C.CallbackProperty(t => this.state(r, t).pos, false),
       orientation: new C.CallbackProperty(t => this.state(r, t).quat, false),
-      model: { uri: this.uri(r), environmentMapOptions: NO_ENV_MAP, minimumPixelSize: 26, maximumScale: 2.0e4, nodeTransformations: { rotor }, silhouetteColor: C.Color.fromCssColorString('#ff4d5e'), silhouetteSize: r.emerg ? 2.0 : 0.0 },
+      model: { uri: this.uri(r), scale: r.scale || 1, environmentMapOptions: NO_ENV_MAP, minimumPixelSize: 26, maximumScale: 2.0e4, nodeTransformations: { rotor }, silhouetteColor: C.Color.fromCssColorString('#ff4d5e'), silhouetteSize: r.emerg ? 2.0 : 0.0 },
     });
     r.ent.air = r; r.pt.show = false; r.icon.show = false; this.pool.set(r.hex, r);
     return r.ent;
@@ -206,8 +210,9 @@ export const AirModels = {
     }
     if (this.followed) want.add(this.followed);
     if (state.selected && state.selected.kind === 'air') want.add(state.selected);
+    if (hooks.towerAir) want.add(hooks.towerAir);   // towerview.js
     for (const r of [...this.pool.values()]) if (!want.has(r)) this.drop(r);
     for (const r of want) if (!r.ent && Air.map.has(r.hex)) this.ensure(r);
   },
-  follow(r) { const ent = this.ensure(r); Follow.start(r, t => this.state(r, t).pos, this.view[r.shape] || 38, ent, 26); },
+  follow(r) { const ent = this.ensure(r); Follow.start(r, t => this.state(r, t).pos, (this.view[r.shape] || 38) * (0.6 + 0.4 * (r.scale || 1)), ent, 26); },
 };

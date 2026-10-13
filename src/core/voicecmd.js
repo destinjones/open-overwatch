@@ -90,11 +90,26 @@ function drawCommand(s) {
   return null;
 }
 
+// aviation: an airport's board ("arrivals at Heathrow", "what's taking off from JFK?"), what a plane is, trails
+function airCommand(s) {
+  let m = s.match(/^(?:show (?:me )?|open |give me |get )?(?:the )?(arrivals?|departures?|board|airport board|flights?|traffic|planes?) (?:at|for|from|of|in|into|out of|around) (.+?)(?: airport)?$/);
+  if (m && !/^(here|there|the airport|this airport)$/.test(m[2])) return { act: 'board', place: clean(m[2]), which: /^arriv/.test(m[1]) ? 'arriving' : /^depart/.test(m[1]) ? 'departing' : null };
+  m = s.match(/^what(?:'s| is| are)? (landing|arriving|coming in|taking off|departing|leaving|flying) (?:at|from|in|into|out of|over) (.+?)(?: airport)?$/);
+  if (m) return { act: 'board', place: clean(m[2]), which: /land|arriv|coming/.test(m[1]) ? 'arriving' : /tak|depart|leav/.test(m[1]) ? 'departing' : null };
+  m = s.match(/^(?:show (?:me )?|open )(?:the )?(.+?) airport(?: board)?$/);
+  if (m) return { act: 'board', place: clean(m[1]), which: null };
+  if (/^what (?:kind|type|sort) of (?:plane|aircraft|jet|airplane|helicopter) is (?:that|this|it)\b|^what (?:plane|aircraft|jet|airplane) is (?:that|this|it)\b|^where is (?:that|this|it) (?:plane |flight )?(?:going|flying|headed|heading)\b/.test(s)) return { act: 'what' };
+  m = s.match(/^(show|hide|turn on|turn off|switch on|switch off|clear)? ?(?:the |all )?(?:flight |plane |aircraft )?trails?( on| off)?$/);
+  if (m && (m[1] || m[2])) return { act: 'trails', on: !/hide|off|clear/.test((m[1] || '') + (m[2] || '')) };
+  return null;
+}
+
 export function parse(text) {
   const s = normalize(text);
   if (!s) return { act: 'unknown', text: '' };
   if (/^(help|what can i (say|do)|commands|what do you do)\b/.test(s)) return { act: 'help' };
   const drawn = drawCommand(s); if (drawn) return drawn;
+  const air = airCommand(s); if (air) return air;
   // stop / exit first, so "exit cockpit" and "stop tracking" are not read as anything else
   if (/\b(cockpit|ride along|pilot view|first person|ride it|ride with)\b/.test(s)) return { act: 'cockpit', on: /\b(exit|leave|stop|off|out of)\b/.test(s) ? false : /\b(enter|on|go|start|take|ride|switch)\b/.test(s) ? true : null };
   if (/^(pause|freeze|stop time|hold time)\b/.test(s)) return { act: 'pause' };
@@ -143,6 +158,7 @@ export const EXAMPLES = Object.freeze([
   'Take me to Tokyo', 'Track the ISS', 'Night vision', 'Thermal', 'Enter cockpit', 'Turn on earthquakes', 'Walking route from Big Ben to the Tower of London',
   'How many satellites are in view?', "What's this?", 'Show me the launches', 'Zoom out to a globe view', "What's the weather in Paris?", 'How many planes over Texas?',
   'Measure from Paris to Berlin', 'Outline France', 'How big is Brazil?', 'Draw an area', 'Clear the drawing',
+  'Arrivals at Heathrow', "What's taking off from JFK?", 'What plane is that?',
 ]);
 
 // ---- weather in words (for spoken answers)

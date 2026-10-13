@@ -65,6 +65,12 @@ same code runs in Node tests and in the render loop without allocating.
 | `transitfeeds.js` | live transit sources and areas, the poll loop and HSL's MQTT stream, the fleet drawn behind live (`createFleet`) |
 | `aircraft.js`, `aurora.js`, `cables.js`, `overpass.js` | readsb / OpenSky records; OVATION grid and pictures, Kp; cable click test; the polite Overpass client |
 | `fires.worker.js` | GIBS VIIRS fire tiles off the main thread (fetch, gunzip, decode), used by both views |
+| `actype.js` | aircraft classes from ICAO type codes (then adsbdb words, emitter category) and the model each gets; adsbdb answers as plain records; whether a route on file fits where the plane is; ICAO address blocks to countries |
+| `aloft.js` | weather at an aircraft: ISA pressure altitude, the two Open-Meteo pressure levels around it, interpolation, head/cross wind, TAS, Mach, ISA deviation, icing hint, HUD lines |
+| `airports.js` | the airport list (OurAirports rows), a 1° grid index (nearest, near, in a box, by code), and boards: arriving, departing or on the ground from live aircraft |
+| `phase.js` | flight phase (parked, taxiing, take-off, climb, cruise, descent, approach, final) from a fix and the nearest field; great-circle points |
+| `runways.js` | runway ends and headings, wind along and across each, the runway a plane is lined up with, the runway in use |
+| `trail.js` | flight trails: a time window of fixes, 3D Douglas-Peucker thinning, the altitude colour ramp, trail stats |
 
 Accuracy, checked by the tests against JPL Horizons on 2026-10-02: planets within arcminutes (JPL's own stated
 error for these formulas), main-belt asteroids within ~3×10⁻⁴ AU, the Moon within ~0.3°, the other moons within 0.4° of their orbit.

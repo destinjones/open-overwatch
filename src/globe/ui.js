@@ -158,6 +158,7 @@ export function select(o) {
     el.innerHTML = `Aboard now: ${n} ${n === 1 ? 'person' : 'people'} · <a href="#" id="crewWho">who?</a>`; $('#crewWho').onclick = e => { e.preventDefault(); Crew.open(); }; }, () => { const el = $('#crewLine'); if (el) el.remove(); });
   if (o.kind === 'country') Country.after(o);
   if (typeof o.afterCard === 'function') o.afterCard(card);
+  if (o.kind === 'air') hooks.airCard?.(o, card);   // aircard.js: type, operator, route, photo, trail
   if ($('#btnFollow')) $('#btnFollow').onclick = () => following ? Follow.stop() : o.kind === 'air' ? AirModels.follow(o) : SatModels.follow(o);
 }
 hooks.reselect = select;
@@ -170,6 +171,7 @@ export function flyToObject(o) {
   if (o.kind === 'sat') { const st = SatModels.state(o), p = st.ok ? st.pos : o.pt.position, h = C.Cartesian3.magnitude(p) - 6371000; camera.flyToBoundingSphere(new C.BoundingSphere(p, 1), { offset: new C.HeadingPitchRange(0, -0.6, Math.max(2.5e6, h * 0.6)), duration: 2.5 }); }
   else if (o.kind === 'air') flyDeg(o.cur?.lon ?? o.lon, (o.cur?.lat ?? o.lat) - 0.35, 45000, -50);
   else if (o.kind === 'lighthouse') flyDeg(o.lon, o.lat - 0.025, 7000, -45);
+  else if (o.kind === 'airport') flyDeg(o.lon, o.lat - 0.16, 2.4e4, -35);
   else if (o.kind === 'transit' || o.kind === 'cam' || o.kind === 'cctv' || o.kind === 'bike') flyDeg(o.lon, o.lat - 0.02, 4000, -45);
   else if (o.kind === 'ship') flyDeg(o.at.lon, o.at.lat - 0.03, 3500, -50);
   else if (o.kind === 'country') Country.fly(o);
