@@ -70,6 +70,7 @@ test('a first visit offers views to start from, and picking one applies it', asy
   await openMap(page, '', { welcome: true });
   const card = page.locator('#welcome');
   await expect(card).toBeVisible();
+  await expect(page.locator('#splash')).toBeHidden();   // the splash fades over it for 650 ms
   await card.locator('.view[data-preset="mil"]').click();
   await expect(card).toBeHidden();
   await expect(page.locator('#views .view[data-preset="mil"]')).toHaveClass(/\bon\b/);

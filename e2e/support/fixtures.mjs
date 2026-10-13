@@ -85,7 +85,7 @@ export async function openMap(page, hash = '', { welcome = false } = {}) {
 /** Wait for the globe to boot (the boot screen gone, Cesium rendering). */
 export async function openGlobe(page, hash = '') {
   await page.goto('globe.html' + hash);
-  await page.waitForFunction(() => window.OO3D && OO3D.viewer && (!document.querySelector('#boot') || document.querySelector('#boot').classList.contains('out')), null, { timeout: 120000 });
+  await page.waitForFunction(() => window.OO3D && OO3D.viewer && (!document.querySelector('#boot') || document.querySelector('#boot').classList.contains('out')), null, { timeout: process.env.CI ? 280000 : 120000 });
 }
 
 /** Wait for the Solar System view to load its planets. */

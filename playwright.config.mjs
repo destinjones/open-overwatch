@@ -18,10 +18,10 @@ export default defineConfig({
   testDir: 'e2e',
   testMatch: /.*\.spec\.mjs$/,
   outputDir: 'e2e/.results',
-  timeout: 120_000,
+  timeout: CI ? 300_000 : 120_000,   // GitHub's runners: 2 cores and software WebGL, a globe takes minutes to settle
   expect: { timeout: 15_000 },
   fullyParallel: true,
-  workers: process.env.OO_E2E_WORKERS ? +process.env.OO_E2E_WORKERS : 2,   // three software-WebGL browsers at once starve each other
+  workers: process.env.OO_E2E_WORKERS ? +process.env.OO_E2E_WORKERS : CI ? 1 : 2,   // three software-WebGL browsers at once starve each other
   retries: CI ? 1 : 0,
   forbidOnly: CI,
   reporter: CI ? [['list'], ['html', { open: 'never', outputFolder: 'e2e/.report' }], ['github']] : [['list']],
