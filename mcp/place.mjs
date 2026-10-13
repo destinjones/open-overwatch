@@ -10,7 +10,7 @@ export const PHOTON = 'https://photon.komoot.io/api/';
 const D2R = Math.PI / 180;
 
 /** Every layer the globe has (src/globe/layers.js; test/mcp.test.mjs keeps the two in step). */
-export const LAYERS = Object.freeze(['stations', 'visual', 'gnss', 'geo', 'weather', 'starlink', 'active', 'debris', 'launches', 'air', 'mil', 'quakes', 'transit',
+export const LAYERS = Object.freeze(['stations', 'visual', 'gnss', 'geo', 'weather', 'starlink', 'active', 'debris', 'launches', 'air', 'mil', 'airports', 'quakes', 'transit',
   'ships', 'bikes', 'traffic', 'storms', 'fires', 'radio', 'lighthouses', 'sun', 'terrain', 'buildings', 'cams', 'cctv', 'photoreal', 'volcanoes', 'companies', 'aurora',
   'clouds', 'night', 'labels']);
 /** What weather mode can show (src/globe/weather.js sets). */
