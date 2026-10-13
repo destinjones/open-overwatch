@@ -258,10 +258,10 @@ export async function playStream(box, url) {
   } catch (e) { box.innerHTML = `<div class="cap">The live video can't play here: ${esc(e.message)}</div>`; }
 }
 setInterval(() => { if (hlsNow && !document.querySelector('.det .camlive video')) { hlsNow.destroy(); hlsNow = null; } }, 2000);   // the card closed: stop downloading
-window.camLive = (btn, url) => { if (isHttp(url)) playStream(btn.closest('.camlive'), url); };
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-camlive]'); if (b && isHttp(b.dataset.camlive)) playStream(b.closest('.camlive'), b.dataset.camlive); });   // no inline handler: the address stays an attribute
 Detail.renderers.cam = c => {
   const net = netOf(c), src = c.src || (net ? net.name : c.net), img = c.relayImage ? (Relay.wrap(c.image) || c.image) : c.image;
-  const media = isStream(c) ? `<div class="camlive">${img ? `<img src="${esc(bustUrl(img, c))}" alt="" referrerpolicy="no-referrer">` : ''}<div class="cap"><button class="btn small" onclick="camLive(this, ${esc(JSON.stringify(c.video))})">▶ Live video</button> · ${esc(src)}</div></div>`
+  const media = isStream(c) ? `<div class="camlive">${img ? `<img src="${esc(bustUrl(img, c))}" alt="" referrerpolicy="no-referrer">` : ''}<div class="cap"><button class="btn small" data-camlive="${esc(c.video)}">▶ Live video</button> · ${esc(src)}</div></div>`
     : c.video ? `<video src="${esc(bustUrl(c.video, c))}" controls autoplay muted loop playsinline></video><div class="cap">Video clip · ${esc(src)}</div>`
     : img ? `<img src="${esc(bustUrl(img, c))}" alt="${esc(c.name)}" referrerpolicy="no-referrer"><div class="cap">Still image · ${esc(src)} · <a href="#" onclick="Detail.render();return false">refresh</a></div>` : '';
   return `<div class="det">${Detail.head(C.cam, 'Camera · ' + src, c.name, esc(c.view || c.sub || ''), [c.online === false ? { t: 'Offline', cls: 'warn' } : null, isStream(c) ? { t: 'Live video', cls: 'good' } : null].filter(Boolean))}${media}
