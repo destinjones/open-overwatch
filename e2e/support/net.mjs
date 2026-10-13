@@ -50,14 +50,15 @@ export function fixtureFor(href, now = Date.now()) {
   if (h === 'api.github.com' && /releases\/latest$/.test(p)) return F.githubRelease();
   if (h === 'll.thespacedevs.com' && /launch/.test(p)) return F.launches(now);
   if (h === 'll.thespacedevs.com' && /astronaut/.test(p)) return F.astronauts(now);
+  if (h === 'api.open-meteo.com' && p === '/v1/forecast' && /cloud_cover/.test(u.search) && !/[,;]/.test(u.searchParams.get('latitude') || '')) return F.openMeteoClouds(href, now);   // one point (Tonight), never a grid
   return undefined;
 }
 
 /** A path of the published site (or the site-build copies served locally): fixture, the checkout's own file, or null. */
-function siteFile(rel) {
+function siteFile(rel, now = Date.now()) {
   if (/^data\/tle\/[\w.-]+\.txt$/.test(rel)) return { body: F.tle(), type: 'text/plain; charset=utf-8' };
-  if (rel === 'data/launches.json') return { body: JSON.stringify(F.launches()), type: 'application/json' };
-  if (rel === 'data/astronauts.json') return { body: JSON.stringify(F.astronauts()), type: 'application/json' };
+  if (rel === 'data/launches.json') return { body: JSON.stringify(F.launches(now)), type: 'application/json' };
+  if (rel === 'data/astronauts.json') return { body: JSON.stringify(F.astronauts(now)), type: 'application/json' };
   if (rel === 'data/wind.json') return { body: JSON.stringify(F.wind()), type: 'application/json' };
   if (rel === 'versions.json') return { body: JSON.stringify(F.versions()), type: 'application/json' };
   return null;
@@ -81,9 +82,10 @@ async function cdn(route, u) {
 /**
  * Put a browser context behind the stub network. Returns the log the tests read:
  * { celestrak: n refused, blocked: [urls aborted as unknown], fixtures: [urls answered from fixtures], relayed: [urls the
- *   page asked the local relay for] }. `extra(url)` may return { status, body, type } to answer a URL first (per test).
+ *   page asked the local relay for] }. `extra(url)` may return { status, body, type } to answer a URL first (per test);
+ *   `now()` is the moment the time-relative fixtures are made for (a test that fixes the page's clock passes the same).
  */
-export async function stubNetwork(context, { port, extra } = {}) {
+export async function stubNetwork(context, { port, extra, now = () => Date.now() } = {}) {
   const log = { celestrak: 0, blocked: [], fixtures: [], relayed: [], tiles: 0 };
   const json = (route, data, status = 200) => route.fulfill({ status, headers: { ...CORS, 'content-type': typeof data === 'string' ? 'text/plain; charset=utf-8' : 'application/json' }, body: typeof data === 'string' ? data : JSON.stringify(data) });
   await context.route(() => true, async route => {
@@ -98,23 +100,23 @@ export async function stubNetwork(context, { port, extra } = {}) {
       if (u.pathname === '/proxy') {
         if (u.searchParams.has('ping')) return route.continue();
         const target = u.searchParams.get('url') || ''; log.relayed.push(target);
-        const fx = (() => { try { return fixtureFor(target); } catch (e) { return undefined; } })();
+        const fx = (() => { try { return fixtureFor(target, now()); } catch (e) { return undefined; } })();
         return fx === undefined ? route.fulfill({ status: 503, headers: CORS, body: 'stubbed upstream (e2e): no fixture for this feed' }) : json(route, fx);
       }
-      const f = siteFile(u.pathname.replace(/^\/+/, ''));
+      const f = siteFile(u.pathname.replace(/^\/+/, ''), now());
       if (f) { log.fixtures.push(href); return route.fulfill({ status: 200, headers: { ...CORS, 'content-type': f.type }, body: f.body }); }
       return route.continue();
     }
     if (CDN.has(u.hostname)) return cdn(route, u);
     if (u.hostname === 'destinjones.github.io' && u.pathname.startsWith('/open-overwatch/')) {
       const rel = decodeURIComponent(u.pathname.slice('/open-overwatch/'.length));
-      const f = siteFile(rel);
+      const f = siteFile(rel, now());
       if (f) { log.fixtures.push(href); return route.fulfill({ status: 200, headers: { ...CORS, 'content-type': f.type }, body: f.body }); }
       const local = path.join(ROOT, rel);
       if (rel && !rel.includes('..') && existsSync(local) && statSync(local).isFile()) return route.fulfill({ status: 200, headers: CORS, path: local });
       return route.fulfill({ status: 404, headers: CORS, body: 'not in this checkout (e2e)' });
     }
-    const fx = fixtureFor(href);
+    const fx = fixtureFor(href, now());
     if (fx !== undefined) { log.fixtures.push(href); return json(route, fx); }
     const tile = tileFor(u);
     if (tile) { log.tiles++; return route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'image/png' }, body: tile }); }

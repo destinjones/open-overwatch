@@ -11,8 +11,13 @@ export const PORT = +(process.env.OO_E2E_PORT || 8805);
 const OPTIONAL = /\/data\/(flybys|news|socrates)\.json$/;
 
 export const test = base.extend({
-  net: [async ({ context }, use) => {
-    const log = await stubNetwork(context, { port: PORT });
+  /** test.use({ fixedNow: '2026-10-13T19:00:00Z' }): the page's Date stands still at that moment (its timers still run)
+   *  and the time-relative fixtures are made for it, so sky answers (passes, planets, eclipses) are the same every run. */
+  fixedNow: [null, { option: true }],
+  net: [async ({ context, fixedNow }, use) => {
+    const at = fixedNow ? Date.parse(fixedNow) : null;
+    const log = await stubNetwork(context, { port: PORT, now: at ? () => at : undefined });
+    if (at) await context.clock.setFixedTime(at);
     // the first-run touch hints (src/app/gestures.js) would take the first tap; the tests that want them clear this
     await context.addInitScript(() => { try { localStorage.setItem('oo-hints', '{"globe":1,"map":1}'); } catch (e) { } });
     await use(log);

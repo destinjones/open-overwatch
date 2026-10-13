@@ -100,6 +100,14 @@ export function astronauts(now = Date.now()) {
   return { t: now, source: 'e2e fixture', results: JSON.parse(readFileSync(new URL('test/fixtures/ll2_astronauts.json', ROOT), 'utf8')).results };
 }
 
+/** Open-Meteo's hourly cloud cover and rain chance for Tonight (unixtime, GMT): four days, clear in the evenings,
+ *  overcast by day. Only this one point query; the weather panel's grids stay blocked (Open-Meteo's per-IP quota). */
+export function openMeteoClouds(href, now = Date.now()) {
+  const u = new URL(href), t0 = Math.floor(now / H) * 3600 - 24 * 3600, time = [], cloud_cover = [], precipitation_probability = [];
+  for (let i = 0; i < 120; i++) { const t = t0 + i * 3600, h = new Date(t * 1000).getUTCHours(); time.push(t); cloud_cover.push(h >= 18 || h < 5 ? 12 : 85); precipitation_probability.push(h >= 18 || h < 5 ? 0 : 40); }
+  return { latitude: +u.searchParams.get('latitude'), longitude: +u.searchParams.get('longitude'), utc_offset_seconds: 0, timezone: 'GMT', hourly_units: { time: 'unixtime', cloud_cover: '%', precipitation_probability: '%' }, hourly: { time, cloud_cover, precipitation_probability } };
+}
+
 /** The ISS over the English Channel. */
 export const wheretheiss = now => ({ name: 'iss', id: 25544, latitude: 50.2, longitude: -1.4, altitude: 418.3, velocity: 27580.1, visibility: 'daylight', footprint: 4500, timestamp: Math.floor(now / 1000), units: 'kilometers' });
 

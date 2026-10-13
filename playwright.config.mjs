@@ -20,7 +20,7 @@ export default defineConfig({
   timeout: 120_000,
   expect: { timeout: 15_000 },
   fullyParallel: true,
-  workers: process.env.OO_E2E_WORKERS ? +process.env.OO_E2E_WORKERS : CI ? 2 : 3,
+  workers: process.env.OO_E2E_WORKERS ? +process.env.OO_E2E_WORKERS : 2,   // three software-WebGL browsers at once starve each other
   retries: CI ? 1 : 0,
   forbidOnly: CI,
   reporter: CI ? [['list'], ['html', { open: 'never', outputFolder: 'e2e/.report' }], ['github']] : [['list']],
