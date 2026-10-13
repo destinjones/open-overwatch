@@ -191,6 +191,16 @@ Round 2 (2026-10-10, local):
       deployed) and
       a Streamable HTTP transport (`--http <port>`, stateless, loopback only, Host/Origin checks; Worker-ready handler, not
       deployed); camera networks and transit feeds shared with the globe through src/core
+- [x] MCP 0.3.0 (2026-10-13, branch grow2-mcp): a remote endpoint for claude.ai and ChatGPT connectors on Cloudflare
+      Workers (mcp-worker/ + mcp/worker.mjs: stateless Streamable HTTP at /mcp, a token in the header or the path, CORS
+      for claude.ai and ChatGPT, every feed and tool answer shared through the Workers Cache API, a subrequest budget, a
+      rate-limit binding, the free plan's 10 ms leaving the 11 heaviest tools out; tested in Node, bundled and smoke-run
+      in local workerd, not deployed); 3 more tools, 32 in all: `weather_details` (pressure and its tendency, gusts,
+      CAPE, fog, waves and swell, ECMWF/GFS/ICON agreement; core/wxpoint.js), `aircraft_lookup` (adsbdb: type, owner,
+      route) and `where_in_space` (any mission, comet, moon or named asteroid now; asteroid elements by byte range;
+      core/whereis.js); stdio split into mcp/stdio.mjs so nothing the Worker imports needs Node
+- [ ] Deploy the MCP Worker (`npx wrangler deploy` in mcp-worker/, a `MCP_TOKEN` secret): needs the owner's OK; then add
+      the connector in claude.ai and check the globe panel over a remote connector (MCP Apps support there is the host's)
 - [x] Country lookups across the antimeridian: Russia no longer claims Canada and Alaska (core/borders.js, the globe's card too)
 - [x] Emulator pass of v0.9.2.7 (Android Chrome 124 + WebKit iPhone 15): every new layer holds the phone cap of 30
       renders/s while dragging, the battery saver idles at 5-15, no script errors in either engine, layer caches stay
