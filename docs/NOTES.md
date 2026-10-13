@@ -293,6 +293,19 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   adsbdb and Open-Meteo answers in them are real. With other sessions rendering too, set `OW_WORK` to a folder of your
   own: cdp.mjs's orphan reaper in one run kills another run's Edge (headless Edge re-parents, so it looks orphaned);
   the symptom is "CDP connection closed" at a random step.
+- Round 2 (same day): `routeline.js` draws a dashed great circle (core/phase.js `greatCircle`, continuous across the
+  antimeridian) to the destination, holding the plane's height and easing down over the last 200 km, and a fainter one
+  back to the origin, only while the route fits. `landwatch.js` watches planes from their cards (pinned trails keep them
+  polled) and notifies through alerts.js: on final (core flightPhase), on the ground (and where), or lost low near a
+  field. Boards' "just landed / took off" comes from `r.was` (aircraft.js keeps the fix before) via core `recentMove`;
+  a plane that just landed is listed there and not again under "on the ground". `towerview.js`: eye 45 m over the field
+  (over Terrain.near when terrain is on: OurAirports elevations are above sea level, Cesium heights above the
+  ellipsoid), camera set every preUpdate, fov = 3 x the angle of 90 m at the plane's distance (0.6-60°), wheel/pinch
+  zoom; `hooks.towerAir` keeps the plane's model alive in AirModels.refresh. Airport weather: Open-Meteo surface values
+  in knots, cloud base estimated from the temperature/dew point spread (400 ft per °C) only under ≥50% low cloud, FAA
+  categories from that and the visibility: labelled estimated.
+- The pane only renders while it is shown: a hidden pane runs no preUpdate (tower view, cockpit, trails look frozen).
+  Check such things with globe_shot instead. Reloading the pane often earned 429s from adsb.lol's /mil.
 - The scene renders on request: in the pane, call `scene.requestRender()` before trusting a screenshot of a change, and
   `viewer.clock.currentTime` lags the wall clock while idle (it ticks only on rendered frames). The violet vertical
   lines over cities are the Big-employers towers (Michelin at Clermont-Ferrand), not a stray polyline.

@@ -197,6 +197,13 @@ Round 2 (2026-10-10, local):
       visibility, an icing hint, nearest airport, destination; core/aloft.js tested); an Airports layer with
       arrival/departure/ground boards from the live aircraft (OurAirports, public domain; core/airports.js tested);
       trails of the followed, selected or pinned planes coloured by altitude, 10/30/60 min (core/trail.js tested)
+- [x] Aviation, round 2: flight phase (parked … cruise … on final; core/phase.js tested) on the card, in the cockpit HUD and
+      in spoken answers; the route arc to the destination (only for a route that fits); airport weather with a
+      VFR/MVFR/IFR/LIFR category (estimated cloud base); search "A380", "747", "helicopters", "private jets"; voice
+      "arrivals at Heathrow", "what's taking off from JFK?", "what plane is that?", "show trails"; boards list planes
+      that just landed or took off (from their last two fixes) and flag emergency squawks; "Tell me when it lands"
+      (a notification on final and at touchdown); trails as GeoJSON; type codes in DET labels; tower view (watch a
+      plane from the field's tower with a lens that keeps it framed)
 - [ ] Aviation next: boards by voice ("arrivals at Heathrow"), the MCP server answering "what's landing at X" (Node
       reads the aircraft feeds directly), business-jet and regional-jet models of their own instead of a scaled airliner
 - [ ] NYC traffic: Midtown showed no roads with measured speeds in the phone test, though NYC DOT speeds are promised
