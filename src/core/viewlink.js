@@ -55,3 +55,21 @@ export function decodeView(hash) {
   if (NORAD.test(p.get('s') || '')) out.sat = String(+p.get('s'));
   return out;
 }
+
+// ---- the 2D map's zoom and the globe's camera height: a link made on one opens the same area on the other. At zoom z a
+// Web Mercator pixel is 40,075 km × cos(lat) / (256 × 2^z); a ~950 px wide map then spans what a 60° camera sees from
+// about this height (checked against both views: London at zoom 12 ≈ 20 km up).
+const EQUATOR_M = 40075016.686, MAP_PX = 950, FOV_K = 1.15;
+/** The globe camera height (m) that shows about what the 2D map shows at zoom z, latitude lat. */
+export const zoomToHeight = (z, lat = 0) => Math.round(EQUATOR_M * Math.max(0.05, Math.cos(lat * Math.PI / 180)) / 2 ** z * MAP_PX / 256 / FOV_K);
+/** The 2D map zoom for a globe camera height (m), at latitude lat: 2..19, in half steps (the map's zoomSnap). */
+export const heightToZoom = (h, lat = 0) => Math.min(19, Math.max(2, Math.round(2 * Math.log2(EQUATOR_M * Math.max(0.05, Math.cos(lat * Math.PI / 180)) * MAP_PX / 256 / FOV_K / Math.max(1, h))) / 2));
+
+// ---- layers across the two views: the 2D map's layer ids → the globe's, for links from one to the other (as &a=, so the
+// other view's own layers stay as its visitor has them)
+export const MAP_TO_GLOBE = Object.freeze({ quakes: 'quakes', storms: 'storms', cams: 'cams', transit: 'transit', bikes: 'bikes', aurora: 'aurora', ships_fi: 'ships',
+  hotspots: 'fires', fireperims: 'fires', fires: 'fires', terminator: 'sun', air_mil: 'mil', air_local: 'air', air_opensky: 'air' });
+/** The globe layers that show what these 2D map layers show. */
+export const globeLayersFor = mapIds => [...new Set(mapIds.map(id => MAP_TO_GLOBE[id]).filter(Boolean))];
+/** The 2D map layers that show what these globe layers show. */
+export const mapLayersFor = globeIds => Object.keys(MAP_TO_GLOBE).filter(m => globeIds.includes(MAP_TO_GLOBE[m]) && !['fires', 'air_local', 'air_opensky'].includes(m));

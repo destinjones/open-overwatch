@@ -18,12 +18,28 @@ export function boxOf(poly) {
   return [w, s, e, n];
 }
 
-/** Add the bounding boxes the lookups use (once, after loading). */
-export function prepare(borders) { for (const b of borders) b.box = b.poly.map(boxOf); return borders; }
+/** Does a ring jump across the antimeridian (an edge more than 180° of longitude long)? */
+const crosses = ring => ring.some((q, i) => i > 0 && Math.abs(q[0] - ring[i - 1][0]) > 180);
+const east = ring => ring.map(([lo, la]) => [lo < 0 ? lo + 360 : lo, la]);
+
+/** Add the bounding boxes the lookups use (once, after loading). A part drawn across the antimeridian (Russia's mainland
+ *  with Chukotka, Wrangel Island) also gets its rings with longitudes run on past 180 (b.east[k]), so the even-odd test
+ *  sees one shape instead of a band round the world that would claim Alaska and Canada. */
+export function prepare(borders) {
+  for (const b of borders) {
+    b.box = b.poly.map(boxOf);
+    b.east = b.poly.map(p => (crosses(p[0]) ? p.map(east) : null));
+  }
+  return borders;
+}
 
 /** Is the point in this country (any of its parts, and not in a hole)? Needs prepare() first. */
 export function inCountry(b, x, y) {
-  return b.poly.some((p, k) => { const bx = b.box[k]; return x >= bx[0] && x <= bx[2] && y >= bx[1] && y <= bx[3] && inRing(p[0], x, y) && !p.slice(1).some(h => inRing(h, x, y)); });
+  return b.poly.some((p, k) => {
+    const e = b.east && b.east[k];
+    if (e) { const xe = x < 0 ? x + 360 : x; return y >= b.box[k][1] && y <= b.box[k][3] && inRing(e[0], xe, y) && !e.slice(1).some(h => inRing(h, xe, y)); }
+    const bx = b.box[k]; return x >= bx[0] && x <= bx[2] && y >= bx[1] && y <= bx[3] && inRing(p[0], x, y) && !p.slice(1).some(h => inRing(h, x, y));
+  });
 }
 
 /** The border record at the point, or null (at sea). */

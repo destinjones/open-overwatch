@@ -6,6 +6,7 @@ import { DEG, eclToEq } from './units.js';
 import { jdFromMs } from './time.js';
 import { planetPosition, earthPosition, moonGeocentric } from './planets.js';
 import { compass } from './passes.js';
+import { trackPosition } from './craft.js';
 
 /** Greenwich mean sidereal time, degrees. */
 export const gmst = jd => (((280.46061837 + 360.98564736629 * (jd - 2451545)) % 360) + 360) % 360;
@@ -184,12 +185,9 @@ export function nextFullMoon(ms) {
   return { at, name, km: Math.round(km), supermoon: km < 362000 };
 }
 
-/** A spacecraft from data/solar/spacecraft.json ({ t0_jd, step_days, xyz: AU heliocentric ecliptic }) at jd: { x, y, z } or null before launch. */
-export function craftAt(c, jd) {
-  const f = (jd - c.t0_jd) / c.step_days, x = c.xyz, n = x.length / 3; if (f < 0 || n < 2) return null;
-  const k = Math.min(Math.floor(f), n - 2), t = f - k;   // past the last sample it coasts on in a straight line
-  return { x: x[k * 3] + (x[k * 3 + 3] - x[k * 3]) * t, y: x[k * 3 + 1] + (x[k * 3 + 4] - x[k * 3 + 1]) * t, z: x[k * 3 + 2] + (x[k * 3 + 5] - x[k * 3 + 2]) * t };
-}
+/** A spacecraft from data/solar/spacecraft.json ({ t0_jd, step_days, xyz: AU heliocentric ecliptic }) at jd: { x, y, z }, or null
+ *  before launch and past the track for a craft that is not leaving the Sun (cubic between samples: see craft.js). */
+export const craftAt = (c, jd) => trackPosition(c, jd, {});
 
 /** Angle (deg) between two RA/Dec directions. */
 export function separation(a, b) {

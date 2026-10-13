@@ -1,7 +1,11 @@
-// GRIB2, just enough for the global model fields the globe draws: NOAA's GFS on its regular latitude/longitude grid
-// (grid template 3.0), packed simply (data template 5.0) or with complex packing (5.2) and spatial differencing (5.3),
-// the way NCEP writes them; plus the `.idx` inventory NOAA publishes beside each file, so a browser can fetch only the
+// GRIB2, just enough for the global model fields the globe draws: NOAA's GFS and ECMWF's IFS on their regular
+// latitude/longitude grids (grid template 3.0), packed simply (data template 5.0), with complex packing (5.2) and spatial
+// differencing (5.3) the way NCEP writes them, as JPEG 2000 (5.40: NOAA's WAVEWATCH III, core/jpx.js) or CCSDS (5.42:
+// ECMWF's open data, core/aec.js); plus the `.idx` inventory NOAA publishes beside each file, so a browser can fetch only the
 // fields it wants with HTTP range requests. Pure (test/grib2.test.mjs). Reference: WMO FM 92 GRIB2, NCEP g2clib.
+
+import { aecDecode } from './aec.js';
+import { jpxDecode } from './jpx.js';
 
 const u16 = (b, p) => (b[p] << 8) | b[p + 1];
 const u32 = (b, p) => ((b[p] << 24) >>> 0) + (b[p + 1] << 16) + (b[p + 2] << 8) + b[p + 3];
@@ -41,6 +45,16 @@ function unpack(b, s5, s7, n) {
   if (tmpl === 0) {   // simple packing
     if (nbits) { const r = new Bits(b, data); for (let i = 0; i < n; i++) out[i] = r.read(nbits); }
     return out;
+  }
+  if (tmpl === 42) {   // CCSDS: flags, block size, reference sample interval
+    if (!nbits) return out;
+    return aecDecode(b.subarray(data, s7 + u32(b, s7)), { n, bits: nbits, flags: b[s5 + 21], blockSize: b[s5 + 22], rsi: u16(b, s5 + 23) });
+  }
+  if (tmpl === 40) {   // JPEG 2000: one image of the n values (a grid, or one long row when a bitmap thins it)
+    if (!nbits || u32(b, s7) <= 5) return out;
+    const img = jpxDecode(b.subarray(data, s7 + u32(b, s7)));
+    if (img.data.length < n) throw new Error('grib2: the JPEG 2000 image is smaller than the field');
+    return img.data.length === n ? img.data : img.data.subarray(0, n);
   }
   if (tmpl !== 2 && tmpl !== 3) throw new Error('grib2: data template 5.' + tmpl + ' is not supported');
   const missing = b[s5 + 22];

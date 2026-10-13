@@ -1,5 +1,5 @@
 // One polite client for the public Overpass API, shared by every OpenStreetMap layer on the globe (roads for traffic,
-// mapped cameras, buildings, a projected camera's street). The servers are shared and run by volunteers, and they ask
+// mapped cameras, buildings, a projected camera's street) and the 2D map's area scan. DOM-free (fetch is injectable). The servers are shared and run by volunteers, and they ask
 // heavy users to slow down: so one request at a time from this page, a pause after each request at least as long as it
 // took (a stand-in for what it cost the server), and the quickest server that is answering. A server that fails (an
 // overloaded or rate-limited answer often has no CORS headers, so it shows up as a network error) rests for a while,
@@ -9,7 +9,7 @@ const health = ENDPOINTS.map((url, i) => ({ url, ms: 3000 * (i + 1), fails: 0, u
 let queue = Promise.resolve(), lastEnd = 0, lastCost = 0, pause = 0;
 
 /** Run an Overpass QL query (JSON output) in turn: resolves to the parsed answer. `gap`: least ms after the previous one. */
-export function overpass(query, { timeout = 30000, gap = 1000 } = {}) {
+export function overpass(query, { timeout = 30000, gap = 1000, fetch: f = globalThis.fetch } = {}) {
   const run = async () => {
     const wait = lastEnd + Math.max(gap, lastCost) + pause - performance.now();
     if (wait > 0) await new Promise(r => setTimeout(r, wait));
@@ -20,7 +20,7 @@ export function overpass(query, { timeout = 30000, gap = 1000 } = {}) {
       for (const h of order) {
         const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), timeout), t1 = performance.now();
         try {
-          const r = await fetch(h.url, { method: 'POST', body: 'data=' + encodeURIComponent(query),
+          const r = await f(h.url, { method: 'POST', body: 'data=' + encodeURIComponent(query),
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: ctl.signal });
           if (!r.ok) throw new Error('HTTP ' + r.status);
           const json = await r.json();

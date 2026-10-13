@@ -3,6 +3,11 @@
 // (along its course at its speed, through the turn it reports). No DOM, no Cesium (test/ais.test.mjs).
 import { destination } from './geo.js';
 
+/** Fintraffic's marine API (keyless, CORS; asks callers to name themselves) and the sea its coastal network hears ([s, w, n, e]). */
+export const DIGITRAFFIC_AIS = 'https://meri.digitraffic.fi/api/ais/v1/';
+export const DIGITRAFFIC_HEADERS = Object.freeze({ 'Digitraffic-User': 'OpenOverwatch/0.9' });
+export const AIS_AREA = Object.freeze([56.5, 15.5, 66.5, 35.0]);
+
 const KN = 0.514444, D2R = Math.PI / 180, R2D = 180 / Math.PI;
 const num = x => (typeof x === 'number' && Number.isFinite(x) ? x : null);
 

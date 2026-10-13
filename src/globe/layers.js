@@ -17,6 +17,7 @@ export const LAYERS = [
   { id: 'launches', group: 'Space', name: 'Rocket launches (next 40, pads)', color: '#ff9f5c', on: true },
   { id: 'air', group: 'Air', name: 'Civil aircraft (OpenSky, every 15 min)', color: '#5fd3ff', on: true },
   { id: 'mil', group: 'Air', name: 'Military aircraft (adsb.lol, every 60 s)', color: '#ffb44d', on: true },
+  { id: 'airports', group: 'Air', name: 'Airports and their arrivals and departures (OurAirports)', color: '#9fe3ff', on: !PHONE },
   { id: 'quakes', group: 'Earth', name: 'Earthquakes M2.5+ · 24 h', color: '#ff7b4f', on: true },
   { id: 'transit', group: 'Earth', name: 'Live transit (Boston · Helsinki · Norway · Austin · Minneapolis)', color: '#3ee08f', on: false },
   { id: 'ships', group: 'Earth', name: 'Ships: live AIS, northern Baltic (Fintraffic)', color: '#5fb0ff', on: false },

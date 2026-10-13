@@ -9,7 +9,7 @@ import { viewer, scene, camera, camAGL } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { state } from './state.js';
 import { vtile, OFM } from './vtiles.js';
-import { overpass } from './overpass.js';
+import { overpass } from '../core/overpass.js';
 import { tileMilitary, joinPieces, describeArea, areaWords, pickZoom } from '../core/osmtiles.js';
 
 const COLOR = '#ff6b5e', MAX_H = 4e5, ZOOMS = [12, 11, 10, 9], MAX_TILES = PHONE ? 9 : 16, KEEP = PHONE ? 24 : 48, WANT = ['landuse', 'aerodrome_label', 'place'];

@@ -8,9 +8,8 @@ import { C, $, esc, fmt, toast, PHONE, bigStore, getJSON } from './env.js';
 import { scene, camera, camHeight } from './viewer.js';
 import { state } from './state.js';
 import { release } from './follow.js';
-import { cleanStations, tunerSet, dialPos, dialIndex } from '../core/radio.js';
+import { cleanStations, tunerSet, dialPos, dialIndex, firstMirror, radioSearchUrl } from '../core/radio.js';
 
-const HOSTS = ['all', 'de1', 'de2'];   // as the 2D map: all.api… resolves to the live mirrors; de1/de2 are named fallbacks
 const COLOR = '#ff6fd8';
 const MAX = PHONE ? 1500 : 3000;       // the API can't trim fields: ~1.25 kB a station, uncompressed
 const CACHE_KEY = 'radio.v1', CACHE_MS = 12 * 3600e3;
@@ -83,18 +82,13 @@ export const Radio = {
   async fetchList() {
     const hit = await bigStore.get(CACHE_KEY);
     if (hit && Date.now() - hit.t < CACHE_MS && hit.max === MAX && hit.hls === CAN_HLS && hit.list?.length) { this.host = hit.host; return hit.list; }
-    let err;
-    for (const h of HOSTS) {
-      const host = h + '.api.radio-browser.info';
-      try {
-        const rows = await getJSON(`https://${host}/json/stations/search?has_geo_info=true&is_https=true&hidebroken=true&order=votes&reverse=true&limit=${MAX}`, { timeout: 40000 });
-        const list = cleanStations(rows, { max: MAX, hls: CAN_HLS });
-        if (!list.length) throw new Error('no stations');
-        this.host = host; bigStore.set(CACHE_KEY, { t: Date.now(), host, max: MAX, hls: CAN_HLS, list });
-        return list;
-      } catch (e) { err = err || e; }   // a dead mirror looks like a CORS error to the browser: try the next
-    }
-    throw err || new Error('no mirror answered');
+    const { host, value: list } = await firstMirror(async host => {   // core/radio.js, with the 2D map's player
+      const list = cleanStations(await getJSON(radioSearchUrl(host, MAX), { timeout: 40000 }), { max: MAX, hls: CAN_HLS });
+      if (!list.length) throw new Error('no stations');
+      return list;
+    });
+    this.host = host; bigStore.set(CACHE_KEY, { t: Date.now(), host, max: MAX, hls: CAN_HLS, list });
+    return list;
   },
   build(list) {
     pts.removeAll();

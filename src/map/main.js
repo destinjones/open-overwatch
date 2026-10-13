@@ -10,6 +10,10 @@ import { Fun, Locate, PRESETS, Presets, legendHtml } from './presets.js';
 import { Brief, Welcome } from './brief.js';
 import { Music, Synth } from './audio.js';
 import { Keys, Probe, buildSetup, runDiagnostics } from './setup.js';
+import { Cities } from './cities.js';
+import { Hazards } from './hazards.js';
+import { Measure } from './measure.js';
+import { Share } from './share.js';
 import './util.js';
 import './mapview.js';
 import './engine.js';
@@ -54,6 +58,7 @@ $('#btnAudio').addEventListener('click', () => Music.togglePop());
 // close the soundtrack popover on an outside click; a click on something that was inside it (the popover re-renders itself, detaching the clicked button) does not count
 document.addEventListener('click', e => { const pop = $('#audioPop'); if (pop.hidden) return; const inside = e.composedPath().some(n => n === pop || n === $('#btnAudio')); if (!inside) pop.hidden = true; });
 for (const d of Layers.defs) if (d.on && d.enable) d.enable();
+Share.restore();   // a shared link: its view, layers and drawing (share.js)
 if (Locate.pos && Date.now() - Locate.pos.t < 24 * 3600e3) setTimeout(() => Brief.render(), 1500);
 document.addEventListener('keydown', e => {
   const t = e.target; if (t && t.matches && t.matches('input,textarea,select')) { if (e.key === 'Escape') t.blur(); return; }
@@ -70,4 +75,4 @@ try { // the ADS-B and GDELT limits are per IP address, so a second open copy ha
 window.addEventListener('error', e => { if (/satellite|Leaflet|\bL\b/.test(e.message || '')) Log.error('Script: ' + e.message); });
 Log.info('Open Overwatch v' + OW_VERSION + ' online · ' + Layers.defs.filter(d => d.on).length + ' layers active');
 // console handle for tinkering: OW.Layers, OW.Dyn.air, OW.Feeds …
-window.OW = { map, Layers, Feeds, Dyn, Sel, Detail, Log, Net, Relay, Store, Keys, Sats, Air, Probe, Points, World, Brief, Presets, Fun, Locate, Welcome, Hover, Sound, Music, Synth, Splash, Photos, glyphs, Tracks, scanArea, runFeed, runDiagnostics, countryIso, regionOf, showTab, openSheet, applyLayoutMode, fetchKp, AisWs, get auroraOverlay() { return auroraOverlay; }, get radarTiles() { return radarTiles; }, get irTiles() { return irTiles; } };
+window.OW = { Cities, Hazards, Measure, Share, map, Layers, Feeds, Dyn, Sel, Detail, Log, Net, Relay, Store, Keys, Sats, Air, Probe, Points, World, Brief, Presets, Fun, Locate, Welcome, Hover, Sound, Music, Synth, Splash, Photos, glyphs, Tracks, scanArea, runFeed, runDiagnostics, countryIso, regionOf, showTab, openSheet, applyLayoutMode, fetchKp, AisWs, get auroraOverlay() { return auroraOverlay; }, get radarTiles() { return radarTiles; }, get irTiles() { return irTiles; } };

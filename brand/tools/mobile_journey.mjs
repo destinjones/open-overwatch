@@ -62,6 +62,7 @@ const report = [];
 try {
   const p = await b.newPage();
   await p.send('Page.enable'); await p.send('Runtime.enable'); await p.send('Network.enable'); await p.send('Performance.enable'); await p.send('Log.enable');
+  await p.send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('oo-hints', '{"globe":1,"map":1}') } catch (e) {}` });   // the first-run touch hints (src/app/gestures.js) would take the first tap: these runs are about the views
   await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*opensky-network.org*', '*adsb.lol*', '*adsb.fi*', '*airplanes.live*', '*earthquake.usgs.gov*', '*wheretheiss.at*', '*api.open-meteo.com*'] });
   // the wind grid: a fixed made-up one in place of data/wind.json (Open-Meteo itself is blocked above: its hourly quota)
   await p.send('Fetch.enable', { patterns: [{ urlPattern: '*data/wind.json*' }] });

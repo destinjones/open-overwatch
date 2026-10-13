@@ -221,3 +221,29 @@ export function inArea(a, lat, lon) {
   if (a.box) { const [s, w, n, e] = a.box; return lat >= s && lat <= n && (w <= e ? lon >= w && lon <= e : lon >= w || lon <= e); }   // w > e: the box crosses the antimeridian
   return hop(a, { lat, lon }).d <= a.r;
 }
+
+// ---- HSL's GTFS-RT file (the MCP server reads it: one file, no WebSocket; its feed address is in core/transitfeeds.js)
+const HSL_TRAMS = new Set(['1001', '1002', '1003', '1004', '1005', '1006', '1006T', '1007', '1008', '1009', '1010', '1013', '1015']);
+/**
+ * An HSL route id as people know it: [mode, line]. HSL's ids are a region digit and the line ("1055" is 55, "2550" is 550,
+ * "4615" is 615); "31M1" is metro M1, "3001R" the R train, 1019 the Suomenlinna ferry, the 100x/1010/1013/1015 ids trams.
+ */
+export function hslRoute(id) {
+  const s = String(id || '');
+  if (/^31M\d/.test(s)) return ['metro', s.slice(2).replace(/B$/, '')];
+  if (/^300\d[A-Z]$/.test(s)) return ['rail', s.slice(4)];
+  if (s === '1019' || s === '1019E') return ['ferry', '19'];
+  const line = /^\d{4}/.test(s) ? s.slice(1).replace(/^0+(?=\d)/, '') : s;
+  return [HSL_TRAMS.has(s) ? 'tram' : 'bus', line];
+}
+/** HSL's GTFS-RT vehicles (core/gtfsrt.js) → fixes, with modes and lines read from the route ids. */
+export function fromHslRt(feed) {
+  const out = [];
+  for (const v of (feed && feed.vehicles) || []) {
+    if (!v.routeId || !Number.isFinite(v.t)) continue;
+    const [mode, line] = hslRoute(v.routeId);
+    out.push({ id: 'hsl:' + v.id, t: v.t, lat: v.lat, lon: v.lon, spd: v.spd != null && v.spd >= 0 && v.spd < 100 ? v.spd : null, hdg: v.hdg, mode, line, lineName: '', color: null,
+      dest: '', vehicle: v.label || v.vehicleId, status: GTFS_STATUS[v.status] || '', delay: null, operator: 'HSL' });
+  }
+  return out;
+}

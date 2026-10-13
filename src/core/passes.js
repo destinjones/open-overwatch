@@ -55,3 +55,15 @@ export function findPasses(positionAt, observer, t0, t1, { step = 20e3, minEl = 
   }
   return out;
 }
+
+/** A satellite.js record's position (Earth-fixed km) at any ms, or null where SGP4 fails: findPasses's positionAt. `sl` is
+ *  the satellite.js library (a page global, or the MCP server's import), so this file stays free of it. */
+export const ecfAt = (sl, rec) => ms => {
+  const d = new Date(ms), pv = sl.propagate(rec, d);
+  if (!pv || !pv.position || isNaN(pv.position.x)) return null;
+  const f = sl.eciToEcf(pv.position, sl.gstime(d)); return { x: f.x, y: f.y, z: f.z };
+};
+/** The next pass (or the one under way) above minEl in the next `hours`, or null. */
+export function nextPass(positionAt, obs, now, { minEl = 10, hours = 24, step = 30e3, sunAt = null } = {}) {
+  return findPasses(positionAt, obs, now, now + hours * 3600e3, { minEl, step, sunAt })[0] || null;
+}

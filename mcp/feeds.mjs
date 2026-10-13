@@ -3,7 +3,7 @@
 // source that fails falls back to its last answer for a day. It never asks CelesTrak (it firewalls networks that download
 // too often): satellite elements come from the website's own copy, refreshed every 6 h.
 
-export const VERSION = '0.1.1';
+export const VERSION = '0.2.0';
 export const SITE = 'https://destinjones.github.io/open-overwatch/';
 export const USER_AGENT = `open-overwatch-mcp/${VERSION} (+https://github.com/destinjones/open-overwatch)`;
 const STALE_OK_MS = 24 * 3600e3;
@@ -17,7 +17,8 @@ const local = u => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(u.hostname);
 
 /**
  * fetchImpl: fetch-compatible (tests pass their own). site: the Open Overwatch address links point at and the data copies
- * come from. Returns { json, text, bytes, site(path), siteBase, clear() }; json/text/bytes(url, { ttl, headers, timeout, signal }).
+ * come from. Returns { json, text, bytes, site(path), siteBase, clear() }; json/text/bytes(url, { ttl, headers, timeout, signal,
+ * method, body, maxBytes }). bytes resolves to { bytes: Uint8Array, type } (a picture, a protobuf feed, a gzipped tile).
  */
 export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntries = 150, now = Date.now } = {}) {
   const cache = new Map(), inflight = new Map();
@@ -26,28 +27,32 @@ export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntr
     while (cache.size > maxEntries) cache.delete(cache.keys().next().value);   // oldest first
   };
 
-  async function load(url, as, headers, timeout) {
+  async function load(url, as, headers, timeout, method, body, maxBytes) {
     const u = new URL(url);
     let r;
     try {
-      r = await fetchImpl(url, { headers: { 'User-Agent': USER_AGENT, Accept: as === 'json' ? 'application/json' : '*/*', ...headers }, signal: AbortSignal.timeout(timeout) });
+      r = await fetchImpl(url, { method, body, headers: { 'User-Agent': USER_AGENT, Accept: as === 'json' ? 'application/json' : '*/*', ...headers }, signal: AbortSignal.timeout(timeout) });
     } catch (e) {
       throw new ToolError(`${u.hostname} did not answer${e && e.name === 'TimeoutError' ? ' in time' : ''}; try again in a minute`, 'unavailable');
     }
     if (!r.ok) throw new ToolError(`${u.hostname} answered HTTP ${r.status}${r.status === 429 ? ' (too many requests): try again later' : ''}`, r.status === 429 ? 'retry_later' : r.status === 404 ? 'not_found' : 'unavailable');
-    try { return as === 'json' ? await r.json() : as === 'bytes' ? new Uint8Array(await r.arrayBuffer()) : await r.text(); }
+    if (+r.headers.get('content-length') > maxBytes) throw new ToolError(`${u.hostname} sent more than ${Math.round(maxBytes / 1e6)} MB`, 'unavailable');
+    let b;
+    try { b = as === 'bytes' ? new Uint8Array(await r.arrayBuffer()) : as === 'json' ? await r.json() : await r.text(); }
     catch (e) { throw new ToolError(`${u.hostname} sent something unreadable`, 'unavailable'); }
+    if (as === 'bytes') { if (b.length > maxBytes) throw new ToolError(`${u.hostname} sent more than ${Math.round(maxBytes / 1e6)} MB`, 'unavailable'); return { bytes: b, type: r.headers.get('content-type') || '' }; }
+    return b;
   }
 
-  async function get(url, { as = 'json', ttl = 60e3, headers = {}, timeout = 20e3, signal } = {}) {
+  async function get(url, { as = 'json', ttl = 60e3, headers = {}, timeout = 20e3, signal, method = 'GET', body, maxBytes = 64e6 } = {}) {
     const u = new URL(url);
     if (/(^|\.)celestrak\.(org|com)$/i.test(u.hostname)) throw new ToolError('CelesTrak is never asked directly: satellite elements come from the website copy', 'unavailable');
     if (u.protocol !== 'https:' && !(u.protocol === 'http:' && local(u))) throw new ToolError('Only https sources are used', 'unavailable');
-    const key = as + ' ' + url, hit = cache.get(key);
+    const key = as + ' ' + method + ' ' + url + (body ? ' ' + body : ''), hit = cache.get(key);
     if (hit && now() - hit.t < hit.ttl) return hit.v;
     let p = inflight.get(key);
     if (!p) {
-      p = load(url, as, headers, timeout).then(v => { remember(key, v, ttl); return v; },
+      p = load(url, as, headers, timeout, method, body, maxBytes).then(v => { remember(key, v, ttl); return v; },
         e => { if (hit && now() - hit.t < STALE_OK_MS) return hit.v; throw e; })   // the last good answer beats none
         .finally(() => inflight.delete(key));
       inflight.set(key, p);
@@ -65,7 +70,6 @@ export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntr
   return {
     json: (url, o) => get(url, { ...o, as: 'json' }),
     text: (url, o) => get(url, { ...o, as: 'text' }),
-    /** Binary (vector tiles): a Uint8Array. */
     bytes: (url, o) => get(url, { ...o, as: 'bytes' }),
     /** A file on the Open Overwatch site (its data copies: data/tle/…, data/launches.json, …). */
     site: path => new URL(path, base).href,

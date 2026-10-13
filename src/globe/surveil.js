@@ -7,7 +7,7 @@ import { scene, camera, camAGL } from './viewer.js';
 import { Terrain } from './terrain.js';
 import { L, setCount } from './layers.js';
 import { state } from './state.js';
-import { overpass } from './overpass.js';
+import { overpass } from '../core/overpass.js';
 import { Alpr } from './alpr.js';
 
 const MAX_H = 2.5e4, CELL = 0.05, MAX_CELLS = 16, GAP_MS = 4000;   // query 0.05-degree cells, at most 16 at a time

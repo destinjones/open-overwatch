@@ -4,28 +4,21 @@
 import { C } from './env.js';
 import { viewer } from './viewer.js';
 import { L, setCount } from './layers.js';
-
-const URL = 'https://services.swpc.noaa.gov/json/ovation_aurora_latest.json';
-const STOPS = [[3, [60, 255, 160]], [25, [110, 255, 110]], [55, [240, 255, 110]], [80, [255, 160, 90]], [100, [255, 80, 200]]];
-const color = p => { let i = 1; while (i < STOPS.length - 1 && p > STOPS[i][0]) i++; const [p0, a] = STOPS[i - 1], [p1, b] = STOPS[i], f = Math.max(0, Math.min(1, (p - p0) / (p1 - p0))); return a.map((v, j) => Math.round(v + (b[j] - v) * f)); };
+import { OVATION_URL, parseOvation, paintEquirect } from '../core/aurora.js';
 
 export const Aurora = {
   layer: null, loading: false, at: '', peak: 0, tried: 0, raw: null, rawAt: 0,
   /** The OVATION grid itself ({ 'Forecast Time', coordinates: [[lon, lat, %], ...] }), at most 10 minutes old (Tonight reads it). */
   async grid() {
-    if (!this.raw || Date.now() - this.rawAt > 10 * 60e3) { const r = await fetch(URL); if (!r.ok) throw new Error('HTTP ' + r.status); this.raw = await r.json(); this.rawAt = Date.now(); }
+    if (!this.raw || Date.now() - this.rawAt > 10 * 60e3) { const r = await fetch(OVATION_URL); if (!r.ok) throw new Error('HTTP ' + r.status); this.raw = await r.json(); this.rawAt = Date.now(); }
     return this.raw;
   },
   async load() {
     if (this.loading) return; this.loading = true; this.tried = Date.now();
     try {
-      const d = await this.grid();
-      const cv = document.createElement('canvas'); cv.width = 360; cv.height = 181; const cx = cv.getContext('2d'), img = cx.createImageData(360, 181); let peak = 0;
-      for (const [lon, lat, p] of d.coordinates) {
-        if (p < 3) continue; const x = (lon >= 180 ? lon - 360 : lon) + 180, y = 90 - lat; if (x < 0 || x > 359 || y < 0 || y > 180) continue;
-        const [r, g, b] = color(p), i = (y * 360 + x) * 4; img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b; img.data[i + 3] = Math.min(235, 40 + p * 4); if (p > peak) peak = p;
-      }
-      cx.putImageData(img, 0, 0);
+      const d = await this.grid(), { grid, peak } = parseOvation(d);   // the grid and colours are shared with the 2D map (core/aurora.js)
+      const cv = document.createElement('canvas'); cv.width = 360; cv.height = 181; const cx = cv.getContext('2d'), img = cx.createImageData(360, 181);
+      img.data.set(paintEquirect(grid)); cx.putImageData(img, 0, 0);
       const provider = await C.SingleTileImageryProvider.fromUrl(cv.toDataURL(), { rectangle: C.Rectangle.fromDegrees(-180, -90.5, 180, 90.5), credit: new C.Credit('Aurora forecast: NOAA Space Weather Prediction Center (OVATION)') });
       const old = this.layer; this.layer = viewer.imageryLayers.addImageryProvider(provider); this.layer.alpha = 0.9; if (old) viewer.imageryLayers.remove(old, true);
       this.at = d['Forecast Time']; this.peak = peak; setCount('aurora', 0); this.apply();

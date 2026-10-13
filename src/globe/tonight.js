@@ -7,7 +7,7 @@ import { $, esc, toast, store } from './env.js';
 import { state, hooks } from './state.js';
 import { Alerts } from './alerts.js';
 import { observer, sunEcef } from '../core/observer.js';
-import { findPasses, compass } from '../core/passes.js';
+import { findPasses, compass, ecfAt } from '../core/passes.js';
 import { showersFor } from '../core/meteors.js';
 import { Crew } from './crew.js';
 import { oceanAt } from '../core/explain.js';
@@ -51,8 +51,7 @@ async function satsReady(ms = 40e3) {
 /** Passes of one satellite (Sats entry) over the observer between t0 and t1. */
 function passesOf(s, obs, t0, t1, step = 30e3) {
   const sl = window.satellite, rec = s.rec || (s.rec = sl.twoline2satrec(s.l1, s.l2));
-  const at = ms => { const d = new Date(ms), pv = sl.propagate(rec, d); if (!pv.position || isNaN(pv.position.x)) return null; const f = sl.eciToEcf(pv.position, sl.gstime(d)); return { x: f.x, y: f.y, z: f.z }; };
-  return findPasses(at, obs, t0, t1, { step, sunAt: sunEcef });
+  return findPasses(ecfAt(sl, rec), obs, t0, t1, { step, sunAt: sunEcef });
 }
 
 const S = { open: false, run: 0, loc: null, passes: [], aurora: null, iss: '', launches: [], far: [], hours: null, hoursLoc: null, passLoc: null, cloudErr: '', satErr: '' };

@@ -133,7 +133,7 @@ function kindOf(o) {
 }
 function describe(o) {
   if (o.kind === 'sat') return { id: 'SAT ' + o.id, sub: o.name.replace(/\s*\[.*?\]\s*/g, ' ').trim().slice(0, 22) };
-  if (o.kind === 'air') return { id: (o.mil ? 'MIL ' : o.emerg ? 'EMG ' : 'AIR ') + String(o.hex || '').toUpperCase(), sub: `${(o.flight || '').trim() || '—'} ${o.ground ? 'GND' : 'FL' + String(Math.round((o.alt || 0) / 0.3048 / 100)).padStart(3, '0')}` };
+  if (o.kind === 'air') return { id: (o.mil ? 'MIL ' : o.emerg ? 'EMG ' : 'AIR ') + String(o.hex || '').toUpperCase(), sub: `${(o.flight || '').trim() || '—'} ${o.ground ? 'GND' : 'FL' + String(Math.round((o.alt || 0) / 0.3048 / 100)).padStart(3, '0')}${o.type || o.info?.aircraft?.icaoType ? ' ' + (o.type || o.info.aircraft.icaoType) : ''}` };   // + the type code when known
   if (o.kind === 'quake') return { id: 'SEIS M' + o.mag.toFixed(1), sub: (o.place || '').replace(/^.*? of /, '').slice(0, 18) };
   if (o.kind === 'cam') return { id: 'CAM ' + String(o.id).split(':').pop().slice(-6).toUpperCase(), sub: String(o.name || '').slice(0, 22) };
   if (o.kind === 'transit') { const i = o.info || {}; return { id: String(i.mode || 'bus').slice(0, 5).toUpperCase() + ' ' + String(i.line || i.vehicle || '').slice(0, 8), sub: String(i.dest || i.operator || '').slice(0, 22) }; }

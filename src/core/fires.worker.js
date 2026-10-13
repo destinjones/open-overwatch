@@ -1,7 +1,8 @@
+// Shared by the globe (src/globe/fires.js) and the 2D map (src/map/hazards.js).
 // Fire tiles off the main thread: fetch a GIBS VIIRS thermal anomaly vector tile (served gzipped without saying so),
 // unzip it, decode it and keep the detections since `since`. A tile can hold 15,000 detections in a burning season.
-import { decodeTile } from '../core/mvt.js';
-import { parseFires } from '../core/hazards.js';
+import { decodeTile } from './mvt.js';
+import { parseFires } from './hazards.js';
 
 self.onmessage = async e => {
   const { id, url, since } = e.data;

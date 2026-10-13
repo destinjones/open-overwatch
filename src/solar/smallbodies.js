@@ -1,5 +1,5 @@
-// Every catalogued asteroid (1.57M, JPL SBDB) and comet, each solving Kepler's equation in the vertex shader, plus
-// the named worlds (dwarf planets, famous asteroids and comets) as focusable bodies.
+// Every catalogued asteroid (1.57M, JPL SBDB) and closed-orbit comet, each solving Kepler's equation in the vertex
+// shader, plus the named worlds (dwarf planets, famous asteroids) as focusable bodies. Named comets: comets.js.
 import * as THREE from 'three';
 import { KM_AU, DEG } from '../core/units.js';
 import { positionAt, orbitPath, periodDays } from '../core/kepler.js';
@@ -27,8 +27,6 @@ const DWARFS = [ // SBDB label, display name, radius km, colour, fact
   ['101955 Bennu', 'Bennu', 0.245, '#8f8a84', 'OSIRIS-REx collected 121 g of it and brought it to Earth in 2023.'],
   ['433 Eros', 'Eros', 8.4, '#b09a80', 'The first asteroid a spacecraft landed on (NEAR Shoemaker, 2001).'],
 ];
-// designations, not names: dozens of comets are called "NEOWISE" after the survey that found them
-const FAMOUS_COMETS = ['1P/Halley', '2P/Encke', '67P/Churyumov-Gerasimenko', 'C/1995 O1', 'C/2020 F3', '109P/Swift-Tuttle', '55P/Tempel-Tuttle'];
 
 const VERT = LOGDEPTH_V + `
   attribute float a; attribute float e; attribute float inc; attribute float node; attribute float peri; attribute float m0; attribute float cls;
@@ -108,19 +106,9 @@ export function createSmallBodies({ scene, renderer }) {
     const l = new THREE.LineLoop(g, new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false })); l.userData.opacity = opacity; scene.add(l); return l;
   }
 
-  function addComets() {
-    const tailMat = new THREE.MeshBasicMaterial({ color: 0xbfe3ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  function addComets() {   // every closed-orbit comet as a point; the ones with names, comae and tails are comets.js
     const elliptic = [];
-    for (const row of S.comets) {
-      const el = cometElements(row, S.epoch); if (!el) continue; elliptic.push(el);
-      const full = row[0]; if (!FAMOUS_COMETS.some(f => full.startsWith(f))) continue;
-      const name = full.replace(/^.*\(([^)]+)\)$/, '$1').replace(/^\d+P\//, ''), group = new THREE.Group(); scene.add(group);
-      const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));
-      const tail = new THREE.Mesh(tg, tailMat); tail.frustumCulled = false; scene.add(tail);
-      const b = addBody({ key: 'comet:' + full, name, full, kind: 'comet', color: '#bfe3ff', radius: 5 * KM_AU, pos: new THREE.Vector3(), group, el, tail, small: true, layer: 'comets', orbit: orbitLine(el, '#7fb6d9', 0.3, 1440),
-        update(jd) { positionAt(el, jd, b.pos); group.position.copy(b.pos); },
-        info: () => [['Distance from Sun', distance(b.pos.length())], ['Orbit', period(periodDays(el.a))], ['Closest to Sun', row[1].toFixed(3) + ' AU'], ['Farthest', (el.a * (1 + el.e)).toFixed(1) + ' AU']] });
-    }
+    for (const row of S.comets) { const el = cometElements(row, S.epoch); if (el) elliptic.push(el); }
     S.cometPoints = pointsFor(packSmallBodies(elliptic, 6)).points;
   }
 
@@ -148,18 +136,13 @@ export function createSmallBodies({ scene, renderer }) {
     }
     return best ? asteroidBody(best) : null;
   }
-  function search(q, limit) {
-    const out = [];
-    for (const n of S.named) if (n[2].toLowerCase().includes(q)) { out.push(n); if (out.length >= limit) break; }
-    return out;
-  }
 
   onLayers(() => {
     S.files.forEach((f, i) => { if (f) f.points.visible = layerOn('asteroids') && (i === 0 || S.full); });
     if (S.cometPoints) S.cometPoints.visible = layerOn('comets');
     CLASSES.forEach((_, i) => { uniforms.uShow.value[i] = layerOn('cls' + i) ? 1 : 0; });
     for (const b of bodies) {
-      if (b.layer === 'dwarfs' || b.layer === 'comets') { b.group.visible = layerOn(b.layer); if (b.orbit) b.orbit.visible = layerOn(b.layer); if (b.tail) b.tail.visible = layerOn('comets'); }
+      if (b.layer === 'dwarfs') { b.group.visible = layerOn(b.layer); if (b.orbit) b.orbit.visible = layerOn(b.layer); }
     }
     if (layerOn('asteroids') && S.full && S.files[0]) loadAll();
   });
@@ -172,24 +155,16 @@ export function createSmallBodies({ scene, renderer }) {
     },
     /** Inside the globe: hold the big file back until the view is actually entered. */
     defer(on) { S.defer = on; if (!on && S.full && S.files[0] && layerOn('asteroids')) loadAll(); },
-    S, load, asteroidBody, pickAsteroid, search, set onChange(fn) { onChange = fn; },
+    S, load, asteroidBody, pickAsteroid, set onChange(fn) { onChange = fn; },
     update(jd) { uniforms.uDays.value = jd - S.epoch; },
-    frame({ camera, camSun, fade }) {
+    frame({ camSun, fade }) {
       uniforms.uPR.value = renderer.getPixelRatio();
       uniforms.uFade.value = (1 - fade(500, 3000, camSun)) * (1 - 0.88 * fade(12, 120, camSun)); // the belt piles into a blob from far out
       // faded out = not drawn: from far out the asteroids land on a few pixels and additive blending serialises them
       // (42 ms a frame from light-years away, 24 ms at 2,000 AU). The faint 1.27M go first: beyond 250 AU they add nothing.
       const drawn = uniforms.uFade.value > 0.002 && layerOn('asteroids');
       S.files.forEach((f, i) => { if (f) f.points.visible = drawn && (i === 0 || (S.full && camSun < 250)); });
-      for (const b of bodies) {
-        if (b.orbit) b.orbit.material.opacity = b.orbit.userData.opacity * (1 - fade(2000, 3e4, camSun));
-        if (b.kind !== 'comet') continue;
-        const r = b.pos.length(), on = r < 6 && layerOn('comets'); b.tail.visible = on; if (!on) continue;
-        const dir = b.pos.clone().normalize(), len = Math.min(0.6, 0.25 / (r * r) + 0.02);      // tails point away from the Sun
-        const side = new THREE.Vector3().crossVectors(dir, camera.position.clone().sub(b.pos)).normalize().multiplyScalar(len * 0.12);
-        const end = b.pos.clone().addScaledVector(dir, len), a = b.tail.geometry.attributes.position;
-        a.setXYZ(0, b.pos.x, b.pos.y, b.pos.z); a.setXYZ(1, end.x + side.x, end.y + side.y, end.z + side.z); a.setXYZ(2, end.x - side.x, end.y - side.y, end.z - side.z); a.needsUpdate = true;
-      }
+      for (const b of bodies) if (b.orbit && b.layer === 'dwarfs') b.orbit.material.opacity = b.orbit.userData.opacity * (1 - fade(2000, 3e4, camSun));
     },
   };
 }

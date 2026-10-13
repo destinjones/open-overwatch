@@ -30,7 +30,7 @@ export function createOsmTools(ctx, link) {
   /** A tile of a source, decoded (an empty object where the source has none). */
   async function vtile(spec, key, want, signal) {
     const [z, x, y] = key.split('/'), url = spec.tiles[0].replace('{z}', z).replace('{x}', x).replace('{y}', y);
-    try { const b = await feeds.bytes(url, { ttl: 3600e3, timeout: 30e3, signal }); return b.length ? decodeTile(b, want) : {}; }
+    try { const { bytes: b } = await feeds.bytes(url, { ttl: 3600e3, timeout: 30e3, signal }); return b.length ? decodeTile(b, want) : {}; }
     catch (e) { if (e.code === 'not_found') return {}; throw e; }
   }
   const specOf = async (url, signal) => { const s = await feeds.json(url, { ttl: 6 * 3600e3, signal }); if (!s || !Array.isArray(s.tiles) || !s.tiles[0]) throw new ToolError(`${new URL(url).hostname} sent no tile address`, 'unavailable'); return s; };

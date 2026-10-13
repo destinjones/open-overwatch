@@ -4,6 +4,7 @@ import { createFeeds, SITE, VERSION } from './feeds.mjs';
 import { createTools, INSTRUCTIONS } from './tools.mjs';
 import { panelResource } from './panel.mjs';
 import { createMcpServer } from './protocol.mjs';
+import { PROMPTS } from './prompts.mjs';
 
 export { VERSION, SITE };
 
@@ -14,5 +15,5 @@ export function createOverwatchServer({ site = SITE, fetchImpl, sgp4, now = Date
   let lib = null;
   const load = () => (lib = lib || import('satellite.js').catch(() => { lib = null; throw new Error('satellite.js is missing: run npm install in the open-overwatch folder'); }));
   const ctx = { feeds, now, sgp4: sgp4 ? async () => sgp4 : load };
-  return createMcpServer({ name: 'open-overwatch', title: 'Open Overwatch', version: VERSION, instructions: INSTRUCTIONS, tools: createTools(ctx), resources: [panelResource(base, VERSION)], log });
+  return createMcpServer({ name: 'open-overwatch', title: 'Open Overwatch', version: VERSION, instructions: INSTRUCTIONS, tools: createTools(ctx), resources: [panelResource(base, VERSION)], prompts: PROMPTS, log });
 }

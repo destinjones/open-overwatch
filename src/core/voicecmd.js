@@ -90,11 +90,26 @@ function drawCommand(s) {
   return null;
 }
 
+// aviation: an airport's board ("arrivals at Heathrow", "what's taking off from JFK?"), what a plane is, trails
+function airCommand(s) {
+  let m = s.match(/^(?:show (?:me )?|open |give me |get )?(?:the )?(arrivals?|departures?|board|airport board|flights?|traffic|planes?) (?:at|for|from|of|in|into|out of|around) (.+?)(?: airport)?$/);
+  if (m && !/^(here|there|the airport|this airport)$/.test(m[2])) return { act: 'board', place: clean(m[2]), which: /^arriv/.test(m[1]) ? 'arriving' : /^depart/.test(m[1]) ? 'departing' : null };
+  m = s.match(/^what(?:'s| is| are)? (landing|arriving|coming in|taking off|departing|leaving|flying) (?:at|from|in|into|out of|over) (.+?)(?: airport)?$/);
+  if (m) return { act: 'board', place: clean(m[2]), which: /land|arriv|coming/.test(m[1]) ? 'arriving' : /tak|depart|leav/.test(m[1]) ? 'departing' : null };
+  m = s.match(/^(?:show (?:me )?|open )(?:the )?(.+?) airport(?: board)?$/);
+  if (m) return { act: 'board', place: clean(m[1]), which: null };
+  if (/^what (?:kind|type|sort) of (?:plane|aircraft|jet|airplane|helicopter) is (?:that|this|it)\b|^what (?:plane|aircraft|jet|airplane) is (?:that|this|it)\b|^where is (?:that|this|it) (?:plane |flight )?(?:going|flying|headed|heading)\b/.test(s)) return { act: 'what' };
+  m = s.match(/^(show|hide|turn on|turn off|switch on|switch off|clear)? ?(?:the |all )?(?:flight |plane |aircraft )?trails?( on| off)?$/);
+  if (m && (m[1] || m[2])) return { act: 'trails', on: !/hide|off|clear/.test((m[1] || '') + (m[2] || '')) };
+  return null;
+}
+
 export function parse(text) {
   const s = normalize(text);
   if (!s) return { act: 'unknown', text: '' };
   if (/^(help|what can i (say|do)|commands|what do you do)\b/.test(s)) return { act: 'help' };
   const drawn = drawCommand(s); if (drawn) return drawn;
+  const air = airCommand(s); if (air) return air;
   // stop / exit first, so "exit cockpit" and "stop tracking" are not read as anything else
   if (/\b(cockpit|ride along|pilot view|first person|ride it|ride with)\b/.test(s)) return { act: 'cockpit', on: /\b(exit|leave|stop|off|out of)\b/.test(s) ? false : /\b(enter|on|go|start|take|ride|switch)\b/.test(s) ? true : null };
   if (/^(pause|freeze|stop time|hold time)\b/.test(s)) return { act: 'pause' };
@@ -143,6 +158,7 @@ export const EXAMPLES = Object.freeze([
   'Take me to Tokyo', 'Track the ISS', 'Night vision', 'Thermal', 'Enter cockpit', 'Turn on earthquakes', 'Walking route from Big Ben to the Tower of London',
   'How many satellites are in view?', "What's this?", 'Show me the launches', 'Zoom out to a globe view', "What's the weather in Paris?", 'How many planes over Texas?',
   'Measure from Paris to Berlin', 'Outline France', 'How big is Brazil?', 'Draw an area', 'Clear the drawing',
+  'Arrivals at Heathrow', "What's taking off from JFK?", 'What plane is that?',
 ]);
 
 // ---- weather in words (for spoken answers)
@@ -157,12 +173,30 @@ export function skyWords({ code, cloud, rain, temp }) {
   if (!Number.isFinite(cloud)) return '';
   return cloud >= 85 ? 'overcast' : cloud >= 45 ? 'partly cloudy' : cloud >= 15 ? 'mostly clear' : 'clear skies';
 }
-/** A reading { temp °C, speed m/s, from (deg), cloud %, rain mm/h, code } spoken: "14 degrees Celsius, light rain, wind 18 kilometres
- *  an hour from the south-west". `imperial`: Fahrenheit and miles an hour (US English). */
+/** The sea in a word from significant wave height (m), the Douglas sea-state scale ("" for no reading). */
+export function seaWords(m) {
+  if (!Number.isFinite(m)) return '';
+  return m < 0.1 ? 'calm' : m < 0.5 ? 'smooth' : m < 1.25 ? 'slight' : m < 2.5 ? 'moderate' : m < 4 ? 'rough' : m < 6 ? 'very rough' : m < 9 ? 'high' : m < 14 ? 'very high' : 'phenomenal';
+}
+/**
+ * A reading { temp °C, speed m/s, from (deg), cloud %, rain mm/h, code, gust m/s, pres hPa, wave m, waveFrom (deg) }
+ * spoken: "14 degrees Celsius, light rain, wind 18 kilometres an hour from the south-west, gusting 40, pressure 1008
+ * hectopascals and falling, a rough sea, waves 3 metres from the west". `imperial`: Fahrenheit, miles an hour, inches
+ * of mercury and feet (US English). Gusts are said only when they matter (well above the wind, and strong).
+ */
 export function weatherSentence(r, imperial = false) {
-  const out = [];
+  const out = [], spd = v => imperial ? Math.round(v * 2.23694) : Math.round(v * 3.6);
   if (Number.isFinite(r.temp)) out.push(imperial ? `${Math.round(r.temp * 9 / 5 + 32)} degrees Fahrenheit` : `${Math.round(r.temp)} degrees Celsius`);
   const sky = skyWords(r); if (sky) out.push(sky);
-  if (Number.isFinite(r.speed)) out.push(r.speed < 0.5 ? 'calm' : `wind ${imperial ? Math.round(r.speed * 2.23694) + ' miles' : Math.round(r.speed * 3.6) + ' kilometres'} an hour${Number.isFinite(r.from) ? ` from the ${compass(r.from)}` : ''}`);
+  if (Number.isFinite(r.speed)) out.push(r.speed < 0.5 ? 'calm' : `wind ${spd(r.speed)} ${imperial ? 'miles' : 'kilometres'} an hour${Number.isFinite(r.from) ? ` from the ${compass(r.from)}` : ''}`
+    + (Number.isFinite(r.gust) && r.gust >= 10 && r.gust > 1.4 * (r.speed || 0) ? `, gusting ${spd(r.gust)}` : ''));
+  if (Number.isFinite(r.pres)) {
+    const trend = Number.isFinite(r.presTrend) && Math.abs(r.presTrend) >= 1 ? (r.presTrend < 0 ? ' and falling' : ' and rising') : '';   // hPa over the next 3 hours
+    out.push(imperial ? `pressure ${(r.pres * 0.02953).toFixed(2)} inches${trend}` : `pressure ${Math.round(r.pres)} hectopascals${trend}`);
+  }
+  if (Number.isFinite(r.wave)) {
+    const sea = seaWords(r.wave), h = imperial ? `${Math.round(r.wave * 3.28084)} feet` : `${r.wave < 2 ? r.wave.toFixed(1) : Math.round(r.wave)} metres`;
+    out.push(`${sea === 'calm' ? 'a calm sea' : `a ${sea} sea, waves ${h}`}${Number.isFinite(r.waveFrom) && r.wave >= 0.1 ? ` from the ${compass(r.waveFrom)}` : ''}`);
+  }
   return out.join(', ');
 }

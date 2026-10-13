@@ -1,21 +1,20 @@
-// Earthquakes: USGS M2.5+ in the last 24 h (the feed sends CORS headers, so no relay).
+// Earthquakes: USGS M2.5+ in the last 24 h (the feed sends CORS headers, so no relay; parsed by core/quakes.js, like the 2D map's).
 import { C, getJSON } from './env.js';
 import { qkPts } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { hooks } from './state.js';
+import { parseUsgs, usgsUrl } from '../core/quakes.js';
 
+const COLOR = C.Color.fromCssColorString('#ff7b4f');
 export const Quakes = {
   list: [],
   async load() {
-    const d = await getJSON('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson');
-    qkPts.removeAll(); this.list = [];
-    for (const f of d.features || []) {
-      const [lon, lat, depth] = f.geometry.coordinates, m = f.properties.mag || 0;
-      const q = { kind: 'quake', mag: m, place: f.properties.place, time: f.properties.time, depth, lat, lon, url: f.properties.url };
-      q.pt = qkPts.add({ position: C.Cartesian3.fromDegrees(lon, lat, 0), pixelSize: 4 + m * 2.2, color: C.Color.fromCssColorString('#ff7b4f').withAlpha(0.75),
-        outlineColor: C.Color.fromCssColorString('#ff7b4f'), outlineWidth: 1, id: q, show: L.quakes.on, disableDepthTestDistance: 0 });
-      this.list.push(q);
+    const list = parseUsgs(await getJSON(usgsUrl('2.5_day')));
+    qkPts.removeAll(); this.list = list;
+    for (const q of list) {
+      q.kind = 'quake'; q.mag = q.mag ?? 0;
+      q.pt = qkPts.add({ position: C.Cartesian3.fromDegrees(q.lon, q.lat, 0), pixelSize: 4 + q.mag * 2.2, color: COLOR.withAlpha(0.75), outlineColor: COLOR, outlineWidth: 1, id: q, show: L.quakes.on, disableDepthTestDistance: 0 });
     }
-    setCount('quakes', this.list.length); hooks.updateStats();
+    setCount('quakes', list.length); hooks.updateStats();
   },
 };
