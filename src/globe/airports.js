@@ -67,8 +67,8 @@ export const Airports = {
   apply() { pts.show = labels.show = L.airports.on; if (L.airports.on && !this.loading) this.load(); },
   /** The board for an airport from the live aircraft. */
   board(a) {
-    const planes = [];
-    for (const r of Air.map.values()) if (airShown(r) && Date.now() - r.ts < 20 * 60e3) {
+    const planes = [], now = Date.now(), dLon = 1.6 / Math.max(0.05, Math.cos(a.lat * Math.PI / 180));   // a box around the field first (~180 km)
+    for (const r of Air.map.values()) if (Math.abs(r.lat - a.lat) < 1.6 && Math.abs(((r.lon - a.lon + 540) % 360) - 180) < dLon && now - r.ts < 20 * 60e3 && airShown(r)) {
       const p = r.cur ? { ...r, lat: r.cur.lat, lon: r.cur.lon, route: r.info && r.info.route } : { ...r, route: r.info && r.info.route };
       p.r = r; planes.push(p);
     }

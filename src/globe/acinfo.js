@@ -22,7 +22,7 @@ function save() {   // trimmed to the newest KEEP and written at most every 2 s
     saved = Object.fromEntries(entries); store.set('adsbdb', saved);
   }, 2000);
 }
-const keyOf = (hex, cs) => `${String(hex || '').toLowerCase()}|${cs}`;
+const keyOf = (hex, cs) => `${String(hex || '').replace(/^~/, '').toLowerCase()}|${cs}`;
 
 async function ask(url) {
   const wait = Math.max(0, last + GAP - Date.now()); if (wait) await new Promise(r => setTimeout(r, wait));
@@ -43,8 +43,8 @@ async function ask(url) {
 export const AcInfo = {
   /** Cached answer for a plane, or undefined if not asked yet. */
   peek(r) {
-    const k = keyOf(r.hex, normCallsign(r.flight)), e = mem.get(k) || saved[k];
-    if (!e) return undefined;
+    const k = keyOf(r.hex, normCallsign(r.flight)), m = mem.get(k), e = m && m.v ? m : saved[k];
+    if (!e || !e.v) return undefined;   // not asked, or still on its way (mem holds { pending } meanwhile)
     if (Date.now() - e.t > (e.v.aircraft || e.v.route ? TTL : MISS_TTL)) return undefined;
     return e.v;
   },
@@ -52,7 +52,7 @@ export const AcInfo = {
   get(r) {
     const cs = normCallsign(r.flight), hex = String(r.hex || '').replace(/^~/, '').toLowerCase(), k = keyOf(hex, cs);
     const have = this.peek(r); if (have !== undefined) { r.info = have; return Promise.resolve(have); }
-    if (mem.has(k) && mem.get(k).pending) return mem.get(k).pending;
+    if (mem.has(k) && mem.get(k).pending) return mem.get(k).pending.then(v => { if (v) r.info = v; return v; });   // another caller asked first
     if (!/^[0-9a-f]{6}$/.test(hex) || Date.now() < blockedUntil) return Promise.resolve(null);
     const url = `${API}/aircraft/${hex}${/^[A-Z0-9]{3,8}$/.test(cs) ? '?callsign=' + cs : ''}`;
     const pending = chain = chain.catch(() => {}).then(() => ask(url)).then(async j => {
