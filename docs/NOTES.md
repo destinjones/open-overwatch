@@ -378,7 +378,8 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   points lined up (linedUp with the track between points) + 2 for the touchdown on a runway's centre line moving its
   way; take-off = points on the centre line beyond the runway moving its way. Moves are put at the nearest airport within
   6 km, so the 40 nm poll around DEN also logs Buckley, Centennial and Rocky Mountain Metro. Flow change = 2+ on the new
-  direction (runways within 45° count as one flow: 34R/35L) after 2+ on the old. Live at KDEN, 15:18-15:27Z: arrivals
+  direction (runways within 45° count as one flow: 34R/35L) after 2+ on the old, with the new direction at most a quarter
+  of the moves before (Denver departs on 25 and 08 at once: the first live run called that "moved from 08 to 25"). Live at KDEN, 15:18-15:27Z: arrivals
   34R/35L/35R, departures 25/08 (matches Denver's north-flow plan), ~25 events in 10 minutes.
 - Renders: `brand/tools/airport_wx_shot.mjs` (desktop and 390x844) injects TEST1xx planes and runway events (the render
   blocks the aircraft feeds); real callsigns there pulled real adsbdb routes naming other airports, which drops them
