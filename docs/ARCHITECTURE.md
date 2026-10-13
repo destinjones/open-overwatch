@@ -71,6 +71,9 @@ same code runs in Node tests and in the render loop without allocating.
 | `phase.js` | flight phase (parked, taxiing, take-off, climb, cruise, descent, approach, final) from a fix and the nearest field; great-circle points |
 | `runways.js` | runway ends and headings, wind along and across each, the runway a plane is lined up with, the runway in use |
 | `trail.js` | flight trails: a time window of fixes, 3D Douglas-Peucker thinning, the altitude colour ramp, trail stats |
+| `acinfo.js` | the adsbdb client both views' aircraft cards and boards use: one request at a time, a day's cache in the view's store, silent while rate limited |
+| `wxload.js`, `model.worker.js` | the weather models at a moment for the globe and the 2D map: newest complete run, one field and forecast hour at a time by byte range, decoded off the main thread, blended between hours; sampling a moment |
+| `wxpaint.js` | how model fields look in both views: wash colours, legends, painting through any projection, wave darts, the isobar chart |
 
 Accuracy, checked by the tests against JPL Horizons on 2026-10-02: planets within arcminutes (JPL's own stated
 error for these formulas), main-belt asteroids within ~3×10⁻⁴ AU, the Moon within ~0.3°, the other moons within 0.4° of their orbit.

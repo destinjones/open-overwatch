@@ -110,12 +110,12 @@ Runs every `test/*.test.mjs` with Node's own runner. No dependencies except `sat
 | `geo.test.mjs`, `measure.test.mjs`, `borders.test.mjs`, `route.test.mjs` | great circles and dead reckoning; WGS84 distances and areas against GeographicLib; the country lookup; routes |
 | `viewlink.test.mjs`, `scene.test.mjs` | share links and Director scenes: round trips, hostile input refused |
 | `voice.test.mjs` | voice command parsing |
-| `gfs.test.mjs`, `wxmodels.test.mjs`, `grib2.test.mjs`, `aec.test.mjs`, `contour.test.mjs` | the weather timeline, the GFS and ECMWF files, GRIB2 decoding (simple, complex, JPEG 2000, CCSDS) checked against eccodes, model fields, isobars |
+| `gfs.test.mjs`, `wxmodels.test.mjs`, `grib2.test.mjs`, `aec.test.mjs`, `contour.test.mjs`, `wxload.test.mjs`, `wxpaint.test.mjs` | the weather timeline, the GFS and ECMWF files, GRIB2 decoding (simple, complex, JPEG 2000, CCSDS) checked against eccodes, model fields, isobars; loading a moment (runs, retries, blending, the decoded-hours cache) and how fields are drawn, for both views |
 | `solar.test.mjs` | comets on any conic, spacecraft tracks, the "where is it now?" search, Solar System links and sky positions, against JPL Horizons |
 | `roadtiles.test.mjs`, `traffic.test.mjs`, `gtfsrt.test.mjs` | vector tiles and roads, the traffic model, GTFS-RT |
 | `ais.test.mjs`, `bikes.test.mjs`, `transit.test.mjs`, `transitfeeds.test.mjs`, `hslrt.test.mjs`, `hazards.test.mjs`, `fireclusters.test.mjs`, `radio.test.mjs`, `campose.test.mjs`, `ascent.test.mjs` | the feeds' parsers and the models built on them |
 | `feeds.test.mjs`, `cables.test.mjs`, `cameras.test.mjs`, `camerasnear.test.mjs`, `aircraft.test.mjs` | the shared feed parsers (quakes, EONET, cyclones, GDACS, aurora, cables, cameras, aircraft records) the 2D map, the globe and the MCP server all use |
-| `aviation.test.mjs` | aircraft classes, adsbdb answers and route fits, ICAO address blocks, weather aloft, airport boards, runways, trails |
+| `aviation.test.mjs`, `acinfo.test.mjs` | aircraft classes, adsbdb answers and route fits, ICAO address blocks, weather aloft, airport boards, runways, trails, the card and board words both views share; the adsbdb client (queue, cache, rate limit) |
 | `osmtiles.test.mjs`, `overpass.test.mjs` | buildings, military areas and plate readers from vector tiles; the polite Overpass client |
 | `eclipselocal.test.mjs`, `solarsys.test.mjs` | eclipses from a place against NASA's, the planets from Earth |
 | `pwa.test.mjs`, `sw.test.mjs`, `spot.test.mjs`, `a11y.test.mjs` | the installable app's decisions, the service worker in a fake worker, the long-press spot card, and the accessibility check on every page |
@@ -248,7 +248,7 @@ switch calls. `src/globe/volcanoes.js` is the smallest complete example (28 line
 
 The 2D map has its own layer contract, enforced by `src/map/engine.js` (summarised from NOTES.md "2D map: adding a layer").
 Layers are defined across `src/map/` (`feeds.js`, `aircraft.js`, `satellites.js`, `cities.js`, `hazards.js`,
-`osmlayers.js`); a feed both views show belongs in `src/core/` (as quakes, cyclones, cameras, transit and aurora now
+`osmlayers.js`, `weather.js`, `aviation.js`); a feed both views show belongs in `src/core/` (as quakes, cyclones, cameras, transit and aurora now
 are) with the 2D file only placing it on the canvas.
 
 1. `Layers.add({ id, group, name, desc, color, default, points })` before `INIT`. `group` must be one of

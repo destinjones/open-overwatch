@@ -248,6 +248,16 @@ Round 2 (2026-10-10, local):
       Norway, Austin, Minneapolis), cyclone cones / warnings / wind fields, keyless wildfire hot spots and US perimeters,
       all twelve camera networks with live video, draw and measure (R), share links in the globe's format, and the map
       and the globe open each other on the same place with the matching layers and the drawing
+- [x] The 2D map catches up, round 2 (2026-10-13, branch grow2-map): forecast weather from the globe's models (wind
+      streaks, temperature, pressure with isobars and H/L, gusts, cloud, rain, waves with darts; GFS or ECMWF) on Mercator
+      tiles with a timeline bar (now to +5 days, play, legend, every field at the pointer), carried both ways in links
+      (`w=`); aircraft cards with adsbdb's type, owner and route (checked against the plane), the flight phase and the
+      runway it is lined up with; an Airports layer with live boards, the field's weather and category, the runway in use
+      and the wind on every runway, runways drawn from zoom 11; airport search
+- [x] Shared with the globe through src/core (tested): the model loader and its worker (wxload), how fields are drawn
+      (wxpaint), adsbdb (acinfo), board/card/route/runway words; the map's own sun model, geodesy and escaper deleted
+      for core's (subsolar, nightRing, geo, format)
+- [ ] 2D map: the side-by-side model comparison, trails by altitude and cockpit weather are still globe-only
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 

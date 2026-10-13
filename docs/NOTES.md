@@ -87,7 +87,8 @@ util (helpers, Store, Log/toast/Sound, Net + Relay, clock; `late` registry) · m
 engine (Glyphs canvas renderer, Points, Layers registry + panel, feed scheduler) · detail (Detail panel, tracks, hover,
 tabs/sheets) · aircraft · satellites (TLEs via src/core/tle.js) · feeds (all point/vector layers) · presets (views,
 legend, Locate, Fun/ISS follow) · brief (Brief, Welcome) · audio · setup (Setup tab, Probe, search) · cities (bike share, live
-transit) · hazards (fire hot spots, US perimeters) · measure (draw and measure) · share (links, hand-off to the globe) · main (INIT, OW).
+transit) · hazards (fire hot spots, US perimeters) · measure (draw and measure) · share (links, hand-off to the globe) · weather (forecast
+model layers, the timeline bar) · aviation (aircraft card extras, airports, boards, runways) · main (INIT, OW).
 Modules import only from earlier ones; the five names used before they are defined (Sats, cableHit, Probe, Brief, Keys)
 are read through `late.X`. OW_VERSION stays a classic <script> const in the HTML (Publish Update.bat edits that line).
 A hidden tab pauses feeds by design: drive them with OW.Sats.reload() etc. when testing in a background pane.
@@ -314,7 +315,8 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   (taxiing over 3 m/s). A route on file naming the airport makes a level plane in the hold count; one naming other
   airports drops it. A plane goes to the airport it fits best (score = km x (1 + degrees off / 45)), so Heathrow and
   City, or Denver and its neighbours, don't count the same plane. ETA: along-track distance / ground speed, nudged by
-  the descent rate. A route that contradicts the board (starts here on a plane landing here) is not shown on the row.
+  the descent rate. A route is named on a row only when it names this airport at the right end (since 2026-10-13: before, any route not
+  contradicting the board was, and a JFK arrival flying an LGA-ATL callsign showed "from LGA").
 - Cockpit weather: the barometric altitude as an ISA pressure altitude picks the two Open-Meteo levels around it
   (1000..30 hPa), interpolated in log-pressure, wind mixed as vectors (350° and 10° make 0°). TAS = |ground velocity -
   wind velocity| (the feeds have no heading), Mach from the OAT. Open-Meteo takes pressure-level variables in
@@ -526,6 +528,52 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   without an onclose; storm cards named NOAA NHC twice.
 - brand/tools/cdp.mjs kills "orphaned" Edge from other runs in the same work folder: with several sessions rendering, set
   OW_WORK to a folder of your own. brand/tools/page_check.mjs renders any page (the 2D map too) and lists script errors.
+## The 2D map catches up, round 2: forecast weather and aviation (map/weather.js, map/aviation.js) — 2026-10-13
+- One model loader for both views (core/wxload.js + core/model.worker.js, moved from the globe): the map's
+  `makeModels` uses the same cache names (`oo3d-gfs`, `oo3d-ecmwf`), so a forecast hour either view fetched is in Cache
+  Storage for the other. Moving it found a bug: a new forecast hour was stamped after the eviction ran, so it always
+  sorted as the oldest, was skipped, and the decoded-hours cache kept one hour more than its limit.
+- Washes and isobars are `L.GridLayer`s painted per 256 px tile in Web Mercator (latitude by row, longitude by column),
+  in their own panes under the vectors and glyphs, so they pan, zoom and wrap like the base map with no reprojection of
+  a world image (an equirectangular image overlay would be stretched north-south). A temperature tile costs ~8 ms
+  (every 2nd pixel; every 4th from zoom 7, where a 1° cell is already 700 px), an isobar tile ~2 ms. A new moment
+  redraws the tiles in view.
+- Isobars: core `pressureChart` (the globe's own chart now comes from it too), longitudes folded into -180..180 and cut
+  where they cross the date line (`splitJumps`), each piece with its box so a tile draws only what touches it; value
+  labels respaced per zoom (40° apart at zoom 3, halving each level, cached per moment); H and L drawn on the tiles.
+- Wind streaks: particles in lat/lon carried by the blended field, projected with the Mercator formulas (no Leaflet
+  call per particle). Mercator is conformal, so the same screen speed per m/s at any zoom is dlon = u·k, dlat =
+  v·k·cos(lat) with k = c / (pixels per degree). Spawned evenly over the view's area (sin(lat) uniform), held while the
+  map moves, reset on moveend. ~1,800 particles on a 1,500 px map, ~900 on phones at half the frame rate.
+- Each forecast layer is a feed (status dot, errors, the model answering) whose fetch is one shared `Wx.load()` per
+  moment and set of fields; dragging the slider reloads them through `runFeed(…, true)`, debounced. In a hidden pane
+  the map's scheduler waits 2× the interval (30 min here): drive them with `runFeed` when testing in a background pane.
+- Links: core/viewlink.js `MAP_TO_WEATHER` pairs the map's `wx_*` layers with the globe's weather sets (`ir` and
+  `radar` show the model's cloud and rain on forecast steps), so the 3D globe button opens weather mode on the same
+  fields and model (`w=`), and the globe's Classic map button brings its weather sets back as forecast layers.
+- ECMWF works on the map as on the globe (the model menu on the bar); with a run just out its bucket throttles (503
+  without CORS headers), so a cold ECMWF hour can take a minute; the layers' dots stay amber meanwhile.
+- Aviation: the globe's adsbdb client is core/acinfo.js (store, fetch and clock handed in; the map keeps its own cache
+  in `ow.adsbdb`). Map records are feet, knots and ft/min with no previous fix; `airPoint` turns one into the SI point
+  core reads, placed where the canvas draws it (`airAt`, core deadReckon: the canvas, following and the boards agree),
+  and ingest now keeps the fix before (`rec.was`) so boards see landings and take-offs. The card, phase and route
+  words, the board rows and the runway wind words are core functions both views call (`kindWords`, `phaseWords`,
+  `routeWords`, `boardRowWords`, `windWords`).
+- Boards were changed for both views after a render: a plane landing at JFK under a callsign whose route on file is
+  LGA-ATL was listed "from LGA". A row now names the other airport only when the route names this one at the right end.
+- Runways are drawn from zoom 11 (polylines; ends as a Points set with `noSel`, else every end ringed as selected
+  along with its airport); the runway in use on an open card is green. Airport cards re-render with the live kinds
+  every 2 s (board from the planes now on the map, at most 8 adsbdb look-ups per airport per page).
+- Dedup on the way: the map's private sun model (mapview.js), its haversine/destination/bearingTo and its own `esc`
+  are gone for core's (core/sky.js `subsolar`, `nightRing` against `sunAlt`; core/geo.js; core/format.js, now
+  null-safe). An `export { esc } from …` creates no local binding: util.js used esc itself and INIT died with
+  "esc is not defined" (caught in the pane; import it, then export it).
+- Not on the 2D map: the globe's side-by-side model comparison (a clipped second set of panes was not worth it), the
+  observed frames of weather mode (the map has its own radar and IR layers), cockpit weather, trails by altitude,
+  tower view and the landing watch.
+- Renders: brand/tools/page_check.mjs (screenshots + script errors) works for the map. From Git Bash, give OW_WORK as
+  a Windows path (`C:\Users\…`): with `$LOCALAPPDATA/…` Edge started but cdp.mjs never found DevToolsActivePort.
+
 ## Installable app, touch hints, accessibility (sw.js, src/app/, core/pwa.js, core/spot.js, core/a11ycheck.js) — 2026-10-12
 - **Where the worker runs.** `src/app/pwa.js` registers `sw.js` (scope = the site root, `updateViaCache: 'none'`) only on
   the website. Archived `/v/<tag>/` pages are inside that scope, so two guards: their pages never register or talk to the
