@@ -312,3 +312,33 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
 - Its ~150 sensor links in Manhattan are all on the edges (FDR, West Side Hwy / 12th Ave, tunnels, bridges); Midtown's
   streets have none, so a Midtown view correctly shows no measured roads. A query ordered by data_as_of over the whole
   table is slow (minutes for count(distinct)); keep the ordered $limit query (1200 rows ≈ every link).
+
+## Solar System: missions, comets, search and links (solar/spacecraft.js, comets.js, find.js, lists.js) — 2026-10-12
+- Spacecraft: 22 tracks from `make_spacecraft.py` (Horizons, 2-5-day samples to 2035, cached in brand/source/horizons/;
+  each entry now has agency, status, alias). `core/craft.js` interpolates with a Catmull-Rom cubic: ~300-1,600 km off
+  Horizons half-way between samples (samples are rounded to 1e-5 AU = 1,500 km); linear was off up to 200,000 km, so
+  `sky.js craftAt` (Tonight's "farthest things we built") uses it too. Subtracting the planet for craft in orbit
+  (Juno, Cassini) does not help: interpolation is linear in the samples, so it cancels; only denser data would.
+  Past the last sample a craft coasts on only if it is above solar escape speed (Voyagers, Pioneers, New Horizons);
+  others have no position there (Cassini after 2017 is hidden, its card says why). Statuses ("Ended 2017") are today's;
+  lines of missions over for a year are hidden unless focused. Unfocused tracks draw the last year flown and the next
+  half year; the focused one draws everything plus event markers (22 full tracks were orange spaghetti).
+- Comets (`core/comets.js`): conics of any e from SBDB q, e, i, node, peri, tp (Barker for parabolas, Newton on
+  e sinh H - H = M for hyperbolas; elements may carry their own mu). Checked on 2026-10-12 against Horizons: 12
+  comets within 0.3% of r except Halley (0.5%, elements from 1968) and 67P (7%, a 2015 orbit before a Jupiter
+  approach). Ion tail = solar wind (400 km/s radial) minus the comet's velocity; dust tail = exact syndyne (each grain
+  released at t - tau with the comet's state, then two-body with GM (1 - beta)). The first version pushed grains by
+  1/2 beta g tau^2 at the release distance: a sungrazer just past perihelion threw a tail 100 AU long. Tail lengths
+  are illustrative; we have no absolute magnitudes, so famous comets are drawn bright and others faint, and the list
+  says "best placed", not "brightest". Fragments (-B, -AA) and D/ comets are left out of "near now".
+  `make_small_bodies.py --comets-only` rewrites only the comets (keeps open orbits within 3 years of perihelion).
+- Search (`core/search.js`): exact > prefix > word prefix > substring > 1-2 typos; then kind, fame, length. Compact
+  forms make "voyager1" work; digit-only substrings need 5+ characters ("67p" used to hit every asteroid numbered
+  ...67 starting with p). Indexes are built lazily: bodies, all comets, 26,000 named asteroids, exoplanet hosts.
+- Links (`core/solarlink.js`): `#f=<body key>&t=YYYY-MM-DDTHH:MM&r=<days/s>&d=<AU>`, or `#q=<search>`. The hash follows
+  the view (replaceState every 2 s and on focus), but only after a link we opened was applied (find.ready).
+- Card: "In Earth's sky" from `core/skyplace.js`: elongation and side (evening/morning) and the nearest constellation
+  *figure* (data/constellations.json stick figures, not IAU boundaries: the galactic centre comes out "near
+  Ophiuchus"). Checked: Halley in Jan 1986 "low in the west after sunset, near Aquarius", as it was.
+- Renders: parallel sessions' globe_shot runs reap each other's headless Edge (cdp.mjs reapOrphans); set
+  `OW_WORK="$LOCALAPPDATA\oo-brand-<name>"` per session. The Browser pane, when hidden, draws no frames at all.
