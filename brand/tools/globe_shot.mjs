@@ -15,8 +15,11 @@ try {
   // every run is a fresh profile with no cache, so the live feeds would be downloaded again each time: CelesTrak
   // firewalled this network after a day of look-dev renders. Satellites come from the website's copy instead.
   await p.send('Network.enable');
+  // OO_UNBLOCK=earthquake.usgs.gov lets one through for a run that needs it (time travel asks the USGS catalogue a few
+  // times); CelesTrak can never be unblocked
+  const unblock = (process.env.OO_UNBLOCK || '').split(',').filter(h => h && !/celestrak/i.test(h));
   await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*opensky-network.org*', '*adsb.lol*', '*adsb.fi*',
-    '*airplanes.live*', '*earthquake.usgs.gov*', '*wheretheiss.at*'] });
+    '*airplanes.live*', '*earthquake.usgs.gov*', '*wheretheiss.at*'].filter(u => !unblock.some(h => u.includes(h))) });
   await p.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
   const loaded = p.waitFor('Page.loadEventFired', { timeoutMs: 60000 });
   await p.send('Page.navigate', { url: process.env.OO_URL || 'http://localhost:8787/globe.html' }); // OO_URL: e.g. the live site

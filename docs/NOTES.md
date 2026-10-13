@@ -718,6 +718,48 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   (`--ink*`, `--dim`, `--faint`, …) under 4.5:1 against `--bg` / `--panel-solid` / `--panel-2`. Viewports that block zoom
   are only warnings on the three views that handle pinch themselves.
 
+## Time travel (timetravel.js, events.js; quakes/storms/satellites follow the clock; core/history.js) — 2026-10-13 (branch grow3-timetravel)
+
+- **One clock, the layers follow it.** Nothing new owns time: `src/globe/time.js` stays the only clock and share links
+  keep `t=`. main.js runs `Quakes.sync()`, `Storms.sync()`, `Events.sync()` and `Sats.travel()` on every clock change and
+  once a second; each one decides for itself (core/history.js `isPast`: more than 30 minutes back) whether to show its
+  live feed or its archive, and flips back when the clock returns. The panel (`timetravel.js`) only moves the clock
+  (always paused at the picked moment) and reports what came back.
+- **Quakes**: the USGS FDSN event API (`fdsnws/event/1/query`, CORS, keyless) one UTC day per request
+  (`orderby=magnitude&limit=1500`, M2.5+), so a running clock asks once per new day; days are kept for the session (14 at
+  most). Every quake of the window's two days is drawn once and shown/hidden as the 24 h window slides. The answer is
+  the same GeoJSON as the live summaries, so `parseUsgs` reads both. A busy day (Tōhoku: 587 at M2.5+, 0.4 MB) is the
+  worst case.
+- **Storms**: EONET `status=all&start&end&category=severeStorms` (12 days before to a day after) + GDACS's event search
+  for cyclones that are over (`gdacsPastCyclones`; `parseGdacsCyclones` drops them) with at most four geometries, only
+  for storms EONET lacks. One fetch per UTC day; `stormsAt` cuts each track at the time shown and interpolates the
+  position and wind between fixes (Ian at 19:05 UTC on 2022-09-28 lands 12 km from NHC's landfall point, tested). No
+  forecast cones, wind fields or warnings: the archives don't have the forecasts of the time, so none are drawn. NHC's
+  advisories have no CORS archive (HURDAT2 is a text file on nhc.noaa.gov without CORS); EONET's storm tracks are
+  NHC/JTWC positions anyway.
+- **Natural events**: a new `events` layer (off by default; the moments switch it on): EONET's non-storm events, open
+  in the last 20 days live, and in the past every event (open or closed) going on that day (`eventActiveAt`: an event
+  without a close date counts for a week after its last fix).
+- **Satellites**: the site build keeps `data/tle/history/<day>.txt` (bare two-line sets of 17 groups, ~3,900 objects,
+  ~0.55 MB a day, 30 days ≈ 16 MB on Pages) plus `index.json`. The first build of each UTC day writes the day's file, only
+  when at least half the groups downloaded fresh; earlier days come from an actions/cache folder (`OO_TLE_HISTORY`) or,
+  without it, from the live site. Starlink, OneWeb and "active" are not archived (2.5 MB a day). In the browser
+  `chooseElements` gives each satellite whichever set (today's or the nearest snapshot's) has its epoch nearer the time
+  shown; nothing within 7 days hides it (SGP4 drifts kilometres a day and satellites manoeuvre); a satellite missing from
+  a snapshot taken within a day of the time shown, while its group is archived, wasn't catalogued yet and hides. The
+  swap rewrites `s.l1/s.l2` (models, cards, orbit lines read those) and reloads the SGP4 worker with nulls for hidden
+  ones; `s.today` keeps today's set. Re-chosen when the nearest snapshot changes or every 6 h of clock time.
+- **Honest UI**: the panel lists what came back per layer, with a "switch on" for layers that are off; aircraft and
+  upcoming launches hide in the past; cameras, ships, transit, bikes, traffic, weather, aurora and VIIRS fires stay live
+  and the panel says so. A card follows the clock (the same storm or event re-selected, else closed).
+- **Layout**: a strip above the band (the Ops rail sits where a top panel would go); moments fly the camera a little
+  south of the place so it lands in the upper half, above the strip. Phones: above the dock, and the Time sheet has a
+  Time travel button.
+- **Headless shots**: globe_shot blocks USGS; `OO_UNBLOCK=earthquake.usgs.gov` lets the catalogue through for a run
+  (CelesTrak can never be unblocked). The browser tests answer the catalogue with the real Tōhoku M6+ fixture.
+- **Local archive for testing**: `data/tle/` is gitignored; run `archive_tles('data/tle')` from build_site.py over the
+  website's own group copies to make one (never CelesTrak).
+
 ## Earth now: the dashboard (now.js, now.css, core/earthnow.js) — 2026-10-13 (branch grow2-dashboard)
 
 - **One panel, the globe's own feeds.** `Earth now` (band, `E`, `#go=now`) sums up quakes, cyclones, the aurora, launches,

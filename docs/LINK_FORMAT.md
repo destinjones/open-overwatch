@@ -92,7 +92,7 @@ geostationary belt. The globe's camera stops at 600 million m; beyond about 300 
 `src/globe/layers.js`:
 
 `stations` `visual` `gnss` `geo` `weather` `starlink` `active` `debris` `launches` `air` `mil` `airq` `smoke` `airports`
-`quakes` `transit` `buoys` `dart` `tides` `sst` `ships` `bikes` `traffic` `storms` `fires` `radio` `lighthouses` `sun` `terrain` `buildings` `cams` `cctv`
+`quakes` `transit` `buoys` `dart` `tides` `sst` `ships` `bikes` `traffic` `storms` `events` `fires` `radio` `lighthouses` `sun` `terrain` `buildings` `cams` `cctv`
 `alpr` `milareas` `photoreal` `volcanoes` `companies` `aurora` `clouds` `night` `labels`
 
 What each one shows is in the [user guide](../guide.html#layers). Each id must match `[a-z0-9_-]{1,24}` (case-insensitive)
@@ -240,9 +240,11 @@ country borders, which load on arrival.
 | `flybys` | asteroid and comet flybys |
 | `conj` | near misses (close approaches in orbit) |
 | `now` | Earth now, the dashboard |
+| `history` | Time travel (also read with a camera: links copied from the panel carry `t=` and `go=history`) |
 
 Anything else is ignored. Look up is deliberately not in the list: it needs a tap first (phones ask for motion sensors
-only after one). `go` is read only when the hash has no `c`.
+only after one). `go` is read only when the hash has no `c`, except `go=history`, which opens the time-travel panel over the
+linked view.
 
 ### `id` — one item in the panel
 

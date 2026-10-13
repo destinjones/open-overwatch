@@ -121,6 +121,12 @@ export const versions = () => ({ versions: [
   { tag: 'v0.9.1', date: '2026-10-02', title: 'The rebuild', notes: '', map: 'v/v0.9.1/open-overwatch.html', globe: 'v/v0.9.1/globe.html' },
 ] });
 
+/** The USGS catalogue (time travel): the real M6+ quakes of 2011-03-11 (test/fixtures/history) for that day, none for any other. */
+export function catalogue(href) {
+  const day = new URL(href).searchParams.get('starttime') || '';
+  return day.startsWith('2011-03-11') ? JSON.parse(readFileSync(new URL('test/fixtures/history/fdsn_2011-03-11_m6.json', ROOT), 'utf8')) : { type: 'FeatureCollection', features: [] };
+}
+
 /** The TLE mirror (data/tle/<group>.txt): the space stations from test/fixtures for every group, so each layer has dots. */
 export const tle = () => readFileSync(new URL('test/fixtures/stations.tle', ROOT), 'utf8');
 

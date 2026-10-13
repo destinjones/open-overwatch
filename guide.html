@@ -122,7 +122,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <div class="toc" aria-label="On this page">
       <a href="#views">The views</a><a href="#moving">Moving around</a><a href="#band">The band</a>
       <a href="#layers">Globe layers</a><a href="#cards">Clicking things</a><a href="#aviation">Planes and airports</a><a href="#sky">Tonight and look up</a><a href="#now">Earth now</a>
-      <a href="#weather">Weather timeline</a><a href="#measure">Draw and measure</a><a href="#ops">Ops looks</a>
+      <a href="#weather">Weather timeline</a><a href="#history">Time travel</a><a href="#measure">Draw and measure</a><a href="#ops">Ops looks</a>
       <a href="#voice">Voice commands</a><a href="#keys">Keyboard</a><a href="#share">Share and embed</a>
       <a href="#map2d">The 2D map</a><a href="#solar">Solar System</a><a href="#download">Download version</a>
       <a href="#app">App and offline</a><a href="#claude">Ask Claude</a><a href="#privacy">Privacy</a><a href="#limits">Limits</a>
@@ -159,7 +159,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <h3>The phone dock</h3>
     <p>On phones the long band and the time buttons are replaced by a dock at the bottom: <b>Explore</b> (every destination and tool in the band, as a sheet), <b>Layers</b>, <b>Time</b> (the clock speeds), <b>Look up</b> and <b>North</b>. The buttons click the same controls as on a desktop, so everything works the same way.</p>
     <h3>The time bar</h3>
-    <p>Top of the screen. <kbd>«</kbd> runs backwards an hour a second, <kbd>❚❚</kbd> pauses, <kbd>▶</kbd> is live, <kbd>›</kbd> is a minute a second, <kbd>»</kbd> ten minutes a second, <kbd>⏩</kbd> an hour a second, and <b>NOW</b> returns to the present. Satellites, the Sun, the Moon and the weather follow the clock. Aircraft hide while the clock is away from live, because there is no record of where they were. The clock carries over into the Solar System view and back.</p>
+    <p>Top of the screen. <kbd>«</kbd> runs backwards an hour a second, <kbd>❚❚</kbd> pauses, <kbd>▶</kbd> is live, <kbd>›</kbd> is a minute a second, <kbd>»</kbd> ten minutes a second, <kbd>⏩</kbd> an hour a second, and <b>NOW</b> returns to the present. Satellites, the Sun, the Moon and the weather follow the clock. Aircraft hide while the clock is away from live, because there is no record of where they were. Go further back with <a href="#history">Time travel</a>: earthquakes, storms, natural events and satellites then switch to their archives. The clock carries over into the Solar System view and back.</p>
     <h3>The layers panel</h3>
     <p>The <b>Layers</b> button (top right) opens the dock of switches listed in <a href="#layers">Globe layers</a>, plus:</p>
     <ul>
@@ -198,6 +198,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td><code>Weather</code></td><td>Weather mode: one timeline from the last couple of hours into the next five days. See <a href="#weather">Weather timeline</a>.</td></tr>
         <tr><td><code>Before/after</code></td><td>Recent Landsat and Sentinel-2 pictures of the place in view (NASA HLS, VIIRS daily), the newest fairly clear one against an older one, split by a slider.</td></tr>
         <tr><td><code>Measure</code></td><td>Draw pins, lines, areas and distance arrows; outline a country. <kbd>M</kbd> opens it. See <a href="#measure">Draw and measure</a>.</td></tr>
+        <tr><td><code>Time travel</code></td><td>Go back to any moment: a slider over the last 30 days, a date box, steps back, and famous moments (the 2011 Tōhoku earthquake, Hurricane Ian's landfall, Apollo 11). Earthquakes, storms, natural events and satellites show what was there then. See <a href="#history">Time travel</a>.</td></tr>
         <tr><td><code>Eclipses</code></td><td>The solar eclipses of 2027 to 2030: watch the Moon's shadow cross the Earth, with the path of totality and how much of the Sun is covered where you are.</td></tr>
         <tr><td><code>Solar system ↗</code></td><td>Keeps zooming out: the camera climbs until the Solar System view takes over, with Earth in the same place on screen.</td></tr>
       </tbody>
@@ -231,7 +232,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td><span class="dot" style="background:#c9a07a"></span><code>smoke</code></td><td>Smoke and dust seen from space: the UV aerosol index of the current UTC day's orbits so far (places not yet passed over are empty), with a legend. Click the sea to read the value.</td><td>NASA Suomi NPP OMPS via NASA GIBS</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#9fe3ff"></span><code>airports</code></td><td>The world's large and medium airports, with codes close up. Click one for its board: the planes arriving, departing and on the ground right now (see <a href="#aviation">Planes and airports</a>).</td><td>OurAirports (public domain); boards from the live aircraft on the globe</td><td>on (off on phones)</td></tr>
         <tr class="grp"><td colspan="4">Earth</td></tr>
-        <tr><td><span class="dot" style="background:#ff7b4f"></span><code>quakes</code></td><td>Earthquakes of magnitude 2.5 and up in the last 24 hours.</td><td>USGS real-time feed</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#ff7b4f"></span><code>quakes</code></td><td>Earthquakes of magnitude 2.5 and up in the last 24 hours (with the clock in the past: the 24 hours before the time shown).</td><td>USGS real-time feed; the USGS catalogue for the past</td><td>on</td></tr>
         <tr><td><span class="dot" style="background:#3ee08f"></span><code>transit</code></td><td>Live buses, trams and trains in Boston, Helsinki, Norway, Austin and Minneapolis-St Paul, moving smoothly between real reports.</td><td>MBTA, HSL, Entur, CapMetro, Metro Transit</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#62e0c8"></span><code>buoys</code></td><td>About 870 ocean buoys and coastal stations with their latest report: wave height and period, wind and gusts, water and air temperature, pressure. Coloured by wave height (grey: no wave sensor).</td><td>NOAA NDBC, refreshed every 10 minutes (the website goes through its relay)</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#ffd45c"></span><code>dart</code></td><td>The DART tsunami buoys on the deep-sea floor. A card reads the buoy's own file: the water column above the sensor, the last reading, and whether it is in event mode (fast sampling after a quake, a tsunami or a test). Warnings come from tsunami.gov, not from here.</td><td>NOAA NDBC</td><td>off</td></tr>
@@ -240,7 +241,8 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td><span class="dot" style="background:#5fb0ff"></span><code>ships</code></td><td>Ships in the northern Baltic from live AIS: arrows far out, true-size hulls with wakes close in.</td><td>Fintraffic Digitraffic</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#7dffb0"></span><code>bikes</code></td><td>Bike-share stations and free bikes in about 800 systems worldwide, near the view. Systems whose feeds stopped are greyed.</td><td>CityBikes</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#f5c26b"></span><code>traffic</code></td><td>Simulated cars on real roads, with traffic lights and rush hours by local time. In New York and Finland measured speeds (and counts) drive the cars and colour the roads. The cars themselves are a simulation and say so.</td><td>Roads from OpenFreeMap vector tiles; speeds from NYC DOT and Fintraffic</td><td>off</td></tr>
-        <tr><td><span class="dot" style="background:#7fd0ff"></span><code>storms</code></td><td>Tropical cyclones: tracks, forecast cones, coastal watches and warnings, wind fields.</td><td>NOAA NHC (Atlantic and East/Central Pacific), GDACS (every other basin), NASA EONET</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#7fd0ff"></span><code>storms</code></td><td>Tropical cyclones: tracks, forecast cones, coastal watches and warnings, wind fields. In the past: the storms going on then, where they were, with their tracks until then.</td><td>NOAA NHC (Atlantic and East/Central Pacific), GDACS (every other basin), NASA EONET</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#ffb36b"></span><code>events</code></td><td>Natural events: volcanic eruptions, wildfires, floods, sea and lake ice, dust and more, open in the last 20 days; in the past, the ones going on at the time shown (closed ones too).</td><td>NASA EONET</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#ff7a2f"></span><code>fires</code></td><td>Wildfire hot spots seen by satellite in the last 24 hours, worldwide, and current US fire perimeters.</td><td>NASA VIIRS thermal anomalies (via GIBS), NIFC</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#ff6fd8"></span><code>radio</code></td><td>About 3,000 radio stations (1,500 on phones) at their cities, with an analog tuner whose dial snaps to real stations and flies to them.</td><td>radio-browser.info</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#ffe27a"></span><code>lighthouses</code></td><td>Lighthouses of the world, with their light characteristics.</td><td>OpenStreetMap</td><td>on (off on phones)</td></tr>
@@ -375,6 +377,24 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
       </tbody>
     </table></div>
     <p>Clouds, rain and lightning start on. Drag the slider, or press play: the globe's clock moves with it, so the day-night line and the satellites move with the weather, and moving the clock in the time bar moves the slider. Closing weather mode puts the clock back to live.</p>
+  </div>
+</section>
+
+<section id="history" aria-labelledby="history-h">
+  <div class="wrap">
+    <div class="eyebrow">Time travel</div>
+    <h2 id="history-h">Time travel</h2>
+    <p><b>Time travel</b> in the band (on phones: <b>Time</b> in the dock) opens a panel on the globe's one clock. Drag the slider (the last 30 days; around the day shown when you go further back), type a date and time (UTC), step an hour or a day, or jump 1 day, 1 week, 30 days or 1 year back. The clock stops at the moment you pick; press <kbd>▶</kbd> or a speed in the time bar to let it run from there, and <b>Now</b> to come back.</p>
+    <p><b>On this day in history</b> takes you to a moment, switches on the layers that tell its story and flies there: the Tōhoku earthquake and tsunami (2011), Hurricane Ian's landfall in Florida (2022), Typhoon Haiyan (2013), the Türkiye–Syria earthquakes (2023), the James Webb Space Telescope's launch (2021) and Apollo 11 (1969).</p>
+    <p>What has history, and what doesn't (the panel says the same, and what came back for the time shown):</p>
+    <ul>
+      <li><b>Earthquakes</b>: the USGS catalogue, back to 1900. The 24 hours before the time shown, magnitude 2.5 and up (at most 1,500 a day, the biggest first); each appears as the clock passes it.</li>
+      <li><b>Tropical cyclones</b>: NASA EONET's past storms and GDACS's past cyclones, roughly since 2000: where each storm was at the time shown and its track until then. Forecast cones and warnings of the time are not archived, so none are drawn.</li>
+      <li><b>Natural events</b> (the <code>events</code> layer): EONET's events going on that day, including ones closed since.</li>
+      <li><b>Satellites</b>: the website keeps a copy of the element sets every day for 30 days (space stations, bright, navigation, weather, geostationary, science and the debris clouds). Each satellite uses the set nearest the time shown; one with nothing within 7 days is hidden rather than drawn in the wrong place. Starlink, OneWeb and "all other active" use today's sets within a week of today and hide further back.</li>
+      <li><b>Live only</b>: aircraft and upcoming rocket launches (hidden in the past), cameras, ships, transit, bikes, traffic, weather, aurora, the ocean and air-quality layers and the VIIRS fire hot spots (they keep showing now).</li>
+    </ul>
+    <p><b>Copy link</b> in the panel copies the view with its time (<code>t=</code>) and the panel open (<code>go=history</code>).</p>
   </div>
 </section>
 

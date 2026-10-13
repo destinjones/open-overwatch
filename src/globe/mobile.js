@@ -13,7 +13,7 @@ const PLACES = {
   now: ['Earth now', 'Quakes, storms, fires, launches, aurora right now'],
   ground: ['Street', 'London at 3 km, tilted'], air: ['Airspace', 'Europe from 1,400 km'], earth: ['Earth', 'The whole planet, sunlit side'],
   geo: ['GEO belt', '36,000 km up, where TV satellites sit'], moon: ['Moon', 'Fly out and look at it'], conj: ['Near misses', 'Close approaches in orbit'],
-  tour: ['Tour', 'An 80-second guided flight'], launches: ['Launches', 'Rockets about to fly, with countdowns'], flybys: ['Flybys', 'Asteroids passing Earth'], weather: ['Weather', 'Live clouds, rain radar, rain from space'], route: ['Directions', 'A route between two places, then fly it'], imagery: ['Before/after', 'Recent satellite pictures of this place'], measure: ['Measure', 'Distances, areas, pins; outline a country'], search: ['Search', 'Satellites, countries, flights, volcanoes'], tonight: ['Tonight', 'What you can see above you, with reminders'], flight: ['Find a flight', 'Type a flight number, follow the plane'], lookup: ['Look up', 'Your sky, with the phone as a window'], eclipses: ['Eclipses', 'Solar eclipses 2027 to 2030'], space: ['Solar System', 'Keep going: planets, stars, galaxies'],
+  tour: ['Tour', 'An 80-second guided flight'], launches: ['Launches', 'Rockets about to fly, with countdowns'], flybys: ['Flybys', 'Asteroids passing Earth'], weather: ['Weather', 'Live clouds, rain radar, rain from space'], route: ['Directions', 'A route between two places, then fly it'], imagery: ['Before/after', 'Recent satellite pictures of this place'], measure: ['Measure', 'Distances, areas, pins; outline a country'], search: ['Search', 'Satellites, countries, flights, volcanoes'], tonight: ['Tonight', 'What you can see above you, with reminders'], flight: ['Find a flight', 'Type a flight number, follow the plane'], lookup: ['Look up', 'Your sky, with the phone as a window'], eclipses: ['Eclipses', 'Solar eclipses 2027 to 2030'], history: ['Time travel', 'Go back: past quakes, storms, satellites'], space: ['Solar System', 'Keep going: planets, stars, galaxies'],
 };
 const RATES = [[-3600, '« 1 h/s'], [0, '❚❚ Pause'], [1, '▶ Live'], [60, '› 1 min/s'], [600, '» 10 min/s'], [3600, '⏩ 1 h/s']];
 
@@ -45,7 +45,7 @@ export function initMobile() {
   function timeHtml() {
     const cur = timebar.querySelector('[data-rate].on'), now = $('#tNow').textContent, mode = $('#tMode').textContent;
     const rates = RATES.map(([r, label]) => `<button class="m-rate${cur && +cur.dataset.rate === r ? ' on' : ''}" data-rate="${r}">${label}</button>`);
-    return `<div class="m-head"><b>${now}</b><span>${mode}</span></div><div class="m-rates">${rates.join('')}</div><button class="m-item m-now" data-now="1"><b>Back to now</b><span>Live time</span></button>`;
+    return `<div class="m-head"><b>${now}</b><span>${mode}</span></div><div class="m-rates">${rates.join('')}</div><button class="m-item m-now" data-now="1"><b>Back to now</b><span>Live time</span></button><button class="m-item m-now" data-go="history"><b>Time travel</b><span>Pick a date: past quakes, storms, satellites</span></button>`;
   }
   const render = () => { if (open === 'explore') sheet.innerHTML = exploreHtml(); else if (open === 'time') sheet.innerHTML = timeHtml(); };
   function show(k) { open = k; render(); sheet.classList.add('show'); scrim.classList.add('show'); sync(); }

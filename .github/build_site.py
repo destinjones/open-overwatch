@@ -152,6 +152,95 @@ def mirror_tles(dest):
         time.sleep(2)   # be gentle with CelesTrak
     with open(os.path.join(dest, 'index.json'), 'w', encoding='utf-8') as f:
         json.dump(index, f, indent=1)
+    return index
+
+
+# Time travel: one copy of the element sets a day for 30 days, so a globe rewound to last week propagates the elements that
+# were current then (src/core/history.js chooses per satellite). Starlink, OneWeb and "active" are left out (2.5 MB a day).
+# Keep in sync with ARCHIVED_GROUPS and TLE_HISTORY_DAYS in src/core/history.js.
+TLE_HISTORY_DAYS = 30
+TLE_ARCHIVED = ['stations', 'visual', 'military', 'radar', 'gps-ops', 'glo-ops', 'galileo', 'beidou', 'weather', 'goes', 'resource', 'science',
+                'iridium-NEXT', 'geo', 'cosmos-2251-debris', 'iridium-33-debris', 'fengyun-1c-debris']
+
+
+def tle_snapshot(texts):
+    """Group texts -> one bare two-line file, each catalogue number once (first group wins). Returns (text, count)."""
+    seen, out = set(), []
+    for txt in texts:
+        lines = [l.rstrip() for l in txt.splitlines()]
+        for i in range(len(lines) - 1):
+            l1, l2 = lines[i], lines[i + 1]
+            if l1.startswith('1 ') and l2.startswith('2 ') and len(l1) >= 64 and len(l2) >= 63:
+                sat = l1[2:7].strip()
+                if sat not in seen:
+                    seen.add(sat); out.append(l1 + '\n' + l2 + '\n')
+    return ''.join(out), len(out)
+
+
+def archive_tles(tle_dir, kept=(), now=None, fetch=None, cache=None):
+    """Best effort: data/tle/history/<YYYY-MM-DD>.txt for the last 30 UTC days and index.json {updated, groups, days: [{day, at
+    (ms the copy was taken), n, bytes}]}. Earlier days come from `cache` (a folder the workflow keeps between runs, OO_TLE_HISTORY)
+    or else from the live site; today's is made once, by the first build of the day whose fresh downloads cover at least
+    half the archived groups (kept: groups whose copy this build couldn't refresh). Older days are pruned."""
+    fetch = fetch or (lambda rel: last_good(rel))
+    now = time.time() if now is None else now
+    hist = os.path.join(tle_dir, 'history'); os.makedirs(hist, exist_ok=True)
+    today = time.strftime('%Y-%m-%d', time.gmtime(now))
+    cut = time.strftime('%Y-%m-%d', time.gmtime(now - (TLE_HISTORY_DAYS - 1) * 86400))
+
+    def read(name):
+        if cache and os.path.exists(os.path.join(cache, name)):
+            with open(os.path.join(cache, name), 'rb') as f:
+                return f.read()
+        return fetch('data/tle/history/' + name)
+    try:
+        old = json.loads((read('index.json') or b'null').decode('utf-8'))
+    except ValueError:
+        old = None
+    days = {}
+    for d in (old or {}).get('days', []) if isinstance(old, dict) else []:
+        if isinstance(d, dict) and re.match(r'^\d{4}-\d\d-\d\d$', str(d.get('day', ''))) and cut <= d['day'] <= today:
+            days[d['day']] = d
+    if today not in days:
+        fresh = [g for g in TLE_ARCHIVED if g not in kept and os.path.exists(os.path.join(tle_dir, g + '.txt'))]
+        if len(fresh) * 2 >= len(TLE_ARCHIVED):
+            texts = []
+            for g in TLE_ARCHIVED:
+                p = os.path.join(tle_dir, g + '.txt')
+                if os.path.exists(p):
+                    with open(p, encoding='utf-8', errors='replace') as f:
+                        texts.append(f.read())
+            txt, n = tle_snapshot(texts)
+            data = txt.encode('utf-8')
+            with open(os.path.join(hist, today + '.txt'), 'wb') as f:
+                f.write(data)
+            days[today] = {'day': today, 'at': int(now * 1000), 'n': n, 'bytes': len(data)}
+            print(f'tle history {today}: {n} element sets, {len(data)} bytes (new)')
+        else:
+            print(f'tle history {today}: not made (only {len(fresh)} of {len(TLE_ARCHIVED)} groups fresh); the next build tries again')
+    out = []
+    for day in sorted(days, reverse=True)[:TLE_HISTORY_DAYS]:
+        path = os.path.join(hist, day + '.txt')
+        if not os.path.exists(path):
+            data = read(day + '.txt')
+            if not data or not data.startswith(b'1 '):
+                print(f'tle history {day}: missing, dropped'); continue
+            with open(path, 'wb') as f:
+                f.write(data)
+        out.append(days[day])
+    index = {'updated': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(now)), 'groups': TLE_ARCHIVED, 'days': out}
+    with open(os.path.join(hist, 'index.json'), 'w', encoding='utf-8') as f:
+        json.dump(index, f, indent=1)
+    if cache:
+        import shutil
+        os.makedirs(cache, exist_ok=True)
+        for name in os.listdir(cache):
+            if name != 'index.json' and name[:-4] not in {d['day'] for d in out}:
+                os.remove(os.path.join(cache, name))
+        for name in os.listdir(hist):
+            shutil.copyfile(os.path.join(hist, name), os.path.join(cache, name))
+    print(f'tle history: {len(out)} days, {sum(d.get("bytes", 0) for d in out)} bytes')
+    return index
 
 
 def mirror_socrates(path):
@@ -359,7 +448,11 @@ def main():
     with open(os.path.join(OUT, 'versions.json'), 'w', encoding='utf-8') as f:
         json.dump({'latest': versions[0]['tag'] if versions else None, 'versions': versions}, f, indent=1)
     print(f'versions.json: {len(versions)} versions')
-    mirror_tles(os.path.join(OUT, 'data', 'tle'))
+    tles = mirror_tles(os.path.join(OUT, 'data', 'tle'))
+    try:
+        archive_tles(os.path.join(OUT, 'data', 'tle'), kept=tles['kept'], cache=os.environ.get('OO_TLE_HISTORY') or None)
+    except Exception as e:   # never fail the site over the archive
+        print(f'tle history: FAILED {e}')
     mirror_socrates(os.path.join(OUT, 'data', 'socrates.json'))
     mirror_wind(os.path.join(OUT, 'data', 'wind.json'))
     mirror_flybys(os.path.join(OUT, 'data', 'flybys.json'))

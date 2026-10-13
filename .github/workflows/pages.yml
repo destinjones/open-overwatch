@@ -22,8 +22,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # all tags, for the version archive
+      - name: Keep the daily element-set archive between builds (data/tle/history; the live site is the fallback)
+        uses: actions/cache@v4
+        with:
+          path: .tle-history
+          key: tle-history-${{ github.run_id }}
+          restore-keys: tle-history-
       - name: Build the site with every released version
         run: python3 .github/build_site.py _site
+        env:
+          OO_TLE_HISTORY: .tle-history
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

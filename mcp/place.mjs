@@ -12,7 +12,7 @@ const D2R = Math.PI / 180;
 
 /** Every layer the globe has (src/globe/layers.js; test/mcp.test.mjs keeps the two in step). */
 export const LAYERS = Object.freeze(['stations', 'visual', 'gnss', 'geo', 'weather', 'starlink', 'active', 'debris', 'launches', 'air', 'mil', 'airq', 'smoke', 'airports', 'quakes', 'transit',
-  'buoys', 'dart', 'tides', 'sst', 'ships', 'bikes', 'traffic', 'storms', 'fires', 'radio', 'lighthouses', 'sun', 'terrain', 'buildings', 'cams', 'cctv', 'alpr', 'milareas', 'photoreal', 'volcanoes', 'companies', 'aurora',
+  'buoys', 'dart', 'tides', 'sst', 'ships', 'bikes', 'traffic', 'storms', 'events', 'fires', 'radio', 'lighthouses', 'sun', 'terrain', 'buildings', 'cams', 'cctv', 'alpr', 'milareas', 'photoreal', 'volcanoes', 'companies', 'aurora',
   'clouds', 'night', 'labels']);
 /** What weather mode can show (src/globe/weather.js sets). */
 export const WEATHER = Object.freeze(['ir', 'radar', 'rain', 'lightning', 'wind', 'temp', 'pres', 'gust', 'wave']);

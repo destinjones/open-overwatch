@@ -11,6 +11,8 @@ import { release } from './follow.js';
 import { Alerts } from './alerts.js';
 import { fetchAsset } from '../core/assets.js';
 import { fromLL2, countdown, when, upcoming } from '../core/launches.js';
+import { Time } from './time.js';
+import { isPast } from '../core/history.js';
 
 const API = 'https://ll.thespacedevs.com/2.3.0/launches/upcoming/?limit=30&mode=normal&hide_recent_previous=true';
 const ORANGE = C.Color.fromCssColorString('#ff9f5c');
@@ -55,7 +57,7 @@ export const Launches = {
   },
   relabel() { const now = Date.now(); for (const l of this.list) if (l.label) l.label.text = `🚀 ${l.rocket}${precise(l) ? ' · ' + countdown(l.net, now).replace(/:\d\d$/, '') : ''}${l.more ? ` · +${l.more}` : ''}`; },
   apply() {
-    pts.show = labels.show = L.launches.on && !state.lookup;   // look-up mode hides things on the ground
+    pts.show = labels.show = L.launches.on && !state.lookup && !isPast(Time.nowMs());   // look-up mode hides things on the ground; upcoming launches mean nothing in the past
     if (L.launches.on && !this.loading && Date.now() - this.failedAt > 5 * 60e3) this.load();   // after a failure, try again in 5 minutes, not on every redraw
     clearInterval(this.labelTimer); if (L.launches.on) this.labelTimer = setInterval(() => this.relabel(), 30e3);
     scene.requestRender();

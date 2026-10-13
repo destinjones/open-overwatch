@@ -322,6 +322,23 @@ Round 2 (2026-10-10, local):
 - [ ] Launches per month from real history: the site copies only upcoming launches; a trimmed `launches/previous` copy
       in build_site.py (a few more LL2 requests per build) would give a true monthly count. Needs the owner's OK
 - [ ] An `earth_now` MCP tool on the same core sums
+### Time travel (grow3-timetravel, 2026-10-13, local)
+- [x] One clock, real history: with the globe's clock in the past, earthquakes come from the USGS catalogue (24 h before
+      the time shown, back to 1900), cyclones from EONET's closed events and GDACS's past cyclones (track cut at the time
+      shown, position interpolated, no forecasts), a new `events` layer (EONET eruptions, fires, floods, ice: live 20
+      days, or the time shown), and satellites from a daily archive of element sets (core/history.js, tested on real
+      USGS and EONET answers; Ian's landfall within 12 km of NHC's point)
+- [x] Site build: `data/tle/history/` keeps one snapshot a day for 30 days (17 groups, ~0.55 MB a day), carried between
+      builds in an actions/cache folder with the live site as fallback, pruned; tested in Python from `node --test`
+- [x] Time travel panel (band, `#go=history`, phone Time sheet): slider, UTC date box, ±1 h / ±1 day, 1 day / week /
+      30 days / year back, six moments (Tōhoku, Ian, Haiyan, Türkiye–Syria, JWST, Apollo 11), what came back per layer,
+      what is live only; links carry `t=` and `go=history`. Aircraft and upcoming launches hide in the past
+- [ ] The archive fills from the first site build after publishing: until then rewinds use today's elements within a
+      week and hide satellites further back
+- [ ] Archive Starlink too? 1.8 MB a day (54 MB for 30 days on Pages): the owner's call
+- [ ] The 2D map has no time travel yet (its quake and EONET layers could share core/history.js)
+- [ ] Past fire hot spots (GIBS VIIRS tiles are dated: fires.js could ask for the day shown)
+
 ### End-to-end browser tests (grow2-e2e, 2026-10-13, local)
 - [x] Playwright suite (`e2e/`, `npm run e2e`, port 8805): every page in headless Chromium with software WebGL, the feeds
       stubbed (CelesTrak refused, fixtures in e2e/support/feeds.mjs), main controls driven, share links both ways, phone

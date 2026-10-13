@@ -25,7 +25,7 @@ is also used by its tests in `test/`.
 - [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`
 - [Weather](#weather): `gfs.js`, `wxmodels.js`, `wxload.js`, `model.worker.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpaint.js`
 - [Weather](#weather): `gfs.js`, `wxmodels.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpoint.js`
-- [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `aurora.js`, `ocean.js`, `fireclusters.js`, `fires.worker.js`, `earthnow.js`
+- [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `history.js`, `aurora.js`, `ocean.js`, `fireclusters.js`, `fires.worker.js`, `earthnow.js`
 - [Aviation](#aviation): `aircraft.js`, `actype.js`, `acinfo.js`, `phase.js`, `airports.js`, `runways.js`, `aloft.js`, `trail.js`
 - [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `transitfeeds.js`, `gtfsrt.js`, `bikes.js`, `cameras.js`, `cables.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
 - [OpenStreetMap](#openstreetmap): `osmtiles.js`, `overpass.js`
@@ -575,6 +575,26 @@ The GDACS disaster alert list behind the 2D map's "Disaster alerts" layer. Used 
 
 - `loadGdacsEvents`: every page of the last days. `parseGdacsEvents`, `gdacsEventsUrl`, `GDACS_TYPES`,
   `GDACS_LEVEL_COLOR`.
+
+### `history.js`
+
+Time travel: what the globe shows with its clock in the past. Earthquakes from the USGS catalogue (FDSN event API, one
+UTC day per request), storms and natural events from EONET's closed events and GDACS's past cyclones, satellites from
+the site build's daily archive of element sets (30 days). Used by globe.
+
+- `isPast` (more than `PAST_AFTER_MS` back), `utcDay`, `dayStart`, `DAY_MS`.
+- `fdsnDayUrl`, `quakeDays`, `quakeInWindow`, `QUAKE_WINDOW_MS`, `QUAKE_DAY_LIMIT`, `QUAKES_FROM`: the catalogue's days
+  for the 24 h before the time shown, biggest first and capped.
+- `eonetAtUrl`, `eventActiveAt`: EONET events (open and closed) around a moment, and whether one was going on.
+  `gdacsTcAtUrl`, `gdacsPastCyclones`, `stormsFromGdacs`: GDACS's cyclones that are over, with their observed tracks.
+- `trackAt`: where a track was at a moment (interpolated, across the date line). `stormsAt`: storms as they stood then,
+  tracks cut at the time shown, no forecasts.
+- `parseHistoryIndex`, `nearestSnapshot`, `keepDays`, `archiveMap`, `historyFileUrl`, `TLE_HISTORY`,
+  `TLE_HISTORY_DAYS`, `ARCHIVED_GROUPS`: the archive (`data/tle/history/`, written by the site build,
+  archive_tles() in `.github/build_site.py`). `chooseElements`: per satellite, today's set or the archive's, whichever epoch is nearer; nothing
+  within `MAX_GAP_DAYS` hides it; one missing from a covering snapshot wasn't catalogued yet.
+- `MOMENTS`, `momentMs`, `STEPS_BACK`, `scrubRange`, `HISTORY`: the panel's moments, steps, slider range and its
+  honest table of what has history.
 
 ### `aurora.js`
 
