@@ -183,6 +183,38 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   updater keeps working, just less often. The quality auto step-down must ignore those slow frames (it did not at first).
 - Push-to-talk ignores Space on buttons (a focused chip would also be clicked) and in text fields.
 
+## Weather 2.0: ECMWF, pressure, gusts, waves (model.js, wind.js, core/aec.js, jpx.js, contour.js, wxmodels.js) — 2026-10-12
+- ECMWF open data on AWS (`ecmwf-forecasts`, eu-central-1) sends CORS * and allows `Range`, like the GFS bucket; each
+  step's `.index` is one JSON object a line (`_offset`, `_length`), turned into `.idx`-shaped rows so `idxRanges` serves
+  both. Only the 00/12 UTC runs: 06/18 are the `scda` stream and stop at +90 h. A run is complete ~7.5 h after it starts.
+- That bucket sheds load with **503 Slow Down, sent without CORS headers**: in a browser it is a plain "Failed to fetch".
+  When a run was new, 3-4 requests in 8 got it. The worker retries (backoff, 8 tries) and runs at most 4 requests at a
+  time; the run probe retries too, else it wrongly falls back to an older run.
+- ECMWF packs with CCSDS (GRIB2 template 5.42, libaec): `core/aec.js`. Details the standard leaves to libaec: the
+  zero-block "rest of segment" code (fs+1 = 5) means min(blocks left in the interval, 64 − b mod 64); larger codes are
+  one less; the second extension's first pair in a reference block has an implied 0. Flags 14 = MSB | 3-byte | preprocess.
+- NOAA's WAVEWATCH III (GFS-Wave, same bucket as GFS) is JPEG 2000 (template 5.40, JasPer): `core/jpx.js`. With a
+  bitmap the image is ONE ROW of the packed points (568,137 × 1), so its width exceeds the default precinct (2^15):
+  dozens of precincts per resolution, and LH/HH bands are empty. eccodes' "lossy" JPEG is reversible 5/3 cut short:
+  reconstruct each coefficient at the middle of its own last decoded plane (as OpenJPEG does), not one plane for all.
+- Field codes: ECMWF cloud is a local fraction (0.6.192, ×100), rain rate is 0.1.52, `10fg` is the strongest gust in
+  the hour before the step (template 4.8: forecast time = step − 1), `msl` is 0.3.0 against GFS's `PRMSL` 0.3.1; its
+  grid starts at 180° E. ECMWF has no gusts or rain rate at step 0: a kind missing from one hour takes the other's.
+- Both decoders equal eccodes (pip `eccodes`, a dev check) on real fields: CCSDS exactly (~80 ms a 0.25° field in
+  Node), JPEG 2000 to float32 rounding (~200-360 ms). test/fixtures/wx holds small messages eccodes wrote, with sums
+  and samples of eccodes' own decoding.
+- Volume: ECMWF at 0.25° is ~0.5-1.3 MB a field (~6 MB an hour with every layer); the worker thins it to 0.5° (1° on
+  phones) before handing it over. Waves are ~1.3 MB an hour either way.
+- Isobars: blended in time, averaged to 1° first (a 0.25° field wiggles over every mountain), every 4 hPa from 1000,
+  heavier every 20, labelled along the lines; H/L are points highest/lowest within 9° that stand 2.5 hPa off the rim's
+  mean. Drawn into a clear image so the split works; the H/L labels aren't imagery, so a postRender hook shows each
+  model's only on its side.
+- Side by side: every wash is two imagery layers with `splitDirection` LEFT/RIGHT at `scene.splitPosition`; a wind
+  streak takes the model of the side it was on last frame. The before/after slider (imagery.js) uses the same
+  `splitPosition`; don't run both at once.
+- Editing on Windows: Python's text mode writes CRLF; use `open(..., newline='')`, or the MCP test that reads
+  weather.js's `sets:` line (and others) fails.
+
 ## More live feeds (ships.js, bikes.js, transit GTFS-RT, cams live video) — 2026-10-11
 - A Primitive's geometry is baked into world coordinates (and projected for 2D) unless the viewer is `scene3DOnly`, which
   ours isn't: a unit quad in model space crashes `projectTo2D` (points near the Earth's centre). Ship hulls and wakes are

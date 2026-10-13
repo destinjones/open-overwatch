@@ -199,6 +199,11 @@ Round 2 (2026-10-10, local):
       where-in-Earth's-sky; the view as a link (#f=, #t=, #d=, #q=); Sun-Earth L1/L2. Tests against Horizons fixtures
 - [ ] Solar: comet brightness (SBDB M1/K1 magnitude parameters, a new SBDB pull) so the list can say what is bright,
       not just well placed; denser Juno track (1-day) for its perijoves
+- [x] Weather 2.0: ECMWF IFS open data (0.25°, CC BY 4.0) beside GFS, read in the browser by byte range like GFS (a
+      CCSDS decoder for its GRIB2, core/aec.js); a model switch and a side-by-side slider (washes split, streaks and H/L
+      follow their side); sea-level pressure as isobars every 4 hPa with H and L (core/contour.js); gusts; ocean waves
+      with direction darts (NOAA WAVEWATCH III via a JPEG 2000 decoder, core/jpx.js; ECMWF's wave model); a legend, a
+      point readout, and voice answers with gusts, pressure and its trend, the sea state (decoders checked against eccodes)
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 

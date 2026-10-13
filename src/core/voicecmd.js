@@ -157,12 +157,30 @@ export function skyWords({ code, cloud, rain, temp }) {
   if (!Number.isFinite(cloud)) return '';
   return cloud >= 85 ? 'overcast' : cloud >= 45 ? 'partly cloudy' : cloud >= 15 ? 'mostly clear' : 'clear skies';
 }
-/** A reading { temp °C, speed m/s, from (deg), cloud %, rain mm/h, code } spoken: "14 degrees Celsius, light rain, wind 18 kilometres
- *  an hour from the south-west". `imperial`: Fahrenheit and miles an hour (US English). */
+/** The sea in a word from significant wave height (m), the Douglas sea-state scale ("" for no reading). */
+export function seaWords(m) {
+  if (!Number.isFinite(m)) return '';
+  return m < 0.1 ? 'calm' : m < 0.5 ? 'smooth' : m < 1.25 ? 'slight' : m < 2.5 ? 'moderate' : m < 4 ? 'rough' : m < 6 ? 'very rough' : m < 9 ? 'high' : m < 14 ? 'very high' : 'phenomenal';
+}
+/**
+ * A reading { temp °C, speed m/s, from (deg), cloud %, rain mm/h, code, gust m/s, pres hPa, wave m, waveFrom (deg) }
+ * spoken: "14 degrees Celsius, light rain, wind 18 kilometres an hour from the south-west, gusting 40, pressure 1008
+ * hectopascals and falling, a rough sea, waves 3 metres from the west". `imperial`: Fahrenheit, miles an hour, inches
+ * of mercury and feet (US English). Gusts are said only when they matter (well above the wind, and strong).
+ */
 export function weatherSentence(r, imperial = false) {
-  const out = [];
+  const out = [], spd = v => imperial ? Math.round(v * 2.23694) : Math.round(v * 3.6);
   if (Number.isFinite(r.temp)) out.push(imperial ? `${Math.round(r.temp * 9 / 5 + 32)} degrees Fahrenheit` : `${Math.round(r.temp)} degrees Celsius`);
   const sky = skyWords(r); if (sky) out.push(sky);
-  if (Number.isFinite(r.speed)) out.push(r.speed < 0.5 ? 'calm' : `wind ${imperial ? Math.round(r.speed * 2.23694) + ' miles' : Math.round(r.speed * 3.6) + ' kilometres'} an hour${Number.isFinite(r.from) ? ` from the ${compass(r.from)}` : ''}`);
+  if (Number.isFinite(r.speed)) out.push(r.speed < 0.5 ? 'calm' : `wind ${spd(r.speed)} ${imperial ? 'miles' : 'kilometres'} an hour${Number.isFinite(r.from) ? ` from the ${compass(r.from)}` : ''}`
+    + (Number.isFinite(r.gust) && r.gust >= 10 && r.gust > 1.4 * (r.speed || 0) ? `, gusting ${spd(r.gust)}` : ''));
+  if (Number.isFinite(r.pres)) {
+    const trend = Number.isFinite(r.presTrend) && Math.abs(r.presTrend) >= 1 ? (r.presTrend < 0 ? ' and falling' : ' and rising') : '';   // hPa over the next 3 hours
+    out.push(imperial ? `pressure ${(r.pres * 0.02953).toFixed(2)} inches${trend}` : `pressure ${Math.round(r.pres)} hectopascals${trend}`);
+  }
+  if (Number.isFinite(r.wave)) {
+    const sea = seaWords(r.wave), h = imperial ? `${Math.round(r.wave * 3.28084)} feet` : `${r.wave < 2 ? r.wave.toFixed(1) : Math.round(r.wave)} metres`;
+    out.push(`${sea === 'calm' ? 'a calm sea' : `a ${sea} sea, waves ${h}`}${Number.isFinite(r.waveFrom) && r.wave >= 0.1 ? ` from the ${compass(r.waveFrom)}` : ''}`);
+  }
   return out.join(', ');
 }

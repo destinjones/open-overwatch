@@ -1,0 +1,19 @@
+/* Weather 2.0 (weather.js, wind.js): the model switch, the legend, the point readout and the side-by-side bar. */
+.wx-models{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:-2px 0 8px}
+.wx-models span{font:600 10px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-right:2px}
+.wx-models .chipbtn{opacity:.55;padding-top:4px;padding-bottom:4px} .wx-models .chipbtn.on{opacity:1;border-color:#ffc46b;color:#ffc46b}
+.wx-legend{display:grid;gap:6px;margin-top:8px} .wx-legend:empty{display:none}
+.wx-leg{display:grid;grid-template-columns:1fr;gap:2px}
+.wx-leg-t{font:500 10px/1.2 var(--mono);color:var(--dim)}
+.wx-leg-bar{height:7px;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.wx-leg-ticks{position:relative;height:11px;margin:0 6px;font:500 9px/1 var(--mono);color:var(--faint)}
+.wx-leg-ticks i{position:absolute;top:1px;transform:translateX(-50%);font-style:normal;white-space:nowrap}
+.wx-read{display:grid;gap:2px;margin-top:8px;padding:6px 8px;border-radius:8px;background:rgba(127,208,255,.07);font:500 11px/1.35 var(--mono);color:var(--text,#dfe9f5)}
+.wx-read .wx-at{color:var(--faint);font-size:10px} .wx-read b{color:#ffc46b;font-weight:700}
+#wxSplit{position:fixed;top:0;bottom:0;width:0;z-index:4;display:none;pointer-events:none}
+#wxSplit .ws-line{position:absolute;top:0;bottom:0;left:-1px;width:2px;background:rgba(255,196,107,.85);box-shadow:0 0 6px rgba(0,0,0,.6)}
+#wxSplit .ws-grip{position:absolute;top:24%;left:-20px;width:40px;height:40px;border-radius:50%;border:2px solid #ffc46b;background:rgba(10,16,28,.85);color:#ffc46b;font-size:18px;pointer-events:auto;cursor:ew-resize;touch-action:none}
+#wxSplit .ws-l,#wxSplit .ws-r{position:absolute;top:calc(24% + 48px);font:700 11px/1 var(--mono);letter-spacing:.06em;color:#ffc46b;white-space:nowrap;text-shadow:0 1px 3px #000}
+#wxSplit .ws-l{right:10px} #wxSplit .ws-r{left:10px}
+body.embed #wxSplit,body.lookup #wxSplit{display:none!important}
+body.m .wx-legend{gap:4px} body.m .wx-read{font-size:10px}
