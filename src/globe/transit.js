@@ -8,7 +8,8 @@ import { scene, camera, camHeight } from './viewer.js';
 import { Terrain } from './terrain.js';
 import { setCount } from './layers.js';
 import { state } from './state.js';
-import { parseMbta, parseEntur, parseHfp, enturQuery, mqtt, addFix, sample, ease, approach, lagMeter, inArea, fromGtfsRt } from '../core/transit.js';
+import { parseMbta, parseEntur, parseHfp, enturQuery, mqtt, addFix, sample, ease, approach, lagMeter, inArea, fromGtfsRt,
+  MBTA_VEHICLES, ENTUR_VEHICLES, METRO_TRANSIT_PB, CAPMETRO_VIEW, capmetroFile, METRO_TRANSIT_ROUTES, CAPMETRO_ROUTES, TRANSIT_AREAS } from '../core/transit.js';
 import { parseVehiclePositions } from '../core/gtfsrt.js';
 
 const MAX_H = 400e3;   // above this the dots are sub-pixel specks: no feeds at all
@@ -32,26 +33,18 @@ const gtfsrt = (url, opts) => async signal => {
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return fromGtfsRt(parseVehiclePositions(new Uint8Array(await r.arrayBuffer())), opts);
 };
-// the feeds carry route ids only: the lines that aren't buses (Metro Transit's METRO lines, CapMetro's train)
-const METRO_TRANSIT = { 901: ['lightrail', 'METRO Blue Line', 'Blue'], 902: ['lightrail', 'METRO Green Line', 'Green'], 888: ['rail', 'Northstar commuter rail', 'Northstar'],
-  903: ['bus', 'METRO Red Line (bus rapid transit)', 'Red'], 904: ['bus', 'METRO Orange Line (bus rapid transit)', 'Orange'], 905: ['bus', 'METRO Gold Line (bus rapid transit)', 'Gold'],
-  921: ['bus', 'METRO A Line (rapid bus)', 'A'], 922: ['bus', 'METRO B Line (rapid bus)', 'B'], 923: ['bus', 'METRO C Line (rapid bus)', 'C'], 924: ['bus', 'METRO D Line (rapid bus)', 'D'], 925: ['bus', 'METRO E Line (rapid bus)', 'E'] };
-const CAPMETRO = { 550: ['rail', 'MetroRail Red Line', 'Red Line'], 801: ['bus', 'MetroRapid 801'], 803: ['bus', 'MetroRapid 803'] };
-
 // ---- sources. `every`: poll period (0 = a stream); `gap0`: report interval assumed before a vehicle's own is known;
 // `stale`: drop a vehicle whose last report is older than this (a stream never says a vehicle has gone)
-const MBTA_URL = 'https://api-v3.mbta.com/vehicles?fields[vehicle]=latitude,longitude,bearing,speed,current_status,label,updated_at'
-  + '&include=route,trip&fields[route]=type,short_name,long_name,color&fields[trip]=headsign';
 const SOURCES = {
   // keyless MBTA allows 20 requests a minute per address; one every 15 s leaves room for a second tab
   mbta: { name: 'MBTA', every: 15e3, gap0: 15e3, stale: 15 * 60e3, credit: 'MBTA v3 API (MassDOT developer licence)',
-    fetch: signal => fetchJSON(MBTA_URL, {}, signal).then(parseMbta) },
+    fetch: signal => fetchJSON(MBTA_VEHICLES, {}, signal).then(parseMbta) },
   // Entur covers every Norwegian operator; ask for a box round the camera, wider the higher it is
   entur: { name: 'Entur', every: 15e3, gap0: 15e3, stale: 4 * 60e3, credit: 'Entur (NLOD 2.0)',
     fetch(signal) {
       const c = camera.positionCartographic, lat = C.Math.toDegrees(c.latitude), lon = C.Math.toDegrees(c.longitude);
       const dLat = Math.min(Math.max(1.2 * c.height, 60e3), 250e3) / 111e3, dLon = dLat / Math.max(0.2, Math.cos(c.latitude));
-      return fetchJSON('https://api.entur.io/realtime/v2/vehicles/graphql', { method: 'POST',
+      return fetchJSON(ENTUR_VEHICLES, { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'ET-Client-Name': 'openoverwatch-globe' },
         body: JSON.stringify({ query: enturQuery((lat - dLat).toFixed(3), (lon - dLon).toFixed(3), (lat + dLat).toFixed(3), (lon + dLon).toFixed(3)) }) }, signal).then(parseEntur);
     } },
@@ -59,23 +52,14 @@ const SOURCES = {
   // CapMetro's vehicles report every few seconds (the file is refreshed about every 15 s); Metro Transit's every ~30 s
   capmetro: { name: 'CapMetro', every: 15e3, gap0: 15e3, stale: 10 * 60e3, credit: 'CapMetro GTFS-RT via the Texas Open Data Portal',
     fetch: gtfsrt(async signal => {   // the download link redirects without CORS: ask for the current file, then read it
-      const id = (await fetchJSON('https://data.texas.gov/api/views/eiei-9rpf.json', {}, signal)).blobId;
-      if (!/^[\w-]+$/.test(id || '')) throw new Error('CapMetro: no current file');
-      return `https://data.texas.gov/api/views/eiei-9rpf/files/${id}?filename=vehiclepositions.pb`;
-    }, { prefix: 'capmetro', operator: 'CapMetro', routes: CAPMETRO }) },
+      const url = capmetroFile((await fetchJSON(CAPMETRO_VIEW, {}, signal)).blobId);
+      if (!url) throw new Error('CapMetro: no current file');
+      return url;
+    }, { prefix: 'capmetro', operator: 'CapMetro', routes: CAPMETRO_ROUTES }) },
   metrotransit: { name: 'Metro Transit', every: 15e3, gap0: 30e3, stale: 10 * 60e3, credit: 'Metro Transit GTFS-RT (Metropolitan Council)',
-    fetch: gtfsrt('https://svc.metrotransit.org/mtgtfs/vehiclepositions.pb', { prefix: 'mt', operator: 'Metro Transit', routes: METRO_TRANSIT }) },
+    fetch: gtfsrt(METRO_TRANSIT_PB, { prefix: 'mt', operator: 'Metro Transit', routes: METRO_TRANSIT_ROUTES }) },
 };
-const AREAS = [
-  { name: 'Boston', lat: 42.36, lon: -71.06, r: 150e3, src: SOURCES.mbta },
-  { name: 'Helsinki', lat: 60.17, lon: 24.94, r: 150e3, src: SOURCES.hsl },
-  { name: 'Austin', lat: 30.27, lon: -97.74, r: 150e3, src: SOURCES.capmetro },
-  { name: 'Minneapolis', lat: 44.98, lon: -93.20, r: 150e3, src: SOURCES.metrotransit },
-  // Norway as three boxes (south, middle, north) so Sweden doesn't poll it
-  { name: 'Norway', box: [57.8, 4.3, 63.5, 12.7], src: SOURCES.entur },
-  { name: 'Norway', box: [63.5, 8.3, 67.0, 15.5], src: SOURCES.entur },
-  { name: 'Norway', box: [67.0, 11.5, 71.4, 31.3], src: SOURCES.entur },
-];
+const AREAS = TRANSIT_AREAS.map(a => ({ ...a, src: SOURCES[a.src] }));   // core/transit.js: Norway as three boxes, so Sweden doesn't poll it
 for (const s of Object.values(SOURCES)) { s.lag = lagMeter(s.every ? 1 : 15e3); s.running = false; s.fails = 0; }   // a poll is one batch
 
 /** Polled feeds: run now, then every `every` ms (longer after failures; MBTA answers 429 past its limit). */

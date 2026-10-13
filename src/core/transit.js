@@ -221,3 +221,66 @@ export function inArea(a, lat, lon) {
   if (a.box) { const [s, w, n, e] = a.box; return lat >= s && lat <= n && (w <= e ? lon >= w && lon <= e : lon >= w || lon <= e); }   // w > e: the box crosses the antimeridian
   return hop(a, { lat, lon }).d <= a.r;
 }
+
+// ---- where the live feeds are (the globe's transit layer and the MCP server's transit tool share these)
+
+/** MBTA vehicles with their routes and trips (keyless: 20 requests a minute per address). */
+export const MBTA_VEHICLES = 'https://api-v3.mbta.com/vehicles?fields[vehicle]=latitude,longitude,bearing,speed,current_status,label,updated_at'
+  + '&include=route,trip&fields[route]=type,short_name,long_name,color&fields[trip]=headsign';
+export const ENTUR_VEHICLES = 'https://api.entur.io/realtime/v2/vehicles/graphql';
+export const METRO_TRANSIT_PB = 'https://svc.metrotransit.org/mtgtfs/vehiclepositions.pb';
+/** CapMetro's file moves: this record names the current one (blobId). */
+export const CAPMETRO_VIEW = 'https://data.texas.gov/api/views/eiei-9rpf.json';
+export const capmetroFile = blobId => (/^[\w-]+$/.test(blobId || '') ? `https://data.texas.gov/api/views/eiei-9rpf/files/${blobId}?filename=vehiclepositions.pb` : null);
+/** HSL's GTFS-RT vehicle positions: the same vehicles as its MQTT stream, as one file (no line names: see hslRoute). */
+export const HSL_PB = 'https://realtime.hsl.fi/realtime/vehicle-positions/v2/hsl';
+
+/** The routes that aren't buses (the GTFS-RT feeds carry route ids only): route_id -> [mode, name, line]. */
+export const METRO_TRANSIT_ROUTES = Object.freeze({ 901: ['lightrail', 'METRO Blue Line', 'Blue'], 902: ['lightrail', 'METRO Green Line', 'Green'], 888: ['rail', 'Northstar commuter rail', 'Northstar'],
+  903: ['bus', 'METRO Red Line (bus rapid transit)', 'Red'], 904: ['bus', 'METRO Orange Line (bus rapid transit)', 'Orange'], 905: ['bus', 'METRO Gold Line (bus rapid transit)', 'Gold'],
+  921: ['bus', 'METRO A Line (rapid bus)', 'A'], 922: ['bus', 'METRO B Line (rapid bus)', 'B'], 923: ['bus', 'METRO C Line (rapid bus)', 'C'], 924: ['bus', 'METRO D Line (rapid bus)', 'D'], 925: ['bus', 'METRO E Line (rapid bus)', 'E'] });
+export const CAPMETRO_ROUTES = Object.freeze({ 550: ['rail', 'MetroRail Red Line', 'Red Line'], 801: ['bus', 'MetroRapid 801'], 803: ['bus', 'MetroRapid 803'] });
+
+const HSL_TRAMS = new Set(['1001', '1002', '1003', '1004', '1005', '1006', '1006T', '1007', '1008', '1009', '1010', '1013', '1015']);
+/**
+ * An HSL route id as people know it: [mode, line]. HSL's ids are a region digit and the line ("1055" is 55, "2550" is 550,
+ * "4615" is 615); "31M1" is metro M1, "3001R" the R train, 1019 the Suomenlinna ferry, the 100x/1010/1013/1015 ids trams.
+ */
+export function hslRoute(id) {
+  const s = String(id || '');
+  if (/^31M\d/.test(s)) return ['metro', s.slice(2).replace(/B$/, '')];
+  if (/^300\d[A-Z]$/.test(s)) return ['rail', s.slice(4)];
+  if (s === '1019' || s === '1019E') return ['ferry', '19'];
+  const line = /^\d{4}/.test(s) ? s.slice(1).replace(/^0+(?=\d)/, '') : s;
+  return [HSL_TRAMS.has(s) ? 'tram' : 'bus', line];
+}
+/** HSL's GTFS-RT vehicles (core/gtfsrt.js) → fixes, with modes and lines read from the route ids. */
+export function fromHslRt(feed) {
+  const out = [];
+  for (const v of (feed && feed.vehicles) || []) {
+    if (!v.routeId || !Number.isFinite(v.t)) continue;
+    const [mode, line] = hslRoute(v.routeId);
+    out.push({ id: 'hsl:' + v.id, t: v.t, lat: v.lat, lon: v.lon, spd: v.spd != null && v.spd >= 0 && v.spd < 100 ? v.spd : null, hdg: v.hdg, mode, line, lineName: '', color: null,
+      dest: '', vehicle: v.label || v.vehicleId, status: GTFS_STATUS[v.status] || '', delay: null, operator: 'HSL' });
+  }
+  return out;
+}
+
+/** Where each live feed covers: a circle { lat, lon, r (m) } or a box { box: [s, w, n, e] } (Norway as three, so Sweden isn't asked). */
+export const TRANSIT_AREAS = Object.freeze([
+  { name: 'Boston', lat: 42.36, lon: -71.06, r: 150e3, src: 'mbta' },
+  { name: 'Helsinki', lat: 60.17, lon: 24.94, r: 150e3, src: 'hsl' },
+  { name: 'Austin', lat: 30.27, lon: -97.74, r: 150e3, src: 'capmetro' },
+  { name: 'Minneapolis', lat: 44.98, lon: -93.20, r: 150e3, src: 'metrotransit' },
+  { name: 'Norway', box: [57.8, 4.3, 63.5, 12.7], src: 'entur' },
+  { name: 'Norway', box: [63.5, 8.3, 67.0, 15.5], src: 'entur' },
+  { name: 'Norway', box: [67.0, 11.5, 71.4, 31.3], src: 'entur' },
+]);
+/** The feed (source key) that covers a point, or null. */
+export const transitAt = (lat, lon) => (TRANSIT_AREAS.find(a => inArea(a, lat, lon)) || {}).src || null;
+
+/** A box around a point for Entur's query: `km` each way, as [s, w, n, e] rounded to 3 decimals. */
+export function boxAround(lat, lon, km) {
+  const dLat = km / 111.32, dLon = km / (111.32 * Math.max(0.2, Math.cos(lat * D2R))), r = x => +x.toFixed(3);
+  return [r(lat - dLat), r(lon - dLon), r(lat + dLat), r(lon + dLon)];
+}
