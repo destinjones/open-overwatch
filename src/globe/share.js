@@ -36,7 +36,8 @@ export const Share = {
   mapLink() {
     const c = camera.positionCartographic;
     return 'open-overwatch.html#' + encodeView({ lon: C.Math.toDegrees(c.longitude), lat: C.Math.toDegrees(c.latitude), height: c.height, heading: 0, pitch: -90,
-      add: mapLayersFor(LAYERS.filter(l => l.on).map(l => l.id)), drawing: hooks.drawState?.() || null });
+      add: mapLayersFor(LAYERS.filter(l => l.on).map(l => l.id)), weather: Weather.on ? [...Object.entries(Weather.sets).filter(([, s]) => s.on).map(([k]) => k), ...Weather.shareTokens()] : null,   // the map's forecast layers
+      drawing: hooks.drawState?.() || null });
   },
   /** An <iframe> for someone else's page: this view, in embed mode. */
   embedCode() { const u = this.link().replace('#', '#embed=1&'); return `<iframe src="${u.replace(/"/g, '&quot;')}" width="100%" height="480" style="border:0;border-radius:12px" loading="lazy" allow="fullscreen" title="Open Overwatch: the Earth, live"></iframe>`; },

@@ -2,25 +2,27 @@
 // The map's zoom and the globe's camera height convert both ways, so a link opens the same area in either view; the
 // drawing (measure.js) goes in as its points. A link made on the globe opens here too: its layers that have a 2D
 // counterpart are switched on, the others left as they are. "3D globe" opens the globe on this view.
-import { $, toast } from './util.js';
+import { $, toast, Store } from './util.js';
 import { map } from './mapview.js';
 import { Layers } from './engine.js';
 import { Measure } from './measure.js';
 import { late } from './util.js';
-import { encodeView, decodeView, zoomToHeight, heightToZoom, globeLayersFor, mapLayersFor } from '../core/viewlink.js';
+import { encodeView, decodeView, zoomToHeight, heightToZoom, globeLayersFor, mapLayersFor, weatherFor, mapWeatherFor } from '../core/viewlink.js';
 
 const wrap = lon => ((lon + 540) % 360) - 180;
+const onIds = () => Layers.defs.filter(d => d.on).map(d => d.id);
+const wxModel = () => Store.get('wx.model', 'gfs');   // the forecast layers' model (weather.js)
 export const Share = {
   /** This view as a hash (layers: the 2D map's own ids, exactly). */
   hash() {
     const c = map.getCenter();
-    return encodeView({ lon: wrap(c.lng), lat: c.lat, height: zoomToHeight(map.getZoom(), c.lat), heading: 0, pitch: -90, layers: Layers.defs.filter(d => d.on).map(d => d.id), drawing: Measure.exportShapes() });
+    return encodeView({ lon: wrap(c.lng), lat: c.lat, height: zoomToHeight(map.getZoom(), c.lat), heading: 0, pitch: -90, layers: onIds(), weather: weatherFor(onIds(), wxModel()), drawing: Measure.exportShapes() });
   },
   link() { return location.origin + location.pathname + '#' + this.hash(); },
-  /** The same view on the globe: its matching layers switched on, the drawing carried. */
+  /** The same view on the globe: its matching layers switched on, weather mode with the forecast layers, the drawing carried. */
   globeLink() {
     const c = map.getCenter();
-    return 'globe.html#' + encodeView({ lon: wrap(c.lng), lat: c.lat, height: zoomToHeight(map.getZoom(), c.lat), heading: 0, pitch: -90, add: globeLayersFor(Layers.defs.filter(d => d.on).map(d => d.id)), drawing: Measure.exportShapes() });
+    return 'globe.html#' + encodeView({ lon: wrap(c.lng), lat: c.lat, height: zoomToHeight(map.getZoom(), c.lat), heading: 0, pitch: -90, add: globeLayersFor(onIds()), weather: weatherFor(onIds(), wxModel()), drawing: Measure.exportShapes() });
   },
   async copy() {
     const url = this.link(), n = Measure.exportShapes().length, carried = /[#&]d=/.test(url);
@@ -36,6 +38,7 @@ export const Share = {
     else if (v.layers) for (const id of mapLayersFor(v.layers)) Layers.set(id, true, { silent: true });   // a globe link: the counterparts, added
     for (const id of v.add ? [...v.add.filter(known), ...mapLayersFor(v.add)] : []) Layers.set(id, true, { silent: true });
     for (const id of v.drop ? v.drop.filter(known) : []) Layers.set(id, false, { silent: true });
+    if (v.weather) { const w = mapWeatherFor(v.weather); late.Wx?.setModel(w.model); for (const id of w.layers) Layers.set(id, true, { silent: true }); }   // the globe's weather mode: its forecast fields
     if (v.drawing) Measure.importShapes(v.drawing).then(() => { if (Measure.shapes.length) { Measure.open(); toast(`A shared drawing: ${Measure.shapes.length} shape${Measure.shapes.length === 1 ? '' : 's'}`); } });
     history.replaceState(null, '', location.pathname + location.search);   // the map keeps its own view from here on
     return true;

@@ -533,6 +533,13 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td><code>radar</code></td><td>Precipitation radar (RainViewer).</td><td>off</td></tr>
         <tr><td><code>irsat</code></td><td>Infrared cloud images (NASA GIBS: GOES-East, GOES-West, Himawari).</td><td>off</td></tr>
         <tr><td><code>terminator</code></td><td>Day and night, computed in the browser.</td><td>on</td></tr>
+        <tr><td><code>wx_wind</code></td><td>Forecast wind as moving streaks, from NOAA GFS or ECMWF, the same models and code as the globe's weather mode. Any forecast layer opens the timeline bar under the map: drag it from now to +5 days (+3 on phones), play it, switch the model, read the colours, and point anywhere for every field there.</td><td>off</td></tr>
+        <tr><td><code>wx_temp</code></td><td>Forecast temperature 2 m above the ground, in colour.</td><td>off</td></tr>
+        <tr><td><code>wx_pres</code></td><td>Sea-level pressure as isobars every 4 hPa (heavier every 20) with their values, and the highs (H) and lows (L).</td><td>off</td></tr>
+        <tr><td><code>wx_gust</code></td><td>Forecast wind gusts, from a strong breeze (yellow) to hurricane force (purple).</td><td>off</td></tr>
+        <tr><td><code>wx_cloud</code></td><td>The model's cloud cover (a forecast, not a satellite picture: <code>irsat</code> shows what is there now).</td><td>off</td></tr>
+        <tr><td><code>wx_rain</code></td><td>The model's rain rate in radar colours (a forecast: <code>radar</code> shows what radars see now).</td><td>off</td></tr>
+        <tr><td><code>wx_wave</code></td><td>Ocean waves: significant wave height with darts where they run (NOAA WAVEWATCH III with GFS, ECMWF's wave model with ECMWF).</td><td>off</td></tr>
         <tr class="grp"><td colspan="3">Infrastructure</td></tr>
         <tr><td><code>cables</code></td><td>Submarine cables (TeleGeography), live through the helper or the public relay, an older copy otherwise.</td><td>off</td></tr>
         <tr><td><code>landing</code></td><td>Where the cables come ashore.</td><td>off</td></tr>

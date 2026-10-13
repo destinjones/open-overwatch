@@ -68,7 +68,20 @@ export const heightToZoom = (h, lat = 0) => Math.min(19, Math.max(2, Math.round(
 // ---- layers across the two views: the 2D map's layer ids → the globe's, for links from one to the other (as &a=, so the
 // other view's own layers stay as its visitor has them)
 export const MAP_TO_GLOBE = Object.freeze({ quakes: 'quakes', storms: 'storms', cams: 'cams', transit: 'transit', bikes: 'bikes', aurora: 'aurora', ships_fi: 'ships',
-  hotspots: 'fires', fireperims: 'fires', fires: 'fires', terminator: 'sun', air_mil: 'mil', air_local: 'air', air_opensky: 'air' });
+  hotspots: 'fires', fireperims: 'fires', fires: 'fires', terminator: 'sun', air_mil: 'mil', air_local: 'air', air_opensky: 'air', airports: 'airports' });
+// the 2D map's forecast layers ↔ the globe's weather mode (its `w=` list): the model's fields have the same names; the
+// globe's clouds and rain sets show the model's cloud and rain on their forecast steps
+export const MAP_TO_WEATHER = Object.freeze({ wx_wind: 'wind', wx_temp: 'temp', wx_pres: 'pres', wx_gust: 'gust', wx_wave: 'wave', wx_cloud: 'ir', wx_rain: 'radar' });
+/** The globe's `w=` list for these 2D map layers and model ('gfs' | 'ecmwf'), or null when none of them is a forecast layer. */
+export function weatherFor(mapIds, model = 'gfs') {
+  const w = [...new Set(mapIds.map(id => MAP_TO_WEATHER[id]).filter(Boolean))];
+  return w.length ? [...w, ...(model === 'ecmwf' ? ['ecmwf'] : [])] : null;
+}
+/** The 2D map's forecast layers and model for a globe `w=` list: { layers, model }. */
+export function mapWeatherFor(w) {
+  const list = Array.isArray(w) ? w : [];
+  return { layers: Object.keys(MAP_TO_WEATHER).filter(id => list.includes(MAP_TO_WEATHER[id])), model: list.includes('ecmwf') ? 'ecmwf' : 'gfs' };
+}
 /** The globe layers that show what these 2D map layers show. */
 export const globeLayersFor = mapIds => [...new Set(mapIds.map(id => MAP_TO_GLOBE[id]).filter(Boolean))];
 /** The 2D map layers that show what these globe layers show. */

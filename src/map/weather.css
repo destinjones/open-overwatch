@@ -1,0 +1,32 @@
+/* The forecast timeline bar of the 2D map's model layers (src/map/weather.js): bottom right, above the attribution. */
+.wxbar { position: absolute; z-index: 820; right: 14px; bottom: 28px; width: min(560px, calc(100% - 28px)); box-sizing: border-box;
+  background: var(--panel, rgba(7, 11, 16, .94)); border: 1px solid var(--line-strong, #26343f); border-radius: 6px; padding: 8px 10px 7px;
+  font: 12px/1.35 var(--font-body, system-ui, sans-serif); color: var(--ink, #e6edf3); box-shadow: 0 10px 30px rgba(0, 0, 0, .45); backdrop-filter: blur(6px); }
+.wxbar[hidden] { display: none; }
+.wx-row { display: flex; align-items: center; gap: 8px; }
+.wx-btn { flex: none; width: 30px; height: 28px; background: var(--panel-2, #0e141c); color: var(--ink, #e6edf3); border: 1px solid var(--line-strong, #26343f);
+  border-radius: 3px; cursor: pointer; font: 600 12px/1 var(--font-mono, ui-monospace, monospace); padding: 0; }
+.wx-btn:hover { border-color: var(--accent, #7dffa6); color: var(--accent, #7dffa6); }
+.wx-play { color: var(--accent, #7dffa6); }
+.wx-slider { flex: 1; min-width: 80px; accent-color: var(--accent, #7dffa6); }
+.wx-when { flex: none; min-width: 9.5em; font: 500 12px/1.2 var(--font-mono, ui-monospace, monospace); color: var(--ink, #e6edf3); text-align: right; white-space: nowrap; }
+.wx-model { flex: none; background: var(--panel-2, #0e141c); color: var(--ink, #e6edf3); border: 1px solid var(--line-strong, #26343f); border-radius: 3px;
+  padding: 4px 4px; font: 600 11.5px/1.2 var(--font-mono, ui-monospace, monospace); }
+.wx-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
+.wx-legend:empty { display: none; }
+.wx-lg { flex: 1 1 150px; min-width: 130px; font-size: 10.5px; color: var(--ink-dim, #8b9bab); }
+.wx-lg span { display: block; margin-bottom: 2px; }
+.wx-lg i { display: block; height: 7px; border-radius: 2px; border: 1px solid rgba(255, 255, 255, .12); }
+.wx-lg small { position: relative; display: block; height: 12px; margin: 1px 6px 0; }
+.wx-lg em { position: absolute; transform: translateX(-50%); font: 10px/12px var(--font-mono, ui-monospace, monospace); font-style: normal; color: var(--ink-faint, #738599); }
+.wx-read { margin-top: 5px; font: 11.5px/1.35 var(--font-mono, ui-monospace, monospace); color: var(--accent, #7dffa6); min-height: 1.35em; }
+.wx-read:empty { display: none; }
+.wx-src { margin-top: 3px; font-size: 10.5px; color: var(--ink-faint, #738599); }
+.wx-streaks { position: absolute; left: 0; top: 0; pointer-events: none; }
+@media (max-width: 900px) {
+  .wxbar { right: 8px; left: 8px; width: auto; bottom: 22px; padding: 6px 8px; }
+  .wx-when { min-width: 0; font-size: 11px; }
+  .wx-lg { flex-basis: 120px; }
+  body.wx-on #hud { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .wx-streaks { opacity: .85; } }

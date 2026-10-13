@@ -54,3 +54,16 @@ test('links made elsewhere switch layers on or off and leave the rest; a satelli
   assert.equal(new URLSearchParams(encodeView({ ...v, sat: '25544; drop' })).has('s'), false);
   assert.equal(decodeView('#c=1,2,3000&s=0025544').sat, '25544');
 });
+
+test('2D forecast layers and the globe\'s weather mode open each other', async () => {
+  const { weatherFor, mapWeatherFor, MAP_TO_WEATHER, globeLayersFor, mapLayersFor } = await import('../src/core/viewlink.js');
+  assert.deepEqual(weatherFor(['quakes', 'wx_wind', 'wx_pres', 'wx_rain']), ['wind', 'pres', 'radar']);
+  assert.deepEqual(weatherFor(['wx_temp'], 'ecmwf'), ['temp', 'ecmwf']);
+  assert.equal(weatherFor(['quakes', 'airports']), null, 'no forecast layer: weather mode stays closed');
+  assert.deepEqual(mapWeatherFor(['ir', 'radar', 'lightning', 'wave', 'ecmwf', 'compare']), { layers: ['wx_wave', 'wx_cloud', 'wx_rain'], model: 'ecmwf' });
+  assert.deepEqual(mapWeatherFor(null), { layers: [], model: 'gfs' });
+  for (const id of Object.keys(MAP_TO_WEATHER)) assert.match(id, /^wx_[a-z]+$/);
+  const back = decodeView('#' + encodeView({ lon: 0, lat: 50, height: 3e6, heading: 0, pitch: -90, weather: weatherFor(['wx_gust', 'wx_cloud'], 'ecmwf') }));
+  assert.deepEqual(mapWeatherFor(back.weather), { layers: ['wx_gust', 'wx_cloud'], model: 'ecmwf' }, 'through a link');
+  assert.deepEqual(globeLayersFor(['airports']), ['airports']); assert.deepEqual(mapLayersFor(['airports', 'air']), ['airports'], 'a link never starts the aircraft sweep');
+});
