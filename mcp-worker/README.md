@@ -3,7 +3,7 @@
 The same server as `npx open-overwatch-mcp`, as a remote MCP endpoint: stateless Streamable HTTP at `/mcp`, so
 claude.ai's custom connectors, ChatGPT's connectors and any other remote MCP client can use it without installing
 anything. The Worker is [`mcp/worker.mjs`](../mcp/worker.mjs) (tested in Node with canned feeds:
-`test/mcpworker.test.mjs`); this folder is its wrangler config and entry. **Not deployed** — a deploy is a production
+`test/mcpworker.test.mjs`); this folder is its wrangler config and entry. **Deployed 2026-10-13** on the owner's account (the connector URL, which contains the token, is kept off the repo) — a redeploy is a production
 change on the owner's Cloudflare account and waits for the owner's OK.
 
 ## Deploy

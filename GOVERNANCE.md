@@ -26,7 +26,7 @@ Open an issue and say so.
 | Releases | GitHub releases: `open-overwatch.zip` (the download) and `open-overwatch.mcpb` (the Claude Desktop extension) | the Release workflow (`.github/workflows/release.yml`) on every `v*` tag | nothing besides the repository |
 | Archived versions | `/v/<tag>/` on the website, one per annotated tag | rebuilt from the tags by every site build | Pages' 1 GB limit: ~25 MB a version |
 | The public relay | Cloudflare Worker `open-overwatch-relay` (`relay/`) on the owner's account | `npx wrangler deploy` from `relay/` | the Cloudflare account; free plan; a WAF rate-limit rule on its route |
-| The MCP Worker | `mcp-worker/` (code in `mcp/worker.mjs`) | **not deployed yet**; [mcp-worker/README.md](mcp-worker/README.md) has the steps | a Cloudflare account and an `MCP_TOKEN` secret |
+| The MCP Worker | `mcp-worker/` (code in `mcp/worker.mjs`) | deployed (2026-10-13) as `open-overwatch-mcp` on the owner's Cloudflare account, behind a secret token; [mcp-worker/README.md](mcp-worker/README.md) has the steps | a Cloudflare account and an `MCP_TOKEN` secret |
 | The npm package | `open-overwatch-mcp` (`package.json`) | **not published yet**; `npm publish` | an npm account |
 | The DOI | Zenodo, [10.5281/zenodo.23348946](https://doi.org/10.5281/zenodo.23348946) | Zenodo's GitHub integration archives each GitHub release | the owner's Zenodo account linked to the repository |
 

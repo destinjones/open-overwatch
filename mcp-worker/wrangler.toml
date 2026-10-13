@@ -1,5 +1,5 @@
 # Open Overwatch MCP server, remote: the same tools over Streamable HTTP at /mcp for claude.ai and ChatGPT connectors.
-# NOT deployed. Deploy (from this folder, after `npx wrangler login`; needs the owner's OK, it is a production deploy):
+# Deployed 2026-10-13 (version aaf0e183). Redeploy (from this folder, after `npx wrangler login`; needs the owner's OK, it is a production deploy):
 #   npx wrangler secret put MCP_TOKEN      (a long random secret; the connector URL is .../mcp/<that secret>)
 #   npx wrangler deploy
 # Check it builds without deploying: npx wrangler deploy --dry-run --outdir dist

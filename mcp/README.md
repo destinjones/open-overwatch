@@ -113,7 +113,7 @@ shared through the Workers Cache API, and a rate limit per address. On Cloudflar
 look-ups a request) it leaves out the eleven heaviest tools (satellite pass searches, the planets' look-ahead, tile
 decoding, vessel-by-vessel AIS); on Workers Paid it lists all of them. Once deployed, add
 `https://open-overwatch-mcp.<account>.workers.dev/mcp/<token>` in claude.ai (Settings → Connectors → Add custom
-connector). It is not deployed yet: the deploy steps are in [mcp-worker/README.md](../mcp-worker/README.md).
+connector). It is deployed on the owner's Cloudflare account (ask the owner for a connector URL); the deploy steps are in [mcp-worker/README.md](../mcp-worker/README.md).
 
 ## Privacy
 
