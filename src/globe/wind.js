@@ -103,8 +103,14 @@ export const Wind = {
   async moment(t, kinds) {
     this.t = t;
     const main = this.model, other = this.cmpModel;
-    const [cur, cmp] = await Promise.all([main.at(t, kinds).catch(e => { console.warn('weather model', main.id, e.message); return null; }),
-      other ? other.at(t, kinds).catch(e => { console.warn('weather model', other.id, e.message); return null; }) : null]);
+    // a model whose run was found but whose fields failed is usually S3 throttling a burst: try twice more before giving up
+    const get = async m => {
+      for (let i = 0; ; i++) {
+        try { return await m.at(t, kinds); }
+        catch (e) { if (i >= 2 || !m.run || this.t !== t) { console.warn('weather model', m.id, e.message); return null; } await new Promise(r => setTimeout(r, 3000 * (i + 1))); }
+      }
+    };
+    const [cur, cmp] = await Promise.all([get(main), other ? get(other) : null]);
     if (this.t !== t || this.model !== main) return !!cur;   // a later moment (or another model) was asked for meanwhile
     this.cur = cur; this.cmp = this.cmpModel === other ? cmp : null;
     if (!cur) await this.load();
@@ -214,8 +220,8 @@ export const Wind = {
     sx.putImageData(img, 0, 0);
     const cv = document.createElement('canvas'); cv.width = W; cv.height = Hh;
     const cx = cv.getContext('2d'); cx.imageSmoothingEnabled = true; cx.drawImage(small, 0, 0, W, Hh);
-    const step = HI ? 5 : 8, px = W / 360, len = HI ? 9 : 7;
-    cx.strokeStyle = 'rgba(255,255,255,0.85)'; cx.lineWidth = HI ? 1.4 : 1.2; cx.lineCap = 'round'; cx.beginPath();
+    const step = HI ? 4 : 7, px = W / 360, len = HI ? 6 : 5;
+    cx.strokeStyle = 'rgba(255,255,255,0.7)'; cx.lineWidth = 1; cx.lineCap = 'round'; cx.beginPath();
     for (let lat = -75; lat <= 75; lat += step) {
       const k = Math.max(1, Math.round(1 / Math.cos(lat * RAD)));   // fewer darts toward the poles, where a degree is short
       for (let lon = -180 + step / 2; lon < 180; lon += step * k) {

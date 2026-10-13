@@ -12,8 +12,8 @@
 .wx-read .wx-at{color:var(--faint);font-size:10px} .wx-read b{color:#ffc46b;font-weight:700}
 #wxSplit{position:fixed;top:0;bottom:0;width:0;z-index:4;display:none;pointer-events:none}
 #wxSplit .ws-line{position:absolute;top:0;bottom:0;left:-1px;width:2px;background:rgba(255,196,107,.85);box-shadow:0 0 6px rgba(0,0,0,.6)}
-#wxSplit .ws-grip{position:absolute;top:42%;left:-20px;width:40px;height:40px;border-radius:50%;border:2px solid #ffc46b;background:rgba(10,16,28,.85);color:#ffc46b;font-size:18px;pointer-events:auto;cursor:ew-resize;touch-action:none}
-#wxSplit .ws-l,#wxSplit .ws-r{position:absolute;top:calc(42% + 48px);font:700 11px/1 var(--mono);letter-spacing:.06em;color:#ffc46b;white-space:nowrap;text-shadow:0 1px 3px #000}
+#wxSplit .ws-grip{position:absolute;top:24%;left:-20px;width:40px;height:40px;border-radius:50%;border:2px solid #ffc46b;background:rgba(10,16,28,.85);color:#ffc46b;font-size:18px;pointer-events:auto;cursor:ew-resize;touch-action:none}
+#wxSplit .ws-l,#wxSplit .ws-r{position:absolute;top:calc(24% + 48px);font:700 11px/1 var(--mono);letter-spacing:.06em;color:#ffc46b;white-space:nowrap;text-shadow:0 1px 3px #000}
 #wxSplit .ws-l{right:10px} #wxSplit .ws-r{left:10px}
 body.embed #wxSplit,body.lookup #wxSplit{display:none!important}
 body.m .wx-legend{gap:4px} body.m .wx-read{font-size:10px}
