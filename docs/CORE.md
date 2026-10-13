@@ -23,9 +23,9 @@ is also used by its tests in `test/`.
 - [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `orientation.js`
 - [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`
 - [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`
-- [Weather](#weather): `gfs.js`, `wxmodels.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`
+- [Weather](#weather): `gfs.js`, `wxmodels.js`, `wxload.js`, `model.worker.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpaint.js`
 - [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `aurora.js`, `fireclusters.js`, `fires.worker.js`
-- [Aviation](#aviation): `aircraft.js`, `actype.js`, `phase.js`, `airports.js`, `runways.js`, `aloft.js`, `trail.js`
+- [Aviation](#aviation): `aircraft.js`, `actype.js`, `acinfo.js`, `phase.js`, `airports.js`, `runways.js`, `aloft.js`, `trail.js`
 - [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `transitfeeds.js`, `gtfsrt.js`, `bikes.js`, `cameras.js`, `cables.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
 - [OpenStreetMap](#openstreetmap): `osmtiles.js`, `overpass.js`
 - [Links, words and the interface](#links-words-and-the-interface): `viewlink.js`, `solarlink.js`, `search.js`, `scene.js`, `voicecmd.js`, `format.js`, `ics.js`, `radio.js`
@@ -413,6 +413,24 @@ forecast hour's files and inventories, and which GRIB2 parameters are which fiel
 - `gfsWaveFile`: the WAVEWATCH III file of a GFS run. `paramKey`: a GRIB2 parameter to our field.
 - `bracketFor`: the forecast hours either side of a moment. `runWords`: "the 12:00 UTC run of 11/10".
 
+### `wxload.js`
+
+The weather models at any moment, for the globe's weather mode and the 2D map's model layers alike (they share the
+browser's cache of the files): each model finds its newest run that reaches the last hour shown, fetches one field and
+one forecast hour at a time by byte range through `model.worker.js`, keeps a few hours decoded, and blends the two hours
+either side of a moment. Used by globe, map.
+
+- `makeModels`, `makeModel`: the models (each with ready, refresh, field, at, prefetch). `workerAsk`: the worker's
+  message function. `runComplete`: does a run reach the last hour yet (503 Slow Down tried again)?
+- `momentOf`: a moment, tried again while S3 is throttling, or null.
+- `momentValue`, `momentWind`, `momentReading`: a moment at a point (°C, %, mm/h, hPa and its 3-hour trend, m/s, m).
+
+### `model.worker.js`
+
+A Web Worker (no exports) for `wxload.js`, shared by the globe and the 2D map: fetches a forecast hour's inventory or
+the byte ranges of its fields (retrying S3's 503s, four at a time), keeps them in Cache Storage, decodes the GRIB2 and
+thins grids finer than asked.
+
 ### `aec.js`
 
 CCSDS 121.0 lossless decompression (adaptive entropy coding, the Rice coder libaec implements), as GRIB2 data template
@@ -447,6 +465,18 @@ line, and the highs and lows that stand out. Used by globe (the pressure layer).
 
 - `levels`: contour levels every step from a base (isobars every 4 hPa run 996, 1000, 1004…). `isolines`: the lines.
 - `extrema`: highs and lows, strongest first. `labelSpots`: where to write a line's value.
+
+### `wxpaint.js`
+
+How the model fields look on every view: the colour ramps of the washes and the wind streaks, the legends drawn from the
+same stops, a wash painted into an RGBA buffer through any projection (the globe's plate carrée image, the map's
+Mercator tiles), the darts for the way waves run, and the isobar chart. Used by globe, map.
+
+- `washRgba`, `tempRgb`, `cloudRgba`, `stepped`: a value's colour. `TEMP`, `RAIN`, `GUST`, `WAVE`, `WASH_ALPHA`.
+- `WIND_COLORS`, `WIND_EDGES`, `windBucket`: the streak colours.
+- `paintWash`: a wash into pixels. `waveDarts`: where waves run, on a grid fixed to the world.
+- `pressureChart`: isobars every 4 hPa, their labels, H and L. `splitJumps`: a wrapped line cut for a flat map.
+- `legendFor`: title, CSS gradient and ticks, metric or imperial.
 
 ## Hazards and imagery
 
@@ -536,6 +566,15 @@ address belongs to. Used by globe, core.
 - `hexCountry`: where an address was allocated. `classWord`, `typeMatcher`: search by kind or type ("helicopters",
   "747").
 
+### `acinfo.js`
+
+adsbdb (keyless, CORS) for the aircraft cards and airport boards of both views: what a plane is (type, registration,
+owner, a photo) and the route its callsign flies, asked one at a time, cached a day per hex and callsign in the view's
+own store (never in the repository: the route data may not be copied into other databases), silent while rate limited.
+Used by globe, map.
+
+- `createAcInfo`: the client (peek, get, limited). `acKey`, `retryAfter`, `ADSBDB`.
+
 ### `phase.js`
 
 What a plane is doing, in a pilot's words (parked, taxiing, take-off, climbing, cruise, descending, approach, final,
@@ -551,6 +590,8 @@ on file makes the call firmer. Used by globe.
 
 - `parseAirports`, `AirportIndex`, `findAirport`: the OurAirports list, nearest and in view, by code, name or city.
 - `makeBoard`, `boardStatus`, `BOARD`: the board. `recentMove`: planes that just landed or took off. `etaText`.
+- `planesNear`: the records worth checking for a board. `boardRowWords`, `BOARD_SECTIONS`: a row and the sections in
+  words, the same on both views.
 
 ### `runways.js`
 
@@ -558,6 +599,8 @@ Runways from OurAirports (`data/runways.json`): the wind along and across each r
 up with, and the runway in use. Used by globe.
 
 - `parseRunways`, `windOn`, `windTable`, `linedUp`, `finalFor`, `runwayInUse`.
+- `RunwayBook`: every airport's runways with those questions (empty without the file). `windWords`: "12 kt head, 4 kt
+  from the right".
 
 ### `aloft.js`
 

@@ -416,3 +416,50 @@ test('runways: lined up, the final, and the runway in use', () => {
   const byWind = runwayInUse(RW, [], { dir: 90, speed: 12 }); assert.match(byWind.end.ident, /^09/); assert.equal(byWind.how, 'wind');
   assert.equal(runwayInUse(RW, [], { dir: 90, speed: 3 }), null, 'light wind says little');
 });
+
+// ------------------------------------------------------------------------- shared by the globe and the 2D map
+import { RunwayBook, windWords } from '../src/core/runways.js';
+import { planesNear, boardRowWords, BOARD_SECTIONS } from '../src/core/airports.js';
+test('runway book: by airport, empty without data', () => {
+  const book = new RunwayBook(new Map([['EGLL', RW]])), lhr = { icao: 'EGLL' };
+  assert.equal(book.of(lhr), RW); assert.equal(book.of({ icao: 'KJFK' }), null); assert.equal(book.of(null), null);
+  const [, r27L] = RW[1].ends, onFinal = { lat: r27L.lat + 0.0005, lon: r27L.lon + 0.12, alt: 600, track: 270, ground: false };
+  assert.equal(book.final(lhr, onFinal).end.ident, '27L');
+  assert.equal(book.inUse(lhr, [onFinal], null).end.ident, '27L');
+  assert.match(book.wind(lhr, 250, 15)[0].end.ident, /^27/);
+  assert.deepEqual(book.wind(lhr, null, 15), []); assert.deepEqual(new RunwayBook().wind(lhr, 250, 15), []);
+  assert.equal(new RunwayBook().final(lhr, onFinal), null);
+});
+test('wind on a runway in words', () => {
+  assert.equal(windWords(windOn(270, 300, 20)), '17 kt head, 10 kt from the right');
+  assert.equal(windWords(windOn(90, 240, 10)), '9 kt tail, 5 kt from the right', 'landing east, wind from the south-west: behind and right');
+  assert.equal(windWords(windOn(90, 300, 10)), '9 kt tail, 5 kt from the left');
+  assert.equal(windWords({ head: 0.2, cross: -0.3 }), 'calm'); assert.equal(windWords(null), 'calm');
+});
+test('planes near an airport: a box of ~180 km, fresh fixes, where the view draws them', () => {
+  const now = 1e12, recs = [
+    { hex: 'a', lat: 51.6, lon: -0.2, ts: now - 1000, info: { route: { origin: { icao: 'LFPG' } } } },
+    { hex: 'b', lat: 53.4, lon: -0.4, ts: now },                // 2° north: out
+    { hex: 'c', lat: 51.5, lon: 1.9, ts: now },                 // 2.4° east at 51°: inside the widened box
+    { hex: 'd', lat: 51.5, lon: -0.4, ts: now - 25 * 60e3 },    // stale
+    { hex: 'e', lat: 51.5, lon: -0.4, ts: now, hidden: true },  // the view leaves it out
+  ];
+  const got = planesNear(LHR, recs, r => r.hidden ? null : { lat: r.lat, lon: r.lon, ts: r.ts, alt: 1000 }, now);
+  assert.deepEqual(got.map(p => p.r.hex), ['a', 'c']);
+  assert.equal(got[0].route.origin.icao, 'LFPG'); assert.equal(got[0].alt, 1000);
+  const anti = { lat: 0, lon: 179.5 }; assert.equal(planesNear(anti, [{ lat: 0, lon: -179.5, ts: now }], r => ({ ...r }), now).length, 1, 'across the date line');
+});
+test('board rows in words: where from or to, ETA and final, the climb, parked or taxiing', () => {
+  const route = { origin: { icao: 'LEMD', iata: 'MAD' }, destination: { icao: 'EGLL', iata: 'LHR' } };
+  const arr = boardRowWords({ r: { info: { route }, vr: -4 }, status: 'arriving', etaS: 420, aboveM: 900, km: 22, toHere: true }, LHR, { fin: { end: { ident: '27L' } } });
+  assert.deepEqual(arr, { where: 'from MAD', right: '7 min · final 27L', sub: '2,953 ft above the field · 22 km' });
+  const dep = boardRowWords({ r: { info: { route: { origin: { icao: 'EGLL' }, destination: { icao: 'KJFK', iata: 'JFK' } } }, vr: 10 }, status: 'departing', aboveM: 1200, km: 15, fromHere: true }, LHR);
+  assert.equal(dep.where, 'to JFK'); assert.equal(dep.right, 'climbing 1,969 ft/min');
+  const odd = boardRowWords({ r: { info: { route: { origin: { icao: 'EGLL' }, destination: { icao: 'LEMD', iata: 'MAD' } } } }, status: 'arriving', etaS: 30, aboveM: 300, km: 5, fromHere: true }, LHR);
+  assert.equal(odd.where, '', 'a route that leaves from here on a plane landing here: another day\'s flight'); assert.equal(odd.right, 'now');
+  const parked = boardRowWords({ r: {}, status: 'ground', aboveM: 0, km: 1 }, LHR, { kind: 'Narrow-body airliner' });
+  assert.deepEqual(parked, { where: '', right: 'parked', sub: 'Narrow-body airliner' });
+  assert.equal(boardRowWords({ r: {}, status: 'landed', agoS: 20, km: 1 }, LHR).right, 'landed just now');
+  assert.equal(boardRowWords({ r: {}, status: 'departed', agoS: 400, km: 3 }, LHR).right, 'departed about 7 min ago');
+  assert.deepEqual(BOARD_SECTIONS.map(s => s[0]), ['arriving', 'departing', 'recent', 'ground']);
+});

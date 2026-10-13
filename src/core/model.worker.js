@@ -1,11 +1,11 @@
-// Weather model fields off the main thread: fetch a forecast hour's inventory (NOAA's .idx or ECMWF's .index) or the
+// Weather model fields off the main thread (for core/wxload.js, so the globe and the 2D map alike): fetch a forecast hour's inventory (NOAA's .idx or ECMWF's .index) or the
 // byte ranges of the fields wanted from the models' files on AWS, keep each in Cache Storage (a run's files never
 // change, so a page reload or a second look costs nothing), decode the GRIB2 (simple and complex packing for GFS,
 // JPEG 2000 for WAVEWATCH III, CCSDS for ECMWF) and thin grids finer than asked (0.25° → 0.5°: a quarter of the
 // memory) into Float32Arrays handed back without copying.
-import { decodeGrib2, parseIdx } from '../core/grib2.js';
-import { paramKey, parseEcIndex } from '../core/wxmodels.js';
-import { coarsen } from '../core/fields.js';
+import { decodeGrib2, parseIdx } from './grib2.js';
+import { paramKey, parseEcIndex } from './wxmodels.js';
+import { coarsen } from './fields.js';
 
 async function cached(cacheName, key, get) {
   let cache = null;

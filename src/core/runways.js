@@ -78,3 +78,23 @@ export function runwayInUse(runways, arrivals = [], wind = null) {
   }
   return null;
 }
+
+/** The runways of every airport (parseRunways' map) with the questions the views ask of them; empty until filled, so
+ *  without data/runways.json everything simply says nothing about runways. */
+export class RunwayBook {
+  constructor(byIcao = new Map()) { this.byIcao = byIcao; }
+  /** An airport's runways, or null. */
+  of(ap) { return ap ? this.byIcao.get(ap.icao) || null : null; }
+  /** The runway end a plane is lined up with at this airport: { end, km, off } or null. */
+  final(ap, p) { const rw = this.of(ap); return rw ? finalFor(rw, p) : null; }
+  /** The runway in use from the board's arrivals and the field's wind ({ dir, speed } in knots). */
+  inUse(ap, arrivals, wind) { const rw = this.of(ap); return rw ? runwayInUse(rw, arrivals, wind) : null; }
+  /** Wind per runway end, most headwind first ([] without a wind). */
+  wind(ap, dir, speed) { const rw = this.of(ap); return rw && dir != null && speed != null ? windTable(rw, dir, speed) : []; }
+}
+
+/** The wind on a runway end in words: "12 kt head, 4 kt from the right" (or tail, left; "calm" under half a knot). */
+export function windWords(w) {
+  if (!w || !(Math.abs(w.head) >= 0.5 || Math.abs(w.cross) >= 0.5)) return 'calm';
+  return `${Math.round(Math.abs(w.head))} kt ${w.head >= 0 ? 'head' : 'tail'}, ${Math.round(Math.abs(w.cross))} kt from the ${w.cross >= 0 ? 'right' : 'left'}`;
+}

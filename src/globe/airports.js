@@ -14,7 +14,8 @@ import { TowerView } from './towerview.js';
 import { Runways } from './runways.js';
 import { select, flyToObject } from './ui.js';
 import { fetchAsset } from '../core/assets.js';
-import { parseAirports, AirportIndex, makeBoard, etaText, BOARD } from '../core/airports.js';
+import { parseAirports, AirportIndex, makeBoard, BOARD, BOARD_SECTIONS as SECTIONS, boardRowWords, planesNear } from '../core/airports.js';
+import { windWords } from '../core/runways.js';
 import { airportWxUrl, airportWx, airportWxLine } from '../core/aloft.js';
 
 const pts = scene.primitives.add(new C.PointPrimitiveCollection());
@@ -31,21 +32,12 @@ async function fieldWeather(a) {
   wxCache.set(q.key, { t: Date.now(), w }); return w;
 }
 
-const SECTIONS = [['arriving', 'Arriving', '#7dffa6'], ['departing', 'Departing', '#ffd27a'], ['recent', 'Just landed or took off', '#c9a0ff'], ['ground', 'On the ground', '#9fb3c8']];
-const STATUS = { taxiing: 'taxiing', ground: 'parked' };
-
 function boardRow(e, ap) {
-  const r = e.r, k = airClass(r), rt = r.info && r.info.route, fin = e.status === 'arriving' ? Runways.final(ap, { ...r, lat: r.cur?.lat ?? r.lat, lon: r.cur?.lon ?? r.lon }) : null;
-  // the other end of its route on file, when the route agrees with what it is doing here (a route that starts here on a
-  // plane landing here is some other day's flight under the same callsign: say nothing)
-  const inbound = e.status === 'arriving' || e.status === 'landed' || (e.status !== 'departing' && e.status !== 'departed' && e.toHere);
-  const other = rt && rt.origin && rt.destination ? (inbound ? rt.origin : rt.destination) : null;
-  const where = other && other.icao !== ap.icao && (inbound ? !e.fromHere : !e.toHere) ? `${inbound ? 'from' : 'to'} ${other.iata || other.icao}` : '';
-  const right = e.status === 'arriving' ? etaText(e.etaS) + (fin ? ` · final ${fin.end.ident}` : '') : e.status === 'departing' ? `climbing ${fmt((r.vr || 0) * 196.85)} ft/min`
-    : e.status === 'landed' || e.status === 'departed' ? `${e.status} about ${etaText(e.agoS)} ago`.replace('about now ago', 'just now') : STATUS[e.status];
+  const r = e.r, fin = e.status === 'arriving' ? Runways.final(ap, { ...r, lat: r.cur?.lat ?? r.lat, lon: r.cur?.lon ?? r.lon }) : null;
+  const { where, right, sub } = boardRowWords(e, ap, { fin, kind: airClass(r).name, fmt });   // core/airports.js: the same words as the 2D map's boards
   const sq = r.emerg ? ` <em class="ab-emg">SQUAWK ${esc(r.squawk)}</em>` : '';
   return `<button class="cj ab-row${r.emerg ? ' emg' : ''}" data-hex="${esc(r.hex)}"><span><b>${esc(r.flight || r.hex)}</b>${sq} ${esc(r.type || (r.info && r.info.aircraft && r.info.aircraft.icaoType) || '')}${where ? ' · ' + esc(where) : ''}${e.sure ? ' ✓' : ''}</span>`
-    + `<small>${e.status === 'ground' || e.status === 'taxiing' || e.status === 'landed' || e.status === 'departed' ? esc(k.name) : `${fmt(Math.max(0, e.aboveM) / 0.3048)} ft above the field · ${fmt(e.km)} km`} · ${esc(right)}</small></button>`;
+    + `<small>${esc(sub)} · ${esc(right)}</small></button>`;
 }
 
 export const Airports = {
@@ -69,11 +61,8 @@ export const Airports = {
   apply() { pts.show = labels.show = L.airports.on; if (L.airports.on && !this.loading) this.load(); },
   /** The board for an airport from the live aircraft. */
   board(a) {
-    const planes = [], now = Date.now(), dLon = 1.6 / Math.max(0.05, Math.cos(a.lat * Math.PI / 180));   // a box around the field first (~180 km)
-    for (const r of Air.map.values()) { const q = r.cur || r; if (Math.abs(q.lat - a.lat) < 1.6 && Math.abs(((q.lon - a.lon + 540) % 360) - 180) < dLon && now - r.ts < 20 * 60e3 && airShown(r)) {
-      const p = r.cur ? { ...r, lat: r.cur.lat, lon: r.cur.lon, route: r.info && r.info.route } : { ...r, route: r.info && r.info.route };
-      p.r = r; planes.push(p);
-    } }   // where it is drawn now (fixes can be 15 min old)
+    // where each is drawn now (fixes can be 15 min old), within ~180 km
+    const planes = planesNear(a, Air.map.values(), r => airShown(r) ? (r.cur ? { ...r, lat: r.cur.lat, lon: r.cur.lon } : { ...r }) : null);
     const b = makeBoard(a, planes, { others: this.index.near(a.lat, a.lon, BOARD.radiusKm + 30, 12) });
     for (const k of ['arriving', 'departing', 'ground', 'recent']) for (const e of b[k]) e.r = e.r.r;   // back to the live records
     return b;
@@ -102,7 +91,7 @@ export const Airports = {
       const use = Runways.inUse(a, b.arriving.map(e => ({ ...e.r, lat: e.r.cur?.lat ?? e.r.lat, lon: e.r.cur?.lon ?? e.r.lon })), wx && { dir: wx.windDir, speed: wx.windKt });
       const onIt = use && wx && wx.windKt != null ? Runways.wind(a, wx.windDir, wx.windKt).find(t => t.end === use.end) : null;
       const rwy = use ? `<p class="ap-rw">Runway in use: <b>${esc(use.end.ident)}</b> ${use.how === 'arrivals' ? `(${use.n} lined up)` : '(into the wind; a guess)'}`
-        + (onIt ? ` · wind on it ${Math.round(Math.abs(onIt.head))} kt ${onIt.head >= 0 ? 'head' : 'tail'}, ${Math.round(Math.abs(onIt.cross))} kt from the ${onIt.cross >= 0 ? 'right' : 'left'}` : '') + '</p>' : '';
+        + (onIt ? ` · wind on it ${windWords(onIt)}` : '') + '</p>' : '';
       box.innerHTML = rwy + (next ? `<div class="acts"><button class="chipbtn" data-next="${esc(next.r.hex)}" style="color:#7dffa6">Follow the next arrival · ${esc(next.r.flight || next.r.hex)}</button><button class="chipbtn" data-tower="${esc(next.r.hex)}" style="color:#9fe3ff" title="Watch it come in from the tower">From the tower</button></div>` : '')
         + (n ? SECTIONS.map(([k, name, col]) => b[k].length ? `<h3 style="color:${col}">${name} · ${b[k].length}</h3>${b[k].map(e => boardRow(e, a)).join('')}` : '').join('')
         : `<p class="note">No aircraft near ${esc(a.iata || a.icao)} right now that the feeds can see.</p>`)

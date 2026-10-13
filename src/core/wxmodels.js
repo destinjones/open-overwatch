@@ -1,7 +1,7 @@
 // The weather models the globe can read straight from their open buckets (keyless, CORS, HTTP byte ranges), side by
 // side: NOAA's GFS (1°, with NOAA's WAVEWATCH III ocean waves at 0.25°) and ECMWF's IFS (0.25°, with its wave model;
 // CC BY 4.0). For each: which runs exist when, a forecast hour's files and their inventories, which fields the globe
-// draws, and which GRIB2 parameters those are. Pure (test/wxmodels.test.mjs); fetching happens in globe/model.js and
+// draws, and which GRIB2 parameters those are. Pure (test/wxmodels.test.mjs); fetching happens in core/wxload.js and
 // its worker, decoding in core/grib2.js.
 import { cycleAt, gfsCycles, gfsFile, GFS_BUCKET } from './gfs.js';
 

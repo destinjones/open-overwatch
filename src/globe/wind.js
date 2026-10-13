@@ -11,9 +11,8 @@
 import { C, store, PHONE } from './env.js';
 import { viewer, camera, camHeight } from './viewer.js';
 import { fetchAsset } from '../core/assets.js';
-import { sampleGrid } from '../core/grib2.js';
-import { sampleAt, sampleValid, sampleAngle, blend, coarsen } from '../core/fields.js';
-import { isolines, levels, extrema, labelSpots } from '../core/contour.js';
+import { momentOf, momentValue, momentWind, momentReading } from '../core/wxload.js';
+import { WIND_COLORS as COLORS, WASH_ALPHA, paintWash, windBucket, waveDarts, pressureChart } from '../core/wxpaint.js';
 import { runWords } from '../core/wxmodels.js';
 import { Model } from './model.js';
 
@@ -23,8 +22,6 @@ for (let lo = -180; lo < 180; lo += 10) LONS.push(lo);
 const NX = LONS.length, NY = LATS.length, COUNT = PHONE ? 900 : 3800;
 const CHUNK = 306, TTL = 30 * 60e3, MIRROR_MAX = 7 * 3600e3, KEY = 'wx.grid.v1';
 const R = 6378137, E2 = 0.00669437999014, RAD = Math.PI / 180, VP = new C.Matrix4();
-const COLORS = ['#7fe8ff', '#b6f5ff', '#ffffff', '#fff3a8', '#ffc46b', '#ff7a5c'];   // calm to gale
-const EDGES = [3, 6, 10, 15, 22];   // m/s between the colours
 const OM_CREDIT = new C.Credit('Wind and temperature: Open-Meteo.com (CC BY 4.0)');
 const CREDITS = {};
 /** The credit line for a model's field: the waves of GFS come from a different model. */
@@ -32,7 +29,6 @@ function creditFor(def, kind) {
   const text = def.id === 'gfs' ? (kind === 'wave' ? 'Waves: NOAA WAVEWATCH III (GFS-Wave)' : 'Weather: NOAA GFS model') : 'Weather: ECMWF IFS open data (CC BY 4.0)';
   return CREDITS[text] ||= new C.Credit(text);
 }
-const WASH_ALPHA = { temp: 0.6, cloud: 1, rain: 1, gust: 0.85, wave: 0.85, pres: 1 };
 const SIDES = ['main', 'cmp'];
 const HI = !PHONE;   // detailed images (waves, isobars) at desktop size
 
@@ -103,13 +99,8 @@ export const Wind = {
   async moment(t, kinds) {
     this.t = t;
     const main = this.model, other = this.cmpModel;
-    // a model whose run was found but whose fields failed is usually S3 throttling a burst: try twice more before giving up
-    const get = async m => {
-      for (let i = 0; ; i++) {
-        try { return await m.at(t, kinds); }
-        catch (e) { if (i >= 2 || !m.run || this.t !== t) { console.warn('weather model', m.id, e.message); return null; } await new Promise(r => setTimeout(r, 3000 * (i + 1))); }
-      }
-    };
+    // a model whose run was found but whose fields failed is usually S3 throttling a burst: tried twice more (core/wxload.js)
+    const get = m => momentOf(m, t, kinds, { still: () => this.t === t });
     const [cur, cmp] = await Promise.all([get(main), other ? get(other) : null]);
     if (this.t !== t || this.model !== main) return !!cur;   // a later moment (or another model) was asked for meanwhile
     this.cur = cur; this.cmp = this.cmpModel === other ? cmp : null;
@@ -120,20 +111,14 @@ export const Wind = {
   /** A field's value at a point, blended in time: 'temp' °C, 'cloud' %, 'rain' mm/h, 'pres' hPa, 'gust' m/s, 'wave' m,
    *  'wavedir' degrees (where the waves come from), or NaN when not loaded (or over land, for waves). */
   value(kind, lat, lon, side = 'main') {
-    const c = this.data(side), k = kind === 'wavedir' ? 'wave' : kind;
-    if (!c || !c.a[k]) { if (!c && side === 'main' && kind === 'temp' && this.grid) return this.snapAt(lon, lat, [0, 0, 0])[2]; return NaN; }
-    if (k === 'wave') return sampleAt(c.a.wave[kind], c.b.wave[kind], c.w, lat, lon, kind === 'wave' ? sampleValid : sampleAngle);
-    const v = sampleAt(c.a[k], c.b[k], c.w, lat, lon);
-    return kind === 'temp' ? v - 273.15 : kind === 'rain' ? Math.max(0, v * 3600) : kind === 'pres' ? v / 100 : v;
+    const c = this.data(side);
+    if (!c && side === 'main' && kind === 'temp' && this.grid) return this.snapAt(lon, lat, [0, 0, 0])[2];
+    return momentValue(c, kind, lat, lon);
   },
   /** Wind at a point, blended in time: out = [u, v] (m/s east, north). */
   windAt(lon, lat, out, side = 'main') {
     const c = side === 'cmp' ? this.cmp : this.cur;
-    if (c && c.a.wind) {
-      const A = c.a.wind, B = c.b.wind, ua = sampleGrid(A.u, lat, lon), va = sampleGrid(A.v, lat, lon);
-      if (c.w && B !== A) { out[0] = ua + (sampleGrid(B.u, lat, lon) - ua) * c.w; out[1] = va + (sampleGrid(B.v, lat, lon) - va) * c.w; } else { out[0] = ua; out[1] = va; }
-      return out;
-    }
+    if (c && c.a.wind) return momentWind(c, lat, lon, out);
     if (side === 'main' && !c && this.grid) { this.snapAt(lon, lat, out); return out; }
     out[0] = out[1] = 0; return out;
   },
@@ -142,12 +127,10 @@ export const Wind = {
   reading(lat, lon, side = 'main') {
     const c = this.data(side);
     if (!c && (side === 'cmp' || !this.grid)) return null;
-    const w = c && !c.a.wind ? [NaN, NaN] : this.windAt(lon, lat, [0, 0], side);   // the model without its wind: none, not the snapshot's
-    let presTrend = NaN;
-    if (c && c.a.pres && c.b.pres !== c.a.pres) presTrend = (sampleGrid(c.b.pres, lat, lon) - sampleGrid(c.a.pres, lat, lon)) / 100 * (3 / (c.h1 - c.h0));
-    return { temp: this.value('temp', lat, lon, side), u: w[0], v: w[1], speed: Math.hypot(w[0], w[1]), cloud: this.value('cloud', lat, lon, side), rain: this.value('rain', lat, lon, side),
-      gust: this.value('gust', lat, lon, side), pres: this.value('pres', lat, lon, side), presTrend, wave: this.value('wave', lat, lon, side), waveFrom: this.value('wavedir', lat, lon, side),
-      source: c ? c.model.def.name : 'Open-Meteo', model: c ? c.model.id : null, run: c ? c.run : null, t: c ? this.t : this.grid?.t };
+    const src = { source: c ? c.model.def.name : 'Open-Meteo', model: c ? c.model.id : null, run: c ? c.run : null, t: c ? this.t : this.grid?.t };
+    if (c) return { ...momentReading(c, lat, lon), ...src };   // core/wxload.js (the model without its wind: none, not the snapshot's)
+    const w = this.windAt(lon, lat, [0, 0], side);
+    return { ...momentReading(null, lat, lon), temp: this.value('temp', lat, lon, side), u: w[0], v: w[1], speed: Math.hypot(w[0], w[1]), ...src };
   },
   /** Words for the panel: which run, or the snapshot's time. */
   note(side = 'main') {
@@ -198,13 +181,8 @@ export const Wind = {
     if (kind === 'pres') return this.paintPressure(side);
     if (kind === 'wave') return { url: this.paintWaves(side) };
     const cv = document.createElement('canvas'); cv.width = 360; cv.height = 180;
-    const cx = cv.getContext('2d'), img = cx.createImageData(360, 180), d = img.data, o = [0, 0, 0], snap = !this.data(side);
-    const colour = kind === 'temp' ? v => [...ramp(v), 255] : kind === 'cloud' ? cloudColour : kind === 'gust' ? gustColour : rainColour;
-    for (let y = 0; y < 180; y++) for (let x = 0; x < 360; x++) {
-      const lon = x - 180 + 0.5, lat = 90 - y - 0.5, i = (y * 360 + x) * 4;
-      const [r, g, b, a] = colour(snap ? this.snapAt(lon, lat, o)[2] : this.value(kind, lat, lon, side));
-      d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = a;
-    }
+    const cx = cv.getContext('2d'), img = cx.createImageData(360, 180), o = [0, 0, 0], snap = !this.data(side);
+    paintWash(kind, img.data, 360, 180, (x, y) => { const lon = x - 180 + 0.5, lat = 90 - y - 0.5; return snap ? this.snapAt(lon, lat, o)[2] : this.value(kind, lat, lon, side); });
     cx.putImageData(img, 0, 0);
     return { url: cv.toDataURL() };
   },
@@ -212,45 +190,33 @@ export const Wind = {
   paintWaves(side) {
     const n = HI ? 720 : 360, W = n * 2, Hh = n, s = 360 / n;
     const small = document.createElement('canvas'); small.width = n; small.height = n / 2;
-    const sx = small.getContext('2d'), img = sx.createImageData(n, n / 2), d = img.data;
-    for (let y = 0; y < n / 2; y++) for (let x = 0; x < n; x++) {
-      const [r, g, b, a] = waveColour(this.value('wave', 90 - (y + 0.5) * s, -180 + (x + 0.5) * s, side)), i = (y * n + x) * 4;
-      d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = a;
-    }
+    const sx = small.getContext('2d'), img = sx.createImageData(n, n / 2);
+    paintWash('wave', img.data, n, n / 2, (x, y) => this.value('wave', 90 - (y + 0.5) * s, -180 + (x + 0.5) * s, side));
     sx.putImageData(img, 0, 0);
     const cv = document.createElement('canvas'); cv.width = W; cv.height = Hh;
     const cx = cv.getContext('2d'); cx.imageSmoothingEnabled = true; cx.drawImage(small, 0, 0, W, Hh);
     const step = HI ? 4 : 7, px = W / 360, len = HI ? 6 : 5;
     cx.strokeStyle = 'rgba(255,255,255,0.7)'; cx.lineWidth = 1; cx.lineCap = 'round'; cx.beginPath();
-    for (let lat = -75; lat <= 75; lat += step) {
-      const k = Math.max(1, Math.round(1 / Math.cos(lat * RAD)));   // fewer darts toward the poles, where a degree is short
-      for (let lon = -180 + step / 2; lon < 180; lon += step * k) {
-        const h = this.value('wave', lat, lon, side), from = this.value('wavedir', lat, lon, side);
-        if (!(h >= 0.3) || !Number.isFinite(from)) continue;
-        const go = (from + 180) * RAD, cl = Math.max(0.2, Math.cos(lat * RAD));
-        let dx = Math.sin(go) / cl, dy = -Math.cos(go); const m = Math.hypot(dx, dy); dx /= m; dy /= m;   // on the globe the image is squeezed east-west by cos(lat)
-        const x = (lon + 180) * px, y = (90 - lat) * px, l = len * Math.min(1.4, 0.7 + h / 6);
-        const x0 = x - dx * l / 2, y0 = y - dy * l / 2, x1 = x + dx * l / 2, y1 = y + dy * l / 2;
-        cx.moveTo(x0, y0); cx.lineTo(x1, y1);
-        cx.moveTo(x1, y1); cx.lineTo(x1 - (dx * 0.9 - dy * 0.5) * l * 0.4, y1 - (dy * 0.9 + dx * 0.5) * l * 0.4);
-        cx.moveTo(x1, y1); cx.lineTo(x1 - (dx * 0.9 + dy * 0.5) * l * 0.4, y1 - (dy * 0.9 - dx * 0.5) * l * 0.4);
-      }
+    for (const { lat, lon, to, h } of waveDarts((k, la, lo) => this.value(k, la, lo, side), { step })) {
+      const go = to * RAD, cl = Math.max(0.2, Math.cos(lat * RAD));
+      let dx = Math.sin(go) / cl, dy = -Math.cos(go); const m = Math.hypot(dx, dy); dx /= m; dy /= m;   // on the globe the image is squeezed east-west by cos(lat)
+      const x = (lon + 180) * px, y = (90 - lat) * px, l = len * Math.min(1.4, 0.7 + h / 6);
+      const x0 = x - dx * l / 2, y0 = y - dy * l / 2, x1 = x + dx * l / 2, y1 = y + dy * l / 2;
+      cx.moveTo(x0, y0); cx.lineTo(x1, y1);
+      cx.moveTo(x1, y1); cx.lineTo(x1 - (dx * 0.9 - dy * 0.5) * l * 0.4, y1 - (dy * 0.9 + dx * 0.5) * l * 0.4);
+      cx.moveTo(x1, y1); cx.lineTo(x1 - (dx * 0.9 + dy * 0.5) * l * 0.4, y1 - (dy * 0.9 - dx * 0.5) * l * 0.4);
     }
     cx.stroke();
     return cv.toDataURL();
   },
   /** Isobars every 4 hPa (heavier every 20) with their values, on a clear image; plus the highs and lows. */
   paintPressure(side) {
-    const c = this.data(side), f0 = blend(c.a.pres, c.b.pres, c.w), k = Math.max(1, Math.round(1 / f0.grid.di));
-    const f = coarsen(f0, k);   // 1°: isobars on a weather map are smooth; the 0.25° field wiggles over every mountain
-    let lo = Infinity, hi = -Infinity; for (const v of f.values) if (v === v) { if (v < lo) lo = v; if (v > hi) hi = v; }
+    const c = this.data(side), chart = pressureChart(c.a.pres, c.b.pres, c.w, { maxCentres: PHONE ? 16 : 32 });   // core/wxpaint.js
     const W = HI ? 2048 : 1024, Hh = W / 2, px = W / 360;
     const cv = document.createElement('canvas'); cv.width = W; cv.height = Hh; const cx = cv.getContext('2d');
     const X = lon => ((lon + 180) % 360 + 360) % 360 * px, Y = lat => (90 - lat) * px;
-    const lines = isolines(f, levels(lo, hi, 400, 100000));
     cx.lineJoin = 'round'; cx.lineCap = 'round';
-    for (const { level, lines: ls } of lines) {
-      const bold = Math.round(level / 100) % 20 === 0;
+    for (const { bold, lines: ls } of chart.lines) {
       cx.strokeStyle = bold ? 'rgba(255,255,255,0.95)' : 'rgba(235,242,255,0.72)'; cx.lineWidth = (bold ? 2.2 : 1.3) * (HI ? 1 : 0.8);
       cx.beginPath();
       for (const line of ls) {
@@ -259,15 +225,10 @@ export const Wind = {
       }
       cx.stroke();
     }
-    const centres = extrema(f, { radius: 9, depth: 250 }).slice(0, PHONE ? 16 : 32).map(e => ({ ...e, value: e.value / 100 }));
-    const nearCentre = (lat, lon) => centres.some(e => Math.abs(e.lat - lat) < 5 && Math.abs(((e.lon - lon) % 360 + 540) % 360 - 180) * Math.cos(lat * RAD) < 5);   // the H or L label sits there
+    const centres = chart.centres;
     cx.font = `600 ${HI ? 15 : 11}px system-ui, sans-serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.lineWidth = HI ? 3.2 : 2.4;
     cx.strokeStyle = 'rgba(8,14,26,0.85)'; cx.fillStyle = '#ffffff';
-    for (const { level, lines: ls } of lines) for (const line of ls) for (const s of labelSpots(line, { spacing: 40, minLen: 12 })) {
-      if (Math.abs(s.lat) > 75 || nearCentre(s.lat, s.lon)) continue;
-      const t = String(Math.round(level / 100)), x = X(s.lon), y = Y(s.lat);
-      cx.strokeText(t, x, y); cx.fillText(t, x, y);
-    }
+    for (const { lon, lat, text } of chart.labels) { const x = X(lon), y = Y(lat); cx.strokeText(text, x, y); cx.fillText(text, x, y); }
     return { url: cv.toDataURL(), centres };
   },
   dropWashes() {
@@ -365,7 +326,7 @@ export const Wind = {
       const nx = (M[0] * X + M[4] * Y + M[8] * Z + M[12]) / w, ny = (M[1] * X + M[5] * Y + M[9] * Z + M[13]) / w;
       if (nx < -1.2 || nx > 1.2 || ny < -1.2 || ny > 1.2) { p.px = NaN; continue; }
       const x = (nx * 0.5 + 0.5) * cw * dpr, y = (0.5 - ny * 0.5) * ch * dpr;
-      if (!Number.isNaN(p.px) && Math.abs(x - p.px) < 80 && Math.abs(y - p.py) < 80) { let b = 0; while (b < EDGES.length && speed > EDGES[b]) b++; buckets[b].push(p.px, p.py, x, y); }
+      if (!Number.isNaN(p.px) && Math.abs(x - p.px) < 80 && Math.abs(y - p.py) < 80) buckets[windBucket(speed)].push(p.px, p.py, x, y);
       p.px = x; p.py = y;
     }
     ctx.lineWidth = Math.max(1.3 * dpr, 1.1); ctx.lineCap = 'round';
@@ -381,54 +342,5 @@ viewer.scene.postRender.addEventListener(() => {
   if (k !== Wind.camKey) { Wind.camKey = k; Wind.sideCentres(); }
 });
 
-// ---- colours (and the legend drawn from the same stops)
-const STOPS = [[-40, [120, 60, 200]], [-20, [70, 100, 240]], [0, [40, 190, 250]], [10, [40, 210, 140]], [20, [255, 230, 60]], [30, [255, 130, 40]], [40, [220, 30, 30]]];
-function ramp(t) {   // degrees C to colour
-  if (!Number.isFinite(t)) return [0, 0, 0];
-  if (t <= STOPS[0][0]) return STOPS[0][1]; if (t >= STOPS[STOPS.length - 1][0]) return STOPS[STOPS.length - 1][1];
-  let i = 1; while (t > STOPS[i][0]) i++; const [t0, a] = STOPS[i - 1], [t1, b] = STOPS[i], f = (t - t0) / (t1 - t0);
-  return a.map((v, j) => Math.round(v + (b[j] - v) * f));
-}
-/** Cloud cover (%) → white, see-through where it is thin. */
-function cloudColour(pc) {
-  const a = Number.isFinite(pc) ? Math.max(0, Math.min(1, (pc - 12) / 88)) : 0;
-  const g = Math.round(205 + 50 * a);
-  return [g, g, Math.min(255, g + 6), Math.round(Math.pow(a, 1.15) * 225)];
-}
-/** Linear steps through RGBA stops; below the first: clear (or the first, with `hold`). */
-function stepped(stops, v, log = false) {
-  if (!(v >= stops[0][0])) return [0, 0, 0, 0];
-  if (v >= stops[stops.length - 1][0]) return stops[stops.length - 1][1];
-  let i = 1; while (v > stops[i][0]) i++;
-  const [m0, a] = stops[i - 1], [m1, b] = stops[i], f = log ? Math.log(v / m0) / Math.log(m1 / m0) : (v - m0) / (m1 - m0);
-  return a.map((x, j) => Math.round(x + (b[j] - x) * f));
-}
-const RAIN = [[0.1, [127, 214, 255, 70]], [1, [62, 224, 143, 150]], [4, [255, 224, 102, 185]], [10, [255, 159, 67, 205]], [25, [255, 77, 94, 220]]];
-/** Rain rate (mm/h) → the usual radar colours, see-through when light, nothing under 0.1 mm/h. */
-const rainColour = mm => stepped(RAIN, mm, true);
-const GUST = [[8, [255, 245, 170, 0]], [12, [255, 236, 120, 120]], [17, [255, 176, 64, 175]], [24, [255, 90, 70, 205]], [32, [220, 40, 150, 220]], [42, [150, 60, 230, 230]]];
-/** Gusts (m/s) → clear when light, yellow (strong breeze) through red (gale) to purple (hurricane force). */
-const gustColour = v => stepped(GUST, v);
-const WAVE = [[0, [40, 80, 160, 40]], [0.5, [40, 120, 210, 120]], [1.25, [40, 180, 220, 160]], [2.5, [70, 210, 150, 185]], [4, [240, 220, 80, 200]], [6, [250, 140, 50, 210]], [9, [230, 50, 60, 220]], [14, [180, 40, 170, 230]]];
-/** Significant wave height (m) → blues for slight seas to red and purple for high and phenomenal ones; land clear. */
-const waveColour = m => Number.isFinite(m) ? stepped(WAVE, Math.max(0, m)) : [0, 0, 0, 0];
-
-/**
- * The legend for a layer: { title, gradient (a CSS linear-gradient), ticks: [[percent, label]] } in metric, or with
- * `imperial` in °F, mph and feet. Pressure has no colours: a line about the isobars instead.
- */
-export function legendFor(kind, imperial = false) {
-  const css = (stops, a = 1) => `linear-gradient(90deg,${stops.map(([v, c], i) => `rgba(${c[0]},${c[1]},${c[2]},${(c[3] ?? 255) / 255 * a + (1 - a)}) ${(i / (stops.length - 1) * 100).toFixed(1)}%`).join(',')})`;
-  const ticks = (stops, f) => stops.map(([v], i) => [i / (stops.length - 1) * 100, f(v)]);
-  const mph = v => Math.round(v * 2.23694), kmh = v => Math.round(v * 3.6);
-  switch (kind) {
-    case 'temp': return { title: imperial ? 'Temperature °F' : 'Temperature °C', gradient: css(STOPS.map(([v, c]) => [v, [...c, 255]])), ticks: ticks(STOPS, v => imperial ? Math.round(v * 9 / 5 + 32) : v) };
-    case 'gust': return { title: imperial ? 'Gusts, mph' : 'Gusts, km/h', gradient: css(GUST, 0.6), ticks: ticks(GUST, imperial ? mph : kmh) };
-    case 'wave': return { title: imperial ? 'Waves, feet (darts: where they run)' : 'Waves, metres (darts: where they run)', gradient: css(WAVE, 0.6), ticks: ticks(WAVE, v => imperial ? Math.round(v * 3.28084) : v) };
-    case 'rain': return { title: 'Rain, mm/h', gradient: css(RAIN, 0.6), ticks: ticks(RAIN, v => v) };
-    case 'wind': return { title: imperial ? 'Wind streaks, mph' : 'Wind streaks, km/h', gradient: `linear-gradient(90deg,${COLORS.map((c, i) => `${c} ${(i / (COLORS.length - 1) * 100).toFixed(1)}%`).join(',')})`,
-      ticks: [0, ...EDGES].map((v, i) => [i / EDGES.length * 100, imperial ? mph(v) : kmh(v)]) };
-    case 'pres': return { title: 'Pressure: isobars every 4 hPa, heavier every 20; H high, L low', gradient: null, ticks: [] };
-    default: return null;
-  }
-}
+// the legend's colours come from the same stops as the washes (core/wxpaint.js)
+export { legendFor } from '../core/wxpaint.js';

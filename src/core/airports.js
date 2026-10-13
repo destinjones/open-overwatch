@@ -163,6 +163,45 @@ export function recentMove(ap, r, now, opt = BOARD) {
   return null;
 }
 
+/**
+ * The aircraft worth checking for an airport's board: records within about 180 km (a box first) seen in the last 20
+ * minutes, as the points makeBoard wants. `point(r)` turns a view's record into { lat, lon, alt (m), gs (m/s), vr (m/s),
+ * track, ground, ts, was } where it is drawn now, or null to leave it out; each point keeps its record as .r and the
+ * route on file (r.info.route) as .route.
+ */
+export function planesNear(ap, records, point, now = Date.now()) {
+  const out = [], dLon = 1.6 / Math.max(0.05, Math.cos(ap.lat * RAD));
+  for (const r of records) {
+    const p = point(r); if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lon)) continue;
+    if (Math.abs(p.lat - ap.lat) >= 1.6 || Math.abs(((p.lon - ap.lon + 540) % 360) - 180) >= dLon || !(now - p.ts < 20 * 60e3)) continue;
+    p.r = r; p.route = r.info && r.info.route; out.push(p);
+  }
+  return out;
+}
+
+const BOARD_STATUS = { taxiing: 'taxiing', ground: 'parked' };
+/**
+ * One board row in words, the same on every view: { where ("from MAD" / "to JFK": the other end of the route on file,
+ * only when it agrees with what the plane is doing here), right (ETA and the runway it is lined up with, the climb, how
+ * long ago it landed or took off, parked or taxiing), sub (the plane's class on the ground; height above the field and
+ * distance in the air) }. e: a makeBoard entry whose .r has { info?, vr (m/s) }; fin: the runway end it is lined up with.
+ */
+export function boardRowWords(e, ap, { fin = null, kind = '', fmt = n => Math.round(n).toLocaleString('en-US') } = {}) {
+  const r = e.r, rt = r.info && r.info.route;
+  // a route that starts here on a plane landing here is some other day's flight under the same callsign: say nothing
+  const inbound = e.status === 'arriving' || e.status === 'landed' || (e.status !== 'departing' && e.status !== 'departed' && e.toHere);
+  const other = rt && rt.origin && rt.destination ? (inbound ? rt.origin : rt.destination) : null;
+  const where = other && other.icao !== ap.icao && (inbound ? !e.fromHere : !e.toHere) ? `${inbound ? 'from' : 'to'} ${other.iata || other.icao}` : '';
+  const right = e.status === 'arriving' ? etaText(e.etaS) + (fin ? ` · final ${fin.end.ident}` : '') : e.status === 'departing' ? `climbing ${fmt((r.vr || 0) * 196.85)} ft/min`
+    : e.status === 'landed' || e.status === 'departed' ? `${e.status} about ${etaText(e.agoS)} ago`.replace('about now ago', 'just now') : BOARD_STATUS[e.status] || '';
+  const onField = e.status === 'ground' || e.status === 'taxiing' || e.status === 'landed' || e.status === 'departed';
+  const sub = onField ? kind : `${fmt(Math.max(0, e.aboveM) / FT)} ft above the field · ${fmt(e.km)} km`;
+  return { where, right, sub };
+}
+
+/** The board's sections in display order: [key, heading, colour]. */
+export const BOARD_SECTIONS = [['arriving', 'Arriving', '#7dffa6'], ['departing', 'Departing', '#ffd27a'], ['recent', 'Just landed or took off', '#c9a0ff'], ['ground', 'On the ground', '#9fb3c8']];
+
 /** "6 min", "1 h 05", "now" for an ETA in seconds. */
 export function etaText(s) {
   if (s == null || !Number.isFinite(s)) return '—';
