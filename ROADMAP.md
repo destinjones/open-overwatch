@@ -184,6 +184,10 @@ Round 2 (2026-10-10, local):
       aurora, tonight's sky), each with a link that opens the globe there; show_on_globe puts the globe in the chat as an
       MCP App (a frame of the site in embed mode, moved by hash); no SDK, one dependency (satellite.js); a Claude Desktop
       bundle (.mcpb) built by the release workflow; npm publish needs the owner's npm account (test/mcp.test.mjs)
+- [x] MCP 0.2.0: six more tools (traffic cameras with the latest pictures as images, live transit, VIIRS wildfires grouped
+      into fires with NIFC's named US fires, country briefings, submarine cables, the planets and their next events) and
+      a Streamable HTTP transport (`--http <port>`, stateless, loopback only, Host/Origin checks; Worker-ready handler, not
+      deployed); camera networks and transit feeds shared with the globe through src/core
 - [x] Emulator pass of v0.9.2.7 (Android Chrome 124 + WebKit iPhone 15): every new layer holds the phone cap of 30
       renders/s while dragging, the battery saver idles at 5-15, no script errors in either engine, layer caches stay
       flat after the first use; launch labels of one site now share one label (+N)

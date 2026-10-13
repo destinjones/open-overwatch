@@ -304,6 +304,21 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
 - Publishing: `npm publish` from the repo root needs the owner's npm login (not done); the release workflow builds
   `open-overwatch.mcpb` (Claude Desktop's one-click install: manifest.json at the root, mcp/, src/core/, node_modules/
   satellite.js; ~320 KB) and attaches it to the release next to the zip.
+- 0.2.0 (2026-10-12): 20 tools. The tools live in one file each beside tools.mjs (`cams`, `transit`, `fires`, `country`,
+  `cables`, `solar`.mjs); shared formatting in `words.mjs`, the hazard feeds three tools read in `hazards.mjs`. The globe's
+  camera networks and transit feed addresses moved to src/core (`cams.js`, `transit.js`), so the globe and the server read
+  the same lists; the globe adds only its relay rules (`relay: true` lists, NYC stills through the relay).
+- Tools may return `images: [{ data, mimeType }]`: sent as MCP image content after the text. Camera stills are sniffed
+  by their first bytes (an agency's "offline" page is HTML with a 200), at most 1.5 MB, base64 without Node's Buffer.
+- feeds.mjs grew `bytes()` (pictures, GTFS-RT, gzipped vector tiles), POST bodies (Entur's GraphQL; the body is part of the
+  cache key) and a byte cap. GIBS sends its tiles gzipped without saying so: unzipped with DecompressionStream.
+- Streamable HTTP (`--http <port>`, mcp/http.mjs + http-node.mjs): stateless, so GET and DELETE answer 405 (no event
+  stream, no sessions) and notifications 202; one message per POST (batches 400). Host must be loopback (DNS rebinding),
+  Origin loopback or listed; 406/415/413/400 as the spec says. http.mjs uses only Request/Response, so the same handler
+  could serve from a Cloudflare Worker with `hosts: null` and its own auth (not deployed: the relay Worker is separate
+  and redeploys need the owner's OK). A client that hangs up aborts its tool call.
+- HSL in the server is the GTFS-RT file, not the MQTT stream (no WebSocket in a one-shot answer); its route ids carry the
+  line ("1055" = 55, "31M1" = M1, "3001R" = R train, 1001-1015 trams except bus 14).
 
 ## NYC measured traffic speeds — 2026-10-12
 - NYC DOT's Traffic Speeds dataset (i4gi-tjb9) lags far more than "a few hours": on 2026-10-12 the newest row was 27 h

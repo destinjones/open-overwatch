@@ -5,6 +5,8 @@
 import { decodeTile } from '../src/core/mvt.js';
 import { parseFires } from '../src/core/hazards.js';
 import { fireTilesAround, clusterFires, fireWords, perimeterRows } from '../src/core/fireclusters.js';
+import { inverse } from '../src/core/measure.js';
+import { compass } from '../src/core/passes.js';
 import { ToolError } from './feeds.mjs';
 import { areaProps, resolveArea, inArea, frameArea, globeUrl, PHOTON } from './place.mjs';
 import { iso, r1, r2, coord, km, ago, plural, areaData, limitProp, take } from './words.mjs';
@@ -28,11 +30,17 @@ export function firesTool(ctx) {
     catch (e) { if (e.code === 'not_found') return { fires: [], ok: true }; return { fires: [], ok: false }; }   // a day with no data yet is a 404
     return { fires: parseFires(decodeTile(await gunzip(got.bytes))), ok: true };
   }
+  /** The nearest named place (Photon, within 50 km) and where the fire is from it: "Near X" or "24 km NE of X". */
   const placeName = async (lat, lon, signal) => {
-    const d = await feeds.json(`${PHOTON.replace(/api\/$/, 'reverse')}?lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}&lang=en&limit=1`, { ttl: 7 * 864e5, timeout: 10e3, signal }).catch(() => null);
-    const p = d && d.features && d.features[0] && d.features[0].properties; if (!p) return null;
+    const d = await feeds.json(`${PHOTON.replace(/api\/$/, 'reverse')}?lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}&lang=en&limit=1&radius=50`, { ttl: 7 * 864e5, timeout: 10e3, signal }).catch(() => null);
+    const f = d && d.features && d.features[0], p = f && f.properties; if (!p) return null;
     const named = p.osm_key === 'highway' || /^(street|house)$/.test(p.type || '') ? null : p.name;   // a settlement, else a named feature (not a street), else the county
-    return [p.city || p.town || p.village || named || p.county, p.state, p.country].filter(Boolean).filter((x, i, a) => a.indexOf(x) === i).join(', ') || null;
+    const name = [p.city || p.town || p.village || named || p.county, p.state, p.country].filter(Boolean).filter((x, i, a) => a.indexOf(x) === i).join(', ');
+    if (!name) return null;
+    const [plon, plat] = (f.geometry && f.geometry.coordinates) || [];
+    if (!Number.isFinite(plat) || !Number.isFinite(plon) || p.city || p.town || p.village) return { name, text: `Near ${name}` };   // a settlement: its area holds the fire
+    const g = inverse(plat, plon, lat, lon), dkm = g.s / 1000;
+    return { name, text: dkm < 3 ? `Near ${name}` : `${Math.round(dkm)} km ${compass(g.az1)} of ${name}` };
   };
 
   return {
@@ -61,7 +69,7 @@ export function firesTool(ctx) {
       for (const g of got) for (const f of g.fires) if (f.t >= since && f.t <= t + 3600e3 && !seen.has(f.id) && seen.add(f.id) && inArea(area.bbox ? area : { ...area, radiusKm: radius }, f.lat, f.lon)) dets.push(f);
       const groups = clusterFires(dets), shown = take(groups, a.limit || 10);
       const names = await Promise.all(shown.slice(0, 6).map(g => placeName(g.lat, g.lon, signal)));
-      const rows = shown.map((g, i) => ({ lat: r2(g.lat), lon: r2(g.lon), near: names[i] || null, detections: g.count, power_mw: Math.round(g.frp), strongest_pixel_mw: r1(g.max_frp), extent_km: r1(g.km),
+      const rows = shown.map((g, i) => ({ lat: r2(g.lat), lon: r2(g.lon), near: names[i] ? names[i].name : null, from: names[i] ? names[i].text : null, detections: g.count, power_mw: Math.round(g.frp), strongest_pixel_mw: r1(g.max_frp), extent_km: r1(g.km),
         first_seen: iso(g.first), last_seen: iso(g.last), night_detections: g.night, words: fireWords(g) }));
       let perims = [];
       const usHit = US.some(([s, w, n, e]) => (area.lat + radius / 111 >= s && area.lat - radius / 111 <= n) && (area.lon >= w - 15 && area.lon <= e + 15));
@@ -74,7 +82,7 @@ export function firesTool(ctx) {
       }
       const head = dets.length ? `${plural(dets.length, 'fire detection')} in the last ${plural(hours, 'hour')}${area.bbox ? ` in ${area.label}` : ` within ${km(radius)} of ${area.label}`}, in ${plural(groups.length, 'group')}${groups.length > shown.length ? ` (the ${shown.length} strongest below)` : ''}:`
         : `No fire detections in the last ${plural(hours, 'hour')}${area.bbox ? ` in ${area.label}` : ` within ${km(radius)} of ${area.label}`} (clouds or smoke can hide fires, and the satellites pass a few times a day).`;
-      const lines = rows.map(r => `${r.near ? `Near ${r.near} (${coord(r.lat, r.lon)})` : coord(r.lat, r.lon)} · ${r.words} · last seen ${ago(Date.parse(r.last_seen), t)}${r.night_detections ? ` · ${r.night_detections} at night` : ''}`);
+      const lines = rows.map(r => `${r.from ? `${r.from} (${coord(r.lat, r.lon)})` : coord(r.lat, r.lon)} · ${r.words} · last seen ${ago(Date.parse(r.last_seen), t)}${r.night_detections ? ` · ${r.night_detections} at night` : ''}`);
       const plines = perims.map(p => `${p.prescribed ? 'Prescribed burn' : 'Fire'} "${p.name}"${p.state ? ` (${p.state})` : ''}: ${p.acres != null ? `${Math.round(p.acres).toLocaleString('en-US')} acres` : 'size not reported'}${p.contained != null ? `, ${Math.round(p.contained)}% contained` : ''}${p.discovered ? `, since ${new Date(p.discovered).toISOString().slice(0, 10)}` : ''}${p.cause ? `, cause ${p.cause.toLowerCase()}` : ''}`);
       const url = globeUrl(site, { camera: frameArea({ ...area, radiusKm: Math.max(20, Math.min(radius, 1500)) }), on: ['fires'] });
       const text = [head, ...lines, ...(perims.length ? ['Named fires NIFC has mapped here (not yet fully contained):', ...plines] : []),

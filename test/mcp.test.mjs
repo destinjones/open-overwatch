@@ -390,7 +390,7 @@ ROUTES.unshift(
   [/gibs\.earthdata\.nasa\.gov\/wmts\/epsg4326\/best\/VIIRS_NOAA20_[^/]+\/default\/2026-10-01\//, FIRE_TILE],
   [/gibs\.earthdata\.nasa\.gov\/wmts\/epsg4326\/best\/VIIRS_NOAA20_[^/]+\/default\/2026-09-30\//, OLD_TILE],
   [/gibs\.earthdata\.nasa\.gov/, { status: 404 }],
-  [/photon\.komoot\.io\/reverse/, { features: [{ properties: { name: 'Mainoru', county: 'Roper Gulf', state: 'Northern Territory', country: 'Australia' } }] }],
+  [/photon\.komoot\.io\/reverse/, { features: [{ properties: { name: 'Mainoru', county: 'Roper Gulf', state: 'Northern Territory', country: 'Australia', osm_key: 'place' }, geometry: { coordinates: [131.9, -15.2] } }] }],
   [/services3\.arcgis\.com\/T4QMspbfLg3qTGWY\/.*WFIGS_Interagency_Perimeters_Current/, { features: [{ attributes: { poly_IncidentName: 'Timber', attr_IncidentSize: 25350, attr_PercentContained: 97, attr_POOState: 'US-CA',
     attr_FireDiscoveryDateTime: 1786246500000, attr_UniqueFireIdentifier: '2026-CALPF-002271', attr_IncidentTypeCategory: 'WF', attr_FireCause: 'Undetermined' }, centroid: { x: -121.39, y: 35.92 } },
     { attributes: { poly_IncidentName: 'Done', attr_IncidentSize: 10, attr_PercentContained: 100 }, centroid: { x: -121.5, y: 36 } }] }],
@@ -444,8 +444,8 @@ test('mcp: wildfires: VIIRS hot pixels grouped into fires, placed by name, the l
   const { server, net } = serve(), r = ok(await call(server, 'wildfires', { lat: -15.05, lon: 132.1, radius_km: 100 })), d = r.structuredContent;
   assert.equal(d.total_detections, 4, 'the old one and the far one are out; the repeat across days counts once');
   assert.deepEqual(d.fires.map(f => [f.detections, f.power_mw]), [[3, 180], [1, 2]]);
-  assert.equal(d.fires[0].near, 'Mainoru, Northern Territory, Australia'); assert.equal(d.fires[0].night_detections, 3); assert.equal(d.fires[0].last_seen, '2026-10-01T04:31:00Z');
-  assert.match(r.content[0].text, /^4 fire detections in the last 24 hours within 100 km of .*, in 2 groups:\nNear Mainoru, Northern Territory, Australia \(15\.00°S 132\.00°E\) · a sizeable fire \(3 hot pixels/);
+  assert.equal(d.fires[0].near, 'Mainoru, Northern Territory, Australia'); assert.equal(d.fires[0].from, '24 km NNE of Mainoru, Northern Territory, Australia'); assert.equal(d.fires[0].night_detections, 3); assert.equal(d.fires[0].last_seen, '2026-10-01T04:31:00Z');
+  assert.match(r.content[0].text, /^4 fire detections in the last 24 hours within 100 km of .*, in 2 groups:\n24 km NNE of Mainoru, Northern Territory, Australia \(15\.00°S 132\.00°E\) · a sizeable fire \(3 hot pixels/);
   assert.match(r.content[0].text, /A detection is a hot 375 m pixel/); assert.deepEqual(hashOf(d.url).add, ['fires']); assert.deepEqual(d.named_fires, []);
   assert.ok(!net.asked.some(u => u.includes('WFIGS')), 'NIFC only for the US');
   assert.equal(ok(await call(server, 'wildfires', { lat: -15.05, lon: 132.1, radius_km: 100, hours: 6 })).structuredContent.total_detections, 1, 'only the afternoon one in the last 6 hours');
