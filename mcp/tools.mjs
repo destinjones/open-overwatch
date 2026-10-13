@@ -280,7 +280,7 @@ export function createTools(ctx) {
     description: "Active tropical cyclones worldwide: NOAA's National Hurricane Center advisories (Atlantic, East and Central Pacific: class, wind, pressure, movement) and GDACS for every basin (alert level, strongest wind so far, countries). Optionally only those in an area.",
     inputSchema: { type: 'object', additionalProperties: false, properties: { ...areaProps('to look') } },
     async run(a, { signal }) {
-      const day = ms => new Date(ms).toISOString().slice(0, 10), t = now();
+      const t = now();
       const [nhc, gd, area] = await Promise.all([feeds.json(NHC_CURRENT, { ttl: 10 * 60e3, signal }).catch(() => null),
         feeds.json(gdacsTcUrl(t), { ttl: 15 * 60e3, timeout: 30e3, signal }).catch(() => null), resolveArea(a, feeds, { pointKm: 1500, signal })]);
       if (!nhc && !gd) throw new ToolError('Neither NOAA NHC nor GDACS answered; try again in a few minutes', 'unavailable');

@@ -181,3 +181,16 @@ test('cables: landings and the click test', () => {
   assert.equal(nearestCable(fc, 30.05, -179.95, 20000).id, 'c');   // across the antimeridian
   assert.equal(okColor('#12ab'), '#12ab'); assert.equal(okColor('red;x'), null);
 });
+
+test('passes: ecfAt wraps a satellite.js record, nextPass finds the first pass', async () => {
+  const { ecfAt, nextPass } = await import('../src/core/passes.js'), { observer } = await import('../src/core/observer.js');
+  // a fake satellite.js: a point 500 km up crossing the observer's meridian from south to north over 20 minutes
+  const sl = { propagate: (rec, d) => { const t = (d.getTime() - rec.t0) / 60e3; if (t > 1000) return { position: false }; return { position: { x: 0, lat: -20 + t * 2, h: 500 } }; },
+    gstime: () => 0, eciToEcf: (p) => { const o = observer(p.lat, 10, p.h); return o.pos; } };
+  const t0 = Date.UTC(2026, 9, 12), at = ecfAt(sl, { t0 });
+  assert.ok(at(t0).x > 0); assert.equal(at(t0 + 2000 * 60e3), null);
+  const p = nextPass(at, observer(0, 10), t0, { minEl: 10, step: 20e3 });
+  assert.ok(p && p.maxEl > 85, JSON.stringify(p));
+  assert.ok(Math.abs(p.peak - (t0 + 10 * 60e3)) < 20e3);   // overhead at minute 10 (latitude 0)
+  assert.equal(nextPass(at, observer(60, 100), t0), null);
+});

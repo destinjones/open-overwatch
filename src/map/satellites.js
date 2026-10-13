@@ -1,6 +1,8 @@
 // Satellites: CelesTrak groups, SGP4 in a worker, ground tracks, passes.
 import { num, idArg } from '../core/format.js';
 import { createTleSource } from '../core/tle.js';
+import { ecfAt, nextPass } from '../core/passes.js';
+import { observer, sunEcef } from '../core/observer.js';
 import { $, C, deg, fmt, haversine, late, Log, Net, rad, Store } from './util.js';
 import { sunElevation, vecRenderer } from './mapview.js';
 import { Dyn, Layers, Sel, UI, feed, requestDraw } from './engine.js';
@@ -134,17 +136,11 @@ export const Sats = {
   // elevation of a satellite above an observer's horizon, from sub-point + altitude (good to a degree or so)
   elevation(obsLat, obsLon, s) { if (s.lat == null || !s.alt) return -90; const R = 6371; const g = haversine(obsLat, obsLon, s.lat, s.lon) / 1000 / R; const el = Math.atan2(Math.cos(g) - R / (R + s.alt), Math.sin(g)); return deg(el); },
   above(obsLat, obsLon, minEl = 25) { return Dyn.sats.filter(s => s.lat != null).map(s => ({ s, el: this.elevation(obsLat, obsLon, s) })).filter(x => x.el >= minEl).sort((a, b) => b.el - a.el); },
-  // next pass of a satellite over an observer: first time in the next 24 h it climbs above minEl (returns {start, max, end} ms)
+  // the next pass over an observer (core/passes.js, as the globe's Tonight and the MCP server): { start, max, maxT, end, now, visible }
   nextPass(o, obsLat, obsLon, minEl = 10) {
     if (!o || !o.l1) return null; let sr; try { sr = satellite.twoline2satrec(o.l1, o.l2); } catch (e) { return null; }
-    const obs = { latitude: rad(obsLat), longitude: rad(obsLon), height: 0.1 }; const step = 30000; let start = null, max = -90, maxT = 0;
-    for (let t = Date.now(); t < Date.now() + 24 * 3600e3; t += step) {
-      const d = new Date(t); const pv = satellite.propagate(sr, d); if (!pv || !pv.position || isNaN(pv.position.x)) return null;
-      const gmst = satellite.gstime(d); const look = satellite.ecfToLookAngles(obs, satellite.eciToEcf(pv.position, gmst)); const el = deg(look.elevation);
-      if (el >= minEl) { if (start == null) { start = t; if (t === Date.now()) start = t; } if (el > max) { max = el; maxT = t; } }
-      else if (start != null) return { start, max, maxT, end: t, now: start <= Date.now() + step };
-    }
-    return start != null ? { start, max, maxT, end: null, now: true } : null;
+    const now = Date.now(), p = nextPass(ecfAt(satellite, sr), observer(obsLat, obsLon), now, { minEl, sunAt: sunEcef });
+    return p && { start: p.rise, max: p.maxEl, maxT: p.peak, end: p.set, now: p.rise <= now + 30e3, visible: p.visible };
   },
 };
 Detail.renderers.sat = o => {
