@@ -32,6 +32,9 @@ import { conjTool } from './conj.mjs';
 import { sunTool } from './sun.mjs';
 import { meteorsTool } from './meteors.mjs';
 import { createOsmTools } from './osm.mjs';
+import { weatherDetailsTool } from './wxdetail.mjs';
+import { aircraftTool } from './aircraft.mjs';
+import { spaceTool } from './space.mjs';
 
 const AIS = 'https://meri.digitraffic.fi/api/ais/v1/', AIS_HEADERS = { 'Digitraffic-User': 'OpenOverwatch-MCP/0.1' };
 const CITYBIKES = 'https://api.citybik.es/v2/networks';
@@ -474,11 +477,11 @@ export function createTools(ctx) {
 
   return [showOnGlobe, earthquakes, whereSat, passes, launches, crew, flybys, storms, events, ships, bikes, weather, aurora, night,
     camerasTool(ctx), transitTool(ctx), firesTool(ctx), countryTool(ctx), cablesTool(ctx), solarTool(ctx), eclipsesTool(ctx), distanceTool(ctx), volcanoesTool(ctx), roadsTool(ctx),
-    conjTool(ctx), sunTool(ctx), meteorsTool(ctx), ...createOsmTools(ctx, link)];
+    conjTool(ctx), sunTool(ctx), meteorsTool(ctx), ...createOsmTools(ctx, link), weatherDetailsTool(ctx), aircraftTool(ctx), spaceTool(ctx)];
 }
 
 /** Server instructions: how the tools fit together. */
 export const INSTRUCTIONS = 'Open Overwatch answers questions about the live Earth from public open data (USGS, NOAA, NASA, Launch Library 2, CelesTrak element sets, Fintraffic AIS, CityBikes, Open-Meteo, '
-  + 'public traffic cameras, transit operators, TeleGeography, Wikidata, the World Bank, and OpenStreetMap through OpenFreeMap and FlockHopper map tiles). '
+  + 'adsbdb, JPL Horizons and small-body elements, public traffic cameras, transit operators, TeleGeography, Wikidata, the World Bank, and OpenStreetMap through OpenFreeMap and FlockHopper map tiles). '
   + 'Every answer includes a url that opens the live 3D globe on it. When the person would like to see something, call show_on_globe with that url (or describe the view): '
   + 'in hosts with MCP Apps, such as Claude Desktop, the globe then appears in the conversation. Give people the url too.';

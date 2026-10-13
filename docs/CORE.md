@@ -20,10 +20,10 @@ is also used by its tests in `test/`.
 - [Time, units and frames](#time-units-and-frames): `time.js`, `units.js`, `rotation.js`
 - [Orbits and the Solar System](#orbits-and-the-solar-system): `kepler.js`, `planets.js`, `moons.js`, `smallbodies.js`, `comets.js`, `craft.js`, `accuracy.js`
 - [Satellites](#satellites): `tle.js`, `passes.js`, `observer.js`, `socrates.js`, `explain.js`
-- [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `orientation.js`
+- [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `whereis.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `orientation.js`
 - [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`
 - [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`
-- [Weather](#weather): `gfs.js`, `wxmodels.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`
+- [Weather](#weather): `gfs.js`, `wxmodels.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpoint.js`
 - [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `aurora.js`, `fireclusters.js`, `fires.worker.js`
 - [Aviation](#aviation): `aircraft.js`, `actype.js`, `phase.js`, `airports.js`, `runways.js`, `aloft.js`, `trail.js`
 - [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `transitfeeds.js`, `gtfsrt.js`, `bikes.js`, `cameras.js`, `cables.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
@@ -239,6 +239,21 @@ by mcp (its `solar_system` tool).
 - `magnitude`, `saturnRingTilt`: brightness. `skyEvents`: the coming events. `visibility`: how easy it is to see, in a
   phrase.
 
+### `whereis.js`
+
+"Where is it now?" without the Solar System view: a catalogue of everything it knows by name (planets, the Moon, the
+major moons, missions, comets, the named asteroids) with the view's own keys, a quick exact-then-prefix search for the
+28,000 long-list names (the fuzzy `search.js` is kept for short lists), one asteroid's elements out of the packed files by
+byte range, and the state that answers the question. Used by mcp (its `where_in_space` tool).
+
+- `catalogue`: the searchable items with how to place each. `indexCatalogue`, `findBody`: the fuzzy search over a short
+  list. `quickIndex`, `findQuick`, `fold`: the quick one. `DWARF_PLANETS`.
+- `recordRanges`: where record idx's columns sit in a file of N records. `elementsFromBytes`: those bytes as elements
+  (decoded as the view's shader does). `fileRecords`, `RECORD_BYTES`.
+- `stateAt`: distance from the Sun and Earth, light time, speed, range rate, RA/Dec, elongation, phase angle.
+- `hgMagnitude`: an asteroid's brightness (IAU H-G). `seeingWords`: what it takes to see a magnitude. `lightWords`,
+  `distanceWords`, `IAU_NAMES` (the 88 constellations by abbreviation), `CLASS_WORDS`.
+
 ### `meteors.js`
 
 The major annual meteor showers (IMO working list) and how many you could really see: the radiant's height and the
@@ -447,6 +462,17 @@ line, and the highs and lows that stand out. Used by globe (the pressure layer).
 
 - `levels`: contour levels every step from a base (isobars every 4 hPa run 996, 1000, 1004…). `isolines`: the lines.
 - `extrema`: highs and lows, strongest first. `labelSpots`: where to write a line's value.
+
+### `wxpoint.js`
+
+The weather at one point in detail, from Open-Meteo's forecast, marine and multi-model answers: the fields the globe
+draws as maps read off for a place, in a forecaster's words. Used by mcp (its `weather_details` tool).
+
+- `readDetails`: now and the extremes ahead (lowest pressure, strongest gust, CAPE, visibility, UV, freezing level, rain)
+  with the three-hour pressure tendency. `tendencyWords` (the Met Office's steady / slowly / quickly / very rapidly).
+- `beaufort`, `capeWords`, `visibilityWords`, `uvWords`, `seaState` (Douglas): numbers in words. `hourIndex`, `extreme`, `r1`.
+- `modelSpread`: ECMWF, GFS and ICON side by side per day and whether they agree. `spreadLine`: that in one sentence. `MODELS`.
+- `readMarine`: waves, swell, period, sea temperature and current now, and the highest waves ahead (null over land).
 
 ## Hazards and imagery
 
