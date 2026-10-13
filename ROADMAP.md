@@ -204,6 +204,13 @@ Round 2 (2026-10-10, local):
       follow their side); sea-level pressure as isobars every 4 hPa with H and L (core/contour.js); gusts; ocean waves
       with direction darts (NOAA WAVEWATCH III via a JPEG 2000 decoder, core/jpx.js; ECMWF's wave model); a legend, a
       point readout, and voice answers with gusts, pressure and its trend, the sea state (decoders checked against eccodes)
+- [x] Shared feed core (2026-10-12, branch grow-map-core): quakes, EONET, GDACS, cyclones, cameras, aurora, cables, aircraft,
+      transit feeds, Overpass, radio mirrors, OSRM and passes parsed once in src/core (tested) for the 2D map, the globe
+      and the MCP server; the views' own copies deleted
+- [x] The 2D map catches up: Baltic ships moving between reports (core/ais), bike share, live transit (Boston, Helsinki,
+      Norway, Austin, Minneapolis), cyclone cones / warnings / wind fields, keyless wildfire hot spots and US perimeters,
+      all twelve camera networks with live video, draw and measure (R), share links in the globe's format, and the map
+      and the globe open each other on the same place with the matching layers and the drawing
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 

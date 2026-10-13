@@ -124,6 +124,45 @@ export function fireTilesFor(w, s, e, n, level) {
   for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) out.push({ level, row: r, col: c });
   return out;
 }
+/** VIIRS thermal anomaly layers on GIBS (keyless FIRMS), per satellite; the satellites' names for cards. */
+export const FIRE_LAYERS = Object.freeze({ N20: 'VIIRS_NOAA20_Thermal_Anomalies_375m_All', N21: 'VIIRS_NOAA21_Thermal_Anomalies_375m_All' });
+export const FIRE_SAT_NAME = Object.freeze({ N20: 'NOAA-20', N21: 'NOAA-21', N: 'Suomi NPP' });
+export const fireTileUrl = (layer, date, t) => `https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/${layer}/default/${date}/500m/${t.level}/${t.row}/${t.col}.mvt`;
+/** By fire radiative power (MW): [lowest MW, colour, size in px]. */
+export const FIRE_FRP = Object.freeze([[100, '#fff1d6', 8], [20, '#ff5a2e', 6], [5, '#ff9f3c', 4.5], [0, '#ffd45c', 3.2]]);
+export const fireLook = frp => FIRE_FRP.find(([min]) => frp >= min);
+/** The tile level for a view `km` across (about one tile per view). */
+export const fireLevel = km => km > 1200 ? 3 : km > 500 ? 4 : km > 150 ? 5 : 6;
+/**
+ * The tiles to load for a view centred at lat, lon with radius r (degrees of latitude): the nearest `max` of `level`
+ * (two at level 3), for both satellites and for today and yesterday (UTC), as [{ key, url, today }].
+ */
+export function fireTilesWanted(lat, lon, r, level, max, now = Date.now()) {
+  const day = ms => new Date(ms).toISOString().slice(0, 10), rl = r / Math.max(0.2, Math.cos(lat * Math.PI / 180));
+  const near = fireTilesFor(Math.max(-180, lon - rl), Math.max(-90, lat - r), Math.min(180, lon + rl), Math.min(90, lat + r), level)
+    .map(t => { const d = fireTileDeg(t.level); return [t, Math.hypot(-180 + (t.col + 0.5) * d - lon, 90 - (t.row + 0.5) * d - lat)]; })
+    .sort((a, b) => a[1] - b[1]).slice(0, level <= 3 ? 2 : max).map(a => a[0]);
+  const out = [];
+  for (const t of near) for (const sat of Object.keys(FIRE_LAYERS)) for (const d of [day(now), day(now - 864e5)])
+    out.push({ key: `${sat}/${d}/${t.level}/${t.row}/${t.col}`, url: fireTileUrl(FIRE_LAYERS[sat], d, t), today: d === day(now) });
+  return out;
+}
+/** NIFC WFIGS current interagency perimeters (keyless, CORS), simplified to ~100 m. */
+export const NIFC_PERIMETERS = 'https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query?where=1%3D1'
+  + '&outFields=poly_IncidentName,attr_IncidentName,attr_IncidentSize,attr_PercentContained,attr_POOState,attr_FireDiscoveryDateTime,poly_DateCurrent,attr_UniqueFireIdentifier,attr_IncidentTypeCategory,attr_FireCause,attr_IncidentShortDescription'
+  + '&maxAllowableOffset=0.001&geometryPrecision=5&outSR=4326&f=geojson';
+/** A perimeter's colour: prescribed burns green, then by containment (red under 30%, orange, yellow, grey when out). */
+export const containColor = f => f.rx ? '#9ad17a' : f.contained == null || f.contained < 30 ? '#ff3b2f' : f.contained < 70 ? '#ff8a3d' : f.contained < 100 ? '#ffc75a' : '#9aa5b1';
+/** A ring's area in hectares (flat, fine for a fire). */
+export const ringHa = r => { let a = 0; for (let i = 1; i < r.length; i++) a += r[i - 1][0] * r[i][1] - r[i][0] * r[i - 1][1]; return Math.abs(a) / 2 * 111.32 ** 2 * Math.cos(r[0][1] * Math.PI / 180) * 100; };
+/** A fire's rings worth drawing: at least 2 ha, its 30 largest (a fire can have hundreds of spot-fire rings). */
+export const keptRings = f => f.rings.filter(r => r.length >= 4).map(r => [r, ringHa(r)]).filter(([, ha]) => ha >= 2).sort((a, b) => b[1] - a[1]).slice(0, 30).map(([r]) => r);
+/** Where a perimeter's card flies to: the middle of its largest ring. */
+export function perimeterCentre(f) {
+  const big = f.rings.reduce((a, r) => r.length > a.length ? r : a, f.rings[0]);
+  return { lat: big.reduce((a, q) => a + q[1], 0) / big.length, lon: big.reduce((a, q) => a + q[0], 0) / big.length };
+}
+
 /** Fire detections from a decoded GIBS thermal anomaly tile (FIRMS's fields) at or after `since` (ms):
  *  [{ id, lat, lon, frp (MW), k (brightness, kelvin), conf, sat, t (ms), day }]. */
 export function parseFires(layers, since = 0) {

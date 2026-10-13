@@ -7,13 +7,10 @@ import { scene, camera, camHeight } from './viewer.js';
 import { Terrain } from './terrain.js';
 import { setCount } from './layers.js';
 import { state } from './state.js';
-import { parseNetworks, parseStations, stationState, networksNear } from '../core/bikes.js';
+import { parseNetworks, parseStations, networksNear, CITYBIKES_API, BIKE_STATES, bikeLook, checkedAgo, bikeTip } from '../core/bikes.js';
 
-const API = 'https://api.citybik.es/v2/networks', MAX_H = 150e3, NEAR_KM = 40, REFRESH = 3 * 60e3, DROP_KM = 250, MAX_NETS = PHONE ? 2 : 4;
-const STATES = { ok: ['plenty of bikes', '#7dffb0'], low: ['only a few bikes', '#ffb44d'], empty: ['no bikes', '#ff4d5e'], full: ['full: no free docks', '#5fb0ff'], offline: ['closed', '#8b9bab'],
-  stale: ['no recent numbers', '#56616c'] };
-const STALE = 2 * 864e5;   // a system whose feed has stopped: its last numbers are shown, greyed
-const look = s => s.t && Date.now() - s.t > STALE ? 'stale' : stationState(s);
+const API = CITYBIKES_API, MAX_H = 150e3, NEAR_KM = 40, REFRESH = 3 * 60e3, DROP_KM = 250, MAX_NETS = PHONE ? 2 : 4;
+const STATES = BIKE_STATES, look = s => bikeLook(s);   // words and colours shared with the 2D map
 const COLOR = Object.fromEntries(Object.entries(STATES).map(([k, [, c]]) => [k, C.Color.fromCssColorString(c)]));
 const OUTLINE = C.Color.BLACK.withAlpha(0.6), SCALE = new C.NearFarScalar(500, 1.5, 6e4, 0.55);
 const pts = scene.primitives.add(new C.PointPrimitiveCollection());
@@ -21,10 +18,9 @@ pts.show = false;
 const nets = new Map();   // id → { net, stations, t, busy }
 let directory = null, dirLoading = null, pausedUntil = 0, toldLimit = false;
 
-const ago = (ms, t) => ms < 90e3 ? 'just now' : ms < 3600e3 ? Math.round(ms / 60e3) + ' min ago' : ms < 48 * 3600e3 ? (ms / 3600e3).toFixed(1).replace(/\.0$/, '') + ' h ago'
-  : 'on ' + new Date(t).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+const ago = checkedAgo;
 const StationProto = {
-  tip() { return `🚲 ${this.name || 'Bike station'} · ${this.bikes} bike${this.bikes === 1 ? '' : 's'}${this.docks != null ? ` · ${this.docks} free dock${this.docks === 1 ? '' : 's'}` : ''}`; },
+  tip() { return '🚲 ' + bikeTip(this); },
   cardHtml() {
     const st = look(this), [words, color] = STATES[st], n = this.net;
     const bikes = `${fmt(this.bikes)}${this.ebikes ? ` (${fmt(this.ebikes)} electric)` : ''}`;

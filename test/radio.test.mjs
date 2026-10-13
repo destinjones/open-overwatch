@@ -76,3 +76,14 @@ test('radio: dial position and detents round-trip', () => {
   assert.equal(dialIndex(-3, 10), 0); assert.equal(dialIndex(7, 10), 9); assert.equal(dialIndex(NaN, 10), 0);
   assert.equal(dialIndex(0.12, 5), 0); assert.equal(dialIndex(0.13, 5), 1);
 });
+
+test('radio mirrors: the first that answers wins, else the first error', async () => {
+  const { firstMirror, radioTagUrl, radioSearchUrl, RADIO_HOSTS } = await import('../src/core/radio.js');
+  const tried = [];
+  const r = await firstMirror(async host => { tried.push(host); if (host.startsWith('all')) throw new Error('CORS'); return 42; });
+  assert.deepEqual(r, { host: 'de1.api.radio-browser.info', value: 42 }); assert.deepEqual(tried, ['all.api.radio-browser.info', 'de1.api.radio-browser.info']);
+  await assert.rejects(firstMirror(async h => { throw new Error('down ' + h); }), /down all\.api/);
+  assert.equal(radioTagUrl('x.example', 'dub techno'), 'https://x.example/json/stations/bytag/dub%20techno?limit=14&hidebroken=true&order=clickcount&reverse=true');
+  assert.match(radioSearchUrl('x.example', '3000x'), /limit=0$/);
+  assert.equal(RADIO_HOSTS.length, 3);
+});

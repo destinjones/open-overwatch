@@ -59,3 +59,23 @@ export function bearing(a, b) {
   const x = Math.cos(a[1] * r) * Math.sin(b[1] * r) - Math.sin(a[1] * r) * Math.cos(b[1] * r) * Math.cos((b[0] - a[0]) * r);
   return ((Math.atan2(y, x) / r) + 360) % 360;
 }
+
+/** FOSSGIS's public OSRM servers (keyless, CORS) per travel mode: [host path, profile]. */
+export const OSRM_PROFILE = Object.freeze({ drive: ['routed-car', 'driving'], walk: ['routed-foot', 'foot'], cycle: ['routed-bike', 'bike'] });
+export const osrmUrl = (from, to, mode = 'drive') => { const [host, prof] = OSRM_PROFILE[mode] || OSRM_PROFILE.drive; return `https://routing.openstreetmap.de/${host}/route/v1/${prof}/${+from.lon},${+from.lat};${+to.lon},${+to.lat}?overview=full&geometries=geojson&steps=true`; };
+/** OSRM's answer → { coords: [[lon, lat]], distance (m), duration (s), steps }; "no route" throws with noRoute. */
+export function parseOsrm(d) {
+  if (!d) throw new Error('an unreadable answer');
+  if (d.code !== 'Ok' || !d.routes || !d.routes[0]) throw Object.assign(new Error(d.code || 'no route'), { noRoute: true });
+  const r = d.routes[0];
+  return { coords: r.geometry.coordinates, distance: r.distance, duration: r.duration, steps: (r.legs || []).flatMap(l => l.steps || []) };
+}
+/** A route between { lat, lon } points (the globe's directions and both views' measure tools). */
+export async function fetchRoute(from, to, mode = 'drive', f = globalThis.fetch) {
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 20000);
+  let d;
+  try { const r = await f(osrmUrl(from, to, mode), { signal: ctl.signal }); d = await r.json().catch(() => null); if (!r.ok && !(d && d.code)) throw new Error('HTTP ' + r.status); }   // OSRM answers "no route" as HTTP 400 with a code
+  catch (e) { throw e.name === 'AbortError' ? new Error('timeout') : e; }
+  finally { clearTimeout(timer); }
+  return parseOsrm(d);
+}

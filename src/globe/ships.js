@@ -11,10 +11,9 @@ import { setCount } from './layers.js';
 import { state } from './state.js';
 import { courseAxis } from '../core/geo.js';
 import { lagMeter } from '../core/transit.js';
-import { parseAisLocations, parseAisVessels, shipKind, shipTypeName, SHIP_KINDS, NAV_STATUS, flagOf, underway, shipAt, etaTime } from '../core/ais.js';
+import { parseAisLocations, parseAisVessels, shipKind, shipTypeName, SHIP_KINDS, NAV_STATUS, flagOf, underway, shipAt, etaTime, DIGITRAFFIC_AIS, DIGITRAFFIC_HEADERS, AIS_AREA } from '../core/ais.js';
 
-const API = 'https://meri.digitraffic.fi/api/ais/v1/', HEADERS = { 'Digitraffic-User': 'OpenOverwatch/0.9' };
-const AREA = [56.5, 15.5, 66.5, 35.0];   // s, w, n, e: as far as the Finnish network hears
+const API = DIGITRAFFIC_AIS, HEADERS = DIGITRAFFIC_HEADERS, AREA = AIS_AREA;   // the area: as far as the Finnish network hears
 const MAX_H = 5.0e6, POLL = 20e3, META = 10 * 60e3, KEEP = 2 * 3600e3, DR_MAX = 600, STALE = 15 * 60e3;
 const NEAR_MAX = PHONE ? 12 : 40, NEAR_H = 40e3;   // hulls on the water: at most this many, with the camera below this
 const D2R = Math.PI / 180, KN_KMH = 1.852;
