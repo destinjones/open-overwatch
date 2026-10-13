@@ -107,7 +107,7 @@ test('time travel: a moment from the band rewinds the quakes to the catalogue, N
   expect(n).toBeGreaterThan(1); expect(n).toBeLessThan(25);
   await expect(page.locator('#ttStatus')).toContainText('M2.5+ in the 24 h before');
   await expect(page.locator('#ttStatus')).toContainText('live or upcoming only');
-  expect(await page.evaluate(() => OO3D.Share.link())).toMatch(/[#&]t=2455631\.77083,0.*&go=history$/);
+  expect(await page.evaluate(() => OO3D.Share.link())).toMatch(/[#&]t=2455631\.77083(,|%2C)0\b.*&go=history$/);   // URLSearchParams writes the comma as %2C
   await page.locator('#tt [data-live]').click();
   await expect(page.locator('#tMode')).toHaveText('live');
   await expect(page.locator('#sQk')).toHaveText('5', { timeout: 10000 });
