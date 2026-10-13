@@ -61,7 +61,8 @@ function describe(t) {
 }
 
 /**
- * tools: [{ name, title, description, inputSchema, ui?, run(args, { signal }) -> { text, data } }]; resources: [{ uri, name,
+ * tools: [{ name, title, description, inputSchema, ui?, run(args, { signal }) -> { text, data, images? } }] (images: [{ data
+ * (base64), mimeType }], sent as image content after the text); resources: [{ uri, name,
  * title, description, mimeType, text, _meta }]. handle(message, { signal }) resolves to the response, or null for notifications.
  */
 export function createMcpServer({ name, title, version, instructions, tools, resources = [], log = () => {} }) {
@@ -89,7 +90,8 @@ export function createMcpServer({ name, title, version, instructions, tools, res
       try {
         const out = await t.run(checkArgs(t.inputSchema, p.arguments), { signal });
         log(`${t.name} ${Date.now() - t0} ms`);
-        return { content: [{ type: 'text', text: out.text }], structuredContent: out.data, isError: false };
+        const images = (out.images || []).map(i => ({ type: 'image', data: i.data, mimeType: i.mimeType }));
+        return { content: [{ type: 'text', text: out.text }, ...images], structuredContent: out.data, isError: false };
       } catch (e) {
         if (signal && signal.aborted) throw e;
         const known = e instanceof ToolError;
