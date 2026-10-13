@@ -12,15 +12,14 @@ import { showersFor } from '../src/core/meteors.js';
 import { skyWords, weatherSentence, SENSORS } from '../src/core/voicecmd.js';
 import { decodeView } from '../src/core/viewlink.js';
 import { AU_KM } from '../src/core/units.js';
+import { parseUsgs, usgsUrl, usgsFeedFor } from '../src/core/quakes.js';
+import { parseEonet, eonetUrl, newestFirst } from '../src/core/eonet.js';
+import { parseNhcCurrent, parseGdacsCyclones, gdacsTcUrl, NHC_CURRENT, NHC_CLASS } from '../src/core/cyclones.js';
 import { ToolError } from './feeds.mjs';
 import { areaProps, resolveArea, inArea, distKm, frame, frameArea, globeUrl, panelUrl, LAYERS, WEATHER } from './place.mjs';
 import { findSats, satState, ecefAt, GROUP_LAYER } from './sats.mjs';
 import { PANEL_URI } from './panel.mjs';
 
-const USGS = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/';
-const EONET = 'https://eonet.gsfc.nasa.gov/api/v3/events';
-const NHC = 'https://www.nhc.noaa.gov/CurrentStorms.json';
-const GDACS = 'https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventlist=TC&alertlevel=green;orange;red';
 const AIS = 'https://meri.digitraffic.fi/api/ais/v1/', AIS_HEADERS = { 'Digitraffic-User': 'OpenOverwatch-MCP/0.1' };
 const CITYBIKES = 'https://api.citybik.es/v2/networks';
 const METEO = 'https://api.open-meteo.com/v1/forecast';
@@ -129,16 +128,9 @@ export function createTools(ctx) {
     async run(a, { signal }) {
       const min = a.min_magnitude ?? 2.5, period = a.period || 'day', sort = a.sort || 'magnitude';
       if (period === 'month' && min < 2.5) throw new ToolError('For a whole month ask for magnitude 2.5 or more (the full list is too large)', 'invalid_arguments');
-      const feed = min >= 4.5 ? '4.5' : min >= 2.5 ? '2.5' : min >= 1 ? '1.0' : 'all';
-      const [d, area] = await Promise.all([feeds.json(`${USGS}${feed}_${period}.geojson`, { ttl: 60e3, timeout: 30e3, signal }), resolveArea(a, feeds, { pointKm: 500, signal })]);
-      const all = [];
-      for (const f of (d && d.features) || []) {
-        const p = f.properties || {}, [lon, lat, depth] = (f.geometry && f.geometry.coordinates) || [];
-        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(p.mag) || p.mag < min || (p.type && p.type !== 'earthquake')) continue;
-        if (!inArea(area, lat, lon)) continue;
-        all.push({ magnitude: r1(p.mag), place: String(p.place || coord(lat, lon)), time: iso(p.time), t: p.time, depth_km: Number.isFinite(depth) ? r1(depth) : null, lat: r2(lat), lon: r2(lon),
-          tsunami: !!p.tsunami, alert: p.alert || null, felt_reports: p.felt || 0, url: typeof p.url === 'string' ? p.url : null });
-      }
+      const [d, area] = await Promise.all([feeds.json(usgsUrl(usgsFeedFor(min, period)), { ttl: 60e3, timeout: 30e3, signal }), resolveArea(a, feeds, { pointKm: 500, signal })]);
+      const all = parseUsgs(d, { min, quakesOnly: true }).filter(q => inArea(area, q.lat, q.lon)).map(q => ({ magnitude: r1(q.mag), place: q.place || coord(q.lat, q.lon), time: iso(q.time), t: q.time,
+        depth_km: q.depth != null ? r1(q.depth) : null, lat: r2(q.lat), lon: r2(q.lon), tsunami: q.tsunami, alert: q.alert, felt_reports: q.felt || 0, url: q.url || null }));   // core/quakes.js, as the views
       all.sort(sort === 'time' ? (x, y) => y.t - x.t : (x, y) => y.magnitude - x.magnitude || y.t - x.t);
       const list = take(all, a.limit || 20), t = now(), top = all.length ? all.reduce((m, q) => (q.magnitude > m.magnitude ? q : m)) : null;
       const camera = area ? frameArea(area) : top ? frame(top.lat, top.lon, 900) : EARTH_VIEW, url = link({ camera, on: ['quakes'] });
@@ -282,7 +274,6 @@ export function createTools(ctx) {
   };
 
   const CAT = [[137, 'Category 5'], [113, 'Category 4'], [96, 'Category 3'], [83, 'Category 2'], [64, 'Category 1'], [34, 'tropical storm strength'], [0, 'depression strength']];
-  const CLASS = { HU: 'Hurricane', TS: 'Tropical Storm', TD: 'Tropical Depression', STS: 'Subtropical Storm', STD: 'Subtropical Depression', PTC: 'Potential Tropical Cyclone', PC: 'Post-tropical Cyclone', TY: 'Typhoon' };
   const storms = {
     name: 'tropical_storms',
     title: 'Hurricanes, typhoons and cyclones',
@@ -290,26 +281,20 @@ export function createTools(ctx) {
     inputSchema: { type: 'object', additionalProperties: false, properties: { ...areaProps('to look') } },
     async run(a, { signal }) {
       const day = ms => new Date(ms).toISOString().slice(0, 10), t = now();
-      const [nhc, gd, area] = await Promise.all([feeds.json(NHC, { ttl: 10 * 60e3, signal }).catch(() => null),
-        feeds.json(`${GDACS}&fromdate=${day(t - 10 * 864e5)}&todate=${day(t)}`, { ttl: 15 * 60e3, timeout: 30e3, signal }).catch(() => null), resolveArea(a, feeds, { pointKm: 1500, signal })]);
+      const [nhc, gd, area] = await Promise.all([feeds.json(NHC_CURRENT, { ttl: 10 * 60e3, signal }).catch(() => null),
+        feeds.json(gdacsTcUrl(t), { ttl: 15 * 60e3, timeout: 30e3, signal }).catch(() => null), resolveArea(a, feeds, { pointKm: 1500, signal })]);
       if (!nhc && !gd) throw new ToolError('Neither NOAA NHC nor GDACS answered; try again in a few minutes', 'unavailable');
       const list = [];
-      for (const s of (nhc && nhc.activeStorms) || []) {
-        const lat = +s.latitudeNumeric, lon = +s.longitudeNumeric; if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-        const kt = +s.intensity || null;
-        list.push({ name: String(s.name || s.id), class: CLASS[s.classification] || s.classification || 'Storm', wind_kt: kt, strength: kt != null ? CAT.find(([m]) => kt >= m)[1] : null,
-          pressure_mb: +s.pressure || null, movement: s.movementDir != null && s.movementSpeed != null ? `toward ${compass(+s.movementDir)} at ${s.movementSpeed} mph` : null, lat, lon,
-          updated: s.lastUpdate || null, advisory: s.publicAdvisory && /^https:\/\//.test(s.publicAdvisory.url || '') ? s.publicAdvisory.url : null, source: 'NOAA NHC' });
+      for (const s of parseNhcCurrent(nhc)) {   // the lists are parsed by core/cyclones.js, as the globe's and the 2D map's
+        list.push({ name: s.name, class: NHC_CLASS[s.code] || s.code || 'Storm', wind_kt: s.kt, strength: s.kt != null ? CAT.find(([m]) => s.kt >= m)[1] : null,
+          pressure_mb: s.pressure, movement: s.dir != null && s.mph != null ? `toward ${compass(s.dir)} at ${s.mph} mph` : null, lat: s.lat, lon: s.lon, updated: s.advisory, advisory: s.url || null, source: 'NOAA NHC' });
       }
-      for (const f of (gd && gd.features) || []) {
-        const p = f.properties || {}, c = (f.geometry && f.geometry.coordinates) || [];
-        if (String(p.iscurrent) !== 'true' || !Number.isFinite(+c[1])) continue;
-        const name = String(p.eventname || '').replace(/-\d\d$/, ''), nice = name ? name[0] + name.slice(1).toLowerCase() : 'Storm', sev = p.severitydata || {};
-        const g = { alert: String(p.alertlevel || '') || null, peak_wind_kmh: Number.isFinite(+sev.severity) ? Math.round(+sev.severity) : null, peak: String(sev.severitytext || '') || null, countries: String(p.country || '') || null,
-          report: p.url && /^https:\/\//.test(p.url.report || '') ? p.url.report : null };
-        const same = list.find(s => s.name.toLowerCase() === nice.toLowerCase());
+      for (const c of parseGdacsCyclones(gd)) {
+        if (c.lat == null) continue;
+        const g = { alert: c.alert || null, peak_wind_kmh: c.kmh != null ? Math.round(c.kmh) : null, peak: c.peak || null, countries: c.countries || null, report: c.report || null };
+        const same = list.find(s => s.name.toLowerCase() === c.nice.toLowerCase());
         if (same) { same.gdacs = g; continue; }
-        list.push({ name: nice, class: 'Tropical cyclone', wind_kt: null, strength: null, pressure_mb: null, movement: null, lat: +c[1], lon: +c[0], updated: p.todate ? p.todate + 'Z' : null, advisory: null, source: 'GDACS', gdacs: g });
+        list.push({ name: c.nice, class: 'Tropical cyclone', wind_kt: null, strength: null, pressure_mb: null, movement: null, lat: c.lat, lon: c.lon, updated: c.to ? new Date(c.to).toISOString().replace('.000Z', 'Z') : null, advisory: null, source: 'GDACS', gdacs: g });
       }
       const shown = list.filter(s => inArea(area, s.lat, s.lon));
       const camera = area ? frameArea(area) : shown[0] ? frame(shown[0].lat, shown[0].lon, 1300) : EARTH_VIEW, url = link({ camera, on: ['storms'] });
@@ -337,18 +322,10 @@ export function createTools(ctx) {
       },
     },
     async run(a, { signal }) {
-      const days = a.days || 30, url0 = `${EONET}?status=open&days=${days}${a.category ? `&category=${a.category}` : ''}`;
-      const [d, area] = await Promise.all([feeds.json(url0, { ttl: 15 * 60e3, timeout: 40e3, signal }), resolveArea(a, feeds, { pointKm: 500, signal })]);
-      const all = [];
-      for (const ev of (d && d.events) || []) {
-        const g = (ev.geometry || []).filter(x => x && x.coordinates).sort((x, y) => Date.parse(y.date) - Date.parse(x.date))[0]; if (!g) continue;
-        let lon = +g.coordinates[0], lat = +g.coordinates[1];
-        if (g.type === 'Polygon') { const ring = g.coordinates[0] || []; lon = ring.reduce((s, p) => s + p[0], 0) / ring.length; lat = ring.reduce((s, p) => s + p[1], 0) / ring.length; }
-        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !inArea(area, lat, lon)) continue;
-        all.push({ id: String(ev.id), title: String(ev.title || 'Event'), categories: (ev.categories || []).map(c => c.title).filter(Boolean), latest: g.date || null, lat: r2(lat), lon: r2(lon),
-          magnitude: g.magnitudeValue != null ? `${g.magnitudeValue} ${g.magnitudeUnit || ''}`.trim() : null, sources: (ev.sources || []).map(s => s.url).filter(u => /^https?:\/\//.test(u || '')).slice(0, 3), link: ev.link || null });
-      }
-      all.sort((x, y) => Date.parse(y.latest) - Date.parse(x.latest));
+      const days = a.days || 30;
+      const [d, area] = await Promise.all([feeds.json(eonetUrl({ days, category: a.category || '' }), { ttl: 15 * 60e3, timeout: 40e3, signal }), resolveArea(a, feeds, { pointKm: 500, signal })]);
+      const all = newestFirst(parseEonet(d)).filter(e => inArea(area, e.lat, e.lon)).map(e => ({ id: e.id, title: e.title, categories: e.cats, latest: e.date ? e.date.replace('.000Z', 'Z') : null,
+        lat: r2(e.lat), lon: r2(e.lon), magnitude: e.mag, sources: e.sources.map(s => s.url).slice(0, 3), link: e.link || null }));   // core/eonet.js, as the views
       const shown = take(all, a.limit || 20), cats = a.category ? [a.category] : [];
       const camera = area ? frameArea(area) : shown[0] ? frame(shown[0].lat, shown[0].lon, 400) : EARTH_VIEW, url = link({ camera, on: cats.map(c => EVENT_LAYER[c]).filter(Boolean) });
       const t = now(), lines = shown.map(e => `${e.title} · ${e.categories.join(', ')} · ${coord(e.lat, e.lon)}${e.latest ? ` · last seen ${ago(Date.parse(e.latest), t)}` : ''}${e.magnitude ? ` · ${e.magnitude}` : ''}${e.sources[0] ? ` · ${e.sources[0]}` : ''}`);
