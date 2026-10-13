@@ -35,5 +35,6 @@
 .ms-head svg { transform-origin: 11px 2px; display: block; }
 .ms-pin, .ms-head { background: none; border: 0; }
 @media (max-width: 900px) {
-  .ms-card { top: auto; bottom: 8px; left: 8px; right: 8px; width: auto; max-height: 46%; }
+  .ms-card { top: auto; bottom: 8px; left: 8px; right: 8px; width: auto; max-height: 46%; padding: 8px 10px; }
+  .ms-card.armed .ms-hint, .ms-card.armed .ms-list, .ms-card.armed .ms-country, .ms-card.armed .ms-acts:last-child { display: none; }   /* placing points: tools, readout, Undo / Finish */
 }

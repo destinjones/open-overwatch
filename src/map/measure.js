@@ -222,6 +222,7 @@ export const Measure = {
   async copy(text, ok) { try { await navigator.clipboard.writeText(text); toast(ok); } catch (e) { prompt('Copy this:', text); } },
   paint(light = false) {
     const el = this.card; if (!el || el.hidden) return;
+    el.classList.toggle('armed', !!this.tool);   // phones: a slimmer card while placing points (measure.css)
     const sh = this.cur || this.sel, [main, sub] = sh ? readout(sh) : ['', ''];
     const live = this.cur && this.hover != null ? `<div class="ms-dim">to the pointer: ${esc(len(this.hover))}</div>` : '';
     if (light) { const r = el.querySelector('.ms-read'); if (r) { r.innerHTML = this.readHtml(sh, main, sub) + live; return; } }
