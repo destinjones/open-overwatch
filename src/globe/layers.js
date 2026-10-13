@@ -25,6 +25,7 @@ export const LAYERS = [
   { id: 'bikes', group: 'Earth', name: 'Bike share: stations and free bikes, worldwide (CityBikes)', color: '#7dffb0', on: false },
   { id: 'traffic', group: 'Earth', name: 'Traffic: simulated cars on real roads (measured speeds: New York · Finland)', color: '#f5c26b', on: false },
   { id: 'storms', group: 'Earth', name: 'Tropical cyclones and forecast cones (NOAA NHC · GDACS · NASA EONET)', color: '#7fd0ff', on: true },
+  { id: 'events', group: 'Earth', name: 'Natural events: eruptions, fires, floods, ice (NASA EONET; 20 days, or the time shown)', color: '#ffb36b', on: false },
   { id: 'fires', group: 'Earth', name: 'Wildfires: satellite hot spots (NASA VIIRS, 24 h) and US perimeters (NIFC)', color: '#ff7a2f', on: false },
   { id: 'radio', group: 'Earth', name: 'World radio (radio-browser.info)', color: '#ff6fd8', on: false },
   { id: 'lighthouses', group: 'Earth', name: 'Lighthouses of the world', color: '#ffe27a', on: !PHONE },

@@ -44,3 +44,6 @@ relay/.wrangler/
 e2e/.cache/
 e2e/.results/
 e2e/.report/
+
+# the site build's feed copies, made locally to test (data/tle/history: python .github/build_site.py archive_tles)
+data/tle/

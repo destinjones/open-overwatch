@@ -93,6 +93,26 @@ test('the band opens launches and eclipses with their lists', async ({ page }) =
   await expect(page.locator('#card')).toContainText(/2027/);
 });
 
+test('time travel: a moment from the band rewinds the quakes to the catalogue, Now brings the live feed back', async ({ page }) => {
+  await openGlobe(page);
+  await expect(page.locator('#sQk')).toHaveText('5');
+  await page.locator('#band [data-go="history"]').click();
+  await expect(page.locator('#tt')).toBeVisible();
+  await page.locator('#tt [data-m="tohoku"]').click();
+  await expect(page.locator('#ttNow')).toHaveText('2011-03-11 06:30 UTC');
+  await expect(page.locator('#tMode')).toContainText('not live');
+  // the catalogue fixture's M6+ quakes of that day, up to 06:30 (the M9.1 at 05:46 and what followed in 44 minutes)
+  await expect.poll(() => page.evaluate(() => OO3D.Quakes.list.map(q => q.mag).sort((a, b) => b - a)[0]), { timeout: 20000 }).toBe(9.1);
+  const n = +(await page.locator('#sQk').textContent());
+  expect(n).toBeGreaterThan(1); expect(n).toBeLessThan(25);
+  await expect(page.locator('#ttStatus')).toContainText('M2.5+ in the 24 h before');
+  await expect(page.locator('#ttStatus')).toContainText('live or upcoming only');
+  expect(await page.evaluate(() => OO3D.Share.link())).toMatch(/[#&]t=2455631\.77083,0.*&go=history$/);
+  await page.locator('#tt [data-live]').click();
+  await expect(page.locator('#tMode')).toHaveText('live');
+  await expect(page.locator('#sQk')).toHaveText('5', { timeout: 10000 });
+});
+
 test('measure: M opens the panel, and a drawing in a link shows its distance', async ({ page, context }) => {
   await openGlobe(page);
   await page.keyboard.press('m');   // the guide's shortcut (the band's button can sit under the zoom pad at laptop widths)

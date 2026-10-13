@@ -7,7 +7,9 @@ import { L, LAYERS, setCount } from './layers.js';
 import { state, hooks } from './state.js';
 import { Follow, MODEL_FIX, SOLAR_AXIS } from './follow.js';
 import { sunDirection } from './earth.js';
-import { createTleSource, parseTle } from '../core/tle.js';
+import { createTleSource, parseTle, tleEpochJd } from '../core/tle.js';
+import { fetchAsset } from '../core/assets.js';
+import { chooseElements, nearestSnapshot, parseHistoryIndex, archiveMap, historyFileUrl, TLE_HISTORY, DAY_MS } from '../core/history.js';
 import { Time } from './time.js';
 
 const satellite = window.satellite;
@@ -19,7 +21,7 @@ importScripts('https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/dist/satellite.mi
 let recs = [];
 onmessage = e => {
   const m = e.data;
-  if (m.type === 'load') { recs = m.tles.map(([l1, l2]) => { try { return satellite.twoline2satrec(l1, l2); } catch (err) { return null; } }); return; }
+  if (m.type === 'load') { recs = m.tles.map(t => { try { return t ? satellite.twoline2satrec(t[0], t[1]) : null; } catch (err) { return null; } }); return; }   // null: no elements for the time shown (hidden)
   if (m.type === 'tick') {
     const t0 = new Date(m.t), t1 = new Date(m.t + 1000), g0 = satellite.gstime(t0), g1 = satellite.gstime(t1);
     const out = new Float32Array(recs.length * 6), w0 = performance.now();
@@ -60,7 +62,8 @@ export const Sats = {
         if (res.source === 'stale cache') console.warn(`${g}: using TLEs cached ${Math.round(res.ageMs / 3600e3)} h ago`);
         for (const t of parseTle(res.txt)) {
           if (seen.has(t.id)) continue; seen.add(t.id);
-          const s = { kind: 'sat', ...t, layer: l.id, idx: elements.length };
+          const s = { kind: 'sat', ...t, layer: l.id, group: g, idx: elements.length };
+          s.today = { id: t.id, l1: t.l1, l2: t.l2, group: g, jd: tleEpochJd(t.l1) };   // the time-travel archive swaps l1/l2; these stay
           elements.push([t.l1, t.l2]); this.list.push(s); this.byId.set(t.id, s); n++;
         }
       }
@@ -81,6 +84,32 @@ export const Sats = {
     const tick = () => { this.worker.postMessage({ type: 'tick', t: Time.nowMs() }); setTimeout(tick, Math.max(150, Math.min(1000, 20000 / Math.max(1, Math.abs(Time.rate))))); };
     tick();
     hooks.updateStats();
+    this.travelKey = ''; this.travel();
+  },
+  // ---- time travel: the element sets current at the time shown (core/history.js chooses per satellite, from today's copy
+  // and the site's daily archive); satellites with nothing within a week of it are hidden rather than drawn somewhere wrong
+  history: null, travelKey: null, travelling: false,
+  async travel() {
+    if (this.travelKey === null || this.travelling) return;
+    const ms = Time.nowMs(), near = Math.abs(ms - Date.now()) < DAY_MS / 2;
+    const snap = near ? null : nearestSnapshot(await Archive.days(), ms);
+    const key = near ? '' : `${snap ? snap.day : '-'}@${Math.round(ms / (6 * 3600e3))}`;   // the week rule moves with the clock: re-chosen every 6 h of clock time
+    if (key === this.travelKey) return;
+    this.travelling = true;
+    try {
+      const arch = snap ? await Archive.map(snap.day) : null;
+      const r = near ? null : chooseElements(this.list.map(s => s.today), arch, ms, { covers: !!snap && Math.abs(snap.at - ms) < DAY_MS });
+      const sets = this.list.map((s, i) => (r ? r.sets[i] : [s.today.l1, s.today.l2]));
+      this.list.forEach((s, i) => {
+        const set = sets[i]; s.gone = !set;
+        if (set && set[0] !== s.l1) { s.l1 = set[0]; s.l2 = set[1]; s.rec = null; s._k = null; }   // models, cards and orbit lines read l1/l2
+        if (s.gone && s.ent) SatModels.drop(s);
+      });
+      this.worker.postMessage({ type: 'load', tles: sets });
+      this.history = r && { day: snap ? snap.day : null, archived: r.archived, today: r.today, hidden: r.hidden };
+      this.travelKey = key;
+      hooks.updateStats(); hooks.historyChanged?.();
+    } catch (e) { console.warn('satellite archive', e); } finally { this.travelling = false; }
   },
   scratch: new C.Cartesian3(), frameNo: 0,
   update(now) { // extrapolate from the last worker tick (ECF, km): straight along v for a few seconds, else round the orbit
@@ -121,6 +150,19 @@ export const Sats = {
       const f = satellite.eciToEcf(pv.position, g); pts.push(new C.Cartesian3(f.x * 1000, f.y * 1000, f.z * 1000));
     }
     orbitLines.add({ positions: pts, width: 1.6, material: C.Material.fromType('Color', { color: C.Color.fromCssColorString(L[s.layer].color).withAlpha(0.55) }) });
+  },
+};
+
+// the site build's archive: data/tle/history/index.json and one file per day (the published site's copy when this one has none)
+const Archive = {
+  index: null, maps: new Map(),
+  days() { return this.index || (this.index = fetchAsset(TLE_HISTORY + 'index.json', 'json').then(parseHistoryIndex, () => [])); },
+  map(day) {
+    if (!this.maps.has(day)) {
+      if (this.maps.size > 3) this.maps.delete(this.maps.keys().next().value);   // ~4,000 sets each: keep a few days
+      this.maps.set(day, fetchAsset(historyFileUrl(day), 'text').then(t => archiveMap(parseTle(t)), () => null));
+    }
+    return this.maps.get(day);
   },
 };
 
@@ -168,6 +210,7 @@ export const SatModels = {
     const a = satellite.propagate(s.rec, d0), b = satellite.propagate(s.rec, d1);
     const st = s._st || (s._st = { pos: new C.Cartesian3(), quat: new C.Quaternion(), solar: new C.Quaternion(), ok: false });
     s._k = key;
+    if (s.gone) { st.ok = false; return st; }   // no element set near the time shown
     if (!a.position || !b.position || Number.isNaN(a.position.x)) { st.ok = false; return st; }
     const p = satellite.eciToEcf(a.position, satellite.gstime(d0)), q = satellite.eciToEcf(b.position, satellite.gstime(d1));
     C.Cartesian3.fromElements(p.x * 1000, p.y * 1000, p.z * 1000, st.pos);

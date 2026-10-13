@@ -18,7 +18,7 @@ import { Crew } from './crew.js';
 export function updateStats() {
   const { air, mil } = Air.counts();
   $('#sAir').textContent = fmt(air); $('#sMil').textContent = fmt(mil);
-  $('#sSat').textContent = fmt(Sats.list.filter(s => L[s.layer].on).length); $('#sQk').textContent = fmt(Quakes.list.length);
+  $('#sSat').textContent = fmt(Sats.list.filter(s => L[s.layer].on && !s.gone).length); $('#sQk').textContent = fmt(Quakes.list.length);
 }
 // ---- time bar
 const NARROW = matchMedia('(max-width: 480px)');

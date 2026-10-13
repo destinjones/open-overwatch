@@ -31,7 +31,7 @@ export const Share = {
       layers: LAYERS.filter(l => l.on).map(l => l.id), weather: Weather.on ? [...Object.entries(Weather.sets).filter(([, s]) => s.on).map(([k]) => k), ...Weather.shareTokens()] : null,
       time: Time.live ? null : { jd: Time.jd(), rate: Time.rate }, country: state.selected && state.selected.kind === 'country' ? state.selected.iso : null, flight: Flight.shareId, ops: hooks.opsState?.(), drawing });
     this.drawn = drawing ? (/(^|&)d=/.test(hash) ? drawing.length : -1) : 0;
-    return location.origin + location.pathname + '#' + hash;
+    return location.origin + location.pathname + '#' + hash + (hooks.historyOpen?.() ? '&go=history' : '');   // the time-travel panel opens with it
   },
   /** The 2D map on this place: its counterparts of the layers on here switched on, the drawing carried (core/viewlink.js). */
   mapLink() {
@@ -74,6 +74,7 @@ export const Share = {
     if (v.layers) { const on = new Set(v.layers); for (const l of LAYERS) l.on = on.has(l.id); syncDock(); hooks.applyVisibility(); }
     if (v.add || v.drop) { for (const l of LAYERS) { if (v.add?.includes(l.id)) l.on = true; if (v.drop?.includes(l.id)) l.on = false; } syncDock(); hooks.applyVisibility(); }
     if (v.time) Time.setJd(v.time.jd, v.time.rate);
+    if (x.go === 'history') hooks.openHistory?.();
     if (v.ops) hooks.applyOps?.(v.ops);
     const to = { destination: C.Cartesian3.fromDegrees(v.lon, v.lat, Math.max(150, v.height)), orientation: { heading: C.Math.toRadians(v.heading), pitch: C.Math.toRadians(v.pitch), roll: 0 } };
     if (fly && !v.weather) camera.flyTo({ ...to, duration: 2.5 }); else camera.setView(to);   // weather opens on the whole Earth itself

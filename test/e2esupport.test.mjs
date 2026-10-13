@@ -90,6 +90,8 @@ test('e2e network: which feed gets which fixture, and what is left to block', ()
   assert.equal(fixtureFor('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson', NOW).features.length, 5);
   assert.equal(fixtureFor('https://api.open-meteo.com/v1/forecast?latitude=51.5&longitude=-0.1&hourly=cloud_cover', NOW).hourly.time.length, 120);
   assert.equal(fixtureFor('https://api.open-meteo.com/v1/forecast?latitude=51.5,52&longitude=-0.1,0&hourly=cloud_cover', NOW), undefined, 'a grid of points is never answered: the weather panel stays off');
+  assert.equal(fixtureFor('https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2011-03-11T00:00:00&endtime=2011-03-12T00:00:00', NOW).features[0].properties.mag, 9.1, 'time travel: the catalogue');
+  assert.equal(fixtureFor('https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2011-03-10T00:00:00', NOW).features.length, 0);
   assert.equal(fixtureFor('https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=TLE', NOW), undefined);
   assert.equal(fixtureFor('https://example.com/anything', NOW), undefined);
 });

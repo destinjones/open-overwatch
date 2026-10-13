@@ -4,24 +4,65 @@
 // (through the local helper, or the website's public relay), and forecasts: NOAA NHC's map service (CORS) gives the
 // forecast track, the cone, coastal watches and warnings and the wind field now; GDACS (CORS) gives a track and cone
 // for every other basin (JTWC and others). Cones and coast lines drape on the terrain or Google's 3D tiles.
+// With the clock in the past (time travel): the storms going on then, from NASA EONET's closed events and GDACS's past
+// cyclones, each track cut at the time shown and the storm where it was then (core/history.js); forecasts aren't archived.
 import { C, esc, fmt, getJSON, relayed } from './env.js';
 import { viewer, scene } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { hooks, state } from './state.js';
 import { WW } from '../core/hazards.js';
-import { loadCyclones, category, catName, KIND_KT, NHC_CURRENT, stormSources } from '../core/cyclones.js';
+import { loadCyclones, category, catName, KIND_KT, NHC_CURRENT, stormSources, stormsFromEonet, gdacsGeometryUrl } from '../core/cyclones.js';
+import { parseEonet } from '../core/eonet.js';
+import { gdacsForecast } from '../core/hazards.js';
+import { isPast, utcDay, eonetAtUrl, gdacsTcAtUrl, gdacsPastCyclones, stormsFromGdacs, stormsAt } from '../core/history.js';
+import { Time } from './time.js';
 
 const pts = scene.primitives.add(new C.PointPrimitiveCollection());
 const lines = scene.primitives.add(new C.PolylineCollection());
 const fc = new C.CustomDataSource('cyclone-forecasts'); viewer.dataSources.add(fc);
 const gdacsKept = new Map();   // "event/episode" -> parsed geometry (an episode never changes)
 
+const pastDays = new Map();   // UTC day -> Promise<storms around it, whole tracks> (past days don't change)
+async function stormsAround(ms) {
+  const json = getJSON, eonet = stormsFromEonet(parseEonet(await json(eonetAtUrl(ms, { category: 'severeStorms' }), { timeout: 30000 })));
+  let gd = [];
+  try {   // GDACS for what EONET lacks: only cyclones going on then, at most four geometries (~0.4 MB each)
+    const names = new Set(eonet.map(s => s.title.toLowerCase().split(/\s+/).pop()));
+    const past = gdacsPastCyclones(await json(gdacsTcAtUrl(ms), { timeout: 30000 })).filter(g => g.from <= ms && g.to + 12 * 3600e3 >= ms && !names.has(g.name.toLowerCase())).slice(0, 4);
+    for (const g of past) {
+      const key = g.eventid + '/' + g.episodeid;
+      try { if (!gdacsKept.has(key)) gdacsKept.set(key, gdacsForecast(await json(gdacsGeometryUrl(g.eventid, g.episodeid), { timeout: 45000 }))); g.fc = gdacsKept.get(key); }
+      catch (e) { console.warn('GDACS ' + g.name, e.message); }
+    }
+    gd = stormsFromGdacs(past, eonet);
+  } catch (e) { console.warn('GDACS (past)', e.message); }
+  return eonet.concat(gd);
+}
+
 export const Storms = {
-  list: [],
+  list: [], live: [], past: false, pastDay: '', pastAt: 0,
   async load() {   // EONET, NHC, NOAA's forecasts and GDACS, merged per storm (core/cyclones.js, shared with the 2D map)
-    this.draw(await loadCyclones({ json: getJSON, nhc: !!relayed(NHC_CURRENT), kept: gdacsKept, warn: (what, e) => console.warn(what, e.message) }));
+    this.live = await loadCyclones({ json: getJSON, nhc: !!relayed(NHC_CURRENT), kept: gdacsKept, warn: (what, e) => console.warn(what, e.message) });
+    if (!this.past) this.draw(this.live);
+  },
+  /** Follow the clock: live storms now; in the past the storms of the time shown, redrawn every hour of clock time. */
+  async sync() {
+    const ms = Time.nowMs();
+    if (!isPast(ms)) { if (this.past) { this.past = false; this.pastDay = ''; this.draw(this.live); hooks.historyChanged?.(); } return; }
+    if (!this.past) { this.past = true; this.draw([]); }
+    if (!L.storms.on) return;
+    const d = utcDay(ms);
+    if (d !== this.pastDay) {
+      this.pastDay = d; this.base = null; this.loading = true; hooks.historyChanged?.();
+      if (!pastDays.has(d)) { if (pastDays.size > 10) pastDays.delete(pastDays.keys().next().value); pastDays.set(d, stormsAround(Date.parse(d + 'T12:00:00Z')).catch(e => { pastDays.delete(d); throw e; })); }
+      try { const base = await pastDays.get(d); if (this.pastDay !== d) return; this.base = base; this.pastAt = NaN; }
+      catch (e) { console.warn('storms (past)', e); this.pastDay = ''; return; }
+      finally { this.loading = false; }
+    }
+    if (this.base && !(Math.abs(ms - this.pastAt) < 3600e3)) { this.pastAt = ms; this.draw(stormsAt(this.base, Math.round(ms / 1000) * 1000)); hooks.historyChanged?.(); }
   },
   draw(list) {
+    const sel = state.selected && this.list.includes(state.selected) ? state.selected : null;   // its card follows the clock (the same storm then, or closes)
     pts.removeAll(); lines.removeAll(); fc.entities.removeAll(); this.list = list;
     for (const s of list) {
       const [, , col] = category(s.kt), c = C.Color.fromCssColorString(col);
@@ -33,6 +74,7 @@ export const Storms = {
     }
     fc.show = L.storms.on;
     setCount('storms', list.length); hooks.updateStats?.();
+    if (sel) { const same = list.find(s => s.id === sel.id); if (same) hooks.reselect?.(same); else hooks.closeCard?.(); }
   },
   apply() { const on = L.storms.on && !state.lookup; for (const s of this.list) { s.pt.show = on; if (s.line) s.line.show = on; } fc.show = on; },   // look-up mode hides things on the ground
 };
@@ -69,8 +111,8 @@ function card(s, col) {
   const srcs = stormSources(s);
   return `<div class="k" style="--c:${col}">Tropical cyclone · ${esc(srcs)}</div><h2>${esc(n.title || s.title)}</h2>
     <dl>${row('Strength', catName(s.kt))}${row('Max winds', s.kt ? `${s.kt} kt · ${fmt(s.kt * 1.852)} km/h` : '—')}${row('Pressure', n.pressure ? n.pressure + ' mb' : f && f.points[0] && f.points[0].mb ? f.points[0].mb + ' mb' : null)}${row('Moving', n.movement)}
-    ${row('Position', `${Math.abs(s.lat).toFixed(1)}°${s.lat >= 0 ? 'N' : 'S'} ${Math.abs(s.lon).toFixed(1)}°${s.lon >= 0 ? 'E' : 'W'}`)}${row('Latest fix', s.date ? new Date(s.date).toISOString().slice(0, 16).replace('T', ' ') + ' UTC' : null)}
+    ${row('Position', `${Math.abs(s.lat).toFixed(1)}°${s.lat >= 0 ? 'N' : 'S'} ${Math.abs(s.lon).toFixed(1)}°${s.lon >= 0 ? 'E' : 'W'}`)}${row(s.then ? 'Time shown' : 'Latest fix', s.date ? new Date(s.date).toISOString().slice(0, 16).replace('T', ' ') + ' UTC' : null)}
     ${f && f.advisory ? row('Advisory', '#' + f.advisory.replace(/^0+/, '')) : ''}${row('Watches, warnings', ww)}${fcRows}</dl>
     ${links.length ? `<div class="acts">${links.slice(0, 4).map(l => `<a class="chipbtn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.text)}</a>`).join('')}</div>` : ''}
-    <div class="note" style="margin-top:8px">${f && f.cone.length ? (f.coherent ? 'The white cone is where the centre will probably be over the next days (about 2 times in 3); wind, rain and surge reach well outside it. ' : 'The forecast cone is being updated: shown again with the next advisory. ') : 'The past track, not a forecast. '}${f && f.winds.length ? 'Shaded now: tropical-storm (yellow), 50 kt (orange) and hurricane-force (red) winds. ' : ''}Official forecasts and warnings: your national weather service.</div>`;
+    <div class="note" style="margin-top:8px">${s.then ? `Where it was at ${esc(new Date(s.date).toISOString().slice(0, 16).replace('T', ' '))} UTC, and its track until then (time travel; forecasts of the time aren't archived). ` : ''}${f && f.cone.length ? (f.coherent ? 'The white cone is where the centre will probably be over the next days (about 2 times in 3); wind, rain and surge reach well outside it. ' : 'The forecast cone is being updated: shown again with the next advisory. ') : s.then ? '' : 'The past track, not a forecast. '}${!s.then && f && f.winds.length ? 'Shaded now: tropical-storm (yellow), 50 kt (orange) and hurricane-force (red) winds. ' : ''}Official forecasts and warnings: your national weather service.</div>`;
 }
