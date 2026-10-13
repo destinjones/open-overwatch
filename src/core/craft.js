@@ -1,0 +1,115 @@
+// Deep-space missions from data/solar/spacecraft.json (JPL Horizons, brand/tools/make_spacecraft.py): where a craft is
+// at any instant, how fast, which way its mission is heading next, and how long its signal takes to reach Earth.
+// A track is evenly spaced samples { t0_jd, step_days, xyz: [x0, y0, z0, x1, ...] } (heliocentric ecliptic J2000, AU).
+//
+// Between samples the path is a cubic through four samples (Catmull-Rom), within ~2,000 km of Horizons half-way
+// between samples on cruise arcs (the samples themselves are rounded to 1e-5 AU, 1,500 km); linear interpolation was
+// off by up to 200,000 km. A craft orbiting a planet faster than the samples (Juno near perijove) stays rough: Juno
+// can be ~200,000 km off its 8-million-km orbit between 3-day samples. Denser tracks are the only fix for that.
+// Past the last sample a craft that is leaving the Sun for good (above escape speed) coasts on in a straight line,
+// which is how Voyager and Pioneer really fly; any other craft has no published position there (null).
+
+import { AU_KM, C_KM_S } from './units.js';
+import { GM_SUN } from './comets.js';
+
+/** Signal (light) time over au, in seconds. */
+export const lightSeconds = au => au * AU_KM / C_KM_S;
+
+const sampleCount = c => c.xyz.length / 3;
+const sampleJd = (c, k) => c.t0_jd + k * c.step_days;
+
+function sample(c, k, out) {
+  const x = c.xyz;
+  out.x = x[k * 3]; out.y = x[k * 3 + 1]; out.z = x[k * 3 + 2];
+  return out;
+}
+
+/** Velocity in AU/day from the last two samples. */
+export function lastVelocity(c) {
+  const x = c.xyz, n = sampleCount(c), s = c.step_days;
+  return { x: (x[n * 3 - 3] - x[n * 3 - 6]) / s, y: (x[n * 3 - 2] - x[n * 3 - 5]) / s, z: (x[n * 3 - 1] - x[n * 3 - 4]) / s };
+}
+
+/** True when the craft leaves the track faster than the Sun's escape speed there (it coasts out for good). */
+export function escaping(c) {
+  const n = sampleCount(c), x = c.xyz; if (n < 2) return false;
+  const v = lastVelocity(c), r = Math.hypot(x[n * 3 - 3], x[n * 3 - 2], x[n * 3 - 1]);
+  return (v.x * v.x + v.y * v.y + v.z * v.z) * r > 2 * GM_SUN;
+}
+
+const P = [{}, {}, {}, {}];
+/** Heliocentric position at jd (AU) into out, or null before the first sample / past the track for a craft that stays. */
+export function trackPosition(c, jd, out = {}) {
+  const n = sampleCount(c); if (n < 2) return null;
+  const f = (jd - c.t0_jd) / c.step_days;
+  if (f < 0) return null;
+  if (f > n - 1) {
+    if (!escaping(c)) return null;
+    const v = lastVelocity(c), dt = jd - sampleJd(c, n - 1), x = c.xyz;
+    out.x = x[n * 3 - 3] + v.x * dt; out.y = x[n * 3 - 2] + v.y * dt; out.z = x[n * 3 - 1] + v.z * dt;
+    return out;
+  }
+  const k = Math.min(Math.floor(f), n - 2), t = f - k;
+  const [p0, p1, p2, p3] = P;
+  sample(c, Math.max(k - 1, 0), p0); sample(c, k, p1); sample(c, k + 1, p2); sample(c, Math.min(k + 2, n - 1), p3);
+  if (k === 0) { p0.x = 2 * p1.x - p2.x; p0.y = 2 * p1.y - p2.y; p0.z = 2 * p1.z - p2.z; }           // ends: mirror a phantom sample
+  if (k + 2 > n - 1) { p3.x = 2 * p2.x - p1.x; p3.y = 2 * p2.y - p1.y; p3.z = 2 * p2.z - p1.z; }
+  const t2 = t * t, t3 = t2 * t;
+  const w0 = -0.5 * t3 + t2 - 0.5 * t, w1 = 1.5 * t3 - 2.5 * t2 + 1, w2 = -1.5 * t3 + 2 * t2 + 0.5 * t, w3 = 0.5 * t3 - 0.5 * t2;
+  out.x = w0 * p0.x + w1 * p1.x + w2 * p2.x + w3 * p3.x;
+  out.y = w0 * p0.y + w1 * p1.y + w2 * p2.y + w3 * p3.y;
+  out.z = w0 * p0.z + w1 * p1.z + w2 * p2.z + w3 * p3.z;
+  return out;
+}
+
+const A = {}, B = {};
+/** Speed relative to the Sun in km/s at jd (central difference over 0.02 day), or null where there is no position. */
+export function trackSpeed(c, jd) {
+  const h = 0.01;
+  if (!trackPosition(c, jd - h, A) || !trackPosition(c, jd + h, B)) {
+    if (!trackPosition(c, jd, A) || !trackPosition(c, jd + 2 * h, B)) return null;
+    return Math.hypot(B.x - A.x, B.y - A.y, B.z - A.z) / (2 * h) * AU_KM / 86400;
+  }
+  return Math.hypot(B.x - A.x, B.y - A.y, B.z - A.z) / (2 * h) * AU_KM / 86400;
+}
+
+/** Index of the last sample at or before jd (clamped to the track), for drawing "flown so far" and "still to come". */
+export function sampleIndex(c, jd) {
+  return Math.max(0, Math.min(sampleCount(c) - 1, Math.floor((jd - c.t0_jd) / c.step_days)));
+}
+
+/**
+ * Where the mission stands at jd: 'before launch' | 'flying' | 'coasting' (past the published track, leaving the Sun)
+ * | 'beyond the data' (past the track; no published position).
+ */
+export function missionPhase(c, jd) {
+  if (jd < (c.launch_jd ?? c.t0_jd)) return 'before launch';
+  const end = sampleJd(c, sampleCount(c) - 1);
+  if (jd <= end) return 'flying';
+  return escaping(c) ? 'coasting' : 'beyond the data';
+}
+
+/** The latest event at or before jd and the next one after it: { last: [jd, text] | null, next: [jd, text] | null }. */
+export function eventsAround(c, jd) {
+  let last = null, next = null;
+  for (const e of c.events || []) { if (e[0] <= jd) last = e; else if (!next) next = e; }
+  return { last, next };
+}
+
+/** "in 3 days", "in 1 year 4 months", "5 hours ago", "now": a span in days, signed (positive = in the future). */
+export function relativeTime(days) {
+  const a = Math.abs(days), wrap = s => days >= 0 ? 'in ' + s : s + ' ago';
+  if (a < 1 / 24) return 'now';
+  const pl = (n, u) => `${n} ${u}${n === 1 ? '' : 's'}`;
+  if (a < 2) return wrap(pl(Math.round(a * 24), 'hour'));
+  if (a < 60) return wrap(pl(Math.round(a), 'day'));
+  if (a < 365.25) return wrap(pl(Math.round(a / 30.44), 'month'));
+  const y = Math.floor(a / 365.25), m = Math.round((a - y * 365.25) / 30.44);
+  return wrap(m && m < 12 && y < 10 ? `${pl(y, 'year')} ${pl(m, 'month')}` : pl(Math.round(a / 365.25), 'year'));
+}
+
+/** Mission elapsed time at jd in days since launch (negative before). */
+export const missionDays = (c, jd) => jd - (c.launch_jd ?? c.t0_jd);
+
+/** Search words for a craft: its name, aliases and agency. */
+export const craftAliases = c => [...(c.alias || []), ...(c.agency ? [c.agency] : [])];
