@@ -49,6 +49,7 @@ export function fixtureFor(href, now = Date.now()) {
   if (h === 'api.wheretheiss.at') return F.wheretheiss(now);
   if (h === 'api.github.com' && /releases\/latest$/.test(p)) return F.githubRelease();
   if (h === 'll.thespacedevs.com' && /launch/.test(p)) return F.launches(now);
+  if (h === 'll.thespacedevs.com' && /astronaut/.test(p)) return F.astronauts(now);
   return undefined;
 }
 
@@ -56,6 +57,7 @@ export function fixtureFor(href, now = Date.now()) {
 function siteFile(rel) {
   if (/^data\/tle\/[\w.-]+\.txt$/.test(rel)) return { body: F.tle(), type: 'text/plain; charset=utf-8' };
   if (rel === 'data/launches.json') return { body: JSON.stringify(F.launches()), type: 'application/json' };
+  if (rel === 'data/astronauts.json') return { body: JSON.stringify(F.astronauts()), type: 'application/json' };
   if (rel === 'data/wind.json') return { body: JSON.stringify(F.wind()), type: 'application/json' };
   if (rel === 'versions.json') return { body: JSON.stringify(F.versions()), type: 'application/json' };
   return null;

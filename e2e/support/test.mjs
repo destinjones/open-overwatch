@@ -6,8 +6,9 @@ import { test as base, expect } from '@playwright/test';
 import { stubNetwork } from './net.mjs';
 
 export const PORT = +(process.env.OO_E2E_PORT || 8805);
-/** Site files that only the site build makes (or that a checkout may lack): their 404 is expected on a local server. */
-const OPTIONAL = /\/(data\/(flybys|news|wind|launches|crew|conj|socrates|cables|alpr)[\w.-]*\.json|data\/tle\/|versions\.json|favicon\.ico)/;
+/** Feed copies only the site build makes (.github/build_site.py), which the pages expect to miss on a local server; the
+ *  ones the tests need are served as fixtures (net.mjs), these stay missing. */
+const OPTIONAL = /\/data\/(flybys|news|socrates)\.json$/;
 
 export const test = base.extend({
   net: [async ({ context }, use) => {

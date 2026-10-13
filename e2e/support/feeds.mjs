@@ -95,6 +95,11 @@ export function launches(now = Date.now()) {
   ] };
 }
 
+/** Who is in space (data/astronauts.json, the site build's trimmed Launch Library 2 copy): the real fixture in test/fixtures. */
+export function astronauts(now = Date.now()) {
+  return { t: now, source: 'e2e fixture', results: JSON.parse(readFileSync(new URL('test/fixtures/ll2_astronauts.json', ROOT), 'utf8')).results };
+}
+
 /** The ISS over the English Channel. */
 export const wheretheiss = now => ({ name: 'iss', id: 25544, latitude: 50.2, longitude: -1.4, altitude: 418.3, velocity: 27580.1, visibility: 'daylight', footprint: 4500, timestamp: Math.floor(now / 1000), units: 'kilometers' });
 
