@@ -34,3 +34,12 @@ test('every border has facts, and a sane main box', () => {
 test('facts carry what the dossier prints', () => {
   for (const iso of ['US', 'JP', 'DE', 'BR', 'IN', 'NG']) { const f = facts[iso]; assert.ok(f.name && f.capital && f.pop > 1e6 && f.gdp > 1e10 && f.life > 40 && f.life < 95, iso); }
 });
+
+test('a country drawn across the antimeridian claims its own land only', () => {
+  // Russia's mainland ring runs on into Chukotka (-170°): read flat, it was a band round the world over Canada and Alaska
+  for (const [lon, lat, iso] of [[-66.4, 66.9, 'CA'], [-100, 60, 'CA'], [-115, 65, 'CA'], [-150, 64, 'US'], [-160, 66.5, 'US'], [-75, 45.4, 'CA']]) assert.equal(at(lon, lat), iso, `${lon},${lat}`);
+  for (const [lon, lat] of [[-175, 66.5], [175, 67], [-179.5, 71.2], [37.6, 55.75], [135, 62]]) assert.equal(at(lon, lat), 'RU', `${lon},${lat}`);
+  assert.equal(at(-170, 60), null, 'the Bering Sea');
+  let ru = 0; for (let lat = 50; lat < 80; lat += 2) for (let lon = -140; lon < -60; lon += 4) if (at(lon, lat) === 'RU') ru++;
+  assert.equal(ru, 0, "no grid point in Canada is Russia's");
+});

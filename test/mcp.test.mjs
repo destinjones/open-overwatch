@@ -114,7 +114,7 @@ test('mcp: initialize agrees a protocol version and says what the server offers'
 
 test('mcp: every tool is listed read-only with a schema; show_on_globe names the globe panel', async () => {
   const { server } = serve(), { tools } = (await rpc(server, 'tools/list')).result;
-  assert.equal(tools.length, 20);
+  assert.equal(tools.length, 24);
   for (const t of tools) {
     assert.match(t.name, /^[a-z_]+$/); assert.ok(t.description.length > 60, t.name); assert.equal(t.inputSchema.type, 'object');
     assert.equal(t.annotations.readOnlyHint, true); assert.equal(t.annotations.openWorldHint, true);
@@ -331,7 +331,7 @@ test('mcp: the stdio server answers a client and exits when stdin closes', async
   assert.equal(code, 0, err);
   const lines = out.trim().split('\n').map(l => JSON.parse(l)), byId = id => lines.find(l => l.id === id);   // answers may come in any order
   assert.equal(lines.length, 3, out);
-  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 20); assert.equal(byId(null).error.code, -32700);
+  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 24); assert.equal(byId(null).error.code, -32700);
   assert.match(err, /open-overwatch-mcp \d+\.\d+\.\d+ - links to https:\/\/destinjones\.github\.io\/open-overwatch\//);
 });
 
@@ -515,7 +515,7 @@ test('mcp http: one JSON-RPC message per POST, answered as JSON; notifications g
   assert.equal(init.status, 200); assert.match(init.headers.get('content-type'), /application\/json/); assert.equal(init.headers.get('mcp-protocol-version'), '2025-06-18');
   assert.equal((await init.json()).result.serverInfo.name, 'open-overwatch');
   const list = await (await h(post({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, { 'mcp-protocol-version': '2025-06-18' }))).json();
-  assert.equal(list.result.tools.length, 20);
+  assert.equal(list.result.tools.length, 24);
   const q = await (await h(post({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'earthquakes', arguments: {} } }))).json();
   assert.equal(q.result.structuredContent.total, 3);
   const n = await h(post({ jsonrpc: '2.0', method: 'notifications/initialized' })); assert.equal(n.status, 202); assert.equal(await n.text(), '');
@@ -580,9 +580,98 @@ test('mcp http: node mcp/server.mjs --http serves Streamable HTTP until stopped'
     let err = '';
     const url = await new Promise((res, rej) => { p.stderr.on('data', b => { err += b; const m = err.match(/Streamable HTTP at (http:\/\/127\.0\.0\.1:\d+\/mcp)/); if (m) res(m[1]); }); p.on('close', c => rej(new Error('exited ' + c + ': ' + err))); });
     const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
-    assert.equal(r.status, 200); assert.equal((await r.json()).result.tools.length, 20);
+    assert.equal(r.status, 200); assert.equal((await r.json()).result.tools.length, 24);
   } finally { p.kill(); }
   const bad = spawn(process.execPath, [new URL('mcp/server.mjs', root).pathname.replace(/^\/([A-Za-z]:)/, '$1'), '--http', '0', '--host', '0.0.0.0'], { stdio: ['ignore', 'pipe', 'pipe'] });
   let e2 = ''; bad.stderr.on('data', b => { e2 += b; });
   assert.equal(await new Promise(r => bad.on('close', r)), 1); assert.match(e2, /loopback/);
+});
+
+// ---- eclipses, distances, volcanoes, road speeds ------------------------------------------------------------------
+Object.assign(PLACES, {
+  berlin: { properties: { osm_value: 'city', name: 'Berlin', country: 'Germany', countrycode: 'DE' }, geometry: { coordinates: [13.3889, 52.517] } },
+  'big ben': { properties: { osm_key: 'natural', osm_value: 'peak', name: 'Big Ben', state: 'Queensland', country: 'Australia', countrycode: 'AU' }, geometry: { coordinates: [146.2, -18.95] } },
+  'tower of london': { properties: { osm_key: 'tourism', osm_value: 'attraction', name: 'Tower of London', city: 'London', country: 'United Kingdom', countrycode: 'GB' }, geometry: { coordinates: [-0.0761, 51.5081] } },
+  naples: { properties: { osm_value: 'city', name: 'Naples', state: 'Campania', country: 'Italy', countrycode: 'IT' }, geometry: { coordinates: [14.2488, 40.8359] } },
+});
+const NY_LOCAL = new Date(NOW - 26 * 3600e3 - 4 * 3600e3).toISOString().slice(0, 19) + '.000';   // 26 h before NOW, in New York's summer time
+ROUTES.unshift(
+  [/photon\.komoot\.io\/api\/\?q=Big%20Ben&limit=1&lang=en&lat=51\.508/, { features: [{ properties: { osm_key: 'tourism', osm_value: 'attraction', name: 'Big Ben', city: 'London', country: 'United Kingdom' }, geometry: { coordinates: [-0.1246, 51.5007] } }] }],
+  [/routing\.openstreetmap\.de\/routed-foot\/route\/v1\/foot\//, { code: 'Ok', routes: [{ distance: 4070, duration: 3240 }] }],
+  [/routing\.openstreetmap\.de\/routed-car\/route\/v1\/driving\//, { status: 400, body: JSON.stringify({ code: 'NoRoute' }) }],
+  [/earthquake\.usgs\.gov\/.*\/2\.5_week\.geojson$/, { features: [...QUAKES.features, quake(3.4, 37.73, 15.05, '5 km SE of Etna, Sicily', 600)] }],   // the week: one more, under Etna
+  [SITE + 'data/eclipses.json', readFileSync(new URL('data/eclipses.json', root), 'utf8')],
+  [SITE + 'data/volcanoes.json', readFileSync(new URL('data/volcanoes.json', root), 'utf8')],
+  [SITE + 'data/companies.json', readFileSync(new URL('data/companies.json', root), 'utf8')],
+  ['https://tie.digitraffic.fi/api/tms/v1/stations/23001/data', { id: 23001, dataUpdatedTime: new Date(NOW - 60e3).toISOString(), sensorValues: [
+    { name: 'KESKINOPEUS_5MIN_LIUKUVA_SUUNTA1', value: 78, measuredTime: new Date(NOW - 60e3).toISOString() }, { name: 'OHITUKSET_5MIN_LIUKUVA_SUUNTA1', value: 1200, measuredTime: new Date(NOW - 60e3).toISOString() },
+    { name: 'KESKINOPEUS_5MIN_LIUKUVA_SUUNTA2', value: 0, measuredTime: new Date(NOW - 60e3).toISOString() }] }],
+  ['https://tie.digitraffic.fi/api/tms/v1/stations/23002/data', { id: 23002, sensorValues: [{ name: 'KESKINOPEUS_5MIN_LIUKUVA_SUUNTA1', value: 50, measuredTime: new Date(NOW - 3600e3).toISOString() }] }],   // an hour old: dropped
+  ['https://tie.digitraffic.fi/api/tms/v1/stations', { features: [
+    { geometry: { coordinates: [24.83, 60.18] }, properties: { id: 23001, name: 'vt1_Espoo_Otaniemi', collectionStatus: 'GATHERING', bearing: 270 } },
+    { geometry: { coordinates: [24.90, 60.19] }, properties: { id: 23002, name: 'kt45_Old', collectionStatus: 'GATHERING', bearing: 0 } },
+    { geometry: { coordinates: [24.95, 60.17] }, properties: { id: 23003, name: 'removed', collectionStatus: 'REMOVED_TEMPORARILY', bearing: 90 } },
+    { geometry: { coordinates: [27.0, 62.0] }, properties: { id: 23004, name: 'far', collectionStatus: 'GATHERING', bearing: 90 } }] }],
+  [/data\.cityofnewyork\.us\/resource\/i4gi-tjb9\.json/, [{ link_id: '4616', speed: '29', data_as_of: NY_LOCAL, link_name: 'FDR N Catherine Slip - 25th St', borough: 'Manhattan', link_points: '40.71001,-73.99777 40.71400,-73.97500' },
+    { link_id: '4616', speed: '20', data_as_of: '2026-09-29T09:00:00.000', link_name: 'FDR N (older)', borough: 'Manhattan', link_points: '40.71001,-73.99777 40.71400,-73.97500' },
+    { link_id: '9', speed: '40', data_as_of: NY_LOCAL, link_name: 'Far away', borough: 'Queens', link_points: '40.75001,-73.80001 40.76001,-73.79001' }]],
+);
+
+test('mcp: eclipses: the coming ones, where they are greatest, and what a place sees', async () => {
+  const { server } = serve(), all = ok(await call(server, 'eclipses', {})), d = all.structuredContent;
+  assert.equal(d.eclipses.length, 10); assert.equal(d.eclipses[0].date, '2027-02-06');
+  const aug = d.eclipses.find(e => e.date === '2027-08-02');
+  assert.equal(aug.kind, 'total'); assert.equal(aug.greatest.where, 'Egypt'); assert.ok(aug.greatest.duration_s > 375 && aug.greatest.duration_s < 395); assert.equal(aug.url, `${SITE}globe.html#go=eclipses&id=2027-08-02`);
+  assert.equal(d.eclipses.find(e => e.date === '2029-01-14').greatest.where, 'Canada', 'not Russia (its outline crosses the antimeridian)');
+  assert.match(all.content[0].text, /2027-08-02: Total eclipse, greatest at 10:06 UTC over Egypt \(25\.50°N 33\.20°E\), the Sun hidden for 6 min 2\d s there in a path 258 km wide\./);
+  const lux = ok(await call(server, 'eclipses', { lat: 25.687, lon: 32.639, only_visible: true })).structuredContent;
+  const h = lux.eclipses.find(e => e.date === '2027-08-02').here;
+  assert.deepEqual([h.seen, h.kind, h.covered_percent], [true, 'total', 100]); assert.ok(h.central_s > 360); assert.ok(lux.eclipses.every(e => e.here.seen));
+  assert.match(ok(await call(server, 'eclipses', { lat: 25.687, lon: 32.639 })).content[0].text, /From 25\.69°N 32\.64°E: total there for 6 min \d\d s, greatest/);
+});
+
+test('mcp: distance: the pair of places meant, over the ellipsoid, on foot, and the line in the globe link', async () => {
+  const { server } = serve(), r = ok(await call(server, 'distance', { places: ['Big Ben', 'Tower of London'], by: 'walk' })), d = r.structuredContent;
+  assert.equal(d.places[0].name, 'Big Ben, London, United Kingdom', 'the mountain in Queensland gives way to the clock tower near the other place');
+  assert.ok(Math.abs(d.distance_km - 3.46) < 0.02, `${d.distance_km}`); assert.equal(d.route.km, 4.07); assert.equal(d.route.minutes, 54);
+  assert.match(r.content[0].text, /^From Big Ben, London, United Kingdom to Tower of London, London, United Kingdom: 3\.4\d km as the crow flies, setting off 7\d° ENE\.\nHalfway: 51\.50°N 0\.10°W\.\nOn foot: 4\.07 km, about 54 min/);
+  const v = hashOf(d.url); assert.equal(v.drawing[0].kind, 'arrow'); assert.ok(Math.abs(v.drawing[0].coords[0][0] + 0.1246) < 1e-4);
+  const pb = ok(await call(server, 'distance', { places: ['Paris', 'Berlin'] })).structuredContent;
+  assert.ok(Math.abs(pb.distance_km - 878.6) < 1.5, `${pb.distance_km}`); assert.equal(pb.route, null); assert.ok(Math.abs(pb.bearing_deg - 58) < 2);
+  const three = ok(await call(server, 'distance', { places: ['Paris', 'Berlin', '60.17, 24.94'], units: 'imperial' })).structuredContent;
+  assert.equal(three.legs.length, 2); assert.match(three.distance_text, /mi$/); assert.equal(hashOf(three.url).drawing[0].kind, 'line');
+  const sea = await call(server, 'distance', { places: ['Paris', 'Berlin'], by: 'drive' });
+  assert.equal(sea.isError, true); assert.match(sea.content[0].text, /OSRM finds no way by road/);
+  assert.equal((await call(server, 'distance', { places: ['Paris'] })).isError, true);
+  assert.equal((await call(server, 'distance', { places: ['95, 10', 'Paris'] })).isError, true);
+});
+
+test('mcp: volcanoes near a place, erupting ones first, with this week\'s earthquakes', async () => {
+  const { server } = serve(), n = ok(await call(server, 'volcanoes', { place: 'Naples' })).structuredContent;
+  assert.ok(n.volcanoes.some(v => v.name === 'Mount Vesuvius'), 'a town is a circle around it: Vesuvius is not inside Naples');
+  assert.ok(n.volcanoes.every((v, i, a) => i === 0 || a[i - 1].distance_km <= v.distance_km)); assert.deepEqual(hashOf(n.url).add, ['volcanoes', 'quakes']);
+  const etna = ok(await call(server, 'volcanoes', { lat: 37.75, lon: 15.0, radius_km: 40 }));
+  assert.equal(etna.structuredContent.volcanoes[0].eruption.title, 'Etna eruption'); assert.match(etna.content[0].text, /· ERUPTING: Etna eruption/);
+  const erupting = ok(await call(server, 'volcanoes', { lat: 37.75, lon: 15.0, radius_km: 40, erupting_only: true })).structuredContent;
+  assert.ok(erupting.total >= 1 && erupting.volcanoes.every(v => v.eruption), `${erupting.total}`);
+  assert.deepEqual(etna.structuredContent.volcanoes[0].quakes_week && etna.structuredContent.volcanoes[0].quakes_week.strongest, 3.4, "this week's M3.4 under it");
+  assert.match(etna.content[0].text, /1 earthquake M2\.5\+ within 30 km this week \(strongest M3\.4, latest 10 h ago\)/);
+  assert.match(ok(await call(server, 'volcanoes', { lat: 0, lon: -30, radius_km: 50 })).content[0].text, /^No volcanoes within 50 km/);
+});
+
+test('mcp: road speeds: Finland live per direction, New York with its delay said, nowhere else', async () => {
+  const { server } = serve(), fi = ok(await call(server, 'road_speeds', { lat: 60.17, lon: 24.94, radius_km: 15 })), d = fi.structuredContent;
+  assert.equal(d.feed, 'Fintraffic'); assert.deepEqual(d.readings.map(r => [r.road, r.heading, r.speed_kmh, r.vehicles_per_hour]), [['vt1 Espoo Otaniemi', 'W', 78, 1200]], 'an hour-old reading, a removed station and a far one are out');
+  assert.deepEqual(hashOf(d.url).add, ['traffic']); assert.match(fi.content[0].text, /vt1 Espoo Otaniemi heading W · 78 km\/h · 1,200 vehicles\/h/);
+  const ny = ok(await call(server, 'road_speeds', { lat: 40.712, lon: -73.99, radius_km: 3 }));
+  assert.deepEqual(ny.structuredContent.readings.map(r => [r.road, r.speed_mph]), [['FDR N Catherine Slip - 25th St', 29]], 'the latest reading per link, near the place');
+  assert.match(ny.content[0].text, /NYC DOT; the newest is 26 h old: the city publishes late/);
+  const far = await call(server, 'road_speeds', { place: 'Paris' });
+  assert.equal(far.isError, true); assert.match(far.content[0].text, /Finland \(Fintraffic\) and New York City/);
+});
+
+test('mcp: a country briefing names its biggest employers', async () => {
+  const { server } = serve(), d = ok(await call(server, 'country_briefing', { country: 'JP' })).structuredContent;
+  assert.ok(d.biggest_employers.length === 5 && d.biggest_employers.some(e => /Toyota/.test(e.name)), JSON.stringify(d.biggest_employers));
+  assert.ok(d.biggest_employers.every((e, i, a) => i === 0 || a[i - 1].employees >= e.employees));
 });

@@ -317,6 +317,14 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   Origin loopback or listed; 406/415/413/400 as the spec says. http.mjs uses only Request/Response, so the same handler
   could serve from a Cloudflare Worker with `hosts: null` and its own auth (not deployed: the relay Worker is separate
   and redeploys need the owner's OK). A client that hangs up aborts its tool call.
+- 0.2.0 also: `eclipses` (core/eclipselocal.js turns the Horizons tables Earth-fixed without Cesium: IAU 1976 precession +
+  the four main nutation terms + GAST; within ~0.05° and a few seconds of NASA's circumstances), `distance` (choosePair, then
+  each name asked again near the other when the pair is over 50 km apart, but a city is never replaced by a village or a
+  shop of the same name, and a typed lat, lon is never second-guessed; the globe link carries the line as `&d=`),
+  `volcanoes` (a town is a 60 km circle round it, a country its box), `road_speeds` (core/traffic.js parsers).
+- core/borders.js: Russia's mainland ring (and Wrangel Island) crosses the antimeridian, so the flat even-odd test made a
+  band round the world that claimed 40 of 196 grid points in Canada (the globe's country card too). prepare() now keeps
+  an east-shifted copy of such parts (b.east) for inCountry; b.box is unchanged (mainBox and fly-to use it).
 - HSL in the server is the GTFS-RT file, not the MQTT stream (no WebSocket in a one-shot answer); its route ids carry the
   line ("1055" = 55, "31M1" = M1, "3001R" = R train, 1001-1015 trams except bus 14).
 

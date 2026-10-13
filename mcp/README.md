@@ -15,7 +15,8 @@ No account, no API keys, no local web server. It is a small Model Context Protoc
 > "Will I see the aurora in Minneapolis tonight?" · "Ships near Helsinki" · "Free bikes near the Eiffel Tower" ·
 > "Show me the traffic camera at Trafalgar Square" · "Which trams are near Helsinki station?" · "Any fires burning
 > in Northern Australia?" · "Brief me on Japan" · "Which undersea cables land in Marseille?" · "When is Jupiter at
-> opposition, and can I see Saturn from Austin tonight?"
+> opposition, and can I see Saturn from Austin tonight?" · "Will I see the 2027 eclipse from Madrid?" · "How far is it
+> from Big Ben to the Tower of London on foot?" · "Is Etna erupting?" · "How fast is traffic moving in Helsinki?"
 
 ## Install
 
@@ -64,6 +65,10 @@ Once it is on npm, `npx -y open-overwatch-mcp` will work anywhere a command is a
 | `country_briefing` | the website's country data (Wikidata, World Bank), USGS, NASA EONET, NOAA NHC, GDACS, Open-Meteo | capital, population, economy, area, this week's earthquakes, open events, storms nearby and the weather in the capital |
 | `submarine_cables` | TeleGeography's submarine cable map | the landing stations and cables at or near a place, with length, owners and the year in service |
 | `solar_system` | the website's own planet maths (JPL elements) | where the planets and the Moon are, how bright, from a place when they rise and set, and their next oppositions and elongations |
+| `eclipses` | JPL Horizons (the website's eclipse tables, 2027-2030) | each solar eclipse's kind and greatest point, and for a place whether it is seen, when, and how much of the Sun is covered |
+| `distance` | WGS84 geodesics; OSRM over OpenStreetMap | how far between places as the crow flies (to the millimetre) and by road, bike or on foot; the globe link draws the line |
+| `volcanoes` | Wikidata (the website's copy), NASA EONET, USGS | the volcanoes nearest a place, any open eruption, and this week's earthquakes next to them |
+| `road_speeds` | Fintraffic (Finland), NYC DOT | measured traffic speeds and volumes on the roads near a place |
 
 Place names are looked up with Photon (komoot), a free geocoder over OpenStreetMap; you can give `lat`/`lon` instead.
 

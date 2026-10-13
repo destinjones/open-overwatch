@@ -35,12 +35,23 @@ const fmtCoord = (lat, lon) => `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 
 
 /** One place by name: { name, label, lat, lon, kind, country, bbox: [w, s, e, n] | null }. */
 export async function geocode(feeds, q, signal) {
+  return (await geocodeMany(feeds, q, 1, signal))[0];
+}
+/** Up to n places by name, best match first (for "from A to B", where the pair that makes sense is picked); `near`
+ *  ({ lat, lon }) asks Photon to prefer matches close to it. */
+export async function geocodeMany(feeds, q, n, signal, near) {
   const text = String(q || '').trim().slice(0, 120);
   if (text.length < 2) throw new ToolError('Name a place (two letters or more)', 'invalid_arguments');
-  const d = await feeds.json(`${PHOTON}?q=${encodeURIComponent(text)}&limit=1&lang=en`, { ttl: 7 * 864e5, signal });
-  const f = d && Array.isArray(d.features) ? d.features[0] : null, p = (f && f.properties) || {}, c = (f && f.geometry && f.geometry.coordinates) || [];
+  const bias = near ? `&lat=${near.lat.toFixed(3)}&lon=${near.lon.toFixed(3)}&location_bias_scale=0.1&zoom=10` : '';
+  const d = await feeds.json(`${PHOTON}?q=${encodeURIComponent(text)}&limit=${n}&lang=en${bias}`, { ttl: 7 * 864e5, signal });
+  const out = ((d && Array.isArray(d.features) ? d.features : []).map(f => placeOf(f, text))).filter(Boolean);
+  if (!out.length) throw new ToolError(`No place called "${text}" was found`, 'not_found');
+  return out;
+}
+function placeOf(f, text) {
+  const p = (f && f.properties) || {}, c = (f && f.geometry && f.geometry.coordinates) || [];
   const lon = +c[0], lat = +c[1];
-  if (!f || !Number.isFinite(lat) || !Number.isFinite(lon)) throw new ToolError(`No place called "${text}" was found`, 'not_found');
+  if (!f || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   const e = Array.isArray(p.extent) && p.extent.length === 4 && p.extent.every(Number.isFinite) ? p.extent : null;   // Photon: [west, north, east, south]
   let bbox = e ? [e[0], e[3], e[2], e[1]] : null;
   if (bbox && ((bbox[2] - bbox[0] + 360) % 360 > 300 || bbox[3] - bbox[1] > 150)) bbox = null;   // wraps most of the world (territories far away): use a circle
@@ -94,7 +105,8 @@ export function frame(lat, lon, km, { tilt = 0, heading = 0 } = {}) {
 export const frameArea = (a, opts) => frame(a.frameLat ?? a.lat, a.frameLon ?? a.lon, a.radiusKm, opts);
 
 /**
- * The globe link for a view: { camera, on: [layer ids], off, weather: [ids], time: { ms, rate }, country, flight, sat, sensor }.
+ * The globe link for a view: { camera, on: [layer ids], off, weather: [ids], time: { ms, rate }, country, flight, sat, sensor,
+ * drawing: [shapes] (core/measure.js: pins, lines, areas, distances; drawn on arrival, left out if too long for a link) }.
  * Layers named in on/off change; every other layer stays as the visitor has it.
  */
 export function globeUrl(site, v) {
@@ -102,7 +114,8 @@ export function globeUrl(site, v) {
   const on = keep(v.on, LAYERS), off = keep(v.off, LAYERS).filter(x => !on.includes(x)), weather = keep(v.weather, WEATHER);
   const view = { ...v.camera, layers: null, weather: weather.length ? weather : null, country: v.country || null, flight: v.flight || null,
     time: v.time && Number.isFinite(v.time.ms) ? { jd: jdFromMs(v.time.ms), rate: Number.isFinite(v.time.rate) ? v.time.rate : 1 } : null,
-    add: on.length ? on : null, drop: off.length ? off : null, sat: v.sat || null, ops: v.sensor ? { sensor: v.sensor, hud: false, detect: false } : null };
+    add: on.length ? on : null, drop: off.length ? off : null, sat: v.sat || null, ops: v.sensor ? { sensor: v.sensor, hud: false, detect: false } : null,
+    drawing: Array.isArray(v.drawing) && v.drawing.length ? v.drawing : null };
   return site + 'globe.html#' + encodeView(view);
 }
 
