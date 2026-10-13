@@ -349,6 +349,13 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   9..12). Military areas from map zoom 8 (z = map zoom - 2, 9..12) as Leaflet polygons (fill only) plus seam-free
   polylines, with a triangle pin carrying the card. `Net.bytes` (util.js) fetches binary with the browser cache on;
   `Net.fetch` keeps `cache: 'no-store'` for everything else. A 404 tile is an empty tile.
+- Plate readers along a route (directions.js, `Alpr.along`): the tiles the route passes (`routeTiles`, the finest zoom
+  needing at most 40; a long drive falls back to z9), then `readersAlong` (40 m, a grid of the route's segments). "Facing
+  along the road" means a tagged facing within 45° of the road's line either way: ALPRs commonly read rear plates, so
+  "toward the traffic" would undercount. Loop to O'Hare (2026-10-12): 29 within 40 m, 23 along the road.
+- MCP (mcp/osm.mjs): `plate_readers` and `military_areas` use the same core code in Node; `feeds.bytes` caches binary
+  like json. A big area (a state) gets a plate-reader count from the positions-only tiles, not a list. Tests build their
+  tiles with test/helpers/mvt.mjs (it shows as an empty passing file in `node --test`).
 - Headless renders killed each other: `reapOrphans()` in brand/tools/cdp.mjs killed any profile browser whose parent
   was gone, and Edge's main process always outlives the launcher `spawn()` starts, so every globe_shot run killed every
   other session's running render (`CDP connection closed` mid-run). Each profile now holds owner.pid and only a dead

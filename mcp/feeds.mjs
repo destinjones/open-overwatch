@@ -17,7 +17,7 @@ const local = u => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(u.hostname);
 
 /**
  * fetchImpl: fetch-compatible (tests pass their own). site: the Open Overwatch address links point at and the data copies
- * come from. Returns { json, text, site(path), siteBase, clear() }; json/text(url, { ttl, headers, timeout, signal }).
+ * come from. Returns { json, text, bytes, site(path), siteBase, clear() }; json/text/bytes(url, { ttl, headers, timeout, signal }).
  */
 export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntries = 150, now = Date.now } = {}) {
   const cache = new Map(), inflight = new Map();
@@ -35,7 +35,7 @@ export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntr
       throw new ToolError(`${u.hostname} did not answer${e && e.name === 'TimeoutError' ? ' in time' : ''}; try again in a minute`, 'unavailable');
     }
     if (!r.ok) throw new ToolError(`${u.hostname} answered HTTP ${r.status}${r.status === 429 ? ' (too many requests): try again later' : ''}`, r.status === 429 ? 'retry_later' : r.status === 404 ? 'not_found' : 'unavailable');
-    try { return as === 'json' ? await r.json() : await r.text(); }
+    try { return as === 'json' ? await r.json() : as === 'bytes' ? new Uint8Array(await r.arrayBuffer()) : await r.text(); }
     catch (e) { throw new ToolError(`${u.hostname} sent something unreadable`, 'unavailable'); }
   }
 
@@ -65,6 +65,8 @@ export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntr
   return {
     json: (url, o) => get(url, { ...o, as: 'json' }),
     text: (url, o) => get(url, { ...o, as: 'text' }),
+    /** Binary (vector tiles): a Uint8Array. */
+    bytes: (url, o) => get(url, { ...o, as: 'bytes' }),
     /** A file on the Open Overwatch site (its data copies: data/tle/…, data/launches.json, …). */
     site: path => new URL(path, base).href,
     siteBase: base,

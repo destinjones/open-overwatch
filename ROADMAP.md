@@ -197,6 +197,8 @@ Round 2 (2026-10-10, local):
       from orbit, make/operator/facing close up), and 3D buildings with their mapped heights and colours from OpenFreeMap
       z14 (Overpass only as the fallback; phones get 4 tiles and skip sheds)
 - [x] Plate readers and military areas on the 2D map too (src/map/osmlayers.js, the same tiles and core code)
+- [x] Directions: a drive in the US or Canada counts the mapped plate readers within 40 m and how many face along the road
+- [x] MCP tools `plate_readers` and `military_areas` (mcp/osm.mjs, the same core code; 16 tools)
 - [ ] Plate readers outside the US and Canada still come from Overpass (surveil.js) until someone tiles the world's
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above

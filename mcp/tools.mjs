@@ -16,6 +16,7 @@ import { ToolError } from './feeds.mjs';
 import { areaProps, resolveArea, inArea, distKm, frame, frameArea, globeUrl, panelUrl, LAYERS, WEATHER } from './place.mjs';
 import { findSats, satState, ecefAt, GROUP_LAYER } from './sats.mjs';
 import { PANEL_URI } from './panel.mjs';
+import { createOsmTools } from './osm.mjs';
 
 const USGS = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/';
 const EONET = 'https://eonet.gsfc.nasa.gov/api/v3/events';
@@ -529,10 +530,10 @@ export function createTools(ctx) {
     },
   };
 
-  return [showOnGlobe, earthquakes, whereSat, passes, launches, crew, flybys, storms, events, ships, bikes, weather, aurora, night];
+  return [showOnGlobe, earthquakes, whereSat, passes, launches, crew, flybys, storms, events, ships, bikes, weather, aurora, night, ...createOsmTools(ctx, link)];
 }
 
 /** Server instructions: how the tools fit together. */
-export const INSTRUCTIONS = 'Open Overwatch answers questions about the live Earth from public open data (USGS, NOAA, NASA, Launch Library 2, CelesTrak element sets, Fintraffic AIS, CityBikes, Open-Meteo). '
+export const INSTRUCTIONS = 'Open Overwatch answers questions about the live Earth from public open data (USGS, NOAA, NASA, Launch Library 2, CelesTrak element sets, Fintraffic AIS, CityBikes, Open-Meteo, OpenStreetMap through OpenFreeMap and FlockHopper map tiles). '
   + 'Every answer includes a url that opens the live 3D globe on it. When the person would like to see something, call show_on_globe with that url (or describe the view): '
   + 'in hosts with MCP Apps, such as Claude Desktop, the globe then appears in the conversation. Give people the url too.';

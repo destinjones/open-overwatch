@@ -130,4 +130,5 @@ liveness review.
 | Satellites, launches, crew, flybys | the website's copies: `data/tle/*.txt`, `data/launches.json`, `data/astronauts.json`, `data/flybys.json` | from GitHub Pages | never CelesTrak or Launch Library directly (both limit or block heavy users) |
 | Place names | [Photon](https://photon.komoot.io) (komoot) | `api/?q=…&limit=1&lang=en`, kept 7 days | © OpenStreetMap contributors (ODbL) |
 | Time zones | Open-Meteo `timezone=auto` | the place's IANA zone, for local times | CC BY 4.0 |
+| Plate readers, military areas (`plate_readers`, `military_areas`) | FlockHopper's camera tiles and OpenFreeMap's tiles, as on the globe (rows above) | at most 24 tiles around the place (z12..z9; for a big area, plate readers count from the z8..z3 positions-only tiles), TileJSON kept 6 h, tiles 1 h | © OpenStreetMap contributors (ODbL); © OpenMapTiles |
 | The globe in the chat | the website itself (`globe.html#embed=1&…`), framed by an MCP Apps view | the host loads it; the server never fetches it | the site's own privacy notice applies |

@@ -54,6 +54,8 @@ Once it is on npm, `npx -y open-overwatch-mcp` will work anywhere a command is a
 | `weather` | Open-Meteo | now and up to 7 days, metric or imperial, in the place's time zone |
 | `aurora` | NOAA SWPC | Kp now and for 3 days, and the chance of aurora overhead or on the horizon at a place |
 | `night_sky` | the website's own sky maths, Open-Meteo, NOAA SWPC | when it's dark, the planets, the Moon, meteor showers, bright passes, the aurora chance and the clouds |
+| `plate_readers` | OpenStreetMap via DeFlock and FlockHopper's hourly tiles | the licence-plate readers mapped near a place in the US or Canada: how many, makes, operators, facings, the nearest ones (a count only for a big area) |
+| `military_areas` | OpenStreetMap via OpenFreeMap's tiles | land mapped as military near a place (up to 150 km), worldwide: size, airfields inside, the nearest town, an OpenStreetMap link each |
 
 Place names are looked up with Photon (komoot), a free geocoder over OpenStreetMap; you can give `lat`/`lon` instead.
 
@@ -61,7 +63,8 @@ Place names are looked up with Photon (komoot), a free geocoder over OpenStreetM
 
 Nothing is stored and nothing is sent to this project: the server runs on your computer and asks the public sources
 directly. What each one sees is your IP address and what the question needs: place names go to Photon, coordinates to
-Open-Meteo (weather, time zones), Fintraffic (ships) and CityBikes (stations near a point), and the other tools fetch
+Open-Meteo (weather, time zones), Fintraffic (ships) and CityBikes (stations near a point), the map tiles around a place
+to OpenFreeMap and FlockHopper (military areas, plate readers), and the other tools fetch
 whole public feeds (USGS, NOAA, NASA, the website's data copies on GitHub Pages) without anything about you. The globe in
 the chat is the public website, loaded by your Claude app, under the same privacy notice as the website. Each source's
 own policy and licence applies; see [docs/DATA_SOURCES.md](../docs/DATA_SOURCES.md).

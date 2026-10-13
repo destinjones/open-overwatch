@@ -30,7 +30,9 @@
     { "name": "bike_share", "description": "Live bike share stations near a place, worldwide (CityBikes)." },
     { "name": "weather", "description": "Weather now and for the next days at a place (Open-Meteo)." },
     { "name": "aurora", "description": "Kp now and ahead, and the chance of aurora at a place (NOAA SWPC)." },
-    { "name": "night_sky", "description": "Tonight's sky at a place: planets, Moon, meteor showers, bright passes, clouds." }
+    { "name": "night_sky", "description": "Tonight's sky at a place: planets, Moon, meteor showers, bright passes, clouds." },
+    { "name": "plate_readers", "description": "Licence-plate readers (ALPR) mapped in OpenStreetMap near a place in the US or Canada." },
+    { "name": "military_areas", "description": "Land mapped as military in OpenStreetMap near a place, worldwide." }
   ],
   "keywords": ["globe", "earth", "satellites", "earthquakes", "launches", "weather", "aurora", "open data", "maps"],
   "license": "MIT",

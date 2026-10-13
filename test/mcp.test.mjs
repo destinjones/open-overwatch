@@ -10,6 +10,7 @@ import { createFeeds } from '../mcp/feeds.mjs';
 import { frame, inArea, globeUrl, LAYERS, WEATHER } from '../mcp/place.mjs';
 import { decodeView } from '../src/core/viewlink.js';
 import { haversine } from '../src/core/geo.js';
+import { layer as mvtLayer, tile as mvtTile } from './helpers/mvt.mjs';
 
 const sgp4 = await import('satellite.js').catch(() => null);
 const needsSgp4 = sgp4 ? {} : { skip: 'satellite.js is not installed (npm install)' };
@@ -66,6 +67,34 @@ const ROUTES = [
   ['https://services.swpc.noaa.gov/json/ovation_aurora_latest.json', { 'Forecast Time': '2026-10-01T18:30:00Z', coordinates: [[25, 60, 5], [25, 66, 40], [25, 61, 15]] }],
 ];
 
+// map tiles: things placed by lat/lon, drawn into whichever tile is asked for (a 64-unit buffer, like the real ones)
+const local = (lat, lon, z, x, y) => { const n = 2 ** z, s = Math.sin(lat * Math.PI / 180); return [Math.round(((lon + 180) / 360 * n - x) * 4096), Math.round(((0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n - y) * 4096)]; };
+const inTile = ([px, py]) => px >= -64 && px <= 4160 && py >= -64 && py <= 4160;
+const CAMS = [[41.8800, -87.6300, { brand: 'Flock Safety', operator: 'Chicago Police Department', direction: 90 }], [41.8810, -87.6290, { brand: 'Flock Safety' }],
+  [41.8750, -87.6350, { brand: 'Motorola Solutions', operator: 'Chicago Police Department', directions: '0;180' }], [41.9500, -87.7000, { brand: 'Flock Safety' }]];
+const camTile = url => {
+  const [z, x, y] = url.match(/(\d+)\/(\d+)\/(\d+)\.mvt$/).slice(1).map(Number), feats = [];
+  CAMS.forEach(([lat, lon, p], i) => { const q = local(lat, lon, z, x, y); if (q[0] >= 0 && q[0] < 4096 && q[1] >= 0 && q[1] < 4096) feats.push({ type: 1, props: z > 8 ? { osmId: 1000 + i, osmType: 'node', ...p } : {}, parts: [q] }); });
+  return feats.length ? mvtTile([mvtLayer('cameras', feats)]) : { status: 404 };
+};
+const BASE = [35.10, -79.05, 35.18, -78.95];   // s, w, n, e: a military area of ~66 km², with an airfield inside, a town to the east
+const ofmTile = url => {
+  const [z, x, y] = url.match(/(\d+)\/(\d+)\/(\d+)\.pbf$/).slice(1).map(Number), corners = [[BASE[2], BASE[1]], [BASE[2], BASE[3]], [BASE[0], BASE[3]], [BASE[0], BASE[1]]].map(([la, lo]) => local(la, lo, z, x, y));
+  const clampB = v => Math.max(-64, Math.min(4160, v)), ring = corners.map(([px, py]) => [clampB(px), clampB(py)]), layers = [];
+  if (ring.some((p, i) => p[0] !== ring[(i + 1) % 4][0] || p[1] !== ring[(i + 1) % 4][1]) && Math.abs(ring[0][0] - ring[1][0]) > 1 && Math.abs(ring[1][1] - ring[2][1]) > 1) layers.push(mvtLayer('landuse', [{ type: 3, props: { class: 'military' }, parts: [ring] }]));
+  const field = local(35.14, -79.0, z, x, y), town = local(35.15, -78.85, z, x, y);
+  if (inTile(field)) layers.push(mvtLayer('aerodrome_label', [{ type: 1, props: { class: 'military', name: 'Pope Army Airfield', icao: 'KPOB' }, parts: [field] }]));
+  if (inTile(town)) layers.push(mvtLayer('place', [{ type: 1, props: { class: 'city', name: 'Fayetteville' }, parts: [town] }]));
+  return mvtTile(layers);
+};
+ROUTES.push(
+  ['https://tiles.dontgetflocked.com/cameras-us-hourly.json', { tiles: ['https://tiles.dontgetflocked.com/cameras-us-hourly/{z}/{x}/{y}.mvt'], bounds: [-159.6, 17.7, -64.6, 61.6] }],
+  ['https://tiles.dontgetflocked.com/cameras-ca-hourly.json', { tiles: ['https://tiles.dontgetflocked.com/cameras-ca-hourly/{z}/{x}/{y}.mvt'], bounds: [-124.0, 42.3, -52.7, 51.2] }],
+  [/tiles\.dontgetflocked\.com\/cameras-us-hourly\/\d+/, camTile],
+  [/tiles\.dontgetflocked\.com\/cameras-ca-hourly\/\d+/, { status: 404 }],
+  [/^https:\/\/tiles\.openfreemap\.org\/planet$/, { tiles: ['https://tiles.openfreemap.org/planet/20261004_113936_pt/{z}/{x}/{y}.pbf'] }],
+  [/tiles\.openfreemap\.org\/planet\/\w+\/\d+/, ofmTile]);
+
 function pretendInternet(routes = ROUTES) {
   const asked = [];
   const fetchImpl = async url => {
@@ -74,6 +103,7 @@ function pretendInternet(routes = ROUTES) {
       if (!(typeof match === 'string' ? url.startsWith(match) : match.test(url))) continue;
       const b = typeof body === 'function' ? body(url) : body;
       if (b instanceof Error) throw b;
+      if (b instanceof Uint8Array) return new Response(b, { status: 200, headers: { 'content-type': 'application/x-protobuf' } });
       if (b && b.status) return new Response(b.body ?? '', { status: b.status });
       return new Response(typeof b === 'string' ? b : JSON.stringify(b), { status: 200, headers: { 'content-type': 'application/json' } });
     }
@@ -81,7 +111,7 @@ function pretendInternet(routes = ROUTES) {
   };
   return { fetchImpl, asked };
 }
-const serve = (net = pretendInternet()) => ({ net, server: createOverwatchServer({ fetchImpl: net.fetchImpl, sgp4: sgp4 || undefined, now: () => NOW }) });
+const serve = (net = pretendInternet()) => ({ net, server: createOverwatchServer({ fetchImpl: net.fetchImpl, sgp4: sgp4 || undefined, now: () => NOW, log: process.env.MCP_LOG ? console.error : undefined }) });
 const rpc = (server, method, params, id = 1) => server.handle({ jsonrpc: '2.0', id, method, params });
 async function call(server, name, args = {}) {
   const r = await rpc(server, 'tools/call', { name, arguments: args });
@@ -106,7 +136,7 @@ test('mcp: initialize agrees a protocol version and says what the server offers'
 
 test('mcp: every tool is listed read-only with a schema; show_on_globe names the globe panel', async () => {
   const { server } = serve(), { tools } = (await rpc(server, 'tools/list')).result;
-  assert.equal(tools.length, 14);
+  assert.equal(tools.length, 16);
   for (const t of tools) {
     assert.match(t.name, /^[a-z_]+$/); assert.ok(t.description.length > 60, t.name); assert.equal(t.inputSchema.type, 'object');
     assert.equal(t.annotations.readOnlyHint, true); assert.equal(t.annotations.openWorldHint, true);
@@ -323,7 +353,7 @@ test('mcp: the stdio server answers a client and exits when stdin closes', async
   assert.equal(code, 0, err);
   const lines = out.trim().split('\n').map(l => JSON.parse(l)), byId = id => lines.find(l => l.id === id);   // answers may come in any order
   assert.equal(lines.length, 3, out);
-  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 14); assert.equal(byId(null).error.code, -32700);
+  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 16); assert.equal(byId(null).error.code, -32700);
   assert.match(err, /open-overwatch-mcp \d+\.\d+\.\d+ - links to https:\/\/destinjones\.github\.io\/open-overwatch\//);
 });
 
@@ -334,4 +364,38 @@ test('mcp: the npm package, the Claude Desktop bundle and the server agree on th
   assert.deepEqual(man.tools.map(t => t.name), tools.map(t => t.name));
   assert.equal(pkg.bin['open-overwatch-mcp'], 'mcp/server.mjs'); assert.equal(man.server.entry_point, 'mcp/server.mjs');
   assert.deepEqual(Object.keys(pkg.dependencies), ['satellite.js']);
+});
+
+// ---- OpenStreetMap from map tiles --------------------------------------------------------------------------------------
+test('mcp: plate readers near a point in the US, nearest first, with makes and operators; a count only for a big area; none outside', async () => {
+  const { server, net } = serve(), r = ok(await call(server, 'plate_readers', { lat: 41.88, lon: -87.63, radius_km: 2 })), d = r.structuredContent;
+  assert.equal(d.total, 3, 'the fourth is 9 km away'); assert.equal(d.detail, true);
+  assert.equal(d.makes, 'Flock Safety 2, Motorola Solutions 1');
+  assert.deepEqual(d.operators, [{ name: 'Chicago Police Department', n: 2 }]); assert.equal(d.facing_tagged, 2);
+  assert.equal(d.nearest[0].osm, 'https://www.openstreetmap.org/node/1000'); assert.ok(d.nearest[0].distance_m < 5);
+  assert.equal(d.nearest[0].facts.Faces, 'E (90°)');
+  assert.match(r.content[0].text, /^3 licence-plate readers mapped in OpenStreetMap within 2 km of 41\.88°N 87\.63°W: Flock Safety 2, Motorola Solutions 1\./);
+  assert.match(r.content[0].text, /Run by: Chicago Police Department 2; 1 with no operator tagged\./);
+  assert.deepEqual(hashOf(d.url).add, ['alpr']);
+  assert.ok(!net.asked.some(u => /cameras-ca-hourly\/\d/.test(u)), 'no Canadian tiles asked for Chicago');
+  assert.ok(net.asked.every(u => !/overpass/.test(u)), 'no Overpass');
+  const big = ok(await call(server, 'plate_readers', { place: 'Texas' })).structuredContent;
+  assert.equal(big.detail, false); assert.equal(big.total, 0);
+  const paris = await call(server, 'plate_readers', { place: 'Paris' });
+  assert.equal(paris.isError, true); assert.match(paris.content[0].text, /United States and Canada only/);
+});
+
+test('mcp: military areas near a point, joined across tiles, named by the airfield inside, near the town; too wide is refused', async () => {
+  const { server } = serve(), r = ok(await call(server, 'military_areas', { lat: 35.14, lon: -79.0, radius_km: 10 })), d = r.structuredContent;
+  assert.equal(d.total, 1, 'one area, however many tiles it spans');
+  const [a] = d.areas;
+  assert.equal(a.name, 'Pope Army Airfield'); assert.deepEqual(a.airfields, ['Pope Army Airfield']);
+  const want = haversine(35.10, -79.05, 35.18, -79.05) / 1000 * haversine(35.14, -79.05, 35.14, -78.95) / 1000;
+  assert.ok(Math.abs(a.area_km2 - want) / want < 0.02, `${a.area_km2} vs ${want.toFixed(1)} km²`);
+  assert.equal(a.at_least, false); assert.equal(a.near.name, 'Fayetteville');
+  assert.match(a.osm, /^https:\/\/www\.openstreetmap\.org\/query\?lat=35\.\d+&lon=-7[89]\.\d+$/);
+  assert.match(r.content[0].text, /^1 military area mapped within 10 km of 35\.14°N 79\.00°W/);
+  assert.deepEqual(hashOf(d.url).add, ['milareas']);
+  assert.equal(ok(await call(server, 'military_areas', { lat: 0, lon: -30, radius_km: 5 })).structuredContent.total, 0);
+  assert.equal((await call(server, 'military_areas', { lat: 35.14, lon: -79.0, radius_km: 400 })).isError, true);
 });
