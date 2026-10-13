@@ -1,7 +1,7 @@
 // The Model Context Protocol over JSON-RPC 2.0, by hand (no SDK, so the package has one small dependency): initialize, ping,
-// tools/list and tools/call, resources/list and resources/read (the globe panel), and stdio as newline-delimited JSON.
+// tools/list and tools/call, resources/list and resources/read (the globe panel), prompts. Transport-free (no Node
+// built-ins, so it runs on a Worker too): stdio is mcp/stdio.mjs, Streamable HTTP mcp/http.mjs.
 // Arguments are checked against each tool's schema before it runs; failures reach the model as tool errors it can act on.
-import { createInterface } from 'node:readline';
 import { ToolError } from './feeds.mjs';
 
 /** Protocol revisions this server speaks, newest first. */
@@ -124,21 +124,4 @@ export function createMcpServer({ name, title, version, instructions, tools, res
       catch (e) { return { jsonrpc: '2.0', id: m.id, error: { code: e.rpc || E.INTERNAL, message: e.rpc ? e.message : 'Internal error' } }; }
     },
   };
-}
-
-/** Serve newline-delimited JSON-RPC on stdin/stdout until stdin closes. notifications/cancelled aborts that request (no answer). */
-export async function serveStdio(server, { input = process.stdin, output = process.stdout } = {}) {
-  const running = new Map(), work = new Set();
-  for await (const line of createInterface({ input, crlfDelay: Infinity })) {
-    if (!line.trim()) continue;
-    let m;
-    try { m = JSON.parse(line); } catch { output.write(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: E.PARSE, message: 'Parse error' } }) + '\n'); continue; }
-    if (isObj(m) && m.method === 'notifications/cancelled') { const c = running.get(m.params && m.params.requestId); if (c) c.abort(); continue; }
-    const id = isObj(m) ? m.id : undefined, ctl = new AbortController();
-    if (id != null) running.set(id, ctl);
-    const job = server.handle(m, { signal: ctl.signal }).then(res => { if (res && !ctl.signal.aborted) output.write(JSON.stringify(res) + '\n'); },
-      () => {}).finally(() => { if (id != null && running.get(id) === ctl) running.delete(id); work.delete(job); });
-    work.add(job);
-  }
-  await Promise.all(work);
 }

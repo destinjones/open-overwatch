@@ -1,0 +1,31 @@
+# Open Overwatch MCP server, remote: the same tools over Streamable HTTP at /mcp for claude.ai and ChatGPT connectors.
+# NOT deployed. Deploy (from this folder, after `npx wrangler login`; needs the owner's OK, it is a production deploy):
+#   npx wrangler secret put MCP_TOKEN      (a long random secret; the connector URL is .../mcp/<that secret>)
+#   npx wrangler deploy
+# Check it builds without deploying: npx wrangler deploy --dry-run --outdir dist
+name = "open-overwatch-mcp"
+main = "index.mjs"
+compatibility_date = "2026-10-10"
+workers_dev = true
+# satellite.js and src/core/ are bundled from the repository (npm install at the root first)
+
+[vars]
+PLAN = "free"        # "paid" on the Workers Paid plan: every tool (the free plan leaves the 11 heaviest out)
+PUBLIC = "false"     # "true" opens /mcp to anyone (no token): the data is public, but mind the rate limit
+OO_SITE = "https://destinjones.github.io/open-overwatch/"
+# ALLOW_ORIGINS = "https://example.com"   # browser origins beyond claude.ai and ChatGPT
+# TOOLS_OFF = "traffic_cameras"            # leave tools out; TOOLS_ON keeps a HEAVY one in on the free plan
+# LOG = "true"                             # one line per tool call in `npx wrangler tail` (never the arguments)
+
+# 30 tool calls a minute per caller address (the period must be 10 or 60 seconds; needs wrangler 4.36+)
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "4721"
+
+  [ratelimits.simple]
+  limit = 30
+  period = 60
+
+# On the paid plan the CPU limit can be raised (default 30 s): 
+# [limits]
+# cpu_ms = 30000

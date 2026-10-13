@@ -39,6 +39,7 @@ import map in `solar.html`, Leaflet in `open-overwatch.html`).
 | `sw.js`, `offline.html`, `manifest.webmanifest` | the service worker (offline copy, updates), the page shown offline with nothing saved, the app manifest |
 | `mcp/` | the MCP server (Node; stdio, or Streamable HTTP on your own machine) |
 | `relay/` | the public relay, a Cloudflare Worker |
+| `mcp-worker/` | the MCP server as a remote endpoint on Cloudflare Workers (wrangler config and entry; the code is `mcp/worker.mjs`) |
 | `serve.js`, `serve.py` | the local helper: static files + a locked-down relay |
 | `brand/tools/` | data builders, render and test tools |
 | `data/` | data built offline (and, on the website, feed copies made by the site build) |
@@ -93,6 +94,10 @@ node mcp/server.mjs --site http://localhost:8787/    # links and the chat panel 
 machine only; `--allow-origin` lists web origins that may call it). `node mcp/server.mjs --version` prints the version. See [mcp/README.md](../mcp/README.md) for installing it into an MCP
 client.
 
+`mcp-worker/` deploys the same server to Cloudflare Workers for claude.ai and ChatGPT connectors (not deployed; steps in
+[mcp-worker/README.md](../mcp-worker/README.md)). `npx wrangler deploy --dry-run --outdir dist` there builds the bundle
+without uploading; `npx wrangler dev` runs it in a local workerd.
+
 ## 3. Tests
 
 ```bash
@@ -123,6 +128,8 @@ Runs every `test/*.test.mjs` with Node's own runner. No dependencies except `sat
 | `ops.test.mjs`, `inject.test.mjs`, `regress.test.mjs` | MGRS and the voice commands of the Ops pack; hostile input in numbers, ids and HTML stays harmless; regressions from the code reviews |
 | `relay.test.mjs` | the Cloudflare Worker against a stand-in upstream |
 | `mcp.test.mjs` | the MCP server: protocol, argument checks, every tool against canned answers, a stdio round trip, the HTTP transport |
+| `mcpworker.test.mjs` | the MCP server as a Cloudflare Worker, in Node: tokens, CORS, the free plan's tools, the Cache API between requests and isolates, the subrequest budget, the rate limit, a Node-free import graph |
+| `wxpoint.test.mjs`, `whereis.test.mjs` | the weather at a point (tendency, Beaufort, CAPE, sea state, model agreement); "where is it now" (byte-range asteroid elements against the whole file, the quick search, H-G magnitudes) |
 | `docs.test.mjs` | these docs against the code: layer ids, link parameters, voice examples, band buttons, core modules and their exports |
 
 Run one file with `node --test test/measure.test.mjs`. CI (`.github/workflows/ci.yml`) runs on every push: a syntax
@@ -297,12 +304,15 @@ The server is `mcp/`: `server.mjs` (the command line: stdio, or `--http`) → `i
 (JSON-RPC by hand: initialize, tools, resources, prompts, cancellation, argument checks) + `tools.mjs` (the first
 tools, and the list of all of them) + one file per newer tool or family (`cams.mjs`, `transit.mjs`, `fires.mjs`,
 `country.mjs`, `cables.mjs`, `solar.mjs`, `eclipses.mjs`, `distance.mjs`, `volcanoes.mjs`, `roads.mjs`, `conj.mjs`,
-`sun.mjs`, `meteors.mjs`, `osm.mjs`) + `place.mjs` (Photon places, framing a view, globe links) + `words.mjs` (shared
+`sun.mjs`, `meteors.mjs`, `osm.mjs`, `wxdetail.mjs`, `aircraft.mjs`, `space.mjs`) + `place.mjs` (Photon places, framing a view, globe links) + `words.mjs` (shared
 wording: `iso`, `km`, `plural`, `areaData`, `limitProp`, `take`…) + `hazards.mjs` (quakes, events, storms through the
 core parsers) + `sats.mjs` (element sets and SGP4) + `feeds.mjs` (fetch with a cache, stale-if-error) + `prompts.mjs`
-(the ready-made prompts) + `panel.mjs` (the globe in the chat, an MCP App). Transports: `http.mjs` (Streamable HTTP on
-web Request/Response), `http-node.mjs` (serving it from Node), `worker.mjs` (a token-guarded fetch handler for Workers,
-not deployed). No SDK; one dependency, satellite.js.
+(the ready-made prompts) + `panel.mjs` (the globe in the chat, an MCP App). Transports: `stdio.mjs` (newline-delimited JSON on
+stdin/stdout), `http.mjs` (Streamable HTTP on web Request/Response), `http-node.mjs` (serving it from Node), `worker.mjs`
+(the Cloudflare Worker: tokens, the Cache API, the free plan's tool list; deployed from `mcp-worker/`, not yet). Keep
+Node built-ins out of everything but `stdio.mjs`, `http-node.mjs` and `server.mjs`: `test/mcpworker.test.mjs` walks the
+Worker's imports. A tool that costs more than a few milliseconds of CPU once its data is cached, or more than ~40 fetches,
+goes into `HEAVY` in `worker.mjs`. No SDK; one dependency, satellite.js.
 
 A tool is an object `{ name, title, description, inputSchema, run }`. New tools go in their own file as a factory that
 takes `ctx` (see `mcp/volcanoes.mjs`), imported in `tools.mjs` and added to the array `createTools` returns:

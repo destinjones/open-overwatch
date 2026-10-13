@@ -460,6 +460,30 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   an east-shifted copy of such parts (b.east) for inCountry; b.box is unchanged (mainBox and fly-to use it).
 - HSL in the server is the GTFS-RT file, not the MQTT stream (no WebSocket in a one-shot answer); its route ids carry the
   line ("1055" = 55, "31M1" = M1, "3001R" = R train, 1001-1015 trams except bus 14).
+- 0.3.0 (2026-10-13): the Worker (mcp/worker.mjs, config in mcp-worker/). Cloudflare's free plan: 10 ms CPU, 50
+  subrequests a request, and **Cache API calls count against the 50** (a feed miss costs match + fetch + put). So the
+  Worker makes a server per request (its own fetch counter, budget 45) over one in-isolate `memo` Map (parsed answers
+  outlive the request), `createFeeds({ shared })` puts the Cache API in front of every GET for the feed's own ttl, and
+  tools/call answers are cached by SHA-256 of [version, site, tool, sorted arguments] for CALL_TTL. Workers freeze
+  Date.now during CPU work, so CPU can't be measured in the Worker: HEAVY comes from Node timings with the canned feeds
+  (process.cpuUsage ticks at 15.6 ms on Windows; use performance.now with everything canned). claude.ai connectors take
+  a URL and OAuth only, no custom header: the token rides in the path (/mcp/<token>, a wrong one is a 404); /.well-known/*
+  answers 404 so OAuth discovery gives up. Rate limit = the `[[ratelimits]]` binding (period 10 or 60 s only).
+  `npx wrangler deploy --dry-run` bundles it (479 KiB, 153 KiB gzip) and `wrangler dev` ran it in local workerd against the
+  live sources; `wrangler dev` leaves workerd children holding mcp-worker/.wrangler on Windows (stop them by port).
+- protocol.mjs imported node:readline for stdio, which would break the Worker bundle: stdio is mcp/stdio.mjs now, and a
+  test walks the Worker's import graph (only satellite.js from npm, no node: built-ins).
+- `where_in_space`: core/search.js's fuzzy index over the 28,000 named bodies costs ~0.7 s to build and ~0.9 s a query
+  (edit distance on every miss): fine in the view once, too slow per call. core/whereis.js has a quick index (fold once,
+  an exact-name Map, prefix/substring scan only without an exact hit): 50 ms to build, ~0 ms for an exact name. Asteroid
+  elements come from the packed .bin by seven Range requests (column-major: a at 4i, e at 4N+2i, … cls at 14N+i); the
+  small-body list loads only when no planet, moon or mission matches at 800+. constellations.json names are English
+  ("Ram"): IAU_NAMES maps the abbreviations. Halley's next perihelion from osculating elements lands in 2062-01 (real:
+  2061-07), so periodic returns are said "around YYYY-MM" with a note.
+- `weather_details`: Open-Meteo `past_hours=3` gives the 3-hour tendency in one request; `current` takes any hourly
+  variable; the Marine API with `cell_selection=sea` answers for coastal points and errors or returns nulls inland (both
+  read as "no sea"); multi-model daily keys come suffixed (`temperature_2m_max_ecmwf_ifs025`). Open-Meteo answered 503
+  and once a truncated body during testing: transient, the feeds layer reports it as a retryable error.
 
 ## NYC measured traffic speeds — 2026-10-12
 - NYC DOT's Traffic Speeds dataset (i4gi-tjb9) lags far more than "a few hours": on 2026-10-12 the newest row was 27 h

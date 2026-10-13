@@ -144,7 +144,7 @@ test('mcp: initialize agrees a protocol version and says what the server offers'
 
 test('mcp: every tool is listed read-only with a schema; show_on_globe names the globe panel', async () => {
   const { server } = serve(), { tools } = (await rpc(server, 'tools/list')).result;
-  assert.equal(tools.length, 30);
+  assert.equal(tools.length, 33);
   for (const t of tools) {
     assert.match(t.name, /^[a-z_]+$/); assert.ok(t.description.length > 60, t.name); assert.equal(t.inputSchema.type, 'object');
     assert.equal(t.annotations.readOnlyHint, true); assert.equal(t.annotations.openWorldHint, true);
@@ -361,7 +361,7 @@ test('mcp: the stdio server answers a client and exits when stdin closes', async
   assert.equal(code, 0, err);
   const lines = out.trim().split('\n').map(l => JSON.parse(l)), byId = id => lines.find(l => l.id === id);   // answers may come in any order
   assert.equal(lines.length, 3, out);
-  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 30); assert.equal(byId(null).error.code, -32700);
+  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 33); assert.equal(byId(null).error.code, -32700);
   assert.match(err, /open-overwatch-mcp \d+\.\d+\.\d+ - links to https:\/\/destinjones\.github\.io\/open-overwatch\//);
 });
 
@@ -579,7 +579,7 @@ test('mcp http: one JSON-RPC message per POST, answered as JSON; notifications g
   assert.equal(init.status, 200); assert.match(init.headers.get('content-type'), /application\/json/); assert.equal(init.headers.get('mcp-protocol-version'), '2025-06-18');
   assert.equal((await init.json()).result.serverInfo.name, 'open-overwatch');
   const list = await (await h(post({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, { 'mcp-protocol-version': '2025-06-18' }))).json();
-  assert.equal(list.result.tools.length, 30);
+  assert.equal(list.result.tools.length, 33);
   const q = await (await h(post({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'earthquakes', arguments: {} } }))).json();
   assert.equal(q.result.structuredContent.total, 3);
   const n = await h(post({ jsonrpc: '2.0', method: 'notifications/initialized' })); assert.equal(n.status, 202); assert.equal(await n.text(), '');
@@ -644,7 +644,7 @@ test('mcp http: node mcp/server.mjs --http serves Streamable HTTP until stopped'
     let err = '';
     const url = await new Promise((res, rej) => { p.stderr.on('data', b => { err += b; const m = err.match(/Streamable HTTP at (http:\/\/127\.0\.0\.1:\d+\/mcp)/); if (m) res(m[1]); }); p.on('close', c => rej(new Error('exited ' + c + ': ' + err))); });
     const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
-    assert.equal(r.status, 200); assert.equal((await r.json()).result.tools.length, 30);
+    assert.equal(r.status, 200); assert.equal((await r.json()).result.tools.length, 33);
   } finally { p.kill(); }
   const bad = spawn(process.execPath, [new URL('mcp/server.mjs', root).pathname.replace(/^\/([A-Za-z]:)/, '$1'), '--http', '0', '--host', '0.0.0.0'], { stdio: ['ignore', 'pipe', 'pipe'] });
   let e2 = ''; bad.stderr.on('data', b => { e2 += b; });
@@ -803,21 +803,129 @@ test('mcp: prompts: listed with their arguments, rendered with the place quoted 
   assert.match((await rpc(server, 'prompts/get', { name: 'trip_check', arguments: { from: 'A', to: 'B', by: 'rocket' } })).result.messages[0].content.text, /\(drive\)/);
 });
 
-test('mcp worker: answers only with its bearer token, and then like the local server', async () => {
-  const { default: worker } = await import('../mcp/worker.mjs');
-  const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
-  const req = (auth, b = body) => new Request('https://mcp.example.com/mcp', { method: 'POST', headers: { 'content-type': 'application/json', ...(auth ? { authorization: auth } : {}) }, body: b });
-  assert.equal((await worker.fetch(req('Bearer x'), {})).status, 503, 'no secret set: no answers');
-  assert.equal((await worker.fetch(req('Bearer x'), { MCP_TOKEN: 'short' })).status, 503);
-  const env = { MCP_TOKEN: 'a-long-enough-secret-123' };
-  assert.equal((await worker.fetch(req(null), env)).status, 401);
-  const wrong = await worker.fetch(req('Bearer a-long-enough-secret-124'), env); assert.equal(wrong.status, 401); assert.equal(wrong.headers.get('www-authenticate'), 'Bearer');
-  const r = await worker.fetch(req('Bearer a-long-enough-secret-123'), env);
-  assert.equal(r.status, 200); assert.equal((await r.json()).result.tools.length, 30, 'a real domain is fine (no loopback Host check)');
-  const ev = await worker.fetch(new Request('https://mcp.example.com/mcp', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer a-long-enough-secret-123', origin: 'https://evil.example' }, body }), env);
-  assert.equal(ev.status, 403, 'browser pages from other origins are still refused');
-  const listed = await worker.fetch(new Request('https://mcp.example.com/mcp', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer a-long-enough-secret-123', origin: 'https://app.example' }, body }), { ...env, ALLOW_ORIGINS: 'https://app.example' });
-  assert.equal(listed.status, 200);
+// ---- 0.3.0: weather details, aircraft lookups, where in the Solar System -------------------------------------------------
+const HOURS = Array.from({ length: 51 }, (_, i) => new Date(Date.parse('2026-10-01T18:00Z') + i * 3600e3).toISOString().slice(0, 16));
+const DETAIL = { timezone: 'Europe/Helsinki', timezone_abbreviation: 'EEST',
+  current: { time: '2026-10-01T21:15', pressure_msl: 1007.5, surface_pressure: 1006.9, temperature_2m: 9.4, dew_point_2m: 7.2, relative_humidity_2m: 86, wind_speed_10m: 11.2, wind_direction_10m: 225, wind_gusts_10m: 19.4,
+    cape: 40, visibility: 24000, freezing_level_height: 1450, uv_index: 0, cloud_cover_low: 80, cloud_cover_mid: 40, cloud_cover_high: 10, weather_code: 61 },
+  hourly: { time: HOURS, pressure_msl: HOURS.map((_, i) => (i <= 27 ? 1012 - 1.5 * i : 971.5 + (i - 27))), wind_speed_10m: HOURS.map((_, i) => 8 + (i === 27 ? 12 : 0)), wind_gusts_10m: HOURS.map((_, i) => (i === 27 ? 31 : 14)),
+    cape: HOURS.map((_, i) => (i === 10 ? 1500 : 0)), visibility: HOURS.map((_, i) => (i === 5 ? 600 : 20000)), freezing_level_height: HOURS.map(() => 1500), uv_index: HOURS.map(() => 0),
+    precipitation: HOURS.map((_, i) => (i >= 20 && i < 30 ? 0.5 : 0)), precipitation_probability: HOURS.map((_, i) => (i === 24 ? 90 : 10)) } };
+const MARINE_HELSINKI = { current: { time: '2026-10-01T21:00', wave_height: 2.1, wave_direction: 240, wave_period: 7.1, swell_wave_height: 1.2, swell_wave_direction: 250, swell_wave_period: 9.5, wind_wave_height: 1.8,
+  sea_surface_temperature: 11.4, ocean_current_velocity: 1.8, ocean_current_direction: 90 }, hourly: { time: HOURS, wave_height: HOURS.map((_, i) => (i === 27 ? 5.5 : 2)) } };
+const MODELS3 = { daily: { time: ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04'],
+  temperature_2m_max_ecmwf_ifs025: [10, 11, 9, 8], temperature_2m_max_gfs_seamless: [10, 11, 14, 8], temperature_2m_max_icon_seamless: [10, 12, 10, 8],
+  precipitation_sum_ecmwf_ifs025: [0, 1, 0, 0], precipitation_sum_gfs_seamless: [0, 1, 12, 0], precipitation_sum_icon_seamless: [0, 1.5, 0.1, 0],
+  wind_gusts_10m_max_ecmwf_ifs025: [14, 15, 12, 10], wind_gusts_10m_max_gfs_seamless: [14, 16, 13, 10], wind_gusts_10m_max_icon_seamless: [15, 15, 12, 11] } };
+const ADSBDB_XLEA = { response: { aircraft: { type: 'A380 841', icao_type: 'A388', manufacturer: 'Airbus', mode_s: '40688B', registration: 'G-XLEA', registered_owner_country_iso_name: 'GB', registered_owner_country_name: 'United Kingdom',
+  registered_owner_operator_flag_code: 'BAW', registered_owner: 'British Airways', url_photo: 'https://image.airport-data.com/aircraft/001680571.jpg', url_photo_thumbnail: 'https://evil.example/x.jpg' } } };
+const port = (iata, icao, name, city, cc, country, lat, lon) => ({ iata_code: iata, icao_code: icao, name, municipality: city, country_iso_name: cc, country_name: country, latitude: lat, longitude: lon, elevation: 80 });
+const ADSBDB_BAW15 = { response: { flightroute: { callsign: 'BAW15', callsign_icao: 'BAW15', callsign_iata: 'BA15', airline: { name: 'British Airways', icao: 'BAW', iata: 'BA', country: 'United Kingdom', callsign: 'SPEEDBIRD' },
+  origin: port('LHR', 'EGLL', 'London Heathrow Airport', 'London', 'GB', 'United Kingdom', 51.4706, -0.461941), destination: port('SIN', 'WSSS', 'Singapore Changi Airport', 'Singapore', 'SG', 'Singapore', 1.35019, 103.994) } } };
+/** The site's own data copies, served from this checkout (with byte ranges, like GitHub Pages; or without, like a plain server). */
+const siteFiles = (ranges = true) => [url => url.startsWith(SITE + 'data/solar/') || url === SITE + 'data/constellations.json', (url, init) => {
+  const b = readFileSync(new URL(url.slice(SITE.length), root)), rg = ranges && init.headers && init.headers.Range;
+  if (rg) { const [a, z] = rg.slice(6).split('-').map(Number); return new Uint8Array(b.subarray(a, z + 1)); }
+  return url.endsWith('.bin') ? new Uint8Array(b) : b.toString('utf8');
+}];
+const NEW_ROUTES = [
+  [/api\.open-meteo\.com\/v1\/forecast\?.*past_hours=3/, DETAIL],
+  [/api\.open-meteo\.com\/v1\/forecast\?.*models=/, MODELS3],
+  [/marine-api\.open-meteo\.com\/v1\/marine\?latitude=60/, MARINE_HELSINKI],
+  [/marine-api\.open-meteo\.com\/v1\/marine/, { status: 400, body: '{"error":true,"reason":"No data"}' }],
+  [/api\.adsbdb\.com\/v0\/aircraft\/G-XLEA$/, ADSBDB_XLEA],
+  [/api\.adsbdb\.com\/v0\/aircraft\/40688b\?callsign=BAW15$/, { response: { ...ADSBDB_XLEA.response, ...ADSBDB_BAW15.response } }],
+  [/api\.adsbdb\.com\/v0\/callsign\/BAW15$/, ADSBDB_BAW15],
+  [/api\.adsbdb\.com\/v0\/callsign\/ZZZ9$/, { response: { flightroute: { callsign: 'ZZZ9', airline: { name: 'Zed Air', icao: 'ZZZ', country: 'Nowhere' } } } }],
+  [/api\.adsbdb\.com\/v0\//, { status: 404, body: '{"response":"unknown aircraft"}' }],
+  siteFiles(),
+];
+/** Routes may be a matcher function too (the site files). */
+const withFns = routes => routes.map(([m, b]) => (typeof m === 'function' ? [{ test: m }, b] : [m, b]));
+const serve3 = (extra = []) => serve(pretendInternet(withFns([...extra, ...NEW_ROUTES, ...ROUTES])));
+
+test('mcp: weather details: pressure falling quickly, the storm ahead, fog, thunder energy, the sea and the models disagreeing', async () => {
+  const { server, net } = serve3(), r = ok(await call(server, 'weather_details', { place: 'Helsinki' })), t = r.content[0].text, d = r.structuredContent;
+  assert.match(t, /Pressure 1008 hPa, falling quickly \(-4\.5 hPa in 3 h\)/);
+  assert.match(t, /Wind force 6 \(strong breeze\), 40 km\/h from the SW, gusts 70 km\/h/);
+  assert.match(t, /pressure 972 hPa \(Fri 21:00\) to 1008 hPa \(Thu 21:00\)/, 'the lowest pressure and when, from the hour now on');
+  assert.match(t, /strongest gust 112 km\/h Fri 21:00/); assert.match(t, /energy for strong thunderstorms Fri 04:00/); assert.match(t, /fog likely Thu 23:00/);
+  assert.match(t, /5 mm of rain in all \(chance up to 90%\)/);
+  assert.match(t, /The sea: moderate, waves 2\.1 m from the WSW every 7\.1 s; swell 1\.2 m from the WSW \(9\.5 s\); sea 11 °C; current 0\.5 m\/s toward the E\. Building to 5\.5 m Fri 21:00/);
+  assert.match(t, /agree on Fri, 02 Oct; disagree on Sat, 03 Oct \(rain 0-12 mm, highs 9-14 °C\); agree on Sun, 04 Oct/);
+  assert.equal(d.pressure_tendency, 'falling quickly'); assert.equal(d.now.beaufort.force, 6); assert.equal(d.sea.sea.name, 'moderate'); assert.equal(d.models.length, 3);
+  assert.deepEqual(hashOf(d.url).weather, ['pres', 'gust', 'wave']);
+  assert.ok(net.asked.some(u => /models=ecmwf_ifs025,gfs_seamless,icon_seamless/.test(u)) && net.asked.some(u => /cell_selection=sea/.test(u)));
+  const inland = ok(await call(server, 'weather_details', { place: 'Texas', units: 'imperial' }));
+  assert.doesNotMatch(inland.content[0].text, /The sea/, 'no sea inland (the marine API refuses)');
+  assert.match(inland.content[0].text, /Pressure 29\.75 inHg/); assert.match(inland.content[0].text, /rain 0\.00-0\.47 in, highs 48-57 °F/);
+  assert.deepEqual(hashOf(inland.structuredContent.url).weather, ['pres', 'gust']);
+});
+
+test('mcp: aircraft lookup by registration, by hex with a callsign, by callsign; unknown and malformed', async () => {
+  const { server } = serve3();
+  const a = ok(await call(server, 'aircraft_lookup', { aircraft: 'g-xlea' })), d = a.structuredContent;
+  assert.match(a.content[0].text, /^G-XLEA \(ICAO 40688b\): Airbus A380 841 \(A388\), wide-body airliner\. Registered to British Airways \(United Kingdom\)\. Photo: https:\/\/image\.airport-data\.com/);
+  assert.equal(d.aircraft.class, 'widebody'); assert.equal(d.aircraft.address_allocated_to, 'United Kingdom'); assert.equal(d.aircraft.photo, 'https://image.airport-data.com/aircraft/001680571.jpg');
+  const r = ok(await call(server, 'aircraft_lookup', { callsign: 'baw15' })), rd = r.structuredContent;
+  assert.match(r.content[0].text, /BAW15 \(British Airways, radio "SPEEDBIRD"\): London Heathrow Airport \(LHR\), United Kingdom → Singapore Changi Airport \(SIN\), Singapore; 10,8\d\d km great circle, setting off to the ENE/);
+  assert.equal(rd.route.origin.iata, 'LHR'); assert.equal(rd.route.destination.icao, 'WSSS');
+  const v = hashOf(rd.url); assert.equal(v.flight, 'BAW15'); assert.equal(v.drawing[0].kind, 'arrow'); assert.deepEqual(v.drawing[0].coords[1].map(Math.round), [104, 1]);
+  const both = ok(await call(server, 'aircraft_lookup', { aircraft: '40688B', callsign: 'BAW15' }));
+  assert.ok(both.structuredContent.aircraft && both.structuredContent.route);
+  assert.match(ok(await call(server, 'aircraft_lookup', { callsign: 'ZZZ9' })).content[0].text, /ZZZ9 is flown by Zed Air \(Nowhere\); no route on file/);
+  const none = await call(server, 'aircraft_lookup', { aircraft: 'N0PE' });
+  assert.equal(none.isError, true); assert.match(none.content[0].text, /adsbdb has no record of aircraft N0PE/); assert.equal(none.structuredContent.error, 'not_found');
+  for (const bad of [{}, { aircraft: 'G XLEA!' }, { callsign: 'B' }]) assert.equal((await call(server, 'aircraft_lookup', bad)).isError, true, JSON.stringify(bad));
+});
+
+test('mcp: where in space: a mission, an asteroid read by byte range, a comet, a moon (and Charon via Pluto), a planet from a place', async () => {
+  const { server, net } = serve3();
+  const v = ok(await call(server, 'where_in_space', { name: 'voyager 1' })), vd = v.structuredContent;
+  assert.equal(vd.kind, 'spacecraft'); assert.ok(vd.sun_au > 160 && vd.sun_au < 180, vd.sun_au); assert.match(v.content[0].text, /light-hours for its radio signal/);
+  assert.equal(new URL(vd.url).hash, '#f=craft%3AVoyager+1'); assert.ok(vd.speed_km_s > 16 && vd.speed_km_s < 18, vd.speed_km_s);
+  assert.ok(!net.asked.some(u => u.endsWith('small_bodies.json')), 'a mission is found without loading the 1.3 MB small-body list');
+  const a = ok(await call(server, 'where_in_space', { name: 'Apophis' })), ad = a.structuredContent;
+  assert.equal(ad.name, '99942 Apophis'); assert.equal(ad.class, 'Near-Earth'); assert.ok(Math.abs(ad.orbit.a_au - 0.92) < 0.01 && Math.abs(ad.orbit.e - 0.191) < 0.005, JSON.stringify(ad.orbit));
+  assert.ok(ad.magnitude > 15, 'faint'); assert.match(a.content[0].text, /A near-Earth asteroid, about 0\.3 km across/);
+  assert.equal(net.asked.filter(u => u.endsWith('asteroids_b.bin')).length, 7, 'seven tiny reads of the 19 MB file, not the file');
+  const h = ok(await call(server, 'where_in_space', { name: 'Halley' })).structuredContent;
+  assert.equal(h.kind, 'comet'); assert.equal(h.class, 'Halley-type comet'); assert.ok(h.sun_au > 30, h.sun_au); assert.equal(h.perihelion.slice(0, 3), '206');
+  const ti = ok(await call(server, 'where_in_space', { name: 'Titan' })).structuredContent;
+  assert.equal(ti.orbits, 'saturn'); assert.ok(Math.abs(ti.orbit_days - 15.95) < 0.05, ti.orbit_days);
+  const ch = ok(await call(server, 'where_in_space', { name: 'Charon' })).structuredContent;
+  assert.equal(ch.orbits, 'pluto'); assert.ok(ch.sun_au > 34 && ch.sun_au < 37, ch.sun_au);
+  const { planetFromEarth } = await import('../src/core/solarsys.js'), { jdFromMs } = await import('../src/core/time.js');
+  const m = ok(await call(server, 'where_in_space', { name: 'Mars', lat: 60.17, lon: 24.94 })), md = m.structuredContent;
+  assert.ok(Math.abs(md.earth_au - planetFromEarth('mars', jdFromMs(NOW)).earth_au) < 1e-4, 'the same Mars as solar_system');
+  assert.ok(Number.isFinite(md.altitude_deg) && typeof md.up === 'boolean' && md.constellation);
+  assert.match(m.content[0].text, /From 60\.17°N 24\.94°E: /);
+  const moon = ok(await call(server, 'where_in_space', { name: 'the moon' })).structuredContent;
+  assert.ok(moon.earth_km > 356000 && moon.earth_km < 407000, moon.earth_km); assert.equal(moon.sun_au, null);
+  const nope = await call(server, 'where_in_space', { name: 'Xyzzyqx' });
+  assert.equal(nope.isError, true); assert.equal(nope.structuredContent.error, 'not_found');
+  const later = ok(await call(server, 'where_in_space', { name: 'JWST', time: '2026-12-25T00:00:00Z' })).structuredContent;
+  assert.ok(later.earth_km > 1.0e6 && later.earth_km < 2.0e6, 'JWST stays near L2'); assert.match(later.url, /t=2026-12-25T00%3A00/);
+});
+
+test('mcp: where in space copes with a server that ignores byte ranges', async () => {
+  const { server, net } = serve3([siteFiles(false)]);
+  const c = ok(await call(server, 'where_in_space', { name: 'Ceres' })).structuredContent;
+  assert.equal(c.kind, 'dwarf planet'); assert.ok(Math.abs(c.orbit.a_au - 2.77) < 0.02, JSON.stringify(c.orbit)); assert.ok(c.magnitude > 6 && c.magnitude < 10, c.magnitude);
+  assert.ok(net.asked.some(u => u.endsWith('asteroids_a.bin')));
+});
+
+test('mcp: where in space without a name: the missions nearest first, or the comets best placed now', async () => {
+  const { server } = serve3();
+  const m = ok(await call(server, 'where_in_space', {})), md = m.structuredContent;
+  assert.match(m.content[0].text, /^\d+ deep-space missions with a position on 2026-10-01, nearest first:\nJames Webb Space Telescope: /);
+  assert.ok(md.missions.length >= 15); assert.deepEqual(md.missions.map(x => x.earth_au), [...md.missions.map(x => x.earth_au)].sort((a, b) => a - b), 'nearest first');
+  assert.equal(md.missions.at(-1).name, 'Voyager 1'); assert.ok(md.without_position.includes('Cassini'), 'ended missions have no position now');
+  assert.match(md.missions[0].url, /solar\.html#f=craft%3AJames\+Webb/);
+  const c = ok(await call(server, 'where_in_space', { list: 'comets' })), cd = c.structuredContent;
+  assert.equal(cd.comets.length, 10); assert.match(cd.note, /not by brightness/);
+  for (const x of cd.comets) { assert.ok(x.sun_au <= 4, x.name); if (x.perihelion_estimated) assert.ok(Math.abs(Date.parse(x.perihelion) - NOW) < (x.period_years / 2 + 0.01) * 3.156e10, `${x.name}: the return nearest now`); }
+  assert.match(c.content[0].text, /how bright each is isn't in the data/);
 });
 
 // ---- airport weather (METAR and TAF from the Aviation Weather Center) ------------------------------------------------

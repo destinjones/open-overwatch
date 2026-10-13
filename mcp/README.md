@@ -3,12 +3,14 @@
 Ask Claude about the live Earth and get answers from public open data: earthquakes, where the ISS is and when you can
 see it, rocket launches, who is in space, asteroid flybys, hurricanes, wildfires and eruptions, ships in the Baltic,
 bike share, live buses and trains, traffic cameras (with the latest picture), undersea cables, a country at a glance,
-the weather, the aurora, the planets and tonight's sky. Every answer carries a link that opens
+the weather (down to pressure, gusts, waves and whether the forecast models agree), what a plane is and where a
+flight goes, where any spacecraft, comet or asteroid is, the aurora, the planets and tonight's sky. Every answer carries a link that opens
 [Open Overwatch](https://destinjones.github.io/open-overwatch/)'s live 3D globe on it, and in Claude Desktop (and other
 apps that show MCP Apps) the globe appears right in the conversation and moves to each new answer.
 
 No account, no API keys, no local web server. It is a small Model Context Protocol server that runs on your computer
-(over stdio, or Streamable HTTP on your own machine) and reads the same public feeds the website does.
+(over stdio, or Streamable HTTP on your own machine) and reads the same public feeds the website does. It can also run
+as a remote server on Cloudflare Workers for claude.ai and ChatGPT connectors ([below](#remote-claudeai-and-chatgpt-connectors)).
 
 > "Any big earthquakes today? Show me the strongest." · "When can I see the ISS from Chicago this week?" ·
 > "What's in the sky tonight over Austin?" · "Follow the ISS on the globe." · "Is there a hurricane near Mexico?" ·
@@ -16,7 +18,9 @@ No account, no API keys, no local web server. It is a small Model Context Protoc
 > "Show me the traffic camera at Trafalgar Square" · "Which trams are near Helsinki station?" · "Any fires burning
 > in Northern Australia?" · "Brief me on Japan" · "Which undersea cables land in Marseille?" · "When is Jupiter at
 > opposition, and can I see Saturn from Austin tonight?" · "Will I see the 2027 eclipse from Madrid?" · "How far is it
-> from Big Ben to the Tower of London on foot?" · "Is Etna erupting?" · "How fast is traffic moving in Helsinki?"
+> from Big Ben to the Tower of London on foot?" · "Is Etna erupting?" · "How fast is traffic moving in Helsinki?" ·
+> "Is a storm coming to the Azores? How big are the waves?" · "What plane is G-XLEA?" · "Where does BAW15 fly?" ·
+> "Where is Voyager 1 right now?" · "Where is comet Halley, and when does it come back?"
 
 ## Install
 
@@ -74,6 +78,9 @@ Once it is on npm, `npx -y open-overwatch-mcp` will work anywhere a command is a
 | `meteor_showers` | the IMO shower list, the website's sky maths | the coming showers, how many an hour you could really see from a place, and when to look |
 | `plate_readers` | OpenStreetMap via DeFlock and FlockHopper's hourly tiles | the licence-plate readers mapped near a place in the US or Canada: how many, makes, operators, facings, the nearest ones (a count only for a big area) |
 | `military_areas` | OpenStreetMap via OpenFreeMap's tiles | land mapped as military near a place (up to 150 km), worldwide: size, airfields inside, the nearest town, an OpenStreetMap link each |
+| `weather_details` | Open-Meteo forecast, marine and multi-model APIs (ECMWF IFS, NOAA GFS, DWD ICON) | at a point: sea-level pressure and its three-hour tendency, Beaufort force and gusts, thunderstorm energy (CAPE), fog, freezing level, UV, cloud at three heights; the lowest pressure and strongest gust ahead and when; at sea the waves (Douglas scale), swell, period, sea temperature and current; and whether the models agree on the coming days. The link opens the globe with isobars, gusts and waves |
+| `aircraft_lookup` | adsbdb | by registration or ICAO hex: type and type code, maker, class, registered owner, the country the address belongs to, a photo link; by callsign: the airline and the route on file, with both airports and the distance (the link draws it and looks for the flight) |
+| `where_in_space` | JPL Horizons tracks and JPL small-body elements (the website's copies), the site's planet and moon maths | where a planet, the Moon, a major moon, a mission (Voyager, JWST, Parker, Juno…), any comet or any of 26,000 named asteroids is now or at a time: distance from the Sun and Earth, light time, speed, RA/Dec and constellation, evening or morning sky, brightness, the mission's next event or the comet's next return; from a place, how high it is. Without a name, every mission nearest first (signal time, next event) or the comets best placed now. The link opens the 3D Solar System on it |
 | `airport_weather` | Aviation Weather Center (NOAA/NWS) data API; OurAirports runways (the website's copy) | an airport's METAR and TAF decoded into plain words, its flight category, the forecast period by period and the runway the wind favours |
 
 **Prompts.** Hosts that show MCP prompts (Claude Desktop lists them as slash commands) get five ready-made requests:
@@ -95,17 +102,31 @@ or localhost, never a public address: there is no sign-in), each POST carries on
 and nothing is remembered between requests. Web pages may use it only from your own machine (`http://localhost:…`) or from
 origins you list with `--allow-origin https://example.com`; everything else gets 403.
 
+## Remote: claude.ai and ChatGPT connectors
+
+The same server runs as a Cloudflare Worker ([`mcp-worker/`](../mcp-worker/README.md), the code in `mcp/worker.mjs`):
+stateless Streamable HTTP at `/mcp`, guarded by a secret (`Authorization: Bearer <token>`, or the token as the last part of
+the path for connectors that only take a URL), with CORS for claude.ai and ChatGPT, every feed and every tool answer
+shared through the Workers Cache API, and a rate limit per address. On Cloudflare's free plan (10 ms of CPU and 50
+look-ups a request) it leaves out the eleven heaviest tools (satellite pass searches, the planets' look-ahead, tile
+decoding, vessel-by-vessel AIS); on Workers Paid it lists all of them. Once deployed, add
+`https://open-overwatch-mcp.<account>.workers.dev/mcp/<token>` in claude.ai (Settings → Connectors → Add custom
+connector). It is not deployed yet: the deploy steps are in [mcp-worker/README.md](../mcp-worker/README.md).
+
 ## Privacy
 
 Nothing is stored and nothing is sent to this project: the server runs on your computer and asks the public sources
 directly. What each one sees is your IP address and what the question needs: place names go to Photon, coordinates to
-Open-Meteo (weather, time zones), Fintraffic (ships), CityBikes (stations near a point), Entur (vehicles in a box around
+Open-Meteo (weather, marine and model forecasts, time zones), adsbdb (the registration or callsign you ask about), Fintraffic (ships), CityBikes (stations near a point), Entur (vehicles in a box around
 the place), NIFC (fires in a box around a US place) Photon again (the place nearest a fire), the map tiles around a place
 to OpenFreeMap and FlockHopper (military areas, plate readers), and the other tools fetch
 whole public feeds (USGS, NOAA, NASA, transit operators, camera agencies and their pictures, TeleGeography, the website's
 data copies on GitHub Pages) without anything about you. The globe in
 the chat is the public website, loaded by your Claude app, under the same privacy notice as the website. Each source's
-own policy and licence applies; see [docs/DATA_SOURCES.md](../docs/DATA_SOURCES.md).
+own policy and licence applies; see [docs/DATA_SOURCES.md](../docs/DATA_SOURCES.md). The remote Worker, once deployed,
+asks the same sources from Cloudflare's network instead of your computer, keeps shared copies of their answers and of
+tool answers (keyed by a hash of the question) for a minute to a day, and logs nothing about you (with `LOG` on, only the
+tool's name and time).
 
 ## For developers
 
@@ -113,9 +134,10 @@ own policy and licence applies; see [docs/DATA_SOURCES.md](../docs/DATA_SOURCES.
 - `node --test` runs `test/mcp.test.mjs` with every source canned, a stdio round trip and the HTTP transport.
 - `node mcp/server.mjs --http 8793` serves Streamable HTTP (`mcp/http.mjs` is the transport on web Request/Response only,
   so it could run on a Worker; `mcp/http-node.mjs` serves it from Node). Tools may return images (MCP image content).
-- `mcp/worker.mjs` is the same server as a fetch handler for Cloudflare Workers or Deno. It is not deployed anywhere: it
-  answers only requests carrying `Authorization: Bearer <MCP_TOKEN>` (a secret of 16 characters or more), and nothing at
-  all until one is set; `ALLOW_ORIGINS` lists browser origins that may call it.
+- `mcp/worker.mjs` is the same server as a Cloudflare Worker (deployed from `mcp-worker/`, not yet): a server per
+  request over a shared in-isolate memory, the Cache API in front of the network (`createFeeds({ shared })`) and of tool
+  answers, a subrequest budget, and the free plan's tool list (`HEAVY`). `test/mcpworker.test.mjs` runs it in Node with
+  canned feeds and a stand-in Cache API, and checks that nothing it imports needs Node (stdio lives in `mcp/stdio.mjs`).
 - No SDK: the protocol is in `mcp/protocol.mjs`; one dependency, `satellite.js` (the SGP4 library the website loads).
 - The globe panel (`mcp/panel.mjs`) is an MCP Apps view (`ui://open-overwatch/globe`, spec 2026-01-26): it frames the
   website in embed mode and moves it by changing only the link's hash, so the globe flies instead of reloading. Hosts

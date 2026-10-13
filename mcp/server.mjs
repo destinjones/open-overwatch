@@ -10,7 +10,7 @@
 //
 // Speaks MCP over stdio by default. Diagnostics go to stderr, one line per call (the tool and its time; never the arguments).
 import { createOverwatchServer, SITE, VERSION } from './index.mjs';
-import { serveStdio } from './protocol.mjs';
+import { serveStdio } from './stdio.mjs';
 
 const HELP = `open-overwatch-mcp ${VERSION}: an MCP server for the live Earth (stdio, or Streamable HTTP on loopback).
   --site <url>          the Open Overwatch site to link to and read data copies from (default ${SITE})
