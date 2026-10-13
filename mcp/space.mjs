@@ -8,8 +8,8 @@ import { catalogue, indexCatalogue, findBody, quickIndex, findQuick, recordRange
 import { planetPosition, earthPosition, moonGeocentric, PHYSICAL } from '../src/core/planets.js';
 import { SKY_PLANETS, planetFromEarth } from '../src/core/solarsys.js';
 import { moonOffset, moonPeriod } from '../src/core/moons.js';
-import { trackPosition, missionPhase, eventsAround, relativeTime, missionDays } from '../src/core/craft.js';
-import { cometFromRow, cometPosition, cometPeriodYears, cometClass, cometNames, COMET_FACTS } from '../src/core/comets.js';
+import { trackPosition, missionPhase, eventsAround, relativeTime, missionDays, missionsNow } from '../src/core/craft.js';
+import { cometFromRow, cometPosition, cometPeriodYears, cometClass, cometNames, cometsNearNow, COMET_FACTS } from '../src/core/comets.js';
 import { positionAt } from '../src/core/kepler.js';
 import { nearestConstellation, formatRaDec, skyPhrase } from '../src/core/skyplace.js';
 import { altAz, moonPhase } from '../src/core/sky.js';
@@ -25,6 +25,8 @@ const PLANETS = SKY_PLANETS.map(key => ({ key, name: PHYSICAL[key].name }));
 const memo = new WeakMap();   // data object -> its built index (28,000 names: built once per isolate, not per call)
 const indexOf = (src, items, make = indexCatalogue) => { let ix = memo.get(src); if (!ix) { ix = make(items()); memo.set(src, ix); } return ix; };
 const EMPTY = {};
+/** The perihelion nearest jd for a periodic comet (its last one on file moved on by whole periods), or the one on file. */
+const nearestPerihelion = (c, jd) => { const P = cometPeriodYears(c) * 365.25, k = Number.isFinite(P) ? Math.round((jd - c.tp) / P) : 0; return { jd: c.tp + k * P, moved: k !== 0 }; };
 
 export function spaceTool(ctx) {
   const { feeds } = ctx, site = feeds.siteBase;
@@ -43,14 +45,37 @@ export function spaceTool(ctx) {
     return elementsFromBytes(parts, meta.epoch_jd);
   }
 
+  /** Without a name: the missions now, nearest first, or the comets best placed now. */
+  async function listing(kind, t, jd, signal) {
+    const E = earthPosition(jd), when = iso(t), solarAt = key => `${site}solar.html#${encodeSolarView({ focus: key })}`;
+    if (kind === 'missions') {
+      const craft = await json('data/solar/spacecraft.json', signal), rows = missionsNow(craft, jd, E);
+      const flying = rows.filter(m => m.au != null), done = rows.filter(m => m.au == null);
+      const lines = flying.map(m => `${m.name}: ${distanceWords(m.au)} away, signal ${lightWords(m.light)}${m.status ? ` · ${m.status}` : ''}${m.next ? ` · next: ${m.next[1]} (${relativeTime(m.next[0] - jd)})` : ''}`);
+      const url = `${site}solar.html`;
+      return { text: [`${flying.length} deep-space missions with a position on ${when.slice(0, 10)}, nearest first:`, ...lines,
+        done.length ? `No position now (before launch, or past the end of their tracks): ${done.map(m => m.name).join(', ')}.` : '', `The missions in the 3D Solar System: ${url}`].filter(Boolean).join('\n'),
+        data: { at: when, missions: flying.map(m => ({ name: m.name, status: m.status || null, phase: m.phase, earth_au: Number(m.au.toPrecision(4)), signal_s: r1(m.light),
+          next_event: m.next ? { date: iso(msFromJd(m.next[0])), what: m.next[1] } : null, url: solarAt('craft:' + m.name) })), without_position: done.map(m => m.name), url,
+          source: "JPL Horizons spacecraft tracks (the website's copy)" } };
+    }
+    const small = await json('data/solar/small_bodies.json', signal), near = cometsNearNow(small.comets, jd, E, { maxR: 4, limit: 10 });
+    const rows = near.map(x => { const n = cometNames(x.row[0]), P = cometPeriodYears(x.c); return { name: n.display, designation: n.designation, class: cometClass(x.c), sun_au: r2(x.r), earth_au: r2(x.delta),
+      period_years: Number.isFinite(P) ? r1(P) : null, perihelion: iso(msFromJd(nearestPerihelion(x.c, jd).jd)), perihelion_estimated: nearestPerihelion(x.c, jd).moved, url: solarAt('comet:' + x.row[0]) }; });
+    const lines = rows.map(c => `${c.name}: ${c.sun_au} AU from the Sun, ${c.earth_au} AU from Earth · ${c.class} · perihelion ${c.perihelion_estimated ? `around ${c.perihelion.slice(0, 7)}` : c.perihelion.slice(0, 10)}`);
+    return { text: [`The comets best placed on ${when.slice(0, 10)} (closest to the Sun and Earth together; how bright each is isn't in the data):`, ...lines, `Comets in the 3D Solar System: ${site}solar.html`].join('\n'),
+      data: { at: when, comets: rows, url: `${site}solar.html`, note: "ranked by distance from the Sun and Earth (5 log Δ + 10 log r), not by brightness: the comets' absolute magnitudes are not in the data", source: "JPL Small-Body Database elements (the website's copy)" } };
+  }
+
   return {
     name: 'where_in_space',
     title: 'Where is it in the Solar System now',
-    description: "Where something in the Solar System is right now (or at a given time): a planet, the Moon, a major moon (Titan, Europa…), a deep-space mission (Voyager 1, JWST, Parker Solar Probe, Juno, Europa Clipper, New Horizons…), any comet (Halley, 67P, 12P…) or any of 26,000 named asteroids and dwarf planets (Ceres, Pluto, Apophis, Bennu…). Its distance from the Sun and from Earth, how long light or a radio signal takes, its speed, which way to look (RA/Dec, constellation, evening or morning sky), how bright, the mission's phase and next event or the comet's next perihelion; with a place, how high it stands there now. From JPL Horizons tracks and JPL small-body elements (the website's copies). The link opens the 3D Solar System on it.",
+    description: "Where something in the Solar System is right now (or at a given time): a planet, the Moon, a major moon (Titan, Europa…), a deep-space mission (Voyager 1, JWST, Parker Solar Probe, Juno, Europa Clipper, New Horizons…), any comet (Halley, 67P, 12P…) or any of 26,000 named asteroids and dwarf planets (Ceres, Pluto, Apophis, Bennu…). Its distance from the Sun and from Earth, how long light or a radio signal takes, its speed, which way to look (RA/Dec, constellation, evening or morning sky), how bright, the mission's phase and next event or the comet's next perihelion; with a place, how high it stands there now. From JPL Horizons tracks and JPL small-body elements (the website's copies). Without a name it lists every mission (nearest first, signal time, next event) or the comets best placed now. The link opens the 3D Solar System on it.",
     inputSchema: {
-      type: 'object', additionalProperties: false, required: ['name'],
+      type: 'object', additionalProperties: false,
       properties: {
-        name: { type: 'string', maxLength: 80, description: 'What to find: "Voyager 1", "JWST", "Halley", "67P", "Ceres", "Pluto", "Apophis", "Titan", "Mars".' },
+        name: { type: 'string', maxLength: 80, description: 'What to find: "Voyager 1", "JWST", "Halley", "67P", "Ceres", "Pluto", "Apophis", "Titan", "Mars". Leave out to get a list.' },
+        list: { type: 'string', enum: ['missions', 'comets'], description: 'Without a name: every deep-space mission and how far it is (nearest first, with its signal time and next event), or the comets best placed now (near the Sun and Earth). Default missions.' },
         time: { type: 'string', maxLength: 40, description: 'A moment, ISO 8601 (default now). Between 1900 and 2100.' },
         ...areaProps(null),
       },
@@ -58,7 +83,9 @@ export function spaceTool(ctx) {
     async run(a, { signal }) {
       let t = ctx.now();
       if (a.time != null) { t = Date.parse(a.time); if (!Number.isFinite(t) || t < Date.UTC(1900, 0, 1) || t > Date.UTC(2100, 0, 1)) throw new ToolError('time must be an ISO 8601 date between 1900 and 2100', 'invalid_arguments'); }
-      const jd = jdFromMs(t), q = a.name.trim();
+      const jd = jdFromMs(t);
+      if (!a.name || !a.name.trim()) return listing(a.list || 'missions', t, jd, signal);
+      const q = a.name.trim();
       // Look in the small lists first and only load the big ones when they are needed (they cost a Worker's CPU)
       const moons = (await json('data/solar/moons.json', signal).catch(() => null))?.moons || [];
       let hits = findBody(indexOf(moons, () => catalogue({ planets: PLANETS, moons })), q);
