@@ -23,6 +23,7 @@ async function open(url) {
   for (const t of await (await fetch('http://127.0.0.1:9333/json/list')).json()) if (t.type === 'page' && /localhost:8787/.test(t.url)) await fetch('http://127.0.0.1:9333/json/close/' + t.id).catch(() => {});
   const p = await b.newPage('about:blank'); const errs = [];
   for (const d of ['Page', 'Runtime', 'Network', 'Fetch']) await p.send(d + '.enable');
+  await p.send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('oo-hints', '{"globe":1,"map":1}') } catch (e) {}` });   // the first-run touch hints (src/app/gestures.js) would take the first tap: these runs are about the views
   p.on('Runtime.exceptionThrown', e => errs.push(String(e.exceptionDetails.exception?.description || e.exceptionDetails.text).slice(0, 200)));
   await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*opensky-network.org*', '*adsb.lol*', '*adsb.fi*', '*airplanes.live*', '*earthquake.usgs.gov*', '*wheretheiss.at*', '*api.open-meteo.com*', '*gdeltproject*'] });
   await p.send('Fetch.enable', { patterns: [{ urlPattern: '*data/wind.json*' }] });

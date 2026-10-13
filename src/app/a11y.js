@@ -189,7 +189,7 @@ function globeKeys() {
       case '-': case '_': cam.zoomOut(h * 0.45); break;
       case 'PageUp': cam.lookUp(0.06); break;
       case 'PageDown': cam.lookDown(0.06); break;
-      case 'Enter': pickCentre(O, C); break;
+      case 'Enter': e.preventDefault(); pickCentre(O, C); return;   // says what it found itself
       default: done = false;
     }
     if (!done) return;
@@ -257,6 +257,18 @@ const PAGES = {
     const map = $('#map');
     if (map) map.setAttribute('aria-label', 'Live map. With the map focused, arrow keys pan and plus and minus zoom. Tap or click anything for details.');
     const layers = $('#layers'); if (layers) follow(layers, []);
+    // map popups (the probe, a long press, quick looks) are said by their heading when they open
+    const t0 = Date.now(), wait = setInterval(() => {
+      const m = window.OW && window.OW.map;
+      if (!m && Date.now() - t0 < 120e3) return;
+      clearInterval(wait); if (!m) return;
+      m.on('popupopen', e => {
+        const el = e.popup.getElement(); if (!el) return;
+        fixNames(el);
+        const h = $('h1, h2, h3, h4, b, strong', el);
+        if (h && !el.querySelector('.oo-spot')) announce((h.textContent || '').trim() + (el.querySelector('dd') ? ': ' + el.querySelector('dd').textContent.trim() : ''));
+      });
+    }, 1000);
   },
   solar() {
     skipLink('#q', 'Skip to search');

@@ -49,7 +49,7 @@ const copy = async (text, btn) => {
   announce(ok ? 'Copied' : 'Could not copy');
 };
 const siteBase = () => new URL('../../', import.meta.url).href;
-const rows = s => `<dl><dt>Decimal</dt><dd class="mono">${esc(s.decimal)}</dd><dt>Degrees</dt><dd class="mono">${esc(s.dms)}</dd>${s.mgrs ? `<dt>MGRS</dt><dd class="mono">${esc(s.mgrs)}</dd>` : ''}</dl>`;
+const rows = (s, decimal = true) => `<dl>${decimal ? `<dt>Decimal</dt><dd class="mono">${esc(s.decimal)}</dd>` : ''}<dt>Degrees</dt><dd class="mono">${esc(s.dms)}</dd>${s.mgrs ? `<dt>MGRS</dt><dd class="mono">${esc(s.mgrs)}</dd>` : ''}</dl>`;
 
 // ---- the globe: a card like any other selection (ui.js select() takes a self-describing object) ----
 async function initGlobe() {
@@ -71,7 +71,7 @@ async function initGlobe() {
     const height = Math.min(2.5e5, Math.max(2000, O.viewer.camera.positionCartographic.height * 0.5));
     O.select({
       kind: 'spot', lat: s.lat, lon: s.lon, name: s.decimal,
-      cardHtml: () => `<div class="k" style="--c:#7dffa6">This spot</div><h2 class="mono" style="font-size:17px">${esc(s.decimal)}</h2>${rows(s)}<p class="note" id="spotWhere" style="margin:6px 0 0"></p>
+      cardHtml: () => `<div class="k" style="--c:#7dffa6">This spot</div><h2 class="mono" style="font-size:17px">${esc(s.decimal)}</h2>${rows(s, false)}<p class="note" id="spotWhere" style="margin:6px 0 0"></p>
         <div class="acts"><button class="chipbtn" id="spotCopy">Copy</button><button class="chipbtn" id="spotShare" title="A link that opens the globe here, with a pin">Share</button><button class="chipbtn" id="spotPin" style="color:#ffd45c" title="Add a pin to your drawing (Measure)">Pin it</button></div>`,
       afterCard(card) {
         card.querySelector('#spotCopy').onclick = e => copy(s.plain, e.currentTarget);
@@ -84,7 +84,7 @@ async function initGlobe() {
         O.Country?.at(s.lon, s.lat).then(k => {
           const w = card.querySelector('#spotWhere'); if (!w) return;
           if (!k) { w.textContent = 'Open water'; return; }
-          w.innerHTML = `In <a href="#" id="spotCountry">${esc(k.name || k.iso || 'a country')}</a>`;
+          w.innerHTML = `In <a href="#" id="spotCountry">${esc((k.facts && k.facts.name) || k.border?.name || k.iso || 'a country')}</a>`;
           w.querySelector('#spotCountry').onclick = ev => { ev.preventDefault(); O.select(k); };
         }).catch(() => {});
       },
