@@ -39,3 +39,8 @@ brand/source/volcanoes.json
 
 # Cloudflare wrangler's local dev state and cache (account details, miniflare databases): never commit
 relay/.wrangler/
+
+# end-to-end browser tests (playwright.config.mjs): library cache, results, report
+e2e/.cache/
+e2e/.results/
+e2e/.report/

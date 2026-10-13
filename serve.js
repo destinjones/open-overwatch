@@ -91,5 +91,5 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`Open Overwatch helper on ${url}  (Ctrl+C to stop)`);
   console.log('Relaying: ' + [...ALLOWED_HOSTS].sort().join(', '));
   const opener = process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]] : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
-  setTimeout(() => execFile(opener[0], opener[1], () => { }), 600);
+  if (!process.env.OW_NO_OPEN) setTimeout(() => execFile(opener[0], opener[1], () => { }), 600); // OW_NO_OPEN=1: tests and CI, no browser window
 });
