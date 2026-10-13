@@ -62,6 +62,9 @@ function siteFile(rel, now = Date.now()) {
   if (rel === 'data/launches.json') return { body: JSON.stringify(F.launches(now)), type: 'application/json' };
   if (rel === 'data/astronauts.json') return { body: JSON.stringify(F.astronauts(now)), type: 'application/json' };
   if (rel === 'data/wind.json') return { body: JSON.stringify(F.wind()), type: 'application/json' };
+  // the site build's archive of past element sets (core/history.js): one day, today's fixture elements, so a rewind finds it
+  if (rel === 'data/tle/history/index.json') return { body: JSON.stringify({ days: [{ day: new Date(now).toISOString().slice(0, 10), at: now, n: 1 }] }), type: 'application/json' };
+  if (/^data\/tle\/history\/[\w.-]+\.txt$/.test(rel)) return { body: F.tle(), type: 'text/plain; charset=utf-8' };
   if (rel === 'versions.json') return { body: JSON.stringify(F.versions()), type: 'application/json' };
   return null;
 }
