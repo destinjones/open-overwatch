@@ -96,6 +96,12 @@ function airCommand(s) {
   if (m && !/^(here|there|the airport|this airport)$/.test(m[2])) return { act: 'board', place: clean(m[2]), which: /^arriv/.test(m[1]) ? 'arriving' : /^depart/.test(m[1]) ? 'departing' : null };
   m = s.match(/^what(?:'s| is| are)? (landing|arriving|coming in|taking off|departing|leaving|flying) (?:at|from|in|into|out of|over) (.+?)(?: airport)?$/);
   if (m) return { act: 'board', place: clean(m[2]), which: /land|arriv|coming/.test(m[1]) ? 'arriving' : /tak|depart|leav/.test(m[1]) ? 'departing' : null };
+  // an airport's own weather report or its runways: "METAR at Heathrow", "weather at Denver airport", "which runway is JFK using?"
+  m = s.match(/^(?:what(?:'s| is) )?(?:the )?(?:(?:latest |current )?(metar|taf|airport weather|aviation weather|flight category)) (?:at|for|in|of) (.+?)(?: airport)?$/)
+    || s.match(/^(?:what(?:'s| is) )?(?:the )?(weather) (?:like )?(?:at|for|in) (.+?) airport$/);
+  if (m) return { act: 'airwx', place: clean(m[2]), what: m[1] === 'taf' ? 'taf' : 'metar' };
+  m = s.match(/^(?:which|what) runways? (?:is|are|does) (.+?)(?: airport)? (?:using|use|landing on|in use)$/) || s.match(/^(?:the )?runways? (?:in use )?(?:at|for) (.+?)(?: airport)?$/);
+  if (m) return { act: 'airwx', place: clean(m[1]), what: 'runway' };
   m = s.match(/^(?:show (?:me )?|open )(?:the )?(.+?) airport(?: board)?$/);
   if (m) return { act: 'board', place: clean(m[1]), which: null };
   if (/^what (?:kind|type|sort) of (?:plane|aircraft|jet|airplane|helicopter) is (?:that|this|it)\b|^what (?:plane|aircraft|jet|airplane) is (?:that|this|it)\b|^where is (?:that|this|it) (?:plane |flight )?(?:going|flying|headed|heading)\b/.test(s)) return { act: 'what' };
@@ -158,7 +164,7 @@ export const EXAMPLES = Object.freeze([
   'Take me to Tokyo', 'Track the ISS', 'Night vision', 'Thermal', 'Enter cockpit', 'Turn on earthquakes', 'Walking route from Big Ben to the Tower of London',
   'How many satellites are in view?', "What's this?", 'Show me the launches', 'Zoom out to a globe view', "What's the weather in Paris?", 'How many planes over Texas?',
   'Measure from Paris to Berlin', 'Outline France', 'How big is Brazil?', 'Draw an area', 'Clear the drawing',
-  'Arrivals at Heathrow', "What's taking off from JFK?", 'What plane is that?',
+  'Arrivals at Heathrow', "What's taking off from JFK?", 'What plane is that?', 'METAR at Denver', 'Which runway is Heathrow using?',
 ]);
 
 // ---- weather in words (for spoken answers)

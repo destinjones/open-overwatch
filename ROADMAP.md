@@ -220,7 +220,8 @@ Round 2 (2026-10-10, local):
       METARs and 41 TAFs), airport dots coloured VFR/MVFR/IFR/LIFR; board times as estimates with a range (distance,
       ground speed, descent; narrow on final, wide far out or turning) that keep score when planes land
       (core/eta.js tested); runways used in the last hour and the last change of flow, read from the trails of planes
-      polled every 15 s near the open or kept airport (core/runwaylog.js tested on Denver's layout)
+      polled every 15 s near the open or kept airport (core/runwaylog.js tested on Denver's layout); voice "METAR at Denver",
+      "Which runway is Heathrow using?"; MCP tool 30, `airport_weather` (Node asks AWC directly)
 - [ ] Aviation next: the MCP server answering "what's landing at X" (Node reads the aircraft feeds directly),
       business-jet and regional-jet models of their own instead of a scaled airliner
 - [x] NYC traffic: measured speeds were all dropped (NYC DOT publishes ~a day late; the cut-off was 4 h). Now up to 48 h,

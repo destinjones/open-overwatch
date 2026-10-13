@@ -33,3 +33,13 @@ test('weather in words: metric, or Fahrenheit and miles an hour', () => {
   assert.equal(weatherSentence({ temp: -3, speed: 0.2, from: 0, cloud: 100, rain: 1.2 }), '-3 degrees Celsius, snow, calm');
   assert.equal(skyWords({ cloud: 50 }), 'partly cloudy'); assert.equal(skyWords({ code: 95 }), 'thunderstorms'); assert.equal(skyWords({}), '');
 });
+
+test('voice: an airport\'s own weather report and its runways', () => {
+  assert.deepEqual(parse('METAR at Heathrow'), { act: 'airwx', place: 'heathrow', what: 'metar' });
+  assert.deepEqual(parse("What's the weather at Denver airport?"), { act: 'airwx', place: 'denver', what: 'metar' });
+  assert.deepEqual(parse('TAF for JFK'), { act: 'airwx', place: 'jfk', what: 'taf' });
+  assert.deepEqual(parse('Which runway is Heathrow using?'), { act: 'airwx', place: 'heathrow', what: 'runway' });
+  assert.deepEqual(parse('runways at Denver'), { act: 'airwx', place: 'denver', what: 'runway' });
+  assert.notEqual(parse("What's the weather in Paris?").act, 'airwx', 'a city\'s weather stays the weather');
+  assert.equal(parse('arrivals at Heathrow').act, 'board');
+});

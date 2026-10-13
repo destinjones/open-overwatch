@@ -381,6 +381,10 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   direction (runways within 45° count as one flow: 34R/35L) after 2+ on the old, with the new direction at most a quarter
   of the moves before (Denver departs on 25 and 08 at once: the first live run called that "moved from 08 to 25"). Live at KDEN, 15:18-15:27Z: arrivals
   34R/35L/35R, departures 25/08 (matches Denver's north-flow plan), ~25 events in 10 minutes.
+- MCP `airport_weather` (mcp/airportwx.mjs): Node has no CORS, so it asks AWC directly and decodes with the same
+  core/metar.js; the favoured runway is the most headwind from the METAR's wind (said to be the wind's choice, not the
+  tower's). Checked live for LHR, JFK and Tokyo (Haneda, the largest). Voice: `airwx` in core/voicecmd.js only fires
+  on METAR/TAF/flight-category words or "... airport", so "weather in Paris" stays the weather view.
 - Renders: `brand/tools/airport_wx_shot.mjs` (desktop and 390x844) injects TEST1xx planes and runway events (the render
   blocks the aircraft feeds); real callsigns there pulled real adsbdb routes naming other airports, which drops them
   from the board (routeOther), hence the TEST callsigns. METAR/TAF/dots in the shots are live AWC.
