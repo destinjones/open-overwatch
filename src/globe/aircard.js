@@ -11,6 +11,7 @@ import { Trails } from './trails.js';
 import { Airports } from './airports.js';
 import { LandWatch } from './landwatch.js';
 import { TowerView } from './towerview.js';
+import { Runways } from './runways.js';
 import { altRampCss, trailGeoJSON } from '../core/trail.js';
 import { etaText } from '../core/airports.js';
 import { flightPhase } from '../core/phase.js';
@@ -34,7 +35,8 @@ function phaseHtml(o) {
   const ap = Airports.index.list.length ? Airports.index.nearest(p.lat, p.lon, 300) : null, f = flightPhase(p, ap);
   if (f.phase === 'unknown') return '';
   const where = ap ? ` · ${fmt(ap.km)} km from ${esc(ap.iata || ap.icao)}${f.agl != null && !o.ground && ap.km < 40 ? `, ${fmt(Math.max(0, f.agl) / 0.3048)} ft above it` : ''}` : '';
-  return `<p class="ac-phase"><b>${esc(f.words)}</b>${where}</p>`;
+  const fin = (f.phase === 'final' || f.phase === 'approach') && ap ? Runways.final(ap, p) : null;
+  return `<p class="ac-phase"><b>${esc(f.words)}${fin ? ' for ' + esc(fin.end.ident) : ''}</b>${where}</p>`;
 }
 
 function routeHtml(o) {

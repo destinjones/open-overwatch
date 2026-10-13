@@ -11,6 +11,7 @@ import { Air, AirModels, airShown, airClass } from './aircraft.js';
 import { AcInfo } from './acinfo.js';
 import { CockpitWx } from './cockpitwx.js';
 import { TowerView } from './towerview.js';
+import { Runways } from './runways.js';
 import { select, flyToObject } from './ui.js';
 import { fetchAsset } from '../core/assets.js';
 import { parseAirports, AirportIndex, makeBoard, etaText, BOARD } from '../core/airports.js';
@@ -34,13 +35,13 @@ const SECTIONS = [['arriving', 'Arriving', '#7dffa6'], ['departing', 'Departing'
 const STATUS = { taxiing: 'taxiing', ground: 'parked' };
 
 function boardRow(e, ap) {
-  const r = e.r, k = airClass(r), rt = r.info && r.info.route;
+  const r = e.r, k = airClass(r), rt = r.info && r.info.route, fin = e.status === 'arriving' ? Runways.final(ap, { ...r, lat: r.cur?.lat ?? r.lat, lon: r.cur?.lon ?? r.lon }) : null;
   // the other end of its route on file, when the route agrees with what it is doing here (a route that starts here on a
   // plane landing here is some other day's flight under the same callsign: say nothing)
   const inbound = e.status === 'arriving' || e.status === 'landed' || (e.status !== 'departing' && e.status !== 'departed' && e.toHere);
   const other = rt && rt.origin && rt.destination ? (inbound ? rt.origin : rt.destination) : null;
   const where = other && other.icao !== ap.icao && (inbound ? !e.fromHere : !e.toHere) ? `${inbound ? 'from' : 'to'} ${other.iata || other.icao}` : '';
-  const right = e.status === 'arriving' ? etaText(e.etaS) : e.status === 'departing' ? `climbing ${fmt((r.vr || 0) * 196.85)} ft/min`
+  const right = e.status === 'arriving' ? etaText(e.etaS) + (fin ? ` · final ${fin.end.ident}` : '') : e.status === 'departing' ? `climbing ${fmt((r.vr || 0) * 196.85)} ft/min`
     : e.status === 'landed' || e.status === 'departed' ? `${e.status} about ${etaText(e.agoS)} ago`.replace('about now ago', 'just now') : STATUS[e.status];
   const sq = r.emerg ? ` <em class="ab-emg">SQUAWK ${esc(r.squawk)}</em>` : '';
   return `<button class="cj ab-row${r.emerg ? ' emg' : ''}" data-hex="${esc(r.hex)}"><span><b>${esc(r.flight || r.hex)}</b>${sq} ${esc(r.type || (r.info && r.info.aircraft && r.info.aircraft.icaoType) || '')}${where ? ' · ' + esc(where) : ''}${e.sure ? ' ✓' : ''}</span>`
@@ -61,6 +62,7 @@ export const Airports = {
           distanceDisplayCondition: new C.DistanceDisplayCondition(0, a.size === 2 ? 6.0e5 : 1.5e5) });
       }
       setCount('airports', this.list.length); this.apply();
+      Runways.load();   // runway ends for finals and the runway in use (nothing about runways without the file)
     }).catch(e => { this.missing = true; console.warn('airports', e.message || e); });
     return this.loading;
   },
@@ -83,7 +85,10 @@ export const Airports = {
   },
   afterCard(a, card) {
     this.open = a; clearInterval(this.timer);
-    fieldWeather(a).then(w => {   // the weather now at the field, METAR-like (a model's values: Open-Meteo)
+    let wx = null;
+    Runways.load().then(() => { if (this.open === a) draw(); });
+    fieldWeather(a).then(w => {
+      wx = w; if (this.open === a) draw();   // the weather now at the field, METAR-like (a model's values: Open-Meteo)
       const el = card.querySelector('#apWx'); if (!el || state.selected !== a) return;
       el.innerHTML = w ? `${w.category ? `<b class="ap-cat" style="--c:${CAT_COLOR[w.category]}" title="Flight category from the model's visibility and an estimated cloud base">${w.category}</b> ` : ''}${esc(airportWxLine(w))} <span class="ap-src">Open-Meteo model${w.time ? ', ' + esc(w.time.slice(11, 16)) + 'Z' : ''}</span>` : '';
     }).catch(() => { const el = card.querySelector('#apWx'); if (el) el.remove(); });
@@ -93,7 +98,12 @@ export const Airports = {
       if (!L.air.on && !L.mil.on) { box.innerHTML = '<p class="note">Switch on the aircraft layers to see who is coming and going.</p>'; return; }
       const b = this.board(a), n = b.arriving.length + b.departing.length + b.ground.length + b.recent.length;
       const next = b.arriving.find(e => e.etaS != null);
-      box.innerHTML = (next ? `<div class="acts"><button class="chipbtn" data-next="${esc(next.r.hex)}" style="color:#7dffa6">Follow the next arrival · ${esc(next.r.flight || next.r.hex)}</button><button class="chipbtn" data-tower="${esc(next.r.hex)}" style="color:#9fe3ff" title="Watch it come in from the tower">From the tower</button></div>` : '')
+      // the runway in use: what arrivals are lined up with, else what the wind favours, and the wind on it
+      const use = Runways.inUse(a, b.arriving.map(e => ({ ...e.r, lat: e.r.cur?.lat ?? e.r.lat, lon: e.r.cur?.lon ?? e.r.lon })), wx && { dir: wx.windDir, speed: wx.windKt });
+      const onIt = use && wx && wx.windKt != null ? Runways.wind(a, wx.windDir, wx.windKt).find(t => t.end === use.end) : null;
+      const rwy = use ? `<p class="ap-rw">Runway in use: <b>${esc(use.end.ident)}</b> ${use.how === 'arrivals' ? `(${use.n} lined up)` : '(into the wind; a guess)'}`
+        + (onIt ? ` · wind on it ${Math.round(Math.abs(onIt.head))} kt ${onIt.head >= 0 ? 'head' : 'tail'}, ${Math.round(Math.abs(onIt.cross))} kt from the ${onIt.cross >= 0 ? 'right' : 'left'}` : '') + '</p>' : '';
+      box.innerHTML = rwy + (next ? `<div class="acts"><button class="chipbtn" data-next="${esc(next.r.hex)}" style="color:#7dffa6">Follow the next arrival · ${esc(next.r.flight || next.r.hex)}</button><button class="chipbtn" data-tower="${esc(next.r.hex)}" style="color:#9fe3ff" title="Watch it come in from the tower">From the tower</button></div>` : '')
         + (n ? SECTIONS.map(([k, name, col]) => b[k].length ? `<h3 style="color:${col}">${name} · ${b[k].length}</h3>${b[k].map(e => boardRow(e, a)).join('')}` : '').join('')
         : `<p class="note">No aircraft near ${esc(a.iata || a.icao)} right now that the feeds can see.</p>`)
         + `<p class="note">From the live aircraft on the globe: arriving means low and descending towards ${esc(a.iata || a.icao)}, departing means climbing away from it (within ${BOARD.radiusKm} km); ✓ the route on file agrees. Not a timetable. Airport list: ${esc(this.credit)}.</p>`;
