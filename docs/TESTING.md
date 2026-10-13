@@ -11,11 +11,15 @@
 | `brand/tools/zoomtest.mjs` | real wheel events from Earth through the hand-off to the stars and back, frame by frame |
 | `brand/tools/mobile_journey.mjs` | a first visit A to Z on a phone: landing, globe, Solar System, 2D map, with touch, screenshots and a layout audit |
 | `brand/tools/webkit_journey.mjs` | the same journey in Safari's engine (Playwright WebKit) with an iPhone 15 profile |
+| `brand/tools/pwa_check.mjs` | the installable app on a copy of the website's layout (`/open-overwatch/` + archived `/v/<tag>/` from git, its own server, no serve.js needed): no worker on localhost by default, install, archived versions untouched, offline pages + banner, offline.html, the new-version prompt, `?sw=0`. `chromium` (installed Edge) or `webkit` |
+| `brand/tools/gesture_check.mjs` | the first-run touch hints and the long press on the globe and the 2D map: `chromium` (Edge, Pixel profile, CDP touch), `webkit` (iPhone 15) or `android` (the emulator's Chrome over adb; `adb reverse` your port first); screenshots in `brand/perf/gestures/` |
+| `brand/tools/a11y_check.mjs` | the HTML accessibility check of every page (also in `node --test` and CI) |
 | `brand/tools/wind_fixture.mjs` | a made-up wind grid the journeys serve as `data/wind.json` (and they block Open-Meteo: its per-IP hourly quota) |
 | `brand/tools/android_features.mjs` | the newer globe features on the Android emulator, by touch: tap a country, the Explore sheet and Weather panel fit, the tour starts and a touch stops it, a shared link restores the view; screenshots in `brand/perf/android-features/` |
 | `brand/tools/android_profile.mjs` | one gesture on the Android emulator with the JavaScript profiler on: `map`, `mapspace`, `mappinch`, `mapspacepinch`, `handoff`, `weather`; `OO_CSS='…'` A/B tests a style, `OO_CALLERS='regex'` prints who calls a slow native function |
 
-All of them block the live feeds that must never see automated traffic (CelesTrak above all).
+The journeys and the Android tools mark the touch hints as seen (`oo-hints` in localStorage) so the hint card does not take
+their first tap; gesture_check.mjs tests the card itself. All of them block the live feeds that must never see automated traffic (CelesTrak above all).
 
 ## Phones without phones
 **Android: Google's emulator, driving real Chrome.** This is installed under your user profile, with no admin rights:

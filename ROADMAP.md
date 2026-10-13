@@ -194,6 +194,29 @@ Round 2 (2026-10-10, local):
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 
+### Installable app, touch hints, accessibility (grow-pwa-a11y, 2026-10-12, local)
+- [x] Service worker (sw.js, scope = the site root): the app opens offline (pages + every module, found by reading the
+      pages' imports at install), live-feed copies under data/ are network-first and come back marked when offline,
+      datasets and brand assets stale-while-revalidate, pinned CDN libraries and base-map tiles cache-first (CORS only),
+      live feeds and the relay untouched; offline banner, offline.html for unsaved pages, "new version" prompt with Reload
+      (build_site.py stamps the version + commit into sw.js), Install button on the landing page where Chrome offers it
+- [x] Archived /v/<tag>/ versions and the download (serve.js) are safe: archived pages never register or touch the
+      worker and it passes their requests through; on localhost it is off unless ?sw=1 (?sw=0 removes it).
+      brand/tools/pwa_check.mjs proves both on a Pages-like layout: Edge 10/10, WebKit iPhone 10/10; Android Chrome:
+      installable (no installability errors), offline landing + Solar System
+- [x] First-run touch hints on the globe and the 2D map (phones only, once per view, ?hints=1 again), and the long
+      press they teach: "This spot" (decimal, DMS, MGRS, Copy, Share with a pin, Pin it, the country) on the globe, a spot
+      popup (Copy, What's here, 3D globe) on the map. gesture_check.mjs: Edge Pixel, WebKit iPhone, Android emulator 8/8 each
+- [x] Accessibility layer (src/app/a11y.js) on all six pages: toolbars move with arrow keys, the map's panel is real tabs,
+      aria-pressed / -current / -expanded follow the views' classes, selections are said once in a live region (the
+      globe card no longer re-reads every tick), skip links, focus rings, the globe turns / zooms / tilts / picks from
+      the keyboard, the Solar System's search is a combobox; reduced motion stops CSS animation everywhere
+- [x] Contrast: the faint text colour #55667a (3.1-3.5:1) is now #738599 (4.6-5.4:1) on every page; symbol-only time
+      buttons and the Solar System search got names. HTML check (core/a11ycheck.js) in the tests and in CI
+- [ ] Solar System camera flights still swoop with reduced motion on (the globe's already jump): src/solar is another
+      session's this round
+- [ ] Real-phone check of install + offline (iOS: Add to Home Screen from Safari's Share menu; no install prompt there)
+
 ## Rules of thumb
 - One clear goal per session; read this file first, tick boxes as they land.
 - Core code is plain ES modules with no DOM/three.js imports, so Node can test it.

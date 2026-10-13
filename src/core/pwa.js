@@ -59,8 +59,8 @@ export function ageWords(ms) {
 /** The words of the offline banner. offline: navigator.onLine is false; savedAt: when the page's copy was saved (ms) or null. */
 export function offlineWords(offline, savedAt, now = Date.now()) {
   if (!offline) return '';
-  const age = savedAt ? ' Saved copy from ' + ageWords(now - savedAt) + (now - savedAt < 60e3 ? '' : ' ago') + '.' : '';
-  return 'You are offline. Live feeds are paused; what you see was saved earlier.' + age;
+  const age = savedAt ? ' Saved ' + ageWords(now - savedAt) + (now - savedAt < 60e3 ? '' : ' ago') + '.' : '';
+  return 'You are offline: live feeds are paused, this is the saved copy.' + age;
 }
 
 export const HINT_KEY = 'oo-hints';

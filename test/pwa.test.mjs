@@ -45,8 +45,8 @@ test('ages and the offline words', () => {
   assert.equal(ageWords(3 * 86400e3), '3 days');
   assert.equal(ageWords(NaN), 'unknown age');
   assert.equal(offlineWords(false, 0), '');
-  assert.match(offlineWords(true, null), /^You are offline\./);
-  assert.match(offlineWords(true, 1000, 1000 + 2 * 3600e3), /Saved copy from 2 h ago\.$/);
+  assert.match(offlineWords(true, null), /^You are offline: /);
+  assert.match(offlineWords(true, 1000, 1000 + 2 * 3600e3), /the saved copy\. Saved 2 h ago\.$/);
 });
 
 test('touch hints: phones only, once per view, never in an embed', () => {

@@ -14,8 +14,9 @@ html.oo-kbd :focus-visible{box-shadow:0 0 0 4px rgba(4,6,10,.75)}
 #globe:focus-visible,#map:focus-visible,#c:focus-visible{outline-offset:-4px!important}
 
 /* the top bar: offline, back online, a new version */
-.oo-bar{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:100001;
-  display:flex;align-items:center;gap:8px;max-width:min(560px,calc(100vw - 20px));padding:8px 8px 8px 14px;border-radius:12px;
+/* left and right both set with an auto margin centre it at its own width; left:50% would squeeze it to half the screen */
+.oo-bar{position:fixed;left:10px;right:10px;margin:0 auto;width:fit-content;top:calc(10px + env(safe-area-inset-top,0px));z-index:100001;
+  display:flex;align-items:center;gap:8px;max-width:560px;padding:8px 8px 8px 14px;border-radius:12px;
   background:rgba(8,12,18,.94);border:1px solid rgba(230,237,243,.14);box-shadow:0 10px 32px rgba(0,0,0,.5);color:#e6edf3;
   font:500 13px/1.35 "Barlow",system-ui,sans-serif;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .oo-bar[hidden]{display:none}

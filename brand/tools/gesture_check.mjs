@@ -17,8 +17,11 @@ const OUT = new URL(`../perf/gestures/${ENGINE}/`, import.meta.url);
 await mkdir(OUT, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-const browser = ENGINE === 'webkit' ? await pw.webkit.launch() : await pw.chromium.launch({ channel: 'msedge', args: ['--enable-gpu', '--ignore-gpu-blocklist', '--use-angle=d3d11'] });
-const ctx = await browser.newContext({ ...(ENGINE === 'webkit' ? pw.devices['iPhone 15'] : pw.devices['Pixel 7']), permissions: ENGINE === 'webkit' ? [] : ['clipboard-read', 'clipboard-write'] });
+// android: the emulator's Chrome over adb (docs/TESTING.md: adb reverse tcp:<port> tcp:<port>, adb forward tcp:9333
+// localabstract:chrome_devtools_remote); a real phone screen, real touch through CDP
+const browser = ENGINE === 'webkit' ? await pw.webkit.launch() : ENGINE === 'android' ? await pw.chromium.connectOverCDP('http://127.0.0.1:9333')
+  : await pw.chromium.launch({ channel: 'msedge', args: ['--enable-gpu', '--ignore-gpu-blocklist', '--use-angle=d3d11'] });
+const ctx = ENGINE === 'android' ? browser.contexts()[0] : await browser.newContext({ ...(ENGINE === 'webkit' ? pw.devices['iPhone 15'] : pw.devices['Pixel 7']), permissions: ENGINE === 'webkit' ? [] : ['clipboard-read', 'clipboard-write'] });
 for (const host of ['celestrak.org', 'opensky-network.org', 'adsb.lol', 'adsb.fi', 'airplanes.live', 'earthquake.usgs.gov', 'wheretheiss.at', 'api.open-meteo.com', 'gdeltproject.org'])
   await ctx.route(new RegExp(`https?://([^/]*\\.)?${host.replace(/\./g, '\\.')}/`), r => r.abort());
 const page = await ctx.newPage();
@@ -52,11 +55,24 @@ async function longPress(sel, x, y, ms = 900) {
     el.dispatchEvent(new PointerEvent('pointerup', o));
   }, [sel, x, y, ms]);
 }
+/** A tap: real touch over CDP where there is one (Playwright won't tap an attached phone's page), else Playwright's. */
+async function tapAt(x, y) {
+  if (!cdp) return page.touchscreen.tap(x, y);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 2, radiusX: 8, radiusY: 8, force: 1 }] });
+  await sleep(60);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+async function tap(sel) {
+  const r = await page.evaluate(sel => { const q = document.querySelector(sel)?.getBoundingClientRect(); return q && [q.left + q.width / 2, q.top + q.height / 2]; }, sel);
+  if (!r) throw new Error('nothing to tap: ' + sel);
+  return tapAt(r[0], r[1]);
+}
 const hintsShown = () => page.waitForSelector('#ooHints.in', { timeout: 60e3 }).then(() => true, () => false);
-const vp = page.viewportSize();
+let vp = page.viewportSize();   // an attached phone's page reports Playwright's default here: its own size is read once a page is open
 
 await page.goto(BASE + 'index.html');
 await page.evaluate(() => { localStorage.removeItem('oo-hints'); });
+if (ENGINE === 'android') vp = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
 
 await check('globe: the hint card shows on a first visit', async () => {
   await page.goto(BASE + 'globe.html');
@@ -67,7 +83,7 @@ await check('globe: the hint card shows on a first visit', async () => {
   return { ok: shown && /Pinch/.test(text) && /Long-press/.test(text) && focus === 'oo-hints-ok', note: `${(text.match(/<li>|Drag|Pinch|Two fingers|Long-press|Double-tap/g) || []).length} lines, focus on ${focus}` };
 });
 await check('globe: Got it closes it, and it is remembered', async () => {
-  await page.tap('.oo-hints-ok'); await sleep(600);
+  await tap('.oo-hints-ok'); await sleep(600);
   const gone = await page.evaluate(() => !document.querySelector('#ooHints'));
   const stored = await page.evaluate(() => localStorage.getItem('oo-hints'));
   await page.reload();
@@ -84,7 +100,7 @@ await check('globe: a long press opens "This spot"', async () => {
   return { ok: r.k === 'This spot' && /° N/.test(r.h || ''), note: `${r.h} · ${r.where} · said "${r.said}"` };
 });
 await check('globe: Pin it puts a pin in the drawing', async () => {
-  await page.tap('#spotPin'); await sleep(1200);
+  await tap('#spotPin'); await sleep(1200);
   const n = await page.evaluate(() => OO3D.Measure.shapes.filter(s => s.kind === 'pin').length);
   return { ok: n >= 1, note: `${n} pin(s)` };
 });
@@ -104,7 +120,7 @@ await check('globe: a drag is not a long press', async () => {
 await check('map: the hint card shows after the splash', async () => {
   await page.goto(BASE + 'open-overwatch.html');
   await page.waitForSelector('#enterSilent', { timeout: 60e3 }); await sleep(1500);
-  await page.tap('#enterSilent').catch(() => page.click('#enterSilent'));
+  await tap('#enterSilent').catch(() => page.click('#enterSilent'));
   const welcome = await page.waitForSelector('#welcome:not([hidden])', { timeout: 8000 }).catch(() => null);
   if (welcome) { await page.evaluate(() => OW.Welcome?.hide?.()); }
   const shown = await hintsShown();
@@ -112,7 +128,7 @@ await check('map: the hint card shows after the splash', async () => {
   return { ok: shown && /Long-press/.test(text), note: welcome ? 'after the welcome card' : 'no welcome card this time' };
 });
 await check('map: a tap outside the card closes it', async () => {
-  await page.touchscreen.tap(vp.width / 2, 40); await sleep(600);
+  await tapAt(vp.width / 2, 40); await sleep(600);
   const gone = await page.evaluate(() => !document.querySelector('#ooHints'));
   return { ok: gone, note: await page.evaluate(() => localStorage.getItem('oo-hints')) };
 });
@@ -127,7 +143,7 @@ await check('map: a long press opens the spot popup, not the probe', async () =>
 });
 
 console.log(errors.length ? 'page errors:\n  ' + [...new Set(errors)].slice(0, 8).join('\n  ') : 'no page errors');
-await browser.close();
+if (ENGINE !== 'android') await browser.close();   // the phone's Chrome stays open
 const bad = results.filter(r => !r.ok).length;
 console.log(`${results.length - bad}/${results.length} passed · screenshots in ${fileURLToPath(OUT)}`);
 process.exit(bad ? 1 : 0);
