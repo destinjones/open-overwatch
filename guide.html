@@ -289,6 +289,12 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     </ul>
     <h3>Airport boards</h3>
     <p>Click an airport (the <code>airports</code> layer) for its board: the planes arriving (low and descending towards it), departing (climbing away), on the ground, and those that just landed or took off, worked out from the live aircraft around it, with emergency squawks standing out. It is not a timetable: a plane counts once it is close and low enough to tell. The card also has the weather at the field with its VFR or IFR category, the runway in use and the wind on each runway, <b>Follow the next arrival</b> and <b>From the tower</b>.</p>
+    <p>Arrival times are estimates with a range, such as <i>≈ 12 min (9–17)</i>: worked out from how far the plane is, how fast it is going and how fast it is coming down. The range is narrow once it is lined up with a runway and wide when it is far out or still has to turn round, because approaches add holds and vectors no feed can see. Departures say about how long ago they took off.</p>
+    <p>In the download version the card also shows:</p>
+    <ul>
+      <li><b>The airport's METAR and TAF</b> (from the Aviation Weather Center) in plain words: wind, visibility, weather, cloud, temperature and pressure now, and the forecast period by period with its flight category, plus the reports exactly as sent. Airport dots in view are coloured by flight category: green VFR, blue MVFR, red IFR, magenta LIFR. The website shows the model weather instead, because aviationweather.gov does not answer websites.</li>
+      <li><b>Runways used, last hour</b>: while the card is open (or after <b>Keep watching</b>, up to three airports), planes near the field are asked for a fresh position every 15 seconds, and each landing and take-off is matched to its runway. The card counts them per runway and says when the airport changed direction. Each landing also scores the arrival estimates made for it, and the card says how they have been doing at that airport.</li>
+    </ul>
     <h3>Cockpit weather</h3>
     <p>Riding a plane in the cockpit (or with the HUD on while following one), the HUD shows its flight phase and the weather where it is: the wind at its height and whether it is a head or tail wind, the outside temperature against the standard atmosphere, true airspeed and Mach, cloud at its level, an icing hint, and the nearest airport and destination. From Open-Meteo, asked only when the plane moves to another cell or level.</p>
   </div>

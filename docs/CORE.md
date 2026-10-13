@@ -559,6 +559,36 @@ up with, and the runway in use. Used by globe.
 
 - `parseRunways`, `windOn`, `windTable`, `linedUp`, `finalFor`, `runwayInUse`.
 
+### `metar.js`
+
+METAR and TAF from their raw text (the WMO code and the US variant: statute miles, inHg, the RMK T-group) into numbers
+and plain words, and the FAA flight category from the visibility and the ceiling. Checked against the Aviation Weather
+Center's own decode of 191 METARs and 41 TAFs (test/metar.test.mjs). Used by globe (airport cards, dot colours).
+
+- `parseMetar`, `metarWords`, `parseTaf`, `tafAt` (the forecast in force at a time, BECMG carried forward, TEMPO/PROB as
+  the worse case), `tafWords`, `tafWorst`, `flightCategory`, `worseCat`, `ceilingFt`.
+- Groups: `parseWind`, `parseCloud`, `parseWeather`, `weatherText`, `windText`, `visText`, `cloudText`, `conditionText`,
+  `humidity`, `compass`, `reportTime`, `tafPeriod`, `ageText`.
+- The source: `metarUrl`, `tafUrl`, `idBatches`, `readAwcMetars`, `readAwcTafs`; `CATEGORIES`, `CAT_COLOR`, `CAT_WORDS`.
+
+### `eta.js`
+
+Arrival and departure estimates for the airport boards from distance, ground speed, height and descent rate, each with
+a range, and a track record that scores them when the plane is seen landing. Used by globe.
+
+- `arrivalEstimate` (path: to the threshold when lined up, else the distance plus joining and turning, never shorter
+  than a 3° glide needs; speed falling to an approach speed, `decelTime`), `departureEstimate`, `rangeText`, `agoText`,
+  `APPROACH_MS`.
+- `EtaLog` (note, landed, summary, spread, prune, toJSON/fromJSON), `ETA_BANDS`, `etaRecordText`.
+
+### `runwaylog.js`
+
+Which runways an airport has been using, from flight trails: touchdowns and lift-offs found in the points, matched to the
+runway the plane was lined up with or rolled along, and summed per runway for the last hour. Used by globe.
+
+- `detectMoves`, `landingRunway`, `takeoffRunway`, `onLine`, `RunwayLog` (add, prune, summary with the last change of
+  flow, toJSON/fromJSON), `sameFlow`, `identHdg`, `historyText`.
+
 ### `aloft.js`
 
 Weather at an aircraft for the cockpit HUD, from Open-Meteo's pressure levels: wind, temperature and cloud at its

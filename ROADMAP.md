@@ -215,6 +215,12 @@ Round 2 (2026-10-10, local):
 - [x] Runways (OurAirports, public domain; data/runways.json, 5,777 runways at 4,016 airports): the runway in use (what
       arrivals are lined up with, else into the wind) and the wind on it on airport cards, "final 34R" on board rows,
       "On final for 34R" on plane cards and in the cockpit HUD (core/runways.js tested)
+- [x] Aviation, round 3 (branch grow2-aviation): the airport's own METAR and TAF in plain words on its card (Aviation Weather
+      Center, through the download's local helper: AWC sends no CORS; core/metar.js tested against AWC's decode of 191
+      METARs and 41 TAFs), airport dots coloured VFR/MVFR/IFR/LIFR; board times as estimates with a range (distance,
+      ground speed, descent; narrow on final, wide far out or turning) that keep score when planes land
+      (core/eta.js tested); runways used in the last hour and the last change of flow, read from the trails of planes
+      polled every 15 s near the open or kept airport (core/runwaylog.js tested on Denver's layout)
 - [ ] Aviation next: the MCP server answering "what's landing at X" (Node reads the aircraft feeds directly),
       business-jet and regional-jet models of their own instead of a scaled airliner
 - [x] NYC traffic: measured speeds were all dropped (NYC DOT publishes ~a day late; the cut-off was 4 h). Now up to 48 h,

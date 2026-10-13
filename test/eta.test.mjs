@@ -137,6 +137,10 @@ test('runway history: moves in a trail', () => {
   assert.equal(detectMoves(pts, m[0].t).length, 1, 'only after `since`');
   const gap = [{ t: 0, lat: 0, lon: 0, ground: false }, { t: 6 * 60e3, lat: 0, lon: 0, ground: true }];
   assert.deepEqual(detectMoves(gap), [], 'a gap over 5 minutes says nothing');
+  const P = (t, ground) => ({ t: t * 1e3, lat: 39.86, lon: -104.67, ground });
+  assert.deepEqual(detectMoves([P(0, false), P(10, true), P(11, false), P(20, false)]), [], 'a flicker of the ground flag is not a landing and a take-off');
+  assert.deepEqual(detectMoves([P(0, false), P(10, true)]), [], 'the last point waits for the next');
+  assert.equal(detectMoves([P(0, false), P(10, true), P(20, true)]).length, 1);
 });
 
 test('runway history: which runway a landing or take-off used, on Denver\'s layout', () => {
@@ -179,4 +183,13 @@ test('runway history: the log, its summary and a change of flow', () => {
   assert.equal(identHdg('34R'), 340); assert.equal(identHdg('36'), 0); assert.equal(identHdg('N'), null);
   const steady = new RunwayLog(); for (let k = 0; k < 5; k++) steady.add({ icao: 'X', rwy: k % 2 ? '34R' : '35L', kind: 'landing', t: t0 + k * 60e3, hex: 'p' + k });
   assert.equal(steady.summary('X', t0 + 10 * 60e3).change, null, 'parallel runways are one flow');
+  const both = new RunwayLog(); ['25', '08', '25', '08', '08', '25', '25'].forEach((r, k) => both.add({ icao: 'X', rwy: r, kind: 'takeoff', t: t0 + k * 60e3, hex: 'q' + k }));
+  assert.equal(both.summary('X', t0 + 10 * 60e3).change, null, 'departing east and west at once (Denver) is not a change of flow');
+});
+
+test('eta: high on final keeps the short path but widens the range', () => {
+  const thr = end('34R'), p = { ...move(thr.lat, thr.lon, (thr.hdg + 180) % 360, 6), alt: DEN.elevM + 600, gs: 77, track: thr.hdg, vr: -5 };
+  const e = arrivalEstimate(DEN, p, { final: { km: 6 } }), low = arrivalEstimate(DEN, { ...p, alt: DEN.elevM + 300 }, { final: { km: 6 } });
+  assert.equal(e.how, 'high on final'); near(e.pathKm, 6, 1e-9); assert.ok(e.etaS < 120, `${e.etaS}`);
+  assert.ok(e.hiS - e.etaS > low.hiS - low.etaS, 'a go-around is possible');
 });

@@ -70,6 +70,9 @@ same code runs in Node tests and in the render loop without allocating.
 | `airports.js` | the airport list (OurAirports rows), a 1° grid index (nearest, near, in a box, by code), and boards: arriving, departing or on the ground from live aircraft |
 | `phase.js` | flight phase (parked, taxiing, take-off, climb, cruise, descent, approach, final) from a fix and the nearest field; great-circle points |
 | `runways.js` | runway ends and headings, wind along and across each, the runway a plane is lined up with, the runway in use |
+| `metar.js` | METAR and TAF decoded into numbers and plain words, flight categories, the forecast in force at a time |
+| `eta.js` | arrival/departure estimates with ranges (distance, ground speed, descent) and their track record per airport |
+| `runwaylog.js` | landings and take-offs found in trails, the runway each used, runway use over the last hour |
 | `trail.js` | flight trails: a time window of fixes, 3D Douglas-Peucker thinning, the altitude colour ramp, trail stats |
 
 Accuracy, checked by the tests against JPL Horizons on 2026-10-02: planets within arcminutes (JPL's own stated

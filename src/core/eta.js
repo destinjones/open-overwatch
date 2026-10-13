@@ -53,7 +53,9 @@ export function arrivalEstimate(ap, p, { final = null, cls = '', spread = 1 } = 
     lo = 0.75; hi = 1.35 + Math.min(0.5, km / 200) + (off > 60 ? 0.35 : 0);   // far and crossing: holds and vectors
   }
   const needKm = aboveM / GLIDE / 1000;                     // how far it must fly to get down at 3°
-  if (needKm > pathKm) { pathKm = needKm; how = how === 'final' ? 'high on final' : 'high'; hi += 0.2; }
+  if (needKm > pathKm * 1.1 + 0.5) {   // too high for a 3° glide (with a little slack): off the final it flies further to get down; on it, it dives (or goes round)
+    if (how === 'final') { how = 'high on final'; hi += 0.3; } else { pathKm = needKm; how = 'high'; hi += 0.2; }
+  }
   const v1 = approachMs(cls, p.gs);
   let etaS = decelTime(pathKm, p.gs, v1);
   if (etaS == null) return null;

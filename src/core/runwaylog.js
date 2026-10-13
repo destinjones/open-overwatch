@@ -12,13 +12,17 @@ const angDiff = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
 /**
  * Landings and take-offs in a trail's points ({ t, lat, lon, alt, ground }, oldest first) after time `since`:
  * [{ kind: 'landing'|'takeoff', i (the first point in the new state), t, lat, lon }]. Gaps over 5 minutes between the
- * two points say nothing (the plane may have done anything meanwhile).
+ * two points say nothing (the plane may have done anything meanwhile), and a change counts only once the point after it
+ * agrees: transponders flick the on-ground flag for a fix or two (seen live at Denver: "landed" and "took off" in the
+ * same second), and a change in the trail's last point waits for the next fix.
  */
 export function detectMoves(pts, since = -Infinity) {
   const out = [];
   for (let i = 1; i < (pts || []).length; i++) {
     const a = pts[i - 1], b = pts[i];
     if (b.t <= since || a.ground === b.ground || b.t - a.t > 5 * 60e3) continue;
+    const c = pts[i + 1]; if (!c || c.ground !== b.ground) continue;   // not confirmed (yet)
+    const z = pts[i - 2]; if (z && z.ground !== a.ground) continue;    // the state before was itself a flicker
     out.push({ kind: b.ground ? 'landing' : 'takeoff', i, t: b.ground ? b.t : a.t, lat: b.ground ? b.lat : a.lat, lon: b.ground ? b.lon : a.lon });
   }
   return out;
@@ -104,7 +108,8 @@ export class RunwayLog {
   /**
    * An airport's last `minutes`: { arrivals: [{ rwy, n, last }], departures: [...], unknown: { arrivals, departures }
    * (seen but not matched to a runway), total, change: { kind, from, to, at } | null } — most used first. The change is
-   * the latest moment the runway a kind used differs from the one used before it, when both were used at least twice.
+   * the latest switch of direction: two or more on the new one after two or more on the old, with the new one used for
+   * at most a quarter of the moves before (two directions in use at once is not a change).
    */
   summary(icao, now = Date.now(), minutes = 60) {
     const cut = now - minutes * 60e3, ev = this.events.filter(e => e.icao === icao && e.t >= cut && e.t <= now + 60e3);
@@ -121,7 +126,9 @@ export class RunwayLog {
       if (seq.length < 4) continue;
       const cur = seq[seq.length - 1].rwy;
       let k = seq.length - 1; while (k >= 0 && sameFlow(seq[k].rwy, cur)) k--;
-      if (k < 0 || seq.length - 1 - k < 2 || seq.slice(0, k + 1).filter(e => sameFlow(e.rwy, seq[k].rwy)).length < 2) continue;
+      if (k < 0 || seq.length - 1 - k < 2) continue;
+      const before = seq.slice(0, k + 1);   // a switch, not two directions in use at once (Denver departs on 25 and 08 together)
+      if (before.filter(e => sameFlow(e.rwy, seq[k].rwy)).length < 2 || before.filter(e => sameFlow(e.rwy, cur)).length > before.length * 0.25) continue;
       const c = { kind, from: seq[k].rwy, to: seq[k + 1].rwy, at: (seq[k].t + seq[k + 1].t) / 2 };
       if (!change || c.at > change.at) change = c;
     }
