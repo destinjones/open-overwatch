@@ -12,7 +12,7 @@ import { encodeDrawing, decodeDrawing } from './measure.js';
 const r = (v, n) => +Number(v).toFixed(n);
 const FLIGHT = /^[A-Za-z0-9]{2,8}$/, NORAD = /^\d{1,9}$/;
 /** Panels a link may open on arrival (#go=...). Nothing that needs a tap first (look-up asks for motion sensors). */
-export const GO = Object.freeze(['tonight', 'flight', 'search', 'launches', 'crew', 'eclipses', 'flybys', 'conj']);
+export const GO = Object.freeze(['tonight', 'flight', 'search', 'launches', 'crew', 'eclipses', 'flybys', 'conj', 'now']);
 
 /** The parts of a hash that work without a camera: { go: 'tonight' | null, flight: 'BAW123' | null }. */
 export function decodeExtras(hash) {

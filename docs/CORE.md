@@ -20,11 +20,11 @@ is also used by its tests in `test/`.
 - [Time, units and frames](#time-units-and-frames): `time.js`, `units.js`, `rotation.js`
 - [Orbits and the Solar System](#orbits-and-the-solar-system): `kepler.js`, `planets.js`, `moons.js`, `smallbodies.js`, `comets.js`, `craft.js`, `accuracy.js`
 - [Satellites](#satellites): `tle.js`, `passes.js`, `observer.js`, `socrates.js`, `explain.js`
-- [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `orientation.js`
+- [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `syzygy.js`, `orientation.js`
 - [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`
 - [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`
 - [Weather](#weather): `gfs.js`, `wxmodels.js`, `wxload.js`, `model.worker.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpaint.js`
-- [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `aurora.js`, `fireclusters.js`, `fires.worker.js`
+- [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `aurora.js`, `fireclusters.js`, `fires.worker.js`, `earthnow.js`
 - [Aviation](#aviation): `aircraft.js`, `actype.js`, `acinfo.js`, `phase.js`, `airports.js`, `runways.js`, `aloft.js`, `trail.js`
 - [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `transitfeeds.js`, `gtfsrt.js`, `bikes.js`, `cameras.js`, `cables.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
 - [OpenStreetMap](#openstreetmap): `osmtiles.js`, `overpass.js`
@@ -125,6 +125,10 @@ their two tails: the ion tail along the solar wind and the curved dust tail. Use
   directions).
 - `cometsNearNow`: the comets best placed near the Sun and Earth. `perihelionPassages`: perihelion dates in a span.
   `conicArc`: a drawable stretch of an open orbit. `GM_SUN`, `SOLAR_WIND_AU_DAY`.
+- Brightness from SBDB's M1/K1 (the same formula as Horizons' T-mag, checked against it): `cometMagnitude`,
+  `cometMagnitudeAt`, `cometPeak` (the brightest moment in a span), `brightComets` (brightest now, with each one's peak),
+  `cometsComing` (due to peak brighter than a magnitude), `seeingWords` ("binoculars"). `orbitFresh`: whether two-body
+  motion from the comet's last orbit solution can be trusted yet (16P's 2016 elements are 1.5 AU off by 2026).
 
 ### `craft.js`
 
@@ -137,6 +141,10 @@ the samples), how fast, what its mission does next, and how long its signal take
 - `eventsAround`: the last and next mission event. `missionDays`, `relativeTime` ("in 3 days", "5 hours ago").
 - `missionsNow`: one line per mission, nearest Earth first (the "Deep-space missions now" list). `lightSeconds`.
 - `lagrangeL1L2`: the Sun-Earth L1 and L2 points for Earth's position (`EARTH_MOON_MU`). `craftAliases`: search words.
+- A craft in orbit around a planet (Juno): `track.local` holds Horizons' osculating elements around it, daily and every
+  30 minutes for 3 hours around each perijove. `trackPosition(c, jd, out, centerAt)` puts the craft on that orbit
+  around the planet as the caller draws it (within 150 km of Horizons through a perijove); `localPosition`,
+  `localOrbit` (the set in force, never carried across a perijove), `inLocal`, `periapses` (the perijove times).
 
 ### `accuracy.js`
 
@@ -261,7 +269,7 @@ Moon cut the rate. Used by globe, mcp.
 
 Solar eclipse geometry: the Moon's shadow cones, where they meet the WGS84 ellipsoid, the shadow's outline, and how
 much of the Sun is covered from a place. One Earth-centred frame in km (the globe turns Horizons' vectors Earth-fixed
-with Cesium). Used by globe, sky.
+with Cesium). Used by globe, sky, solar (the Moon's shadow cones), core.
 
 - `cones`, `radiiAt`: the umbra and penumbra.
 - `shadowCenter`: where the shadow axis meets the Earth, and whether it is total or annular there.
@@ -273,11 +281,26 @@ with Cesium). Used by globe, sky.
 
 Solar eclipses on the ground without Cesium: JPL Horizons' Sun and Moon (`data/eclipses.json`) turned Earth-fixed with
 IAU 1976 precession, the main nutation terms and apparent sidereal time (about 1 km on the ground), then `eclipse.js`'s
-cones. Used by mcp (its `eclipses` tool).
+cones. Used by mcp (its `eclipses` tool), core (`syzygy.js`).
 
 - `greatestEclipse`: each eclipse's greatest point, kind, central duration and path width.
 - `localEclipse`: what a place sees: contacts, how much of the Sun is covered, the kind at maximum.
 - `prepareEclipse`, `icrfToFixed`, `ecef`, `geodetic`: the frames.
+
+### `syzygy.js`
+
+Eclipses (solar and lunar) and lunar occultations of bright stars and planets, 2026-2030, found from JPL Horizons' Sun
+and Moon (`data/solar/ephem.json`, Chebyshev fits by `brand/tools/make_ephem.py`, within 3 m and 1 km of Horizons).
+Solar eclipses use `eclipse.js`'s cones and `eclipselocal.js`'s Earth-fixed turn; lunar eclipses Danjon's shadow
+(NASA's canon: every 2026-2030 eclipse within 2 minutes and 0.01 in magnitude). Used by solar.
+
+- `createEphemeris`, `chebEval`: the Sun and Moon, geocentric, ecliptic J2000, km, at a UT Julian Date.
+- `lunations`: new and full Moons. `elongationLon`.
+- `solarEclipse`, `lunarEclipse`, `findEclipses`: kind, greatest moment, gamma, magnitude, contacts, durations, where.
+  `earthShadow`: Earth's umbra and penumbra at the Moon (`DANJON`).
+- `findOccultations`, `occultationGeometry`, `planetGeocentric`: the Moon in front of `OCCULT_STARS` (Aldebaran,
+  Regulus, Spica, Antares, the Pleiades) and `OCCULT_PLANETS`, where on Earth it is seen and whether it is dark there.
+- `subPoint`, `toFixed`: ground points under a direction. `minimize`, `root`: the small searches. `eventTitle`, `R_EARTH`.
 
 ### `orientation.js`
 
@@ -548,6 +571,26 @@ about 2.5 km of each other), each with size, power and last sighting. Used by mc
 A Web Worker (no exports) shared by the globe and the 2D map: it fetches a GIBS VIIRS thermal-anomaly vector tile,
 unzips and decodes it, and posts back the detections since a time, off the main thread.
 
+### `earthnow.js`
+
+"Earth now": the sums and small charts behind the globe's dashboard (`src/globe/now.js`), from parsed feeds the other
+modules produce (quakes, cyclones, EONET wildfires, launches, Kp rows, flybys, model fields). Pure: no fetching, and the
+charts are SVG text. Used by globe. Tests: `test/earthnow.test.mjs` (a captured USGS week, NOAA's Kp product checked
+against SWPC's own G-scale labels, EONET wildfires).
+
+- `summarizeQuakes`: count, strongest, newest, M4.5+ and M6+ counts, tsunami flags, the busiest regions; `quakeRegion`
+  turns a USGS place into a region ("5 km W of Cobb, CA" → California); `quakeClass` names a magnitude.
+- `dailyCounts`: items per UTC day for the last N days (today flagged partial); `utcDayStart`.
+- `KP_FORECAST_URL`, `kpSeries` (NOAA's Kp products, both shapes, observed / estimated / predicted), `kpSummary`,
+  `kpLevel` (NOAA's G scale: Kp 5- (4.67) is G1, as SWPC marks it), `auroraReach`.
+- `summarizeStorms`, `summarizeWildfires` (prescribed burns apart: `prescribed`, `wildfireRegion`),
+  `launchesSoon`, `launchesToday`, `launchesByMonth` (months the list can't fill are flagged partial),
+  `summarizeFlybys`.
+- `fieldExtremes`, `windiest`, `weatherExtremes`: the highest, lowest and windiest grid points of a model field, with
+  where they are; `tempWords`, `windWords`, `latLonWords`.
+- `barsSvg`: an accessible, theme-aware bar chart as SVG markup (a title, a description listing every value, a tooltip
+  per bar, `currentColor` bars, CSS-variable text); `quakeChart`, `kpChart`, `launchChart` build on it.
+
 ## Aviation
 
 ### `aircraft.js`
@@ -605,6 +648,36 @@ up with, and the runway in use. Used by globe, map.
 - `parseRunways`, `windOn`, `windTable`, `linedUp`, `finalFor`, `runwayInUse`.
 - `RunwayBook`: every airport's runways with those questions (empty without the file). `windWords`: "12 kt head, 4 kt
   from the right".
+
+### `metar.js`
+
+METAR and TAF from their raw text (the WMO code and the US variant: statute miles, inHg, the RMK T-group) into numbers
+and plain words, and the FAA flight category from the visibility and the ceiling. Checked against the Aviation Weather
+Center's own decode of 191 METARs and 41 TAFs (test/metar.test.mjs). Used by globe (airport cards, dot colours), map (airport cards, through the local helper).
+
+- `parseMetar`, `metarWords`, `parseTaf`, `tafAt` (the forecast in force at a time, BECMG carried forward, TEMPO/PROB as
+  the worse case), `tafWords`, `tafWorst`, `flightCategory`, `worseCat`, `ceilingFt`.
+- Groups: `parseWind`, `parseCloud`, `parseWeather`, `weatherText`, `windText`, `visText`, `cloudText`, `conditionText`,
+  `humidity`, `compass`, `reportTime`, `tafPeriod`, `ageText`.
+- The source: `metarUrl`, `tafUrl`, `idBatches`, `readAwcMetars`, `readAwcTafs`; `CATEGORIES`, `CAT_COLOR`, `CAT_WORDS`.
+
+### `eta.js`
+
+Arrival and departure estimates for the airport boards from distance, ground speed, height and descent rate, each with
+a range, and a track record that scores them when the plane is seen landing. Used by globe, map, core (`airports.js`: board rows).
+
+- `arrivalEstimate` (path: to the threshold when lined up, else the distance plus joining and turning, never shorter
+  than a 3° glide needs; speed falling to an approach speed, `decelTime`), `departureEstimate`, `rangeText`, `agoText`,
+  `APPROACH_MS`.
+- `EtaLog` (note, landed, summary, spread, prune, toJSON/fromJSON), `ETA_BANDS`, `etaRecordText`.
+
+### `runwaylog.js`
+
+Which runways an airport has been using, from flight trails: touchdowns and lift-offs found in the points, matched to the
+runway the plane was lined up with or rolled along, and summed per runway for the last hour. Used by globe.
+
+- `detectMoves`, `landingRunway`, `takeoffRunway`, `onLine`, `RunwayLog` (add, prune, summary with the last change of
+  flow, toJSON/fromJSON), `sameFlow`, `identHdg`, `historyText`.
 
 ### `aloft.js`
 

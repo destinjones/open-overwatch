@@ -111,7 +111,8 @@ Runs every `test/*.test.mjs` with Node's own runner. No dependencies except `sat
 | `viewlink.test.mjs`, `scene.test.mjs` | share links and Director scenes: round trips, hostile input refused |
 | `voice.test.mjs` | voice command parsing |
 | `gfs.test.mjs`, `wxmodels.test.mjs`, `grib2.test.mjs`, `aec.test.mjs`, `contour.test.mjs`, `wxload.test.mjs`, `wxpaint.test.mjs` | the weather timeline, the GFS and ECMWF files, GRIB2 decoding (simple, complex, JPEG 2000, CCSDS) checked against eccodes, model fields, isobars; loading a moment (runs, retries, blending, the decoded-hours cache) and how fields are drawn, for both views |
-| `solar.test.mjs` | comets on any conic, spacecraft tracks, the "where is it now?" search, Solar System links and sky positions, against JPL Horizons |
+| `solar.test.mjs` | comets on any conic and their magnitudes, spacecraft tracks (Juno around Jupiter through its perijoves), the "where is it now?" search, Solar System links and sky positions, against JPL Horizons |
+| `syzygy.test.mjs` | eclipses and lunar occultations 2026-2030: the Sun and Moon fit against Horizons, the eclipses against NASA's canon and the globe's own eclipse code, occultations against published predictions |
 | `roadtiles.test.mjs`, `traffic.test.mjs`, `gtfsrt.test.mjs` | vector tiles and roads, the traffic model, GTFS-RT |
 | `ais.test.mjs`, `bikes.test.mjs`, `transit.test.mjs`, `transitfeeds.test.mjs`, `hslrt.test.mjs`, `hazards.test.mjs`, `fireclusters.test.mjs`, `radio.test.mjs`, `campose.test.mjs`, `ascent.test.mjs` | the feeds' parsers and the models built on them |
 | `feeds.test.mjs`, `cables.test.mjs`, `cameras.test.mjs`, `camerasnear.test.mjs`, `aircraft.test.mjs` | the shared feed parsers (quakes, EONET, cyclones, GDACS, aurora, cables, cameras, aircraft records) the 2D map, the globe and the MCP server all use |
@@ -366,7 +367,7 @@ Only `show_on_globe` opens the globe panel in the chat (`ui: { resourceUri: PANE
 
 The browser never queries big catalogues. Scripts in `brand/tools/` download once (cached in the gitignored
 `brand/source/`) and write `data/`: `make_small_bodies.py` (1.57M asteroids), `make_stars.py`, `make_galaxies.py`,
-`make_exoplanets.py`, `make_moons.py`, `make_spacecraft.py`, `make_eclipses.py`, `make_countries.py` (facts and
+`make_exoplanets.py`, `make_moons.py`, `make_spacecraft.py`, `make_eclipses.py`, `make_ephem.py` (the Sun and Moon 2026-2030 for eclipses and occultations), `make_comet_mags.py` (a test fixture), `make_countries.py` (facts and
 borders), `make_companies.py`, `make_volcanoes.py`, `make_lighthouses.py`, `make_constellations.py`, `make_airports.py`
 (OurAirports' airports, and with `--runways` their runways). See each script's opening
 comment for what it fetches and writes. Downloading a new dataset is a decision for the project owner: ask first.

@@ -45,3 +45,6 @@
 .ac-trail .note { margin: 0; }
 .ac-tbtns { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .ac-tbtns select { background: var(--panel-2, #0e141c); color: var(--ink, #e6edf3); border: 1px solid var(--line-strong, #26343f); border-radius: 3px; padding: 2px 4px; font: 11.5px var(--font-mono, ui-monospace, monospace); }
+.ap-words { margin: 4px 0 6px; padding-left: 18px; font-size: 12.5px; line-height: 1.45; }
+.ap-raw { margin: 2px 0 8px; font-size: 11.5px; color: var(--ink-dim, #8b9bab); }
+.ap-raw code { display: block; margin-top: 3px; white-space: pre-wrap; font: 11.5px/1.4 var(--font-mono, ui-monospace, monospace); color: var(--ink, #e6edf3); }

@@ -6,7 +6,7 @@
 // weather at the field with a VFR/IFR category (Open-Meteo, core/aloft.js), the runway in use and the wind along and
 // across every runway (data/runways.json, core/runways.js). Runways are drawn from zoom 11. Boards are not timetables:
 // a plane counts once it is close and low enough to tell.
-import { $, Store, esc, fmt, late, toast } from './util.js';
+import { $, Net, Relay, Store, esc, fmt, late, toast } from './util.js';
 import { map, vecRenderer } from './mapview.js';
 import { Dyn, Layers, Points, Sel, airAt, feed } from './engine.js';
 import { Detail } from './detail.js';
@@ -18,9 +18,10 @@ import { flightPhase, phaseWords } from '../core/phase.js';
 import { parseAirports, AirportIndex, makeBoard, findAirport, BOARD, BOARD_SECTIONS, boardRowWords, planesNear, routeWords, ROUTE_CAVEAT } from '../core/airports.js';
 import { parseRunways, RunwayBook, windWords } from '../core/runways.js';
 import { airportWxCache, airportWxLine, aloftUrl, parseAloft, aloftWords } from '../core/aloft.js';
+import { metarUrl, tafUrl, readAwcMetars, readAwcTafs, metarWords, tafWords, tafWorst, ageText, CAT_COLOR, CAT_WORDS } from '../core/metar.js';
+import { arrivalEstimate, departureEstimate } from '../core/eta.js';
 
 const FT = 0.3048, KT = 0.514444, FPM = 0.00508, AP_COLOR = '#9fe3ff';
-const CAT_COLOR = { VFR: '#3ee08f', MVFR: '#5fb0ff', IFR: '#ff6b6b', LIFR: '#e070ff' };
 const LOOKUPS_PER_BOARD = 8;   // adsbdb look-ups to name where a board's planes come from or go
 
 /** adsbdb, cached in this browser only (its route data may not be copied into other databases). */
@@ -52,6 +53,10 @@ export const Airports = {
     const now = Date.now(), planes = planesNear(ap, Dyn.air.values(), a => airPoint(a, now), now);
     const b = makeBoard(ap, planes, { others: this.index.near(ap.lat, ap.lon, BOARD.radiusKm + 30, 12), now });
     for (const k of ['arriving', 'departing', 'ground', 'recent']) for (const e of b[k]) { e.p = e.r; e.r = e.r.r; }
+    // estimates with the range they could fall in (core/eta.js, as the globe's boards)
+    for (const e of b.arriving) e.est = arrivalEstimate(ap, e.p, { final: this.runways.final(ap, e.p), cls: classify(e.p).cls });
+    for (const e of b.departing) e.dep = departureEstimate(ap, e.p, { cls: classify(e.p).cls });
+    b.arriving.sort((x, y) => (x.est ? x.est.etaS : x.etaS ?? 1e9) - (y.est ? y.est.etaS : y.etaS ?? 1e9));
     return b;
   },
 };
@@ -62,6 +67,36 @@ function fieldWeather(ap) {
   const had = fieldWx.peek(ap);
   fieldWx.get(ap).then(w => { if (w !== had && Sel.kind === 'airport' && Sel.obj === ap) Detail.render(); });
   return fieldWx.peek(ap);
+}
+
+/** The field's own METAR and TAF (aviationweather.gov, US NOAA): it sends no CORS headers, so only through the local
+ *  helper (the download version); 10 minutes each, one field at a time, the card re-renders when they come. The
+ *  website keeps the model line above. */
+const reports = new Map();   // icao -> { t, m, taf, pending }
+function fieldReports(ap) {
+  if (!Relay.available || !/^[A-Z]{4}$/.test(ap.icao)) return null;
+  const c = reports.get(ap.icao);
+  if (c && (c.pending || Date.now() - c.t < 10 * 60e3)) return c;
+  const e = { t: Date.now(), m: c ? c.m : undefined, taf: c ? c.taf : undefined, pending: true }; reports.set(ap.icao, e);
+  Promise.all([Net.json(metarUrl([ap.icao]), { timeout: 15000 }).then(j => readAwcMetars(j).get(ap.icao) || null).catch(() => null),
+    Net.json(tafUrl([ap.icao]), { timeout: 15000 }).then(j => readAwcTafs(j).get(ap.icao) || null).catch(() => null)])
+    .then(([m, taf]) => { reports.set(ap.icao, { t: Date.now(), m, taf }); if (Sel.kind === 'airport' && Sel.obj === ap) Detail.render(); });
+  return e;
+}
+const hm = t => new Date(t).toISOString().slice(11, 16) + 'Z';
+const chip = (cat, title = CAT_WORDS[cat]) => cat ? `<b class="ap-cat" style="--c:${CAT_COLOR[cat]}" title="${esc(title || '')}">${cat}</b>` : '';
+/** The METAR and TAF in plain words (core/metar.js, as the globe's card), the raw text folded away. */
+function metarHtml(m, t) {
+  let h = '';
+  if (m) h += `<h4>${chip(m.category)} ${esc(m.type)} ${m.time ? hm(m.time) + ' · ' + esc(ageText(m.time)) : ''}${m.auto ? ' · automatic station' : ''}</h4>`
+    + `<ul class="ap-words">${metarWords(m).map(w => `<li>${esc(w.text)}</li>`).join('')}</ul><details class="ap-raw"><summary>The report as sent</summary><code>${esc(m.raw)}</code></details>`;
+  if (t) {
+    const lines = tafWords(t), worst = tafWorst(t, { hours: 6 });
+    h += `<h4>Forecast · TAF${t.issued ? ' issued ' + hm(t.issued) : ''}${worst ? ` · next 6 h at worst ${chip(worst)}` : ''}</h4>`
+      + (lines.length ? `<ul class="ap-words">${lines.map(l => `<li>${chip(l.category)} ${esc(l.text)}</li>`).join('')}</ul>` : '<p class="note">The forecast has ended.</p>')
+      + `<details class="ap-raw"><summary>The forecast as sent</summary><code>${esc(t.raw)}</code></details>`;
+  }
+  return h ? h + '<p class="note">Aviation Weather Center (NOAA), aviationweather.gov · times in UTC · decoded here; the raw text is what counts.</p>' : '';
 }
 
 /* ---- the layer: large fields from zoom 4, medium from 7; codes from 7 (large) and 9 */
@@ -114,24 +149,26 @@ function runwaysHtml(a, wx, use) {
   return `<h4>Runways${table.length ? ': the wind on each end' : ''}</h4><table class="ap-rw">${rows}</table>`;
 }
 Detail.renderers.airport = a => {
-  Airports.open = a; const wx = fieldWeather(a), b = Dyn.air.size ? Airports.board(a) : null;
+  Airports.open = a; const rep = fieldReports(a), metar = rep && rep.m, wx = metar ? null : fieldWeather(a), b = Dyn.air.size ? Airports.board(a) : null;
   if (b && !Airports.asked.has(a.icao)) {   // ask adsbdb where the first few come from or go (queued, cached a day)
     Airports.asked.add(a.icao);
     for (const r of [...b.arriving, ...b.departing].map(e => e.r).filter(r => r.info === undefined).slice(0, LOOKUPS_PER_BOARD)) AcInfo.get(r).then(v => { if (v && Sel.kind === 'airport' && Sel.obj === a) Detail.render(); });
   }
-  const use = b ? Airports.runways.inUse(a, b.arriving.map(e => e.p), wx && { dir: wx.windDir, speed: wx.windKt }) : null;
-  const onIt = use && wx && wx.windKt != null ? Airports.runways.wind(a, wx.windDir, wx.windKt).find(t => t.end === use.end) : null;
+  const wind = metar && metar.wind && metar.wind.speedKt != null ? { dir: metar.wind.dir, speed: metar.wind.speedKt } : wx && { dir: wx.windDir, speed: wx.windKt };   // the METAR's wind first
+  const use = b ? Airports.runways.inUse(a, b.arriving.map(e => e.p), wind) : null;
+  const onIt = use && wind && wind.speed != null && wind.dir != null ? Airports.runways.wind(a, wind.dir, wind.speed).find(t => t.end === use.end) : null;
   a.use = use; Runways2D.draw();
   const n = b ? b.arriving.length + b.departing.length + b.ground.length + b.recent.length : 0, code = a.iata || a.icao, next = b && b.arriving.find(e => e.etaS != null);
-  const wxLine = wx === undefined ? '<p class="ap-wx">Weather…</p>' : wx ? `<p class="ap-wx">${wx.category ? `<b class="ap-cat" style="--c:${CAT_COLOR[wx.category]}" title="Flight category from the model's visibility and an estimated cloud base">${wx.category}</b> ` : ''}${esc(airportWxLine(wx))} <small>Open-Meteo model${wx.time ? ', ' + esc(wx.time.slice(11, 16)) + 'Z' : ''}</small></p>` : '';
+  const model = metar ? '' : wx === undefined ? '<p class="ap-wx">Weather…</p>' : wx ? `<p class="ap-wx">${wx.category ? `<b class="ap-cat" style="--c:${CAT_COLOR[wx.category]}" title="Flight category from the model's visibility and an estimated cloud base">${wx.category}</b> ` : ''}${esc(airportWxLine(wx))} <small>Open-Meteo model${wx.time ? ', ' + esc(wx.time.slice(11, 16)) + 'Z' : ''}</small></p>` : '';
+  const wxLine = model + (rep && (metar || rep.taf) ? metarHtml(metar, rep.taf) : '');   // the field's own reports where they can be read, else the model
   const board = !Layers.on('air_local') && !Layers.on('air_mil') && !Layers.on('air_opensky') ? `<p class="note">Switch on an aircraft layer to see who is coming and going.</p>`
     : n ? BOARD_SECTIONS.map(([k, name, col]) => b[k].length ? `<h4 style="color:${col}">${name} · ${b[k].length}</h4>${b[k].map(e => boardRow(e, a)).join('')}` : '').join('')
     : `<p class="note">No aircraft near ${esc(code)} right now that the feeds can see.</p>`;
   return `<div class="det ap">${Detail.head(AP_COLOR, a.size === 2 ? 'Large airport · OurAirports' : 'Airport · OurAirports', a.name, esc(apHead(a)))}${wxLine}`
     + (use ? `<p class="ap-use">Runway in use: <b>${esc(use.end.ident)}</b> ${use.how === 'arrivals' ? `(${use.n} lined up)` : '(into the wind; a guess)'}${onIt ? ` · wind on it ${esc(windWords(onIt))}` : ''}</p>` : '')
     + (next ? `<div class="actions"><button type="button" class="btn small" data-follow="${esc(next.r.hex)}">Follow the next arrival · ${esc(next.r.flight || next.r.hex)}</button></div>` : '')
-    + `<div class="ap-board">${board}</div>${runwaysHtml(a, wx, use)}`
-    + `<p class="note">From the live aircraft on the map: arriving means low and descending towards ${esc(code)}, departing means climbing away from it (within ${BOARD.radiusKm} km); ✓ the route on file agrees. Not a timetable. Airports and runways: ${esc(Airports.credit)}.</p>`
+    + `<div class="ap-board">${board}</div>${runwaysHtml(a, wind && { windDir: wind.dir, windKt: wind.speed }, use)}`
+    + `<p class="note">From the live aircraft on the map: arriving means low and descending towards ${esc(code)}, departing means climbing away from it (within ${BOARD.radiusKm} km); ✓ the route on file agrees. Not a timetable: times are estimates from distance, ground speed and descent, with the range they could fall in. Airports and runways: ${esc(Airports.credit)}.</p>`
     + `<div class="actions"><button type="button" class="btn small" data-center="${esc(a.icao)}">Center</button></div></div>`;
 };
 

@@ -239,6 +239,7 @@ country borders, which load on arrival.
 | `eclipses` | the solar eclipses |
 | `flybys` | asteroid and comet flybys |
 | `conj` | near misses (close approaches in orbit) |
+| `now` | Earth now, the dashboard |
 
 Anything else is ignored. Look up is deliberately not in the list: it needs a tap first (phones ask for motion sensors
 only after one). `go` is read only when the hash has no `c`.

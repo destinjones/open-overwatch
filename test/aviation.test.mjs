@@ -513,3 +513,12 @@ test('weather aloft as sentences for a card', async () => {
   assert.deepEqual(aloftWords({ ground: true, track: 0, gs: 0, alt: 0 }, { windDir: 90, windSpeed: 0.5, tempC: 20, cloudPct: 5 }), ['Calm at its height', '20 °C outside, 5° warmer than the standard atmosphere', 'Clear air at its level']);
   assert.deepEqual(aloftWords(p, null), []);
 });
+test('board rows carry the arrival and departure estimates with their ranges, on both views', async () => {
+  const { rangeText, agoText } = await import('../src/core/eta.js');
+  const est = { etaS: 540, loS: 420, hiS: 720 }, dep = { agoS: 240, loS: 120, hiS: 360 };
+  const arr = boardRowWords({ r: { vr: -4 }, status: 'arriving', est, etaS: 999, aboveM: 900, km: 22 }, LHR, { fin: { end: { ident: '27L' } } });
+  assert.equal(arr.right, `${rangeText(est)} · final 27L`); assert.match(arr.right, /^≈ 9 min \(7–12\) · final 27L$/);
+  const d = boardRowWords({ r: { vr: 10 }, status: 'departing', dep, aboveM: 1200, km: 15 }, LHR);
+  assert.equal(d.right, `${agoText(dep)} · climbing 1,969 ft/min`);
+  assert.equal(boardRowWords({ r: {}, status: 'arriving', etaS: 420, aboveM: 900, km: 22 }, LHR).right, '7 min', 'without an estimate: the plain ETA');
+});

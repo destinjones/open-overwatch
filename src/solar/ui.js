@@ -58,7 +58,7 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
   /** "In Earth's sky" rows for a Solar System body: when to look and among which stars. */
   function skyRows(b) {
     const E = byKey.earth;
-    if (!E || b === E || b.key === 'sun' || b.fixed || b.launched === false || b.kind === 'light delay' || b.pos.length() > 2e4) return [];
+    if (!E || b === E || b.key === 'sun' || b.fixed || b.event || b.launched === false || b.kind === 'light delay' || b.pos.length() > 2e4) return [];   // events (eclipses.js) say where they are seen
     if (b.kind === 'moon' && b.key !== 'moon' && b.parent && byKey[b.parent]) return [];   // moons of other planets: see the planet
     needFigures();
     const sp = skyPosition(b.pos, E.pos), c = figures && nearestConstellation(sp.ra, sp.dec, figures);
@@ -102,7 +102,7 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
   }
   let lastRank = 0;
   function labelShown(b, camSun, camFocus) {
-    if (!layerOn('labels') || !bodyVisible(b) || b.launched === false) return false;
+    if (!layerOn('labels') || !bodyVisible(b) || b.launched === false || b.event) return false;   // an eclipse or occultation sits on the Earth or Moon, which have labels
     if (b.star) return camSun > 0.3 * LY_AU && b.vis;                              // the brightest few, once out among them
     if (b.here) return camSun > 30 * LY_AU;
     if (b.bubble) return camSun > 12 * LY_AU && camSun < 3000 * LY_AU;               // the radio bubble

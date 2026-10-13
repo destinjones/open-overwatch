@@ -4,6 +4,7 @@
 // DOM-free.
 
 import { gcKm, bearing } from './actype.js';
+import { rangeText, agoText } from './eta.js';
 
 const RAD = Math.PI / 180, FT = 0.3048;
 const angDiff = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
@@ -211,7 +212,8 @@ export function boardRowWords(e, ap, { fin = null, kind = '', fmt = n => Math.ro
   const inbound = e.status === 'arriving' || e.status === 'landed' || (e.status !== 'departing' && e.status !== 'departed' && e.toHere);
   const other = rt && rt.origin && rt.destination ? (inbound ? rt.origin : rt.destination) : null;
   const where = other && other.icao !== ap.icao && (inbound ? e.toHere : e.fromHere) ? `${inbound ? 'from' : 'to'} ${other.iata || other.icao}` : '';
-  const right = e.status === 'arriving' ? etaText(e.etaS) + (fin ? ` · final ${fin.end.ident}` : '') : e.status === 'departing' ? `climbing ${fmt((r.vr || 0) * 196.85)} ft/min`
+  const right = e.status === 'arriving' ? (e.est ? rangeText(e.est) : etaText(e.etaS)) + (fin ? ` · final ${fin.end.ident}` : '')
+    : e.status === 'departing' ? (e.dep ? agoText(e.dep) + ' · ' : '') + `climbing ${fmt((r.vr || 0) * 196.85)} ft/min`
     : e.status === 'landed' || e.status === 'departed' ? `${e.status} about ${etaText(e.agoS)} ago`.replace('about now ago', 'just now') : BOARD_STATUS[e.status] || '';
   const onField = e.status === 'ground' || e.status === 'taxiing' || e.status === 'landed' || e.status === 'departed';
   const sub = onField ? kind : `${fmt(Math.max(0, e.aboveM) / FT)} ft above the field · ${fmt(e.km)} km`;

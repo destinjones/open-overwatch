@@ -350,6 +350,47 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   `viewer.clock.currentTime` lags the wall clock while idle (it ticks only on rendered frames). The violet vertical
   lines over cities are the Big-employers towers (Michelin at Clermont-Ferrand), not a stray polyline.
 
+## Airport weather, estimates and runway history (fieldwx.js, fieldwatch.js; core metar, eta, runwaylog) — 2026-10-13
+- aviationweather.gov's data API sends no `Access-Control-Allow-Origin` (GET and OPTIONS checked 2026-10-13), so METAR
+  and TAF are download-version only, relayed by serve.js/serve.py (`aviationweather.gov` added to both; not to the
+  public relay, not to the 2D map's NEEDS_RELAY: the 2D map doesn't ask it). The website keeps the Open-Meteo line and
+  says why. api.weather.gov does send CORS, but its `rawMessage` was empty for KDEN's latest observation, it has US
+  stations only, and its TAFs are IWXXM XML: not worth a second decoder. A bbox METAR query over the US timed out (504);
+  `ids=` lists of 60 answer in ~0.2 s, so the dots ask by id for the fields in view (`AirportIndex.inBox`, large first).
+- The decoder (core/metar.js) works on the raw text, never AWC's decoded fields, so the same code would read any METAR
+  source; the tests check it against AWC's decode of the same reports. Differences that are representation, not error:
+  AWC gives no category without a sky group (we follow, except when the visibility alone says IFR or worse), AWC writes
+  VV as `OVX`, and AWC's TAF periods carry earlier values forward (BECMG) where ours keep what the group says;
+  `tafAt` does the carrying. The RMK T-group (tenths) wins over the whole-degree temperatures, as AWC does. `INTER`
+  (Australia) is read as a TEMPO; `VV///` as a hidden sky of unknown height (ceiling 0, LIFR).
+- Estimates (core/eta.js): the path is the distance to the threshold when lined up (core/runways.js finalFor), else the
+  distance x1.08 + 8 km to join the final + a turn penalty past 30° off; speed falls linearly with distance to an
+  approach speed by class (D ln(v0/v1)/(v0-v1)); a steady descent rate pulls by at most -30%/+40%. High on final keeps
+  the short path but widens the top (it may go round). The range is the honest part: -15/+20% on final, -25% / +35%..
+  +120% elsewhere, plus 30 s either way. First live hour at KDEN (north flow, IFR): 23 estimates for 11 landings, 18
+  inside their range, median miss 38 s; the 50 km band's 4 came in ~2.7 min early (straight-in from the south, shorter
+  than the joining allowance). EtaLog widens a field's ranges when under 60-80% land inside, narrows over 95%.
+- Fresh fixes: the globe's civil traffic is OpenSky's 15-minute snapshot, too sparse for touchdowns, so an open airport
+  card (and up to 3 "Keep watching" fields) polls adsb.lol `/v2/point/lat/lon/40` every 15 s, adsb.fi on failure. The
+  first poll from this PC got a 429 from adsb.lol (other sessions were polling it too); the next went through. Those
+  fixes go through Air.upsert, so trails record them like any adsb.lol fix (Trails.record skips only OpenSky).
+- Runway history (core/runwaylog.js): every 10 s, trails whose points changed are read for ground/air changes; the trail's
+  last point waits for the next to confirm it, and a single-fix flicker of the on-ground flag is ignored (seen live:
+  MAI293 "landed" and "took off" on 07 in the same second). Landing runway = votes from the last 5 minutes of airborne
+  points lined up (linedUp with the track between points) + 2 for the touchdown on a runway's centre line moving its
+  way; take-off = points on the centre line beyond the runway moving its way. Moves are put at the nearest airport within
+  6 km, so the 40 nm poll around DEN also logs Buckley, Centennial and Rocky Mountain Metro. Flow change = 2+ on the new
+  direction (runways within 45° count as one flow: 34R/35L) after 2+ on the old, with the new direction at most a quarter
+  of the moves before (Denver departs on 25 and 08 at once: the first live run called that "moved from 08 to 25"). Live at KDEN, 15:18-15:27Z: arrivals
+  34R/35L/35R, departures 25/08 (matches Denver's north-flow plan), ~25 events in 10 minutes.
+- MCP `airport_weather` (mcp/airportwx.mjs): Node has no CORS, so it asks AWC directly and decodes with the same
+  core/metar.js; the favoured runway is the most headwind from the METAR's wind (said to be the wind's choice, not the
+  tower's). Checked live for LHR, JFK and Tokyo (Haneda, the largest). Voice: `airwx` in core/voicecmd.js only fires
+  on METAR/TAF/flight-category words or "... airport", so "weather in Paris" stays the weather view.
+- Renders: `brand/tools/airport_wx_shot.mjs` (desktop and 390x844) injects TEST1xx planes and runway events (the render
+  blocks the aircraft feeds); real callsigns there pulled real adsbdb routes naming other airports, which drops them
+  from the board (routeOther), hence the TEST callsigns. METAR/TAF/dots in the shots are live AWC.
+
 ## Public relay (relay/, Cloudflare Worker) — 2026-10-10
 `relay/worker.js` on the owner's Cloudflare account (`npx wrangler deploy` from relay/, after `npx wrangler login`):
 https://open-overwatch-relay.destinjones123.workers.dev/?url=… . Allowlist = `PUBLIC_RELAY_HOSTS` in src/core/relay.js
@@ -504,6 +545,35 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   Ophiuchus"). Checked: Halley in Jan 1986 "low in the west after sunset, near Aquarius", as it was.
 - Renders: parallel sessions' globe_shot runs reap each other's headless Edge (cdp.mjs reapOrphans); set
   `OW_WORK="$LOCALAPPDATA\oo-brand-<name>"` per session. The Browser pane, when hidden, draws no frames at all.
+## Solar System round 2: eclipses, occultations, comet brightness, Juno (eclipses.js, core/syzygy.js) — 2026-10-13
+- The Moon for eclipses: `planets.js`'s formula is ~0.3° off (half the Moon's width), so `make_ephem.py` fits Horizons'
+  apparent Sun (daily) and Moon (hourly) 2026-2030 as Chebyshev series (Moon 4-day segments degree 13: 3 m; Sun 32-day
+  degree 13: 1 km) into `data/solar/ephem.json` (148 KB). While it is loaded the view's Moon is drawn there
+  (`byKey.moon.geoSource`), else the shadows would miss it. Time argument is UT (the view's clock).
+- `core/syzygy.js`: new/full Moons by bisection on the longitude difference; solar eclipses reuse `eclipse.js` cones
+  and `eclipselocal.js` Earth-fixed turn (agrees with the globe's `greatestEclipse` on the minute tables within 15 s,
+  0.2°); lunar eclipses by Danjon (1/85 enlargement, Earth radius at 45°: R x 0.998340) as NASA's canon: all 12
+  lunar eclipses 2026-2030 within 2 min, umbral magnitudes within 0.01, durations within 2 min. NASA's tables give TD;
+  subtract ~70 s. A central eclipse's "magnitude" in NASA's tables is the Moon/Sun diameter ratio, not the covered
+  fraction of the diameter. Occultations: the Moon within R_earth + R_moon (+ the planet's radius projected) of the
+  line Earth-target; 139 in 2026-2030 (Regulus monthly until 2027, Antares, the Pleiades; Spica's, Saturn's and
+  Aldebaran's series are not on); checked against published Venus 2026-06-17 and Jupiter 2026-09-08 / 10-06 events.
+  All 163 events take ~200 ms in the browser.
+- Shadows in the shaders: `globeMaterial` got an occluder (the other globe in view space); coverage from the angular
+  radii and separation of Sun and occluder seen from the fragment. Use atan(|a x b|, a.b), not acos: float32 acos near
+  1 has ~7% of the Sun's radius as its resolution and bands. Earth's clouds share the uniforms. The Moon adds a red
+  term in the umbra. Diagrams (cones, rings, lines) only show within hours of an event and within 0.08 AU of Earth.
+- Comet brightness: SBDB M1/K1 per comet (1,634 of 1,867), m = M1 + 5 log delta + K1 log r (Horizons' T-mag, agrees to
+  0.006 on Horizons' distances). SBDB keeps each comet's last orbit solution: 16P/Brooks 2's 2016 elements put it 1.5
+  AU from its 2026 place, so it showed as "magnitude 13 now" when Horizons says 24. `orbitFresh` (within 8 years and
+  1.2 periods of the epoch) keeps such comets out of the lists; the card says "orbit data from 2016" instead.
+- Juno: on the heliocentric samples it was drawn up to 900,000 km from the Jupiter on screen (JPL's approximate
+  Jupiter is that far off Horizons') and cut corners at perijove. Now `track.local`: daily osculating elements around
+  Jupiter + sets every 30 min for +-3 h around each of 109 perijoves, flown two-body around the drawn Jupiter; never
+  carry a set across a perijove (Jupiter's J2 turns the orbit there: a set an hour away is ~1,000 km off at the pass).
+  Within 150 km of Horizons over two days around three perijoves (sets every 15 min for +-6 h: 66 km at 1.7x the size).
+  The 1-day heliocentric track still draws the cruise and the long view. spacecraft.json is 1.6 MB (gzip 0.6 MB).
+
 ## Shared feed core and the 2D map catching up — 2026-10-12 (branch grow-map-core)
 - One parser per feed, in src/core, for the 2D map, the globe and the MCP server: quakes, eonet, gdacs, cyclones,
   cameras, aurora, cables, aircraft, transitfeeds, overpass, radio mirrors, OSRM (route.js), passes (ecfAt/nextPass).
@@ -578,6 +648,11 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   an icing hint), asked once per 10 minutes per 0.25° cell and level pair, only for the open card. Trails are core
   `Trail`s per aircraft (the map's old raw `rec.trail` arrays are gone): drawn for the open, followed and pinned planes
   as runs of same-coloured polylines (a few dozen for 30 minutes), with stats and GeoJSON on the card; "Trail" pins.
+- After merging grow2-aviation: the board rows' estimate words (core/eta.js ranges "≈ 9 min (7–12)", "took off ≈ 4 min
+  ago") are inside core `boardRowWords`, so both views' boards say the same; the 2D map's boards make the same
+  estimates (without the globe's per-field track record) and its airport cards show the field's METAR and TAF in
+  plain words (core/metar.js) where the local helper relays aviationweather.gov (added to NEEDS_RELAY; serve.js and
+  serve.py already allowed it), the model line otherwise. The METAR's wind decides the runway in use when there is one.
 - Not on the 2D map: the observed frames of the globe's weather mode (the map has its own radar and IR layers), the
   tower view, the landing watch and the route arc.
 - Renders: brand/tools/page_check.mjs (screenshots + script errors) works for the map. From Git Bash, give OW_WORK as
@@ -618,3 +693,36 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   with only a placeholder, an img without alt, duplicate ids, tabindex > 0, an unlabelled role, and text-colour tokens
   (`--ink*`, `--dim`, `--faint`, …) under 4.5:1 against `--bg` / `--panel-solid` / `--panel-2`. Viewports that block zoom
   are only warnings on the three views that handle pinch themselves.
+
+## Earth now: the dashboard (now.js, now.css, core/earthnow.js) — 2026-10-13 (branch grow2-dashboard)
+
+- **One panel, the globe's own feeds.** `Earth now` (band, `E`, `#go=now`) sums up quakes, cyclones, the aurora, launches,
+  people in space, flybys, wildfires and the model's weather extremes. Everything already on the globe is reused
+  (`Quakes.list`, `Storms.list`, `Launches.load()`, `Crew.load()`, `Flybys.load()`, `Model.at()`); the panel adds only
+  small history files, fetched when it opens and kept 10-30 minutes: USGS `2.5_week` (~0.3 MB), `4.5_month` (~0.4 MB,
+  only when its tab is picked), EONET wildfires, and SWPC's `noaa-planetary-k-index-forecast.json` (observed,
+  estimated and predicted rows in one file). Nothing is fetched or timed while the panel is closed.
+- **Sums are pure** (`src/core/earthnow.js`, 11 tests on captured answers). Kp → G scale: SWPC marks Kp 5- (4.67) as
+  G1, so G = round(Kp) − 4; the test checks every row of the captured product against SWPC's own `noaa_scale` label.
+  SWPC tags a 3-hour block by its start and sometimes "estimates" a block that hasn't begun: "now" is the last
+  non-predicted row at or before now.
+- **Honest labels.** EONET's wildfires are incident reports (mostly IRWIN, US/Canada), and half of them are
+  prescribed burns: counted apart. Launches per month come from the upcoming list (the next 40): the current month
+  (flown launches are gone) and months past the list's end are drawn faint and say "partial". Weather extremes are
+  model grid cells, sea and Antarctica included (2 m temperature and 10 m wind of the GFS hour nearest now), named by the
+  globe's own borders.
+- **Charts** are inline SVG built as strings in core (`barsSvg`): `role="img"`, a `<title>` and a `<desc>` that lists
+  every value with its full date, a tooltip per bar, bars in `currentColor` (each section sets `--c`), text in the page's
+  CSS variables, forced-colors fallback. Today / predicted / partial bars are faint (opacity .45).
+- **Actions** switch the matching layer on (stored like a dock click) and fly; objects with cards are selected
+  (quakes, storms, launches, stations); a named fire or a weather extreme gets a pin object with `cardHtml` so `select()`
+  shows it. A weather extreme opens weather mode with Temperature or Wind on first (weather flies out to the whole Earth
+  when opened low), then flies to 4,500 km and sets weather's point readout there.
+- **Phones**: a sheet above the bottom dock (Explore → Earth now), folding to its title bar while the camera flies;
+  weather extremes wait for a tap (~1 MB of model data); opening weather from it closes the sheet (weather's panel takes
+  the same place) and says the value in a toast. Countdowns tick once a second only while the sheet is open, unfolded and
+  the tab visible; DOM-only, so the battery saver's frame rate is untouched.
+- **Desktop band**: it had grown past 1,600 px and was cut off at both ends; now.css caps it at the window minus the
+  navigation pad and lets it scroll sideways.
+- **Headless shots**: globe_shot blocks USGS, so the renders patch `fetch` for `earthquake.usgs.gov` to the captured
+  fixture (`test/fixtures/earthnow/usgs_4.5_week_2026-10-13.json`); the other sections are live.

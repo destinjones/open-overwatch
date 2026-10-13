@@ -13,6 +13,7 @@ import { createMoons } from './moons.js';
 import { createSmallBodies, CLASS_LAYERS } from './smallbodies.js';
 import { createSpacecraft } from './spacecraft.js';
 import { createComets } from './comets.js';
+import { createEclipses } from './eclipses.js';
 import { createFind } from './find.js';
 import { createLists } from './lists.js';
 import { createDeepSpace } from './deepspace.js';
@@ -53,6 +54,7 @@ const sunView = new THREE.Vector3();   // the Sun in view space: every lit shade
 [{ id: 'orbits', name: 'Planet orbits', c: '#7dffa6', on: true }, { id: 'labels', name: 'Labels', c: '#e6edf3', on: true },
   { id: 'moons', name: 'Moons', c: '#cfd3da', on: true, n: 0 }, { id: 'dwarfs', name: 'Dwarf planets', c: '#e8cfb0', on: true }, { id: 'asteroids', name: 'Asteroids', c: '#c8b89e', on: true, n: 0 },
   ...CLASS_LAYERS, { id: 'comets', name: 'Comets', c: '#bfe3ff', on: true }, { id: 'craft', name: 'Spacecraft', c: '#ffb44d', on: true, n: 0 },
+  { id: 'eclipses', name: 'Eclipses & occultations', c: '#ff8a5c', on: true },
   { id: 'stars', name: 'Stars near the Sun (HYG)', c: '#fff3d6', on: true, n: 0 }, { id: 'radio', name: 'Our radio bubble', c: '#7dffa6', on: true },
   { id: 'exo', name: 'Planets of other stars (NASA)', c: '#6fe0ff', on: true },
   { id: 'lightdelay', name: 'Light delay (as seen from Earth)', c: '#7dffa6', on: true }, { id: 'galaxy', name: 'Milky Way & galaxies', c: '#b6c6ff', on: true },
@@ -74,13 +76,14 @@ let find = null;   // find.js (search, share links), made after the UI
 const nav = {
   focus: byKey.earth, fly: null, free: false,   // free: the camera stays put and orbits the point it looks at, instead of riding along with the focused body
   release() { if (this.free) return; this.free = true; this.fly = null; controls.minDistance = 1e-6; ui.showCard(null); this.focus?.onFocus?.(false); find?.syncHash(); },
-  focusOn(b, dist = null, dur = 2.2, card = true) {
+  focusOn(b, dist = null, dur = 2.2, card = true, dir = null) {   // dir: turn the view to look from there (unit vector, target -> camera)
     if (!b) return;
     this.free = false;
     const sys = b.exo && exo.X.systems.find(s => s.host === b.host);
     const d1 = dist ?? (b.exo ? (sys ? exo.viewDistance(sys) : 0.25) : Math.max(b.radius * 4, b.kind === 'planet' ? b.radius * 3.2 : b.parent ? b.radius * 5 : 0.002));
     if (b.exo) exo.load().catch(() => {});
-    this.fly = { from: controls.target.clone(), d0: camera.position.distanceTo(controls.target), d1, t0: performance.now(), dur: dur * 1000 };
+    this.fly = { from: controls.target.clone(), d0: camera.position.distanceTo(controls.target), d1, t0: performance.now(), dur: dur * 1000,
+      dir0: dir && camera.position.clone().sub(controls.target).normalize(), dir1: dir && dir.clone().normalize() };
     if (this.focus !== b) { this.focus?.onFocus?.(false); b.onFocus?.(true); }
     this.focus = b; controls.minDistance = Math.max(b.radius * 1.15, 1e-7);
     ui.showCard(card ? b : null);
@@ -92,7 +95,7 @@ const nav = {
     if (this.free && !this.fly) return;
     if (this.fly) {
       const s = Math.min(1, (performance.now() - this.fly.t0) / this.fly.dur), e = s < 0.5 ? 4 * s * s * s : 1 - Math.pow(-2 * s + 2, 3) / 2;
-      const dir = camera.position.clone().sub(controls.target).normalize(), target = this.fly.from.clone().lerp(p, e);
+      const dir = this.fly.dir1 ? this.fly.dir0.clone().lerp(this.fly.dir1, e).normalize() : camera.position.clone().sub(controls.target).normalize(), target = this.fly.from.clone().lerp(p, e);
       controls.target.copy(target); camera.position.copy(target).addScaledVector(dir, Math.exp(Math.log(this.fly.d0) + (Math.log(this.fly.d1) - Math.log(this.fly.d0)) * e));
       if (s >= 1) this.fly = null;
     } else if (!this.free) { camera.position.add(p.clone().sub(controls.target)); controls.target.copy(p); }
@@ -101,12 +104,13 @@ const nav = {
 renderer.domElement.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && (e.button === 2 || e.ctrlKey || e.shiftKey || e.metaKey)) nav.release(); }, true);   // panning leaves the body behind
 addEventListener('keydown', e => { if (e.key === 'Escape' && !/input|textarea/i.test(e.target.tagName)) nav.release(); });
 const lightDelay = createLightDelay({ scene, nav });
+const eclipses = createEclipses({ scene, nav, clock, story: { stopTour: () => story.stopTour() } });
 const story = createStory({ scene, clock, nav, caption: (...a) => ui.caption(...a), onTourChange: on => ui.tourLabel(on) });
 const quality = createQuality({ renderer, small, onAutoChange: q => { ui.renderLayers(); ui.caption(`Graphics set to ${q.name}`, 'Lowered automatically for smoother motion. You can change it in the layer panel.', '', 5000); } });
 const ui = createUI({ camera, controls, clock, nav, story, small, deep, quality, exo });
 find = createFind({ nav, story, small, comets, exo, clock, camera, controls, caption: (...a) => ui.caption(...a) });
 ui.onShare = () => find.copyLink();
-createLists({ craft, comets, clock, find });
+createLists({ craft, comets, clock, find, eclipses });
 exo.onChange = () => { applyLayers(); ui.renderLayers(); };
 const nerd = createNerd({ renderer, quality, small, exo, moons });
 document.querySelector('#bNerd').onclick = () => nerd.toggle();
@@ -139,7 +143,7 @@ function frame(t) {
   view.camSun = camera.position.length(); view.camFocus = camera.position.distanceTo(controls.target); view.jd = clock.jd;
   sunView.set(0, 0, 0).applyMatrix4(camera.matrixWorldInverse);
   Sharpen.tick();
-  sky.frame(view); planets.frame(view); moons.frame(view); small.frame(view); craft.frame(view); comets.frame(view); deep.frame(view); web.frame(view); exo.frame(view); lightDelay.frame(view);
+  sky.frame(view); planets.frame(view); moons.frame(view); small.frame(view); craft.frame(view); comets.frame(view); eclipses.frame(view); deep.frame(view); web.frame(view); exo.frame(view); lightDelay.frame(view);
   story.updatePulse(); ui.frame(view);
   renderer.render(scene, camera);
   embed.api.ready = true;
@@ -165,7 +169,7 @@ if (EMBED) {   // inside the globe: no splash, no opening flight; render one fra
 }
 const settle = p => p.catch(e => console.warn(e)).finally(() => { applyLayers(); ui.renderLayers(); });
 const smallLoad = small.load().then(() => comets.init(small.S.comets, clock.jd, byKey.earth.pos));
-const loads = [moons.load(), smallLoad, craft.load()];   // stars, galaxies and most textures load as you approach them
+const loads = [moons.load(), smallLoad, craft.load(), eclipses.load()];   // eclipses: 200 KB of Sun and Moon, so links to an event resolve   // stars, galaxies and most textures load as you approach them
 deep.onStars = () => { applyLayers(); ui.renderLayers(); };
 if (!PHONE) setTimeout(() => { deep.needStars(); web.load().catch(e => console.warn(e)).finally(() => applyLayers()); }, 6000);   // desktops: in the background
 document.querySelector('#q').addEventListener('focus', () => deep.needStars(), { once: true });   // searching for a star
@@ -204,4 +208,4 @@ setInterval(() => { if (!EMBED && !nav.fly) find.syncHash(); }, 2000);   // time
 }
 applyLayers();
 
-window.OOSS = { THREE, scene, camera, controls, clock, bodies, byKey, small, moons, comets, craft, find, quality, web, exo, nav, story, renderer, LY: LY_AU, embed: embed.api, loop };
+window.OOSS = { THREE, scene, camera, controls, clock, bodies, byKey, small, moons, comets, craft, eclipses, find, quality, web, exo, nav, story, renderer, LY: LY_AU, embed: embed.api, loop };
