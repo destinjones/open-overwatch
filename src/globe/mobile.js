@@ -9,6 +9,7 @@ import { Follow } from './follow.js';
 import { Share } from './share.js';
 
 const PLACES = {
+  now: ['Earth now', 'Quakes, storms, fires, launches, aurora right now'],
   ground: ['Street', 'London at 3 km, tilted'], air: ['Airspace', 'Europe from 1,400 km'], earth: ['Earth', 'The whole planet, sunlit side'],
   geo: ['GEO belt', '36,000 km up, where TV satellites sit'], moon: ['Moon', 'Fly out and look at it'], conj: ['Near misses', 'Close approaches in orbit'],
   tour: ['Tour', 'An 80-second guided flight'], launches: ['Launches', 'Rockets about to fly, with countdowns'], flybys: ['Flybys', 'Asteroids passing Earth'], weather: ['Weather', 'Live clouds, rain radar, rain from space'], route: ['Directions', 'A route between two places, then fly it'], imagery: ['Before/after', 'Recent satellite pictures of this place'], measure: ['Measure', 'Distances, areas, pins; outline a country'], search: ['Search', 'Satellites, countries, flights, volcanoes'], tonight: ['Tonight', 'What you can see above you, with reminders'], flight: ['Find a flight', 'Type a flight number, follow the plane'], lookup: ['Look up', 'Your sky, with the phone as a window'], eclipses: ['Eclipses', 'Solar eclipses 2027 to 2030'], space: ['Solar System', 'Keep going: planets, stars, galaxies'],

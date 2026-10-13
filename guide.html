@@ -120,7 +120,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     </div>
     <div class="toc" aria-label="On this page">
       <a href="#views">The views</a><a href="#moving">Moving around</a><a href="#band">The band</a>
-      <a href="#layers">Globe layers</a><a href="#cards">Clicking things</a><a href="#aviation">Planes and airports</a><a href="#sky">Tonight and look up</a>
+      <a href="#layers">Globe layers</a><a href="#cards">Clicking things</a><a href="#aviation">Planes and airports</a><a href="#sky">Tonight and look up</a><a href="#now">Earth now</a>
       <a href="#weather">Weather timeline</a><a href="#measure">Draw and measure</a><a href="#ops">Ops looks</a>
       <a href="#voice">Voice commands</a><a href="#keys">Keyboard</a><a href="#share">Share and embed</a>
       <a href="#map2d">The 2D map</a><a href="#solar">Solar System</a><a href="#download">Download version</a>
@@ -179,6 +179,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <div class="tbl"><table>
       <thead><tr><th>Button</th><th>What it does</th></tr></thead>
       <tbody>
+        <tr><td><code>Earth now</code></td><td>What is happening on the planet right now, in one panel: earthquakes, tropical cyclones, aurora, launches, people in space, asteroid flybys, wildfires and the weather extremes. <kbd>E</kbd> opens it. See <a href="#now">Earth now</a>.</td></tr>
         <tr><td><code>⌕ Search</code></td><td>Search satellites (by name, NORAD number or everyday name such as ISS, Hubble, Tiangong), countries, flight numbers, aircraft by type or kind ("A380", "helicopters"), airports by code, name or city, places by name (Photon, OpenStreetMap), the views in this band, and volcanoes, big employers and lighthouses once their layers have loaded. <kbd>/</kbd> opens it.</td></tr>
         <tr><td><code>Street</code></td><td>Flies to London at about 3.5 km, tilted, to show street-level detail.</td></tr>
         <tr><td><code>Airspace</code></td><td>Europe from 1,400 km: the air traffic picture.</td></tr>
@@ -291,6 +292,28 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <p>Click an airport (the <code>airports</code> layer) for its board: the planes arriving (low and descending towards it), departing (climbing away), on the ground, and those that just landed or took off, worked out from the live aircraft around it, with emergency squawks standing out. It is not a timetable: a plane counts once it is close and low enough to tell. The card also has the weather at the field with its VFR or IFR category, the runway in use and the wind on each runway, <b>Follow the next arrival</b> and <b>From the tower</b>.</p>
     <h3>Cockpit weather</h3>
     <p>Riding a plane in the cockpit (or with the HUD on while following one), the HUD shows its flight phase and the weather where it is: the wind at its height and whether it is a head or tail wind, the outside temperature against the standard atmosphere, true airspeed and Mach, cloud at its level, an icing hint, and the nearest airport and destination. From Open-Meteo, asked only when the plane moves to another cell or level.</p>
+  </div>
+</section>
+
+<section id="now" aria-labelledby="now-h">
+  <div class="wrap">
+    <div class="eyebrow">The dashboard</div>
+    <h2 id="now-h">Earth now</h2>
+    <p><b>Earth now</b> in the band, the <kbd>E</kbd> key or a <code>globe.html#go=now</code> link opens a panel that sums up what is happening right now, from the same feeds the globe draws. Every line is a button: it switches the right layer on and flies there (and opens the card where there is one). On a desktop the panel sits on the left, where the layer list steps aside for it; on a phone it is a sheet above the bottom bar that folds down to its title while the camera flies (tap the title to unfold it).</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Section</th><th>What it shows</th><th>From</th></tr></thead>
+      <tbody>
+        <tr><td>Earthquakes</td><td>How many M2.5+ quakes in the last 24 hours, how many were M6 or more, the strongest, the busiest regions (tap one to fly to its strongest quake), and a chart of quakes per day: the last 7 days at M2.5+ or the last 30 at M4.5+. Today's bar is faint: the day isn't over.</td><td>USGS real-time feeds</td></tr>
+        <tr><td>Tropical cyclones</td><td>Every active storm, strongest first, with its wind in knots, pressure and movement where NOAA gives them.</td><td>NOAA NHC, GDACS, NASA EONET</td></tr>
+        <tr><td>Aurora</td><td>The planetary K index now, in words (quiet, unsettled, active, or a G1 to G5 storm), how far from the poles the aurora may reach, and a chart of the last 3 days and the next day's forecast (faint) with the G1 storm line. The line flies to the night side of the Arctic with the aurora layer on.</td><td>NOAA SWPC</td></tr>
+        <tr><td>Launches</td><td>Launches in the next 24 hours with live countdowns, the full list, and how many launches are listed per month. The list holds only the next few dozen launches, so the current month (launches already flown are gone from it) and months past the end of the list are faint.</td><td>Launch Library 2 (the website's copy)</td></tr>
+        <tr><td>People in space</td><td>How many people are in orbit and on which station; tap a station to fly to it.</td><td>Launch Library 2</td></tr>
+        <tr><td>Near-Earth flybys</td><td>How many asteroids pass within 20 lunar distances this week and the closest one.</td><td>NASA/JPL CNEOS</td></tr>
+        <tr><td>Wildfires</td><td>Named wildfires that are still open, with prescribed burns counted apart, the largest reported and where most of them are. These are incident reports, mostly from the US and Canada, not every fire on Earth: the Wildfires layer adds what the satellites see.</td><td>NASA EONET</td></tr>
+        <tr><td>Weather extremes</td><td>The hottest and coldest air (2 m) and the strongest wind (10 m) anywhere on Earth at the model hour nearest now, with the country under it. A tap opens weather mode with that layer on and flies there. These are model grid cells, open sea and Antarctica included, not weather-station records. On a phone this section waits for a tap (it downloads about 1 MB).</td><td>NOAA GFS</td></tr>
+      </tbody>
+    </table></div>
+    <p>The charts are drawn in the page: hover a bar (or tap it) for its value; screen readers hear every value. The panel refreshes every five minutes while it is open, and <b>↻</b> refreshes it now. Nothing is downloaded while it is closed.</p>
   </div>
 </section>
 
@@ -433,6 +456,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <h3>3D globe</h3>
         <div class="tbl"><table><tbody>
           <tr><td><kbd>/</kbd></td><td>Search</td></tr>
+          <tr><td><kbd>E</kbd></td><td>Earth now: open or close</td></tr>
           <tr><td><kbd>+</kbd> <kbd>−</kbd></td><td>Zoom in, out</td></tr>
           <tr><td><kbd>N</kbd></td><td>North up and level</td></tr>
           <tr><td><kbd>T</kbd></td><td>Look straight down</td></tr>

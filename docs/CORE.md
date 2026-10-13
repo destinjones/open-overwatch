@@ -24,7 +24,7 @@ is also used by its tests in `test/`.
 - [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`
 - [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`
 - [Weather](#weather): `gfs.js`, `wxmodels.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`
-- [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `aurora.js`, `fireclusters.js`, `fires.worker.js`
+- [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `aurora.js`, `fireclusters.js`, `fires.worker.js`, `earthnow.js`
 - [Aviation](#aviation): `aircraft.js`, `actype.js`, `phase.js`, `airports.js`, `runways.js`, `aloft.js`, `trail.js`
 - [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `transitfeeds.js`, `gtfsrt.js`, `bikes.js`, `cameras.js`, `cables.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
 - [OpenStreetMap](#openstreetmap): `osmtiles.js`, `overpass.js`
@@ -538,6 +538,26 @@ about 2.5 km of each other), each with size, power and last sighting. Used by mc
 
 A Web Worker (no exports) shared by the globe and the 2D map: it fetches a GIBS VIIRS thermal-anomaly vector tile,
 unzips and decodes it, and posts back the detections since a time, off the main thread.
+
+### `earthnow.js`
+
+"Earth now": the sums and small charts behind the globe's dashboard (`src/globe/now.js`), from parsed feeds the other
+modules produce (quakes, cyclones, EONET wildfires, launches, Kp rows, flybys, model fields). Pure: no fetching, and the
+charts are SVG text. Used by globe. Tests: `test/earthnow.test.mjs` (a captured USGS week, NOAA's Kp product checked
+against SWPC's own G-scale labels, EONET wildfires).
+
+- `summarizeQuakes`: count, strongest, newest, M4.5+ and M6+ counts, tsunami flags, the busiest regions; `quakeRegion`
+  turns a USGS place into a region ("5 km W of Cobb, CA" → California); `quakeClass` names a magnitude.
+- `dailyCounts`: items per UTC day for the last N days (today flagged partial); `utcDayStart`.
+- `KP_FORECAST_URL`, `kpSeries` (NOAA's Kp products, both shapes, observed / estimated / predicted), `kpSummary`,
+  `kpLevel` (NOAA's G scale: Kp 5- (4.67) is G1, as SWPC marks it), `auroraReach`.
+- `summarizeStorms`, `summarizeWildfires` (prescribed burns apart: `prescribed`, `wildfireRegion`),
+  `launchesSoon`, `launchesToday`, `launchesByMonth` (months the list can't fill are flagged partial),
+  `summarizeFlybys`.
+- `fieldExtremes`, `windiest`, `weatherExtremes`: the highest, lowest and windiest grid points of a model field, with
+  where they are; `tempWords`, `windWords`, `latLonWords`.
+- `barsSvg`: an accessible, theme-aware bar chart as SVG markup (a title, a description listing every value, a tooltip
+  per bar, `currentColor` bars, CSS-variable text); `quakeChart`, `kpChart`, `launchChart` build on it.
 
 ## Aviation
 

@@ -22,6 +22,7 @@
 <link rel="stylesheet" href="src/globe/measure.css">
 <link rel="stylesheet" href="src/globe/weather.css">
 <link rel="stylesheet" href="src/globe/aviation.css">
+<link rel="stylesheet" href="src/globe/now.css">
 <style>
 html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%} /* no page pinch-zoom; panels still scroll */
 /* Open Overwatch · Orbital (prototype): one CesiumJS globe from deep space to street level, floating glass UI. */
@@ -230,6 +231,7 @@ body.lookup #navpad{display:none}
 <aside id="dock" class="glass" aria-label="Layers"></aside>
 <nav id="band" class="glass">
   <div class="alt"><b id="bandName">—</b><span id="bandAlt">—</span></div>
+  <button class="go" data-go="now" style="color:#ff7b4f" title="What is happening on Earth right now: quakes, storms, fires, launches, aurora, flybys, weather extremes  ( E )">Earth now</button>
   <button class="go" data-go="search" style="color:#7dffa6" title="Search satellites, countries, flights, volcanoes and views  ( / )">⌕ Search</button>
   <button class="go" data-go="ground">Street</button>
   <button class="go" data-go="air">Airspace</button>
