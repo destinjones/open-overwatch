@@ -304,6 +304,10 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   zoom; `hooks.towerAir` keeps the plane's model alive in AirModels.refresh. Airport weather: Open-Meteo surface values
   in knots, cloud base estimated from the temperature/dew point spread (400 ft per °C) only under ≥50% low cloud, FAA
   categories from that and the visibility: labelled estimated.
+- Runways (`runways.js`, core/runways.js): headings from the two thresholds (OurAirports' le/he coordinates), lined up =
+  within 20 km of a threshold, before it, within 1 km of the centre line (4° further out), tracking within 20°. The
+  runway in use: most arrivals lined up, else most headwind when the wind is 5 kt or more. Needs data/runways.json
+  (not downloaded yet: see ROADMAP); checked with two injected test runways at Denver.
 - The pane only renders while it is shown: a hidden pane runs no preUpdate (tower view, cockpit, trails look frozen).
   Check such things with globe_shot instead. Reloading the pane often earned 429s from adsb.lol's /mil.
 - The scene renders on request: in the pane, call `scene.requestRender()` before trusting a screenshot of a change, and
