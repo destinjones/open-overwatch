@@ -400,3 +400,38 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   without an onclose; storm cards named NOAA NHC twice.
 - brand/tools/cdp.mjs kills "orphaned" Edge from other runs in the same work folder: with several sessions rendering, set
   OW_WORK to a folder of your own. brand/tools/page_check.mjs renders any page (the 2D map too) and lists script errors.
+## Installable app, touch hints, accessibility (sw.js, src/app/, core/pwa.js, core/spot.js, core/a11ycheck.js) — 2026-10-12
+- **Where the worker runs.** `src/app/pwa.js` registers `sw.js` (scope = the site root, `updateViaCache: 'none'`) only on
+  the website. Archived `/v/<tag>/` pages are inside that scope, so two guards: their pages never register or talk to the
+  worker (`isArchivedPath`), and the worker passes through any request under `v/` or whose referrer is an archived page
+  (the Solar System's root-copy fallback). On localhost (serve.js, the download, every dev session sharing :8787) it is off
+  unless `?sw=1` (remembered as `oo-sw`); `?sw=0` unregisters it and clears its caches. Never add sw.js to APP_PATHS.
+- **Versions.** build_site.py `stamp_worker` writes `<OW_VERSION>+<commit>` into `const BUILD = 'dev'` of the site's
+  copy (it stops the build if that line is missing). A new commit on main = new worker bytes = the "new version · Reload"
+  bar; the 6-hourly data rebuilds of the same commit are byte-identical (no prompt). Caches: `oo-shell-<BUILD>` (pages
+  and code, dropped with the old worker), `oo-data-v1`, `oo-asset-v1`, `oo-lib-v1`, `oo-tile-v1` (kept across versions,
+  bounded). The globe's own `oo3d*` caches are not the worker's and are never touched.
+- **Strategies** are listed at the top of sw.js. The rule that matters: copies of live feeds (data/tle, wind, launches,
+  news, …, versions.json) are network-first; offline they come back with an `x-oo-offline: <Date>` header. Our own files
+  are kept even though serve.js says `no-store` to everything (that is a dev convenience, not a "never store").
+- **Precache = a crawl**, not a list: the pages, then every `src=`, stylesheet, `import … from`, `import('…')` and
+  `new URL('…', import.meta.url)` they reach (about 170 files, after load + idle so it never competes with the
+  globe's start). A module only reached by a computed path would be missed: keep imports literal. Save-Data: pages only.
+- **Libraries via `<script>` are no-cors**; the worker refetches pinned CDN files with CORS so the cache holds readable
+  copies (an opaque one counts as ~7 MB of quota in Chrome). Leaflet's base tiles are `crossOrigin: false`: OSM and Esri
+  answer CORS, so they are kept; anything that does not is passed through uncached.
+- **Testing offline in WebKit:** Playwright's `setOffline` with a service worker makes WebKit fail with "internal error";
+  pwa_check.mjs drops the connections in its own server instead (and also sets offline in Chromium for the banner).
+- **Touch hints** (`gestures.js`): phones only (`pointer: coarse` without a fine pointer), not in embeds, after the
+  globe's boot screen or the map's splash and welcome are gone; `oo-hints` remembers per view. The journeys pre-set it.
+- **Long press** (`spot.js`): 550 ms, 10 px slop, one finger. On the globe, lifting the finger is also a Cesium click
+  that would open the country over the card: the press sets `state.picking` until 350 ms after the finger is up (ui.js
+  ignores clicks while picking). The card is a self-describing object for ui.js `select()` (`cardHtml`/`afterCard`), so
+  Fly to and Nearest camera come for free. On the map the following click is swallowed for 800 ms (else the probe opens).
+- **a11y.js works on the live DOM** from a per-page description (toolbars, toggles, tabs, the card to announce): new
+  band or dock buttons other modules add are covered without changes. Announcements go to one polite region; a card is
+  said once per selection (kind + heading), map popups by their heading. `fixNames` gives symbol-only buttons their title.
+- **The HTML check** (core/a11ycheck.js, test/a11y.test.mjs, CI) fails on a button named only by a symbol, an input
+  with only a placeholder, an img without alt, duplicate ids, tabindex > 0, an unlabelled role, and text-colour tokens
+  (`--ink*`, `--dim`, `--faint`, …) under 4.5:1 against `--bg` / `--panel-solid` / `--panel-2`. Viewports that block zoom
+  are only warnings on the three views that handle pinch themselves.

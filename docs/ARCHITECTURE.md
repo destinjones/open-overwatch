@@ -55,6 +55,9 @@ same code runs in Node tests and in the render loop without allocating.
 | `mvt.js` | Mapbox Vector Tile decoding (protobuf by hand, wanted layers only), tile maths |
 | `roadtiles.js` | road lines from vector tiles: clipped per tile, joined across tile edges, junctions, names, lights where busy roads meet |
 | `traffic.js` | the traffic simulation: road graph, car following (IDM), lights, time-of-day busyness, NYC DOT / Fintraffic readings |
+| `pwa.js` | the installable app's decisions: may this page run the site worker (archived /v/ copies never, the local helper only with ?sw=1), offline words, when the touch hints are due, what a long press is |
+| `spot.js` | "this spot" (a long press): decimal / DMS / MGRS coordinates, a globe link with a pin on the spot |
+| `a11ycheck.js` | the HTML accessibility check (names, labels, alt, ids, tabindex, roles, text-colour contrast) that the tests run on every page |
 | `measure.js` | draw and measure: WGS84 distances and bearings (Vincenty; a bisection near the antipode), geodesic polygon areas (authalic sphere), ground length, the words for them, GeoJSON, the drawing in share links |
 | `quakes.js`, `eonet.js`, `gdacs.js` | USGS quakes, NASA EONET events (points and polygons, storm tracks), GDACS alerts: one parser for the 2D map, the globe and the MCP server |
 | `cyclones.js` | every active cyclone, merged per storm from EONET, NOAA NHC, NOAA's forecast layers and GDACS (`loadCyclones`, fetching injected); categories, sources |
@@ -66,6 +69,15 @@ same code runs in Node tests and in the render loop without allocating.
 Accuracy, checked by the tests against JPL Horizons on 2026-10-02: planets within arcminutes (JPL's own stated
 error for these formulas), main-belt asteroids within ~3×10⁻⁴ AU, the Moon within ~0.3°, the other moons within 0.4° of their orbit.
 The moon fits drift slowly away from 2026 (no short-period terms); rerun `make_moons.py` with a new window then.
+
+## Every page (`src/app/`, `sw.js`)
+
+Each page loads `src/app/shell.js` (one script tag): `pwa.js` registers `sw.js` after the page has settled and shows the
+offline banner, the new-version prompt and the Install button; `a11y.js` adds keyboard moves, names, state attributes and
+announcements to the live DOM from a short description per page (so the views' own code stays untouched); `gestures.js`
+and `spot.js` (globe and 2D map only, loaded after the page) show the first-run touch hints and handle the long press.
+`shell.css` carries the shared focus rings, bar, hint card and reduced-motion rule. `sw.js` is a classic worker at the
+site root; `offline.html` is what it shows for a page that was never saved. Details in docs/NOTES.md.
 
 ## The 3D globe (`src/globe/`)
 

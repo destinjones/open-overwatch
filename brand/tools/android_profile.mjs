@@ -17,6 +17,7 @@ const what = process.argv[2] || 'map';
 const b = await connect(), p = await b.newPage('about:blank');
 try {
   for (const d of ['Page', 'Runtime', 'Network']) await p.send(d + '.enable');
+  await p.send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('oo-hints', '{"globe":1,"map":1}') } catch (e) {}` });   // the first-run touch hints (src/app/gestures.js) would take the first tap: these runs are about the views
   for (const t of await (await fetch('http://127.0.0.1:9333/json/list')).json()) if (t.type === 'page' && /localhost:8787/.test(t.url)) await fetch('http://127.0.0.1:9333/json/close/' + t.id).catch(() => {});
   await p.send('Storage.clearDataForOrigin', { origin: 'http://localhost:8787', storageTypes: 'all' });   // a first visit every time
   await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*earthquake.usgs.gov*', '*wheretheiss.at*'] });

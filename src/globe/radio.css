@@ -21,7 +21,7 @@
   background:repeating-linear-gradient(90deg,rgba(139,155,171,.35) 0 1px,transparent 1px 8px) bottom/100% 6px no-repeat}
 #rdTuner .rd-ticks{position:absolute;inset:0}
 #rdTuner .rd-ticks i{position:absolute;bottom:0;width:2px;height:15px;margin-left:-1px;border-radius:1px;background:var(--rd);opacity:.55}
-#rdTuner .rd-w,#rdTuner .rd-e{position:absolute;bottom:-12px;font:500 9px/1 var(--mono);letter-spacing:.06em;color:var(--faint,#55667a)}
+#rdTuner .rd-w,#rdTuner .rd-e{position:absolute;bottom:-12px;font:500 9px/1 var(--mono);letter-spacing:.06em;color:var(--faint,#738599)}
 #rdTuner .rd-w{left:-6px} #rdTuner .rd-e{right:-6px}
 #rdTuner .rd-needle{position:absolute;top:3px;bottom:3px;width:2px;margin-left:-1px;border-radius:1px;background:var(--accent);
   box-shadow:0 0 8px rgba(125,255,166,.75),0 0 2px rgba(125,255,166,.9);transition:left .18s cubic-bezier(.2,.8,.2,1);pointer-events:none}

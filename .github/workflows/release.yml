@@ -17,7 +17,7 @@ jobs:
           D=dist/open-overwatch
           mkdir -p "$D/brand/hero" "$D/brand/social" "$D/brand/textures" "$D/brand/models"
           cp -r src "$D/"                                                                          # the apps' ES modules
-          cp open-overwatch.html globe.html solar.html tonight.html manifest.webmanifest serve.js serve.py README.txt \
+          cp open-overwatch.html globe.html solar.html tonight.html manifest.webmanifest sw.js offline.html serve.js serve.py README.txt \
              "Start Open Overwatch.bat" "Start Open Overwatch (minimized).vbs" "$D/"
           cp -r brand/emblem brand/sprites "$D/brand/"
           rm -rf "$D/brand/sprites/raw"

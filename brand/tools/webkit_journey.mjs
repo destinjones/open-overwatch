@@ -24,6 +24,7 @@ for (const host of ['celestrak.org', 'opensky-network.org', 'adsb.lol', 'adsb.fi
   await ctx.route(new RegExp(`https?://([^/]*\\.)?${host.replace('.', '\\.')}/`), r => r.abort());
 await ctx.route(/api\.open-meteo\.com/, r => r.abort());   // never spend Open-Meteo's hourly quota from tests
 await ctx.route(/\/data\/wind\.json/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(windFixture()) }));
+await ctx.addInitScript(`try { localStorage.setItem('oo-hints', '{"globe":1,"map":1}') } catch (e) {}`);   // the first-run touch hints (src/app/gestures.js) would take the first tap: these runs are about the views
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push('page error: ' + String(e.message).split('\n')[0].slice(0, 200)));

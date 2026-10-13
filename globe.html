@@ -26,7 +26,7 @@ html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%} /* no page pin
 /* Open Overwatch · Orbital (prototype): one CesiumJS globe from deep space to street level, floating glass UI. */
 :root{
   --bg:#04060a; --glass:rgba(8,12,18,.62); --glass-strong:rgba(8,12,18,.82); --edge:rgba(125,255,166,.16); --edge-dim:rgba(230,237,243,.08);
-  --ink:#e6edf3; --dim:#8b9bab; --faint:#55667a; --accent:#7dffa6;
+  --ink:#e6edf3; --dim:#8b9bab; --faint:#738599; --accent:#7dffa6;
   --civ:#5fd3ff; --mil:#ffb44d; --emg:#ff4d5e; --sat:#d9ccff; --gnss:#ffd45c; --geo:#b48cff; --wx:#62e0c8; --qk:#ff7b4f;
   --display:"Big Shoulders Display","Arial Narrow",sans-serif; --body:"Barlow",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
   color-scheme:dark;
@@ -210,12 +210,12 @@ body.lookup #navpad{display:none}
   <div class="brand glass"><img src="brand/emblem/emblem-256.png" alt=""><div><b>Open Overwatch</b><small>Orbital · prototype</small></div></div>
   <div class="timebar glass" id="timebar">
     <div class="tnow"><b class="mono" id="tNow">—</b><span id="tMode">live</span></div>
-    <button class="tb" data-rate="-3600" title="Backwards, 1 hour per second">«</button>
-    <button class="tb" data-rate="0" title="Pause">❚❚</button>
-    <button class="tb on" data-rate="1" title="Live / real speed">▶</button>
-    <button class="tb" data-rate="60" title="1 minute per second">›</button>
-    <button class="tb" data-rate="600" title="10 minutes per second">»</button>
-    <button class="tb" data-rate="3600" title="1 hour per second">⏩</button>
+    <button class="tb" data-rate="-3600" title="Backwards, 1 hour per second" aria-label="Backwards, 1 hour per second">«</button>
+    <button class="tb" data-rate="0" title="Pause" aria-label="Pause">❚❚</button>
+    <button class="tb on" data-rate="1" title="Live / real speed" aria-label="Live, real speed">▶</button>
+    <button class="tb" data-rate="60" title="1 minute per second" aria-label="1 minute per second">›</button>
+    <button class="tb" data-rate="600" title="10 minutes per second" aria-label="10 minutes per second">»</button>
+    <button class="tb" data-rate="3600" title="1 hour per second" aria-label="1 hour per second">⏩</button>
     <button class="tb" id="tLive" title="Back to now">NOW</button>
   </div>
   <div class="stats glass" id="stats">
@@ -274,5 +274,6 @@ if (typeof OffscreenCanvas === 'undefined') window.OffscreenCanvas = class Offsc
 if (location.protocol === 'file:') document.querySelector('#boot div').innerHTML = 'The 3D globe needs the local helper.<br>Run <b>Start Open Overwatch.bat</b>, then open<br><b style="text-transform:none">http://127.0.0.1:8787/globe.html</b>';
 </script>
 <script type="module" src="src/globe/main.js"></script>
+<script type="module" src="src/app/shell.js"></script>
 </body>
 </html>
