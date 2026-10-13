@@ -191,7 +191,7 @@ export function routeWords(rt, fit, { ground = false, fmt = n => Math.round(n).t
   const places = `${placeWords(rt.origin)} → ${placeWords(rt.destination)}${rt.airline ? ' · ' + rt.airline.name : ''}${rt.iata ? ' ' + rt.iata : ''}`;
   if (!fit) return { pct: 0, places, state: '', off: '' };
   if (!fit.fits) return { pct: Math.round(fit.progress * 100), places, state: '', off: fit.why };
-  const eta = fit.etaS != null && !ground ? ` · about ${etaText(fit.etaS)} to go at this speed` : '';
+  const eta = fit.etaS == null || ground ? '' : fit.etaS < 60 ? ' · arriving now' : ` · about ${etaText(fit.etaS)} to go at this speed`;
   return { pct: Math.round(fit.progress * 100), places, state: `${fmt(fit.leftKm)} km left${eta}`, off: '' };
 }
 /** What a route that may not be today's flight is, after the reason: one wording for every view. */

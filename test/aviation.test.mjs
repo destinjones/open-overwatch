@@ -481,6 +481,7 @@ test('card words shared by both views: kind, phase, route', async () => {
   const on = routeWords(rt, { fits: true, progress: 0.62, leftKm: 412.4, etaS: 2700 });
   assert.deepEqual(on, { pct: 62, places: 'ORD Chicago → JFK New York · American Airlines AA2341', state: '412 km left · about 45 min to go at this speed', off: '' });
   assert.equal(routeWords(rt, { fits: true, progress: 1, leftKm: 0, etaS: 5 }, { ground: true }).state, '0 km left', 'on the ground: no ETA');
+  assert.equal(routeWords(rt, { fits: true, progress: 1, leftKm: 2.6, etaS: 33 }).state, '3 km left · arriving now', 'not "about now to go"');
   assert.deepEqual(routeWords(rt, { fits: false, progress: 0.3, why: 'off the route on file' }).off, 'off the route on file');
   assert.equal(routeWords(rt, null).state, ''); assert.equal(routeWords({ airline: { name: 'X' } }, null), null);
   assert.match(ROUTE_CAVEAT, /usual route/);
