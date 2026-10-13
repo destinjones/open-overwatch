@@ -3,8 +3,8 @@
   "name": "open-overwatch",
   "display_name": "Open Overwatch",
   "version": "0.2.0",
-  "description": "The live Earth for Claude: earthquakes, satellites and when to see them, launches, storms, ships, weather, the aurora and tonight's sky, with the 3D globe in the chat.",
-  "long_description": "Ask about the live Earth and get answers from public open data (USGS, NOAA, NASA, Launch Library 2, CelesTrak element sets via the Open Overwatch website, Fintraffic AIS, CityBikes, Open-Meteo). Every answer carries a link that opens Open Overwatch's live 3D globe on it, and show_on_globe puts that globe right in the conversation. No account, no API keys, nothing stored.",
+  "description": "The live Earth for Claude: earthquakes, satellites, launches, storms, wildfires, ships, transit, traffic cameras, cables, countries, weather, the aurora, the planets and tonight's sky, with the 3D globe in the chat.",
+  "long_description": "Ask about the live Earth and get answers from public open data (USGS, NOAA, NASA, Launch Library 2, CelesTrak element sets via the Open Overwatch website, Fintraffic AIS, CityBikes, Open-Meteo, public traffic cameras, transit operators, TeleGeography, Wikidata, the World Bank). Every answer carries a link that opens Open Overwatch's live 3D globe on it, and show_on_globe puts that globe right in the conversation. No account, no API keys, nothing stored.",
   "author": { "name": "Destin Jones", "url": "https://github.com/destinjones" },
   "repository": { "type": "git", "url": "https://github.com/destinjones/open-overwatch" },
   "homepage": "https://destinjones.github.io/open-overwatch/",
@@ -30,9 +30,15 @@
     { "name": "bike_share", "description": "Live bike share stations near a place, worldwide (CityBikes)." },
     { "name": "weather", "description": "Weather now and for the next days at a place (Open-Meteo)." },
     { "name": "aurora", "description": "Kp now and ahead, and the chance of aurora at a place (NOAA SWPC)." },
-    { "name": "night_sky", "description": "Tonight's sky at a place: planets, Moon, meteor showers, bright passes, clouds." }
+    { "name": "night_sky", "description": "Tonight's sky at a place: planets, Moon, meteor showers, bright passes, clouds." },
+    { "name": "traffic_cameras", "description": "Public traffic cameras near a place, with the latest picture (London, New York, California, Finland, Norway, Hong Kong, Singapore and more)." },
+    { "name": "transit_vehicles", "description": "Live buses, trams, metros, trains and ferries near a place (Boston, Helsinki, Norway, Austin, Minneapolis)." },
+    { "name": "wildfires", "description": "Fire hot spots in an area from NASA VIIRS satellites, grouped into fires; named US fires with containment (NIFC)." },
+    { "name": "country_briefing", "description": "A country's facts, area, this week's earthquakes, open natural events, nearby storms and the weather in its capital." },
+    { "name": "submarine_cables", "description": "Submarine cables and landing stations at or near a place (TeleGeography)." },
+    { "name": "solar_system", "description": "Where the planets and the Moon are, how bright, when to see them from a place, and their next oppositions and elongations." }
   ],
-  "keywords": ["globe", "earth", "satellites", "earthquakes", "launches", "weather", "aurora", "open data", "maps"],
+  "keywords": ["globe", "earth", "satellites", "earthquakes", "launches", "weather", "aurora", "wildfires", "transit", "traffic cameras", "planets", "open data", "maps"],
   "license": "MIT",
   "compatibility": { "runtimes": { "node": ">=20.0.0" } },
   "privacy_policies": ["https://github.com/destinjones/open-overwatch/blob/main/mcp/README.md#privacy"]
