@@ -2,6 +2,8 @@
 
 # Open Overwatch
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23348946.svg)](https://doi.org/10.5281/zenodo.23348946)
+
 **Everything that moves, where it really is, right now.** From the aircraft over your street to every tracked
 satellite, the planets, 1.57 million asteroids, the planets of other stars and 43,480 galaxies, in **one continuous
 zoom**. Positions are checked against NASA JPL. It runs in your browser (phones too), with no install, no account and
