@@ -8,7 +8,7 @@ import { AU_KM, DEG } from '../src/core/units.js';
 import { earthPosition, planetPosition } from '../src/core/planets.js';
 import {
   GM_SUN, cometFromRow, cometPosition, cometVelocity, conicInPlane, solveHyperbolic, solveBarker, cometNames, cometClass,
-  cometPeriodYears, activity, ionTail, dustTail, dustDays, cometsNearNow, conicArc,
+  cometPeriodYears, activity, ionTail, dustTail, dustDays, cometsNearNow, conicArc, stateToConic,
 } from '../src/core/comets.js';
 import { trackPosition, trackSpeed, escaping, missionPhase, eventsAround, relativeTime, sampleIndex, lightSeconds } from '../src/core/craft.js';
 import { craftAt } from '../src/core/sky.js';
@@ -47,6 +47,20 @@ test('comets: conic solvers satisfy their equations', () => {
   }
 });
 
+test('comets: state vectors back to elements, for every kind of conic and a reduced GM', () => {
+  for (const [label, mu] of [['2P/', undefined], ['1P/', undefined], ['C/2025 N1', undefined], ['C/2023 A3', undefined], ['67P/', GM_SUN * 0.4]]) {
+    const c = { ...cometFromRow(row(label)), mu }, jd = 2461325.5, r = cometPosition(c, jd), v = cometVelocity(c, jd);
+    const k = stateToConic(r, v, jd, mu ?? GM_SUN);
+    for (const t of [jd - 50, jd, jd + 400]) {
+      const a = cometPosition(c, t), b = cometPosition(k, t);
+      assert.ok(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 1e-8 * Math.max(1, Math.hypot(a.x, a.y, a.z)), `${label} at ${t}`);
+    }
+  }
+  // a circle in the ecliptic (node and perihelion undefined): still the same path
+  const k = stateToConic({ x: 1, y: 0, z: 0 }, { x: 0, y: Math.sqrt(GM_SUN), z: 0 }, 0), p = cometPosition(k, 91.3);
+  assert.ok(Math.abs(Math.hypot(p.x, p.y, p.z) - 1) < 1e-9 && p.y > 0.99);
+});
+
 test('comets: position and velocity match a numerical derivative and the elliptic Kepler path', () => {
   const c = cometFromRow(row('2P/'));
   const a = cometPosition(c, 1000 - 1e-3), b = cometPosition(c, 1000 + 1e-3), v = cometVelocity(c, 1000);
@@ -77,6 +91,8 @@ test('comets: names people use, classes and periods', () => {
   assert.equal(cometNames('C/2025 R2 (SWAN)').display, 'SWAN (C/2025 R2)');
   assert.ok(cometNames('C/2025 R2 (SWAN)').aliases.includes('C/2025 R2'));
   assert.equal(cometNames('P/2026 N2').display, 'P/2026 N2');
+  assert.equal(cometNames('240P/NEAT').display, '240P/NEAT');            // a numbered comet with a survey's name keeps its number
+  assert.equal(cometNames('12P/Pons-Brooks').display, 'Pons-Brooks');
   assert.equal(cometClass(cometFromRow(row('2P/'))), 'Jupiter-family comet');
   assert.equal(cometClass(cometFromRow(row('1P/'))), 'Halley-type comet');
   assert.equal(cometClass(cometFromRow(row('C/1995 O1'))), 'long-period comet');
@@ -94,21 +110,24 @@ test('comets: tails point away from the Sun, the dust tail curves behind, both s
   assert.ok(cosIon < Math.cos(0.5 * DEG), 'and bent a little by the comet\'s own motion (aberration)');
   assert.ok(ion.length > 0.1 && ion.length <= 0.6);
   assert.ok(ionTail({ x: 4.5, y: 0, z: 0 }, { x: 0, y: 0.008, z: 0 }).length < ion.length / 10);
-  const pts = dustTail((t, o) => cometPosition(c, t, o), jd, { days: 30, n: 7 });
+  const pts = dustTail(c, jd, { days: 30, n: 7 });
   assert.equal(pts.length, 21);
   assert.ok(Math.hypot(pts[0] - p.x, pts[1] - p.y, pts[2] - p.z) < 1e-12, 'starts at the nucleus');
-  const tip = { x: pts[18], y: pts[19], z: pts[20] }, then = cometPosition(c, jd - 30);
-  assert.ok(Math.hypot(tip.x, tip.y, tip.z) > Math.hypot(then.x, then.y, then.z), 'old dust is pushed outward');
+  const tip = { x: pts[18], y: pts[19], z: pts[20] };
+  assert.ok(Math.hypot(tip.x, tip.y, tip.z) > r + 0.01, 'grains feel less gravity: they stay farther out than the comet falls');
   const back = { x: tip.x - p.x, y: tip.y - p.y, z: tip.z - p.z }, bl = Math.hypot(back.x, back.y, back.z);
   assert.ok((back.x * v.x + back.y * v.y + back.z * v.z) / bl / Math.hypot(v.x, v.y, v.z) < 0, 'the dust trails behind the comet');
   assert.ok(dustDays(0.6) === 60 && dustDays(3) < 5 && dustDays(6) === 0);
+  // a sungrazer just past perihelion (q = 0.0057 AU): grains spread along their own orbits, the tail stays bounded
+  const sg = cometFromRow(row('C/2026 A1')), d = dustTail(sg, sg.tp + 10, { days: 60, n: 12 }), s0 = cometPosition(sg, sg.tp + 10);
+  for (let k = 0; k < 12; k++) assert.ok(Math.hypot(d[k * 3] - s0.x, d[k * 3 + 1] - s0.y, d[k * 3 + 2] - s0.z) < 3, 'within 3 AU of the nucleus');
 });
 
 test('comets: the ones near the Sun now, and arcs of open orbits', () => {
   const jd = F.comets_jd, E = earthPosition(jd), near = cometsNearNow(SB.comets, jd, E, { maxR: 3, limit: 50 });
   assert.ok(near.length >= 5, `${near.length} comets inside 3 AU`);
   for (let k = 1; k < near.length; k++) assert.ok(near[k].score >= near[k - 1].score);
-  for (const n of near) assert.ok(n.r < 3 && n.delta > 0);
+  for (const n of near) assert.ok(n.r < 3 && n.delta > 0 && !/^\d*D\/|-[A-Z]( |$)/.test(n.row[0]), n.row[0]);
   const arc = conicArc(cometFromRow(row('C/2025 N1')), jd - 365, jd + 365, 64);
   assert.equal(arc.length, 192);
   const mid = conicArc(cometFromRow(row('C/2025 N1')), 2460977.99, 2460977.99, 2);

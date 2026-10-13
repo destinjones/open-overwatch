@@ -4,9 +4,9 @@
 // Tails, physically (not to scale for brightness, but pointing and curving the right way):
 // - the ion (plasma) tail is blown straight out by the solar wind, so it lies along the wind's velocity as the comet sees
 //   it: radial outflow at ~400 km/s minus the comet's own velocity (a few degrees off anti-sunward);
-// - the dust tail is a syndyne: grains shed at an earlier time t - tau feel gravity reduced by radiation pressure
-//   (factor 1 - beta), so they drift outward by 1/2 * beta * GM/r^2 * tau^2 from where the comet was, and the tail curves
-//   back along the orbit.
+// - the dust tail is a syndyne: grains shed at an earlier time t - tau leave with the comet's velocity but feel gravity
+//   reduced by radiation pressure (GM * (1 - beta)), so each one flies its own wider conic; where they all are now is
+//   the tail, curving back along the orbit (exact two-body, also for a sungrazer just past perihelion).
 // Activity switches on inside ~5 AU (water ice sublimates near 3 AU; CO and CO2 drive some comets farther out).
 
 import { DEG, AU_KM, setXYZ } from './units.js';
@@ -15,6 +15,7 @@ import { TWO_PI, solveKepler } from './kepler.js';
 export const GM_SUN = 0.01720209895 ** 2;   // AU^3 / day^2 (Gaussian constant squared)
 export const SOLAR_WIND_AU_DAY = 400 * 86400 / AU_KM;
 const PARABOLIC = 1e-7;
+const muOf = c => c.mu ?? GM_SUN;   // elements may carry their own GM (dust grains: reduced by radiation pressure)
 
 /** Names in common use for designations that are otherwise anonymous or ambiguous. */
 export const COMET_NICKNAMES = Object.freeze({
@@ -41,8 +42,8 @@ export const COMET_FACTS = Object.freeze({
 /** Designation and the names a comet goes by: { label, designation, name, display, aliases }. */
 export function cometNames(label) {
   const s = String(label).trim(), m = s.match(/^(\d+[PDI])\/(.+)$/);            // 1P/Halley, 67P/Churyumov-Gerasimenko
-  if (m) {
-    const nick = COMET_NICKNAMES[m[1]], name = nick || m[2];
+  if (m) {   // the famous few go by name alone; others keep the number (there are many "NEAT"s and "LINEAR"s)
+    const nick = COMET_NICKNAMES[m[1]], name = nick || (COMET_FACTS[m[1]] || parseInt(m[1], 10) <= 20 ? m[2] : s);
     return { label: s, designation: m[1], name, display: name, aliases: [m[1], s, m[2]] };
   }
   const c = s.match(/^([CPDXAI]\/\d{4} [A-Z]{1,2}\d*(?:-[A-Z])?)(?: \(([^)]+)\))?$/);   // C/2020 F3 (NEOWISE)
@@ -90,16 +91,16 @@ export function solveBarker(W) {
 export function conicInPlane(c, jd) {
   const { q, e } = c, dt = jd - c.tp;
   if (Math.abs(e - 1) < PARABOLIC) {
-    const s = solveBarker(3 * Math.sqrt(GM_SUN / (2 * q * q * q)) * dt);
+    const s = solveBarker(3 * Math.sqrt(muOf(c) / (2 * q * q * q)) * dt);
     return { x: q * (1 - s * s), y: 2 * q * s, r: q * (1 + s * s), nu: 2 * Math.atan(s) };
   }
   if (e < 1) {
-    const a = q / (1 - e), n = Math.sqrt(GM_SUN / (a * a * a));
+    const a = q / (1 - e), n = Math.sqrt(muOf(c) / (a * a * a));
     let M = (n * dt) % TWO_PI; if (M > Math.PI) M -= TWO_PI; if (M < -Math.PI) M += TWO_PI;
     const E = solveKepler(M, e), x = a * (Math.cos(E) - e), y = a * Math.sqrt(1 - e * e) * Math.sin(E);
     return { x, y, r: Math.hypot(x, y), nu: Math.atan2(y, x) };
   }
-  const a = q / (e - 1), n = Math.sqrt(GM_SUN / (a * a * a)), H = solveHyperbolic(n * dt, e);
+  const a = q / (e - 1), n = Math.sqrt(muOf(c) / (a * a * a)), H = solveHyperbolic(n * dt, e);
   const x = a * (e - Math.cosh(H)), y = a * Math.sqrt(e * e - 1) * Math.sinh(H);
   return { x, y, r: Math.hypot(x, y), nu: Math.atan2(y, x) };
 }
@@ -112,7 +113,7 @@ export function cometPosition(c, jd, out = {}) {
 
 /** Velocity (AU/day), from the analytic conic: v = sqrt(GM/p) * (-sin nu, e + cos nu) in the orbit plane. */
 export function cometVelocity(c, jd, out = {}) {
-  const { nu } = conicInPlane(c, jd), k = Math.sqrt(GM_SUN / (c.q * (1 + c.e)));
+  const { nu } = conicInPlane(c, jd), k = Math.sqrt(muOf(c) / (c.q * (1 + c.e)));
   return toEcliptic(c, -k * Math.sin(nu), k * (c.e + Math.cos(nu)), out);
 }
 
@@ -149,17 +150,43 @@ export function ionTail(pos, vel, out = {}) {
 }
 
 /**
- * Dust tail as a syndyne of n points from the nucleus back to grains `days` old: grains released at jd - tau sit at the
- * comet's position then, pushed outward by 1/2 * beta * GM / r^2 * tau^2 (radiation pressure as a fraction beta of
- * gravity). posAt(jd, out) gives the comet's heliocentric position. Returns a flat array [x0, y0, z0, x1, ...].
+ * Perihelion elements of the orbit through position r (AU) with velocity v (AU/day) at jd, around a centre of
+ * gravitational parameter mu: { q, e, i, node, peri, tp, mu } (radians, jd), for cometPosition / cometVelocity.
  */
-export function dustTail(posAt, jd, { beta = 0.6, days = 40, n = 24 } = {}) {
-  const pts = new Array(n * 3), p = {};
+export function stateToConic(r, v, jd, mu = GM_SUN) {
+  const rl = Math.hypot(r.x, r.y, r.z), v2 = v.x * v.x + v.y * v.y + v.z * v.z, rv = r.x * v.x + r.y * v.y + r.z * v.z;
+  const hx = r.y * v.z - r.z * v.y, hy = r.z * v.x - r.x * v.z, hz = r.x * v.y - r.y * v.x, h = Math.hypot(hx, hy, hz);
+  const k = v2 - mu / rl, ex = (k * r.x - rv * v.x) / mu, ey = (k * r.y - rv * v.y) / mu, ez = (k * r.z - rv * v.z) / mu;
+  const e = Math.hypot(ex, ey, ez), q = h * h / mu / (1 + e), i = Math.acos(Math.max(-1, Math.min(1, hz / h)));
+  const nx = -hy, ny = hx, nl = Math.hypot(nx, ny), node = nl < 1e-14 ? 0 : Math.atan2(ny, nx);
+  // in-plane axes: P toward the ascending node, Q 90 degrees ahead in the direction of motion
+  const ux = Math.cos(node), uy = Math.sin(node), wx = hy * 0 - hz * uy, wy = hz * ux - hx * 0, wz = hx * uy - hy * ux;   // (h x node) / h
+  const along = (ax, ay, az) => Math.atan2((ax * wx + ay * wy + az * wz) / h, ax * ux + ay * uy);
+  const peri = e < 1e-10 ? 0 : along(ex, ey, ez), nu = along(r.x, r.y, r.z) - peri;
+  let dt;   // time since perihelion
+  if (Math.abs(e - 1) < PARABOLIC) { const s2 = Math.tan(nu / 2); dt = (s2 * s2 * s2 + 3 * s2) / (3 * Math.sqrt(mu / (2 * q * q * q))); }
+  else if (e < 1) {
+    const a = q / (1 - e), E = 2 * Math.atan(Math.sqrt((1 - e) / (1 + e)) * Math.tan(nu / 2));
+    dt = (E - e * Math.sin(E)) / Math.sqrt(mu / (a * a * a));
+  } else {
+    const a = q / (e - 1), H = 2 * Math.atanh(Math.sqrt((e - 1) / (e + 1)) * Math.tan(nu / 2));
+    dt = (e * Math.sinh(H) - H) / Math.sqrt(mu / (a * a * a));
+  }
+  return { q, e, i, node: (node + 2 * Math.PI) % (2 * Math.PI), peri: (peri + 2 * Math.PI) % (2 * Math.PI), tp: jd - dt, mu };
+}
+
+/**
+ * Dust tail as a syndyne of n points from the nucleus back to grains `days` old: a grain released at jd - tau leaves
+ * with the comet's position and velocity, then moves under gravity times (1 - beta) (radiation pressure is beta of
+ * gravity, ~0.1-1 for micron grains). c: the comet's elements. Returns a flat array [x0, y0, z0, x1, ...].
+ */
+export function dustTail(c, jd, { beta = 0.6, days = 40, n = 24 } = {}) {
+  const pts = new Array(n * 3), r = {}, v = {}, p = {}, mu = muOf(c) * (1 - beta);
   for (let k = 0; k < n; k++) {
     const tau = days * k / (n - 1);
-    posAt(jd - tau, p);
-    const r = Math.hypot(p.x, p.y, p.z), push = 0.5 * beta * GM_SUN / (r * r) * tau * tau / r;
-    pts[k * 3] = p.x + p.x * push; pts[k * 3 + 1] = p.y + p.y * push; pts[k * 3 + 2] = p.z + p.z * push;
+    if (k === 0) cometPosition(c, jd, p);
+    else { const t0 = jd - tau; cometPosition(c, t0, r); cometVelocity(c, t0, v); cometPosition(stateToConic(r, v, t0, mu), jd, p); }
+    pts[k * 3] = p.x; pts[k * 3 + 1] = p.y; pts[k * 3 + 2] = p.z;
   }
   return pts;
 }
@@ -175,6 +202,7 @@ export const dustDays = r => Math.max(4, Math.min(60, 30 / (r * r))) * (activity
 export function cometsNearNow(rows, jd, earth, { maxR = 3, limit = 12 } = {}) {
   const out = [], p = {};
   for (const row of rows) {
+    if (/^\d*D\/|-[A-Z]( |$)/.test(row[0])) continue;      // defunct (D/) comets and fragments (C/2020 P4-B) are not shown
     const c = cometFromRow(row);
     if (c.q > maxR) continue;
     cometPosition(c, jd, p);

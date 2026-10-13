@@ -12,6 +12,8 @@ import { createPlanets } from './planets.js';
 import { createMoons } from './moons.js';
 import { createSmallBodies, CLASS_LAYERS } from './smallbodies.js';
 import { createSpacecraft } from './spacecraft.js';
+import { createComets } from './comets.js';
+import { createFind } from './find.js';
 import { createDeepSpace } from './deepspace.js';
 import { createCosmicWeb } from './cosmic.js';
 import { createLightDelay } from './lightdelay.js';
@@ -61,14 +63,16 @@ const planets = createPlanets({ scene, sunView, renderer });
 const moons = createMoons({ scene, sunView, renderer });
 const small = createSmallBodies({ scene, renderer });
 const craft = createSpacecraft({ scene });
+const comets = createComets({ scene, focus: () => nav.focus });
 const deep = createDeepSpace({ scene, camera, renderer });
 const web = createCosmicWeb({ scene, renderer });
 const exo = createExoplanets({ scene, camera, renderer });
 
+let find = null;   // find.js (search, share links), made after the UI
 // ---- navigation: focus a body and fly there (log-interpolated distance), then keep riding along with it
 const nav = {
   focus: byKey.earth, fly: null, free: false,   // free: the camera stays put and orbits the point it looks at, instead of riding along with the focused body
-  release() { if (this.free) return; this.free = true; this.fly = null; controls.minDistance = 1e-6; ui.showCard(null); },
+  release() { if (this.free) return; this.free = true; this.fly = null; controls.minDistance = 1e-6; ui.showCard(null); this.focus?.onFocus?.(false); find?.syncHash(); },
   focusOn(b, dist = null, dur = 2.2, card = true) {
     if (!b) return;
     this.free = false;
@@ -76,8 +80,10 @@ const nav = {
     const d1 = dist ?? (b.exo ? (sys ? exo.viewDistance(sys) : 0.25) : Math.max(b.radius * 4, b.kind === 'planet' ? b.radius * 3.2 : b.parent ? b.radius * 5 : 0.002));
     if (b.exo) exo.load().catch(() => {});
     this.fly = { from: controls.target.clone(), d0: camera.position.distanceTo(controls.target), d1, t0: performance.now(), dur: dur * 1000 };
+    if (this.focus !== b) { this.focus?.onFocus?.(false); b.onFocus?.(true); }
     this.focus = b; controls.minDistance = Math.max(b.radius * 1.15, 1e-7);
     ui.showCard(card ? b : null);
+    find?.syncHash();
   },
   flyDist(d, dur = 2) { this.fly = { from: controls.target.clone(), d0: camera.position.distanceTo(controls.target), d1: d, t0: performance.now(), dur: dur * 1000 }; },
   frame() {
@@ -97,6 +103,8 @@ const lightDelay = createLightDelay({ scene, nav });
 const story = createStory({ scene, clock, nav, caption: (...a) => ui.caption(...a), onTourChange: on => ui.tourLabel(on) });
 const quality = createQuality({ renderer, small, onAutoChange: q => { ui.renderLayers(); ui.caption(`Graphics set to ${q.name}`, 'Lowered automatically for smoother motion. You can change it in the layer panel.', '', 5000); } });
 const ui = createUI({ camera, controls, clock, nav, story, small, deep, quality, exo });
+find = createFind({ nav, story, small, comets, exo, clock, camera, controls, caption: (...a) => ui.caption(...a) });
+ui.onShare = () => find.copyLink();
 exo.onChange = () => { applyLayers(); ui.renderLayers(); };
 const nerd = createNerd({ renderer, quality, small, exo, moons });
 document.querySelector('#bNerd').onclick = () => nerd.toggle();
@@ -129,7 +137,7 @@ function frame(t) {
   view.camSun = camera.position.length(); view.camFocus = camera.position.distanceTo(controls.target); view.jd = clock.jd;
   sunView.set(0, 0, 0).applyMatrix4(camera.matrixWorldInverse);
   Sharpen.tick();
-  sky.frame(view); planets.frame(view); moons.frame(view); small.frame(view); craft.frame(view); deep.frame(view); web.frame(view); exo.frame(view); lightDelay.frame(view);
+  sky.frame(view); planets.frame(view); moons.frame(view); small.frame(view); craft.frame(view); comets.frame(view); deep.frame(view); web.frame(view); exo.frame(view); lightDelay.frame(view);
   story.updatePulse(); ui.frame(view);
   renderer.render(scene, camera);
   embed.api.ready = true;
@@ -154,11 +162,17 @@ if (EMBED) {   // inside the globe: no splash, no opening flight; render one fra
   }, 700);
 }
 const settle = p => p.catch(e => console.warn(e)).finally(() => { applyLayers(); ui.renderLayers(); });
-const loads = [moons.load(), small.load(), craft.load()];   // stars, galaxies and most textures load as you approach them
+const smallLoad = small.load().then(() => comets.init(small.S.comets, clock.jd, byKey.earth.pos));
+const loads = [moons.load(), smallLoad, craft.load()];   // stars, galaxies and most textures load as you approach them
 deep.onStars = () => { applyLayers(); ui.renderLayers(); };
 if (!PHONE) setTimeout(() => { deep.needStars(); web.load().catch(e => console.warn(e)).finally(() => applyLayers()); }, 6000);   // desktops: in the background
 document.querySelector('#q').addEventListener('focus', () => deep.needStars(), { once: true });   // searching for a star
 loads.forEach(settle);
+// a shared link (solar.html#f=craft:Juno&t=...): applied once the bodies it may name exist
+const linked = !EMBED && !!location.hash && location.hash.length > 3;
+if (!linked) find.ready = true;
+if (linked) Promise.allSettled(loads).then(() => setTimeout(() => { find.ready = true; if (find.applyHash(location.hash)) ui.caption('Shared view', 'Opened from a link' + (clock.live ? ', live.' : ', at ' + new Date((clock.jd - 2440587.5) * 864e5).toISOString().slice(0, 16).replace('T', ' ') + ' UTC.'), 'Press NOW to come back to the present.', 7000, true); }, 900));
+setInterval(() => { if (!EMBED && !nav.fly) find.syncHash(); }, 2000);   // time and distance change as you go
 
 /* GPU warm-up while idle. three.js uploads a texture and compiles a shader the first time something is drawn, so the
    hand-over from the globe froze for ~0.6 s on the planet maps, and every new object type hitched once. Here textures
@@ -188,4 +202,4 @@ loads.forEach(settle);
 }
 applyLayers();
 
-window.OOSS = { THREE, scene, camera, controls, clock, bodies, byKey, small, moons, quality, web, exo, nav, story, renderer, LY: LY_AU, embed: embed.api, loop };
+window.OOSS = { THREE, scene, camera, controls, clock, bodies, byKey, small, moons, comets, craft, find, quality, web, exo, nav, story, renderer, LY: LY_AU, embed: embed.api, loop };
