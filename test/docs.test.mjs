@@ -97,7 +97,8 @@ test('docs: links in the docs point at files and anchors that exist', () => {
     if (!path) { assert.ok(ids.has(hash), `guide.html: #${hash} has no target`); continue; }
     assert.ok(existsSync(new URL(path, root)), `guide.html links to ${path}, which is missing`);
   }
-  for (const [name, md] of [['docs/LINK_FORMAT.md', linkDoc], ['docs/DEVELOPING.md', devDoc]]) {
+  const onramp = ['CONTRIBUTING.md', 'GOVERNANCE.md', 'SECURITY.md', 'CHANGELOG.md', '.devcontainer/README.md'].map(f => [f, read(f)]);
+  for (const [name, md] of [['docs/LINK_FORMAT.md', linkDoc], ['docs/DEVELOPING.md', devDoc], ...onramp]) {
     const anchors = new Set([...md.matchAll(/^#{2,3} (.+)$/gm)].map(m => m[1].toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s/g, '-')));
     for (const [, href] of md.matchAll(/\]\(([^)\s]+)\)/g)) {
       if (/^https?:/.test(href)) continue;
@@ -117,6 +118,21 @@ test('docs: files and names DEVELOPING.md points at are real', () => {
   assert.ok(devDoc.includes('.claude/launch.json'), '.claude/launch.json');   // named, but gitignored: a fresh checkout (CI) doesn't have it
   assert.match(read('src/globe/main.js'), /function applyAll\(\)/, 'DEVELOPING.md section 5 tells people to wire layers in applyAll()');
   assert.match(read('src/map/util.js'), /export const NEEDS_RELAY/, 'DEVELOPING.md section 6 says NEEDS_RELAY lives in src/map/util.js');
+});
+
+test('docs: files CONTRIBUTING.md and GOVERNANCE.md point at are real, and the good first issues are still open', () => {
+  for (const name of ['CONTRIBUTING.md', 'GOVERNANCE.md']) {
+    for (const [, path] of read(name).matchAll(/`((?:src|mcp|mcp-worker|test|e2e|brand\/tools|relay|\.github\/workflows|\.github|docs)\/[\w./-]+\.(?:js|mjs|py|md|yml|json))`/g))
+      assert.ok(existsSync(new URL(path, root)), `${name} names ${path}, which does not exist`);
+  }
+  const contrib = read('CONTRIBUTING.md'), header = read('serve.js').split('\n')[1];
+  assert.ok(contrib.includes(header), 'CONTRIBUTING.md quotes the copyright line every source file starts with');
+  assert.match(read('open-overwatch.html'), /#mobilebar button\{/, 'good first issue: the phone bar buttons');
+  assert.match(read('src/globe/viewer.js'), /export const CALM = /, 'good first issue: reduced motion in the Solar System');
+  // a good first issue that is done should leave the list: ROADMAP ticks it, this fails, CONTRIBUTING.md loses it
+  const open = read('ROADMAP.md').split('\n').filter(l => l.startsWith('- [ ]')).join('\n');
+  for (const item of ['phone bar buttons are 37.5 px', 'zoom pad covers', 'still swoop with reduced motion', 'An `earth_now` MCP tool', 'the route arc are still globe-only', 'Uranus'])
+    assert.ok(open.includes(item), `ROADMAP no longer has "${item}" open: take it off CONTRIBUTING.md's good first issues`);
 });
 
 test('docs: CORE.md has a section for every core module, and every export it names exists', async () => {

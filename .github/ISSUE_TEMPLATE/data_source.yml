@@ -1,0 +1,67 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
+name: Data source suggestion
+description: An open feed or dataset Open Overwatch could show.
+labels: ["data source"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Open Overwatch runs in the visitor's browser with no server of its own, so three things decide whether a source can be used:
+        its **licence** (may we show it, and with what credit), **CORS** (can a browser read it from another site) and **keys** (does it need an account).
+        docs/DATA_SOURCES.md lists every source in use and how it is credited.
+  - type: input
+    id: name
+    attributes:
+      label: Source
+      placeholder: "NOAA CO-OPS tide gauges"
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Link to the feed or its documentation
+      placeholder: "https://…"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What it would show, and where
+      description: "e.g. water levels at 200 stations as a globe layer; an MCP tool answering 'is it high tide in Boston?'"
+    validations:
+      required: true
+  - type: input
+    id: licence
+    attributes:
+      label: Licence and terms
+      description: Public domain, CC BY 4.0, ODbL, "free for non-commercial use"…, with a link to the terms page. Note any credit it asks for or any rate limit.
+    validations:
+      required: true
+  - type: dropdown
+    id: cors
+    attributes:
+      label: Does it send CORS headers?
+      description: "Check with: curl -sI -H 'Origin: https://example.org' '<feed url>' | grep -i access-control. Without them the website needs a relay, which needs the feed owner's OK."
+      options:
+        - "Yes (Access-Control-Allow-Origin: *)"
+        - "No"
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: key
+    attributes:
+      label: Does it need a key or an account?
+      description: Keyless sources work for every visitor. A key can still work as an option visitors bring themselves.
+      options:
+        - Keyless
+        - Free key
+        - Paid
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: refresh
+    attributes:
+      label: How often it updates, and how big it is
+      placeholder: "every 6 minutes, ~40 kB JSON"
