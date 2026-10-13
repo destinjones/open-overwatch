@@ -189,7 +189,8 @@ Round 2 (2026-10-10, local):
       flat after the first use; launch labels of one site now share one label (+N)
 - [x] The measure card on iPhones: while placing points it is a 52 px strip above the dock (the running total, Undo,
       Finish, a chevron for the rest); card and dock went from 46% to 21% of the screen (WebKit iPhone 15 profile)
-- [ ] NYC traffic: Midtown showed no roads with measured speeds in the phone test, though NYC DOT speeds are promised
+- [x] NYC traffic: measured speeds were all dropped (NYC DOT publishes ~a day late; the cut-off was 4 h). Now up to 48 h,
+      with the age said on the card; 70 measured road pieces around the FDR. Midtown's side streets have no sensors at all
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 

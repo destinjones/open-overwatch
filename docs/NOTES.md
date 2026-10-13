@@ -304,3 +304,11 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
 - Publishing: `npm publish` from the repo root needs the owner's npm login (not done); the release workflow builds
   `open-overwatch.mcpb` (Claude Desktop's one-click install: manifest.json at the root, mcp/, src/core/, node_modules/
   satellite.js; ~320 KB) and attaches it to the release next to the zip.
+
+## NYC measured traffic speeds — 2026-10-12
+- NYC DOT's Traffic Speeds dataset (i4gi-tjb9) lags far more than "a few hours": on 2026-10-12 the newest row was 27 h
+  old, so the 4-hour freshness cut-off dropped every link and New York showed no measured roads. NYC_MAX_AGE is 48 h now;
+  cards say when a reading is old ("the latest the city has published").
+- Its ~150 sensor links in Manhattan are all on the edges (FDR, West Side Hwy / 12th Ave, tunnels, bridges); Midtown's
+  streets have none, so a Midtown view correctly shows no measured roads. A query ordered by data_as_of over the whole
+  table is slow (minutes for count(distinct)); keep the ordered $limit query (1200 rows ≈ every link).
