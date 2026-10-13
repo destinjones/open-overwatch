@@ -28,6 +28,9 @@ import { eclipsesTool } from './eclipses.mjs';
 import { distanceTool } from './distance.mjs';
 import { volcanoesTool } from './volcanoes.mjs';
 import { roadsTool } from './roads.mjs';
+import { conjTool } from './conj.mjs';
+import { sunTool } from './sun.mjs';
+import { meteorsTool } from './meteors.mjs';
 
 const AIS = 'https://meri.digitraffic.fi/api/ais/v1/', AIS_HEADERS = { 'Digitraffic-User': 'OpenOverwatch-MCP/0.1' };
 const CITYBIKES = 'https://api.citybik.es/v2/networks';
@@ -469,7 +472,8 @@ export function createTools(ctx) {
   };
 
   return [showOnGlobe, earthquakes, whereSat, passes, launches, crew, flybys, storms, events, ships, bikes, weather, aurora, night,
-    camerasTool(ctx), transitTool(ctx), firesTool(ctx), countryTool(ctx), cablesTool(ctx), solarTool(ctx), eclipsesTool(ctx), distanceTool(ctx), volcanoesTool(ctx), roadsTool(ctx)];
+    camerasTool(ctx), transitTool(ctx), firesTool(ctx), countryTool(ctx), cablesTool(ctx), solarTool(ctx), eclipsesTool(ctx), distanceTool(ctx), volcanoesTool(ctx), roadsTool(ctx),
+    conjTool(ctx), sunTool(ctx), meteorsTool(ctx)];
 }
 
 /** Server instructions: how the tools fit together. */

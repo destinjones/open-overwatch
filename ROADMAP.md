@@ -184,9 +184,11 @@ Round 2 (2026-10-10, local):
       aurora, tonight's sky), each with a link that opens the globe there; show_on_globe puts the globe in the chat as an
       MCP App (a frame of the site in embed mode, moved by hash); no SDK, one dependency (satellite.js); a Claude Desktop
       bundle (.mcpb) built by the release workflow; npm publish needs the owner's npm account (test/mcp.test.mjs)
-- [x] MCP 0.2.0: ten more tools (traffic cameras with the latest pictures as images, live transit, VIIRS wildfires grouped
-      into fires with NIFC's named US fires, country briefings, submarine cables, the planets and their next events, solar
-      eclipses from a place, distances drawn on the globe, volcanoes, measured road speeds) and
+- [x] MCP 0.2.0: 13 more tools, 27 in all (traffic cameras with the latest pictures as images, live transit, VIIRS
+      wildfires grouped into fires with NIFC's named US fires, country briefings, submarine cables, the planets and their
+      next events, solar eclipses from a place, distances drawn on the globe, volcanoes, measured road speeds, near misses
+      in orbit, sun and moon times, meteor showers), five prompts, a Worker-ready fetch handler (token-guarded, not
+      deployed) and
       a Streamable HTTP transport (`--http <port>`, stateless, loopback only, Host/Origin checks; Worker-ready handler, not
       deployed); camera networks and transit feeds shared with the globe through src/core
 - [x] Country lookups across the antimeridian: Russia no longer claims Canada and Alaska (core/borders.js, the globe's card too)

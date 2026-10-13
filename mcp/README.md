@@ -69,6 +69,13 @@ Once it is on npm, `npx -y open-overwatch-mcp` will work anywhere a command is a
 | `distance` | WGS84 geodesics; OSRM over OpenStreetMap | how far between places as the crow flies (to the millimetre) and by road, bike or on foot; the globe link draws the line |
 | `volcanoes` | Wikidata (the website's copy), NASA EONET, USGS | the volcanoes nearest a place, any open eruption, and this week's earthquakes next to them |
 | `road_speeds` | Fintraffic (Finland), NYC DOT | measured traffic speeds and volumes on the roads near a place |
+| `close_approaches` | CelesTrak SOCRATES (the website's copy), SGP4 | the closest coming encounters between satellites and debris, and where over the Earth they happen |
+| `sun_and_moon` | the website's own sky maths | sunrise, sunset, day length, the twilights, golden and blue hours, and the Moon, at a place on any day |
+| `meteor_showers` | the IMO shower list, the website's sky maths | the coming showers, how many an hour you could really see from a place, and when to look |
+
+**Prompts.** Hosts that show MCP prompts (Claude Desktop lists them as slash commands) get five ready-made requests:
+`situation_report` (a place right now), `sky_tonight`, `country_brief`, `space_now` and `trip_check` (from, to, by). Each
+walks Claude through the right tools and ends on the globe.
 
 Place names are looked up with Photon (komoot), a free geocoder over OpenStreetMap; you can give `lat`/`lon` instead.
 
@@ -102,6 +109,9 @@ own policy and licence applies; see [docs/DATA_SOURCES.md](../docs/DATA_SOURCES.
 - `node --test` runs `test/mcp.test.mjs` with every source canned, a stdio round trip and the HTTP transport.
 - `node mcp/server.mjs --http 8793` serves Streamable HTTP (`mcp/http.mjs` is the transport on web Request/Response only,
   so it could run on a Worker; `mcp/http-node.mjs` serves it from Node). Tools may return images (MCP image content).
+- `mcp/worker.mjs` is the same server as a fetch handler for Cloudflare Workers or Deno. It is not deployed anywhere: it
+  answers only requests carrying `Authorization: Bearer <MCP_TOKEN>` (a secret of 16 characters or more), and nothing at
+  all until one is set; `ALLOW_ORIGINS` lists browser origins that may call it.
 - No SDK: the protocol is in `mcp/protocol.mjs`; one dependency, `satellite.js` (the SGP4 library the website loads).
 - The globe panel (`mcp/panel.mjs`) is an MCP Apps view (`ui://open-overwatch/globe`, spec 2026-01-26): it frames the
   website in embed mode and moves it by changing only the link's hash, so the globe flies instead of reloading. Hosts

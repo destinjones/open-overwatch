@@ -40,8 +40,12 @@
     { "name": "eclipses", "description": "The coming solar eclipses (2027-2030): where they are greatest, and what a place sees and when." },
     { "name": "distance", "description": "How far between places, as the crow flies and by road, bike or on foot, drawn on the globe." },
     { "name": "volcanoes", "description": "The volcanoes nearest a place, with open eruptions (NASA EONET) and this week's earthquakes nearby." },
-    { "name": "road_speeds", "description": "Measured traffic speeds on the roads near a place (Finland live, New York City)." }
+    { "name": "road_speeds", "description": "Measured traffic speeds on the roads near a place (Finland live, New York City)." },
+    { "name": "close_approaches", "description": "The closest coming encounters between satellites and debris (CelesTrak SOCRATES via the website)." },
+    { "name": "sun_and_moon", "description": "Sunrise, sunset, day length, twilight, golden and blue hours, and the Moon at a place on a day." },
+    { "name": "meteor_showers", "description": "The coming meteor showers: when they peak and how many you could see from a place." }
   ],
+  "prompts_generated": true,
   "keywords": ["globe", "earth", "satellites", "earthquakes", "launches", "weather", "aurora", "wildfires", "transit", "traffic cameras", "planets", "open data", "maps"],
   "license": "MIT",
   "compatibility": { "runtimes": { "node": ">=20.0.0" } },

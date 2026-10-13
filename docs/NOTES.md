@@ -322,6 +322,11 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   each name asked again near the other when the pair is over 50 km apart, but a city is never replaced by a village or a
   shop of the same name, and a typed lat, lon is never second-guessed; the globe link carries the line as `&d=`),
   `volcanoes` (a town is a 60 km circle round it, a country its box), `road_speeds` (core/traffic.js parsers).
+- Also `close_approaches` (data/socrates.json + SGP4 for where), `sun_and_moon` (riseSet at -0.833/-4/-6/+6/-12/-18°;
+  the local day from Intl offsets; V8 rolls 2026-02-30 over to March, so dates are checked by round trip), and
+  `meteor_showers`. Prompts (`prompts.mjs`, `prompts/list` + `prompts/get`): five requests that name only real tools (a
+  test checks), arguments quoted as one cleaned line. `worker.mjs`: the server as a fetch handler, bearer token
+  (MCP_TOKEN, 16+ characters, compared without early exit) or 503/401; Host check off, Origin check on. Not deployed.
 - core/borders.js: Russia's mainland ring (and Wrangel Island) crosses the antimeridian, so the flat even-odd test made a
   band round the world that claimed 40 of 196 grid points in Canada (the globe's country card too). prepare() now keeps
   an east-shifted copy of such parts (b.east) for inCountry; b.box is unchanged (mainBox and fly-to use it).
