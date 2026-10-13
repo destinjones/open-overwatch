@@ -24,8 +24,10 @@
 .wx-src { margin-top: 3px; font-size: 10.5px; color: var(--ink-faint, #738599); }
 .wx-streaks { position: absolute; left: 0; top: 0; pointer-events: none; }
 @media (max-width: 900px) {
-  .wxbar { right: 8px; left: 8px; width: auto; bottom: 22px; padding: 6px 8px; }
-  .wx-when { min-width: 0; font-size: 11px; }
+  .wxbar { right: 8px; left: 8px; width: auto; bottom: 40px; padding: 6px 8px; }   /* above the attribution, which wraps here */
+  .wx-row { flex-wrap: wrap; row-gap: 6px; }
+  .wx-slider { order: 9; flex-basis: 100%; }   /* its own row: the buttons stay on screen at 390 px */
+  .wx-when { min-width: 0; flex: 1; text-align: left; font-size: 11px; }
   .wx-lg { flex-basis: 120px; }
   body.wx-on #hud { display: none; }
 }
