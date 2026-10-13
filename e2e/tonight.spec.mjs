@@ -1,7 +1,7 @@
 // Tonight above you (tonight.html): the page's clock is fixed at 2026-10-13 19:00 UTC and the location is London, so the
 // sky answers (planets, meteors, the Moon, the next eclipse) are the same on every run. The data are the fixtures:
 // the space stations' TLEs, the launch list, the astronauts, the OVATION grid and a clear-evening cloud forecast.
-import { test, expect, PORT } from './support/test.mjs';
+import { test, expect, PORT } from './support/fixtures.mjs';
 import { stubNetwork } from './support/net.mjs';
 
 const AT = '2026-10-13T19:00:00Z';

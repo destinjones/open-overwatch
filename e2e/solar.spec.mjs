@@ -1,6 +1,6 @@
 // The Solar System view (solar.html, three.js in software WebGL): boot, "Where is it now?" search (planets, spacecraft,
 // comets, keyboard), the view as a link both ways, the clock, the layer menu and the mission and comet lists.
-import { test, expect, openSolar } from './support/test.mjs';
+import { test, expect, openSolar } from './support/fixtures.mjs';
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
 const focus = page => page.evaluate(() => OOSS.nav.focus?.key);

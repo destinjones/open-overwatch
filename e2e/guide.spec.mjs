@@ -1,6 +1,6 @@
 // The user guide (guide.html) and the about page: every "on this page" link lands on its section, every link into the
 // site opens a page that exists (and the section it names), outside links are https, and the skip link works.
-import { test, expect } from './support/test.mjs';
+import { test, expect } from './support/fixtures.mjs';
 
 const pageHtml = new Map();
 async function html(request, file) {

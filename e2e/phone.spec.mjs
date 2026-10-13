@@ -1,6 +1,6 @@
 // Every page on a phone (the "phone" project: Pixel 7 size, touch, a mobile user agent): nothing sticks out sideways or
 // scrolls the page sideways, the phone controls exist and respond to taps, and the main controls are big enough to hit.
-import { test, expect, expectFitsWidth, openMap, openGlobe, openSolar } from './support/test.mjs';
+import { test, expect, expectFitsWidth, openMap, openGlobe, openSolar } from './support/fixtures.mjs';
 
 /** Boxes of the elements that are on screen, for "is it inside the viewport" and "can a finger hit it". */
 const boxes = (page, sel) => page.$$eval(sel, els => els.filter(e => e.offsetParent || getComputedStyle(e).position === 'fixed').map(e => { const b = e.getBoundingClientRect(); return { sel: e.id || e.className || e.tagName, l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width, h: b.height }; }).filter(b => b.w && b.h));

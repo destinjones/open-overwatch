@@ -1,7 +1,7 @@
 // The 3D globe (globe.html, CesiumJS in software WebGL): boot, the counters from the (stubbed) feeds, the layer dock,
 // the time bar, the band's panels (search, launches, eclipses, measure), the share link both ways, the link to the 2D
 // map, and a hostile link.
-import { test, expect, openGlobe } from './support/test.mjs';
+import { test, expect, openGlobe } from './support/fixtures.mjs';
 import { encodeView } from '../src/core/viewlink.js';
 import { jdFromMs } from '../src/core/time.js';
 

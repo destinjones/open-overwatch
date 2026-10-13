@@ -1,16 +1,16 @@
 // End-to-end browser tests (e2e/*.spec.mjs): every page in headless Chromium against the local helper (serve.js), with
 // the live feeds stubbed (e2e/support/net.mjs). `npm run e2e`; docs/TESTING.md has the rest. Not part of `node --test`.
-import { defineConfig, devices } from '@playwright/test';
+import { chromium, defineConfig, devices } from '@playwright/test';
 import { existsSync } from 'node:fs';
-import { chromium } from '@playwright/test';
 
 const PORT = +(process.env.OO_E2E_PORT || 8805);
 const CI = !!process.env.CI;
-// Playwright's own Chromium when it is installed (CI: `npx playwright install chromium`); otherwise the installed Edge,
-// so a Windows checkout runs the suite without a browser download. OO_E2E_CHANNEL=chrome|msedge picks one.
-const channel = process.env.OO_E2E_CHANNEL || (existsSync(chromium.executablePath()) ? undefined : 'msedge');
-// Software WebGL (SwiftShader) by default: the same pixels on a laptop and on GitHub's GPU-less runner, so the picture
-// checks can be tight. OO_E2E_GPU=1 uses the GPU instead (faster globe, but no picture checks).
+// Playwright's own Chromium (CI: `npx playwright install --only-shell chromium`); on Windows without it, the installed
+// Edge, so a checkout runs the suite with no browser download. OO_E2E_CHANNEL=chrome|msedge|chromium picks one.
+const ownChromium = () => { try { return existsSync(chromium.executablePath()); } catch (e) { return false; } };
+const channel = process.env.OO_E2E_CHANNEL || (process.platform === 'win32' && !ownChromium() ? 'msedge' : undefined);
+// Software WebGL (SwiftShader) by default: it draws the same picture run after run and needs no GPU (GitHub's runners
+// have none), so the picture checks can be tight. OO_E2E_GPU=1 uses the GPU instead (faster globe, no picture checks).
 const gl = process.env.OO_E2E_GPU ? ['--ignore-gpu-blocklist'] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'];
 
 export default defineConfig({

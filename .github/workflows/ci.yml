@@ -1,5 +1,7 @@
 # Tests and syntax checks on every push and pull request: Node's own test runner and parser, plus the one npm dependency
 # (satellite.js, the SGP4 library the MCP server's satellite tools use; the website loads the same version from a CDN).
+# A second job opens every page in headless Chromium (Playwright, a dev dependency) with the live feeds stubbed; it runs
+# beside the unit tests, so a flaky browser never holds them up.
 name: CI
 on:
   push:
@@ -14,7 +16,7 @@ jobs:
           node-version: 22
       - name: Syntax check every module and tool
         run: |
-          for f in src/*/*.js brand/tools/*.mjs mcp/*.mjs serve.js sw.js; do node --check "$f" || exit 1; done
+          for f in src/*/*.js brand/tools/*.mjs mcp/*.mjs serve.js sw.js e2e/*.mjs e2e/support/*.mjs playwright.config.mjs; do node --check "$f" || exit 1; done
           python3 -m py_compile serve.py .github/build_site.py brand/tools/*.py
       - name: Every module a page loads exists
         run: |
@@ -27,3 +29,40 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Tests (orbital maths against JPL Horizons, TLE source, geodesy, the MCP server)
         run: node --test
+
+  e2e:
+    name: Browser tests (every page, headless Chromium, feeds stubbed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright (dev dependency) and satellite.js
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Keep the browser between runs
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Headless Chromium and the libraries it needs
+        run: npx playwright install --with-deps --only-shell chromium
+      - name: Keep the pinned libraries and fonts the pages load (e2e/.cache, filled on the first run)
+        uses: actions/cache@v4
+        with:
+          path: e2e/.cache
+          key: e2e-cdn-${{ hashFiles('*.html') }}
+          restore-keys: e2e-cdn-
+      - name: Browser tests (desktop and phone; CelesTrak blocked, feeds from e2e/support/feeds.mjs)
+        run: npx playwright test
+      - name: Report, traces and the screenshots of any failure
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            e2e/.report/
+            e2e/.results/
+          retention-days: 14
+          if-no-files-found: ignore

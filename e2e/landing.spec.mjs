@@ -1,6 +1,6 @@
 // The landing page (index.html): the live strip reads the (stubbed) feeds, the version picker re-points the launch
 // buttons, the fleet viewer and the phone demo respond, and every link to this site's own pages resolves.
-import { test, expect } from './support/test.mjs';
+import { test, expect } from './support/fixtures.mjs';
 
 test.beforeEach(async ({ page }) => { await page.goto('index.html'); });
 

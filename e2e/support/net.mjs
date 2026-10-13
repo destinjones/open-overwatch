@@ -86,13 +86,18 @@ async function cdn(route, u) {
  *   `now()` is the moment the time-relative fixtures are made for (a test that fixes the page's clock passes the same).
  */
 export async function stubNetwork(context, { port, extra, now = () => Date.now() } = {}) {
-  const log = { celestrak: 0, blocked: [], fixtures: [], relayed: [], tiles: 0 };
+  const log = { celestrak: 0, blocked: [], fixtures: [], relayed: [], media: [], tiles: 0 };
   const json = (route, data, status = 200) => route.fulfill({ status, headers: { ...CORS, 'content-type': typeof data === 'string' ? 'text/plain; charset=utf-8' : 'application/json' }, body: typeof data === 'string' ? data : JSON.stringify(data) });
+  // Video is refused: with request interception on, a playing <video> in headless Chromium stalls the page's other
+  // requests (local modules, fonts, fixtures) until the test times out. The landing page's hero and demo clips are
+  // decoration with still-image fallbacks; tests check that the right clip is asked for, not that it plays.
+  const MEDIA = /\.(mp4|webm)$/i;
   await context.route(() => true, async route => {
     const req = route.request(), href = req.url();
     let u; try { u = new URL(href); } catch (e) { return route.continue(); }
     if (u.protocol === 'data:' || u.protocol === 'blob:') return route.continue();
     if (/(^|\.)celestrak\.(org|com)$/.test(u.hostname)) { log.celestrak++; return route.abort('blockedbyclient'); }
+    if (MEDIA.test(u.pathname)) { log.media.push(href); return route.abort('blockedbyclient'); }
     const custom = extra && await extra(u);
     if (custom) return route.fulfill({ status: custom.status || 200, headers: { ...CORS, 'content-type': custom.type || 'application/json' }, body: typeof custom.body === 'string' || Buffer.isBuffer(custom.body) ? custom.body : JSON.stringify(custom.body) });
     const own = (u.hostname === 'localhost' || u.hostname === '127.0.0.1') && +u.port === port;

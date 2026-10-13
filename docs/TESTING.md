@@ -1,8 +1,85 @@
 # Testing
 
 ## Unit tests
-`node --test` from the repo root: the maths in `src/core/` against JPL Horizons fixtures and textbook identities, the country lookup (`core/borders.js`: cities land in their countries, ocean is nobody's, every border has facts) and the share-link format (`core/viewlink.js`: round trip, bad links refused)
+`node --test` from the repo root (the browser tests are separate: [below](#end-to-end-browser-tests-playwright-in-ci)): the maths in `src/core/` against JPL Horizons fixtures and textbook identities, the country lookup (`core/borders.js`: cities land in their countries, ocean is nobody's, every border has facts) and the share-link format (`core/viewlink.js`: round trip, bad links refused)
 (no dependencies). CI runs them on every push, plus a syntax check of every module and a link check of every page.
+
+## End-to-end browser tests (Playwright, in CI)
+`npm run e2e` (or `npx playwright test`) opens every page in headless Chromium against `serve.js` and drives it like a
+visitor. It starts its own helper on **port 8805** (`OO_E2E_PORT` to change; an already running one there is reused
+outside CI), so it never touches your :8787. CI runs it as a separate job (`e2e` in `.github/workflows/ci.yml`), so a
+flaky browser never holds up the unit tests; its report, traces and failure screenshots are the `e2e-report` artifact.
+
+```bash
+npm install                                  # once: Playwright is a dev dependency (not in the npm package or the .mcpb)
+npx playwright test                          # everything: desktop + phone, ~4 minutes on 2 workers
+npx playwright test e2e/map.spec.mjs         # one page
+npx playwright test --project=phone          # only the phone layouts
+npx playwright test -g "share link"          # by name
+```
+
+**Which browser.** Playwright's Chromium when it is installed (`npx playwright install chromium`; CI installs
+`--only-shell chromium`); on Windows without it, the installed Edge, so nothing has to be downloaded. `OO_E2E_CHANNEL=chrome`
+or `msedge` picks one. WebGL is **software** (SwiftShader) by default: slower (the globe boots in ~20 s), but the same
+picture every run and no GPU needed. `OO_E2E_GPU=1` uses the GPU and skips the picture checks. Two workers by default
+(`OO_E2E_WORKERS`): three software-WebGL browsers at once starve each other and the Solar System stalls.
+
+**No live data.** `e2e/support/net.mjs` sits in front of every request:
+- **CelesTrak is refused** before it leaves the browser (counted; the tests check the pages asked and were refused).
+- The relay (`/proxy`) answers from fixtures and never reaches upstream.
+- Pinned libraries and fonts (jsDelivr, cdnjs, Google Fonts) are fetched once into `e2e/.cache/` (git-ignored; CI keeps
+  it between runs), so reruns are offline and byte-identical.
+- Feeds get canned answers from `e2e/support/feeds.mjs`, in each feed's real shape and relative to the moment of the
+  request: USGS quakes (the largest an M6.1 off Hachinohe), EONET, NOAA Kp and OVATION, NWS/NHC/GDACS (empty), the readsb
+  aircraft feeds (three military, one Cessna squawking 7700), OpenSky, the TLE mirror (`test/fixtures/stations.tle`),
+  launches and astronauts (`test/fixtures/ll2_*.json`), the ISS position, GitHub's latest release, `versions.json`, and
+  one Open-Meteo point forecast for Tonight. Open-Meteo grids (the weather panel) are never answered: its per-IP quota.
+- Video (`.mp4`, `.webm`: the landing page's hero and demo clips) is refused. With request interception on, a playing
+  `<video>` in headless Chromium stalled every later request of the page (modules, fonts, fixtures) and, through the
+  shared browser, the next tests too; the clips are decoration with still fallbacks, so the tests check which clip is
+  asked for, not that it plays.
+- Map imagery (Esri, GIBS, OSM tiles) gets flat stand-in tiles; anything else is aborted and listed in the test's
+  `blocked-requests.txt` attachment, so a new feed shows up as "blocked" rather than as a flaky live call.
+`test/e2esupport.test.mjs` (in `node --test`) parses every fixture with the same `src/core/` parsers the pages use, so a
+fixture can't drift from its feed's shape unnoticed.
+
+**What fails a test.** Besides its own checks, every test fails on an uncaught exception, a `console.error`, or an
+error status for one of the site's own files (`e2e/support/fixtures.mjs`); a test that expects an error says so with
+`errors.allow(/.../)`. Site-build copies a local server can't have (`data/flybys.json`, `news`, `socrates`) are exempt.
+
+| Spec | What it drives |
+|---|---|
+| `landing.spec.mjs` | the live strip (ISS, quakes, launch countdown), the version picker re-pointing the launch buttons, `?v=`, the fleet viewer, the phone demo tabs, every link into the site |
+| `guide.spec.mjs` | every link in the guide and about page (in-page sections, pages across the site, https outside), the "on this page" links, section labels, the skip link, the buttons into each view |
+| `map.spec.mjs` | the 2D map: counters from the feeds, layers that stick across a reload, a click on a quake, view presets, the welcome card, the balloon layer's warning (Esc refuses, accept once per session), intel tabs and log, search (coordinates, a satellite), keyboard shortcuts, the share link round trip with a drawing, the 3D globe button (also on a middle-click), a globe link opening here, a hostile link |
+| `globe.spec.mjs` | the globe: counters, the layer dock (persisted), the time bar, search (ISS, a country), launches and eclipses, Measure (`M`) and a drawing in a link (London-Paris 343.9 km), the share link round trip (camera, layers, paused time), "Classic map" on the same place, a hostile link |
+| `solar.spec.mjs` | the Solar System: boot, search (Mars, Voyager, Halley, arrow keys, Esc, nothing found), a link with a body, moment and distance, `#q=`, Share, the clock buttons, layers and the mission and comet lists |
+| `tonight.spec.mjs` | Tonight with the clock fixed at 2026-10-13 19:00 UTC in London: planets, meteors, Moon, the 2027 eclipse, clouds, launches, the ISS and crew; remembering and forgetting the place, Greenwich without permission, a launch's Details to the globe, Share |
+| `phone.spec.mjs` | the `phone` project (Pixel 7, touch): every page fits the width, the 2D map's bottom bar and sheets, a tapped quake, the globe's phone dock and sheets, the Solar System's menu and search, tap-target sizes |
+| `visual.spec.mjs` | picture checks of five still views (below) |
+
+**Picture checks** (`visual.spec.mjs`, `e2e/support/snap.mjs`): the globe over Europe and Saturn at fixed moments with the
+interface hidden, the 2D map's first screen, the guide's first screen and Tonight on a phone. Each screenshot is shrunk
+to a 160 px thumbnail (box filter: font hinting and anti-aliasing average out, layout and colour don't) and compared with
+`e2e/snapshots/<name>.png` (5-25 kB each): the test fails when the mean channel difference or the share of pixels off
+by more than 48 goes over the view's limit; the log prints both numbers every run. On a failure the reference, the
+thumbnail and a red difference picture are attached to the report, and the thumbnail is also left in
+`e2e/.results/snapshots-actual/` under the reference's name. A changed heading in the guide scores ~17 (limit 5); reruns
+on the same machine score 0.
+- `OO_E2E_UPDATE=1 npx playwright test visual` rewrites the references: look at them before committing.
+- Fonts render differently per system. If CI's Linux pictures drift past the limits, give it its own references:
+  `OO_E2E_UPDATE=platform` writes `<name>.<platform>.png` (`linux`, `win32`), which wins over `<name>.png` on that
+  platform; or copy `snapshots-actual/` from the CI artifact after a look, renamed `<name>.linux.png`.
+
+**Writing a test.** Import `test`, `expect` and the `openMap` / `openGlobe` / `openSolar` helpers from
+`./support/fixtures.mjs`; drive the page through its controls (`locator().click()`, the keyboard) and read the state
+through the console handles (`OW`, `OO3D`, `OOSS`, `OOSKY`). `test.use({ fixedNow: '2026-...Z' })` freezes the page's
+`Date` and makes the fixtures for that moment. A new live feed needs a fixture in `feeds.mjs` and a line in
+`fixtureFor()` (and a check in `test/e2esupport.test.mjs`).
+
+Found by the first runs: the 2D map's "3D globe" button lost the view on a middle-click (fixed: `auxclick`); at
+1366x820 the globe's zoom pad covers the right end of the band (Measure, Eclipses, Solar system); the 2D map's phone
+bar buttons are 37.5 px tall, under the usual 44-48 px for a finger.
 
 ## In the browser (needs `node serve.js` on :8787)
 | Tool | What it does |

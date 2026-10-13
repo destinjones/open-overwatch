@@ -52,6 +52,42 @@ export function decodePng(buf) {
   return { width, height, data: out };
 }
 
+/** Shrink an RGBA image to w x h by averaging each output pixel's whole source area (a box filter): fonts' hinting and
+ *  anti-aliasing, which differ between systems, average out; layout, colour and what is drawn where do not. */
+export function downscale({ width, height, data }, w, h) {
+  const out = new Uint8Array(w * h * 4), sx = width / w, sy = height / h;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const x0 = Math.floor(x * sx), x1 = Math.max(x0 + 1, Math.floor((x + 1) * sx)), y0 = Math.floor(y * sy), y1 = Math.max(y0 + 1, Math.floor((y + 1) * sy));
+    const acc = [0, 0, 0, 0]; let n = 0;
+    for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) { const i = (yy * width + xx) * 4; acc[0] += data[i]; acc[1] += data[i + 1]; acc[2] += data[i + 2]; acc[3] += data[i + 3]; n++; }
+    const o = (y * w + x) * 4; for (let c = 0; c < 4; c++) out[o + c] = Math.round(acc[c] / n);
+  }
+  return { width: w, height: h, data: out };
+}
+
+/** Compare two images of the same size: { mean (average absolute difference per colour channel, 0-255), bad (share of
+ *  pixels where some channel differs by more than `tol`), diff (an RGBA picture: red where they differ) }. */
+export function compare(a, b, tol = 48) {
+  if (a.width !== b.width || a.height !== b.height) throw new Error(`size ${a.width}x${a.height} vs ${b.width}x${b.height}`);
+  const diff = new Uint8Array(a.data.length); let sum = 0, bad = 0;
+  for (let i = 0; i < a.data.length; i += 4) {
+    let worst = 0;
+    for (let c = 0; c < 3; c++) { const d = Math.abs(a.data[i + c] - b.data[i + c]); sum += d; if (d > worst) worst = d; }
+    if (worst > tol) bad++;
+    const g = (a.data[i] + a.data[i + 1] + a.data[i + 2]) / 9;   // the picture, dimmed, under the differences in red
+    diff[i] = Math.min(255, g + worst * 3); diff[i + 1] = g; diff[i + 2] = g; diff[i + 3] = 255;
+  }
+  const n = a.data.length / 4;
+  return { mean: sum / (n * 3), bad: bad / n, diff: { width: a.width, height: a.height, data: diff } };
+}
+
+/** Blow a small image up by an integer factor (nearest neighbour), so a failed comparison is easy to look at. */
+export function upscale({ width, height, data }, k) {
+  const out = new Uint8Array(width * k * height * k * 4);
+  for (let y = 0; y < height * k; y++) for (let x = 0; x < width * k; x++) { const s = ((y / k | 0) * width + (x / k | 0)) * 4, o = (y * width * k + x) * 4; for (let c = 0; c < 4; c++) out[o + c] = data[s + c]; }
+  return { width: width * k, height: height * k, data: out };
+}
+
 /** A 256 px map tile: a flat fill with a faint graticule at its edges, the same for every tile of a server, so a stubbed
  *  map looks like a map (and pans visibly) without any upstream imagery. */
 export function tilePng([r, g, b], grid = [r + 18, g + 22, b + 26]) {

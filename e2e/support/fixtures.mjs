@@ -23,22 +23,32 @@ export const test = base.extend({
     await use(log);
   }, { auto: true }],
 
-  errors: [async ({ page, net }, use, testInfo) => {
+  errors: [async ({ context, page, net }, use, testInfo) => {
     const seen = [], allowed = [];
     const own = url => { try { const u = new URL(url); return (u.hostname === 'localhost' || u.hostname === '127.0.0.1') && +u.port === PORT; } catch (e) { return false; } };
-    const refused = url => net.blocked.includes(url) || /celestrak/.test(url) || /\/proxy\?/.test(url);
-    page.on('pageerror', e => seen.push(`uncaught: ${String(e.message || e).split('\n')[0].slice(0, 300)}`));
-    page.on('console', m => {
-      if (m.type() !== 'error') return;
-      const text = m.text(), url = m.location()?.url || '';
-      if (/^Failed to load resource/.test(text)) {   // the browser's own note about a failed request: judged by the response below, or a refusal
-        if (refused(url) || !own(url) || OPTIONAL.test(url)) return;
-      }
-      seen.push(`console.error: ${text.slice(0, 300)}${url && !text.includes(url) ? ' @ ' + url : ''}`);
-    });
-    page.on('response', r => { const url = r.url(); if (own(url) && r.status() >= 400 && !OPTIONAL.test(url) && !/\/proxy\?/.test(url)) seen.push(`HTTP ${r.status()} for ${new URL(url).pathname}`); });
+    const refused = url => net.blocked.includes(url) || net.media.includes(url) || /celestrak/.test(url) || /\/proxy\?/.test(url);
+    const watch = p => {   // the test's page and any it opens (a shared link in a second tab)
+      p.on('pageerror', e => seen.push(`uncaught: ${String(e.message || e).split('\n')[0].slice(0, 300)}`));
+      p.on('console', m => {
+        if (m.type() !== 'error') return;
+        const text = m.text(), url = m.location()?.url || '';
+        if (/^Failed to load resource/.test(text)) {   // the browser's own note about a failed request: judged by the response below, or a refusal
+          if (refused(url) || !own(url) || OPTIONAL.test(url)) return;
+        }
+        seen.push(`console.error: ${text.slice(0, 300)}${url && !text.includes(url) ? ' @ ' + url : ''}`);
+      });
+      p.on('response', r => { const url = r.url(); if (own(url) && r.status() >= 400 && !OPTIONAL.test(url) && !/\/proxy\?/.test(url)) seen.push(`HTTP ${r.status()} for ${new URL(url).pathname}`); });
+    };
+    watch(page); context.on('page', watch);
+    // requests still open when the test ends: what a hung page was waiting for
+    const open = new Map(), t0 = Date.now();
+    context.on('request', r => open.set(r, Date.now()));
+    for (const ev of ['requestfinished', 'requestfailed']) context.on(ev, r => open.delete(r));
+    testInfo.attachOpenRequests = () => [...open].filter(([, t]) => Date.now() - t > 10000).map(([r, t]) => `${((t - t0) / 1000).toFixed(1)} s  ${r.method()} ${r.url().slice(0, 160)}`);
     const api = { list: seen, allow(re) { allowed.push(re); }, get unexpected() { return seen.filter(s => !allowed.some(re => re.test(s))); } };
     await use(api);
+    const stuck = testInfo.attachOpenRequests();
+    if (stuck.length) { console.log(`[open requests] ${testInfo.title}\n  ` + stuck.join('\n  ')); await testInfo.attach('open-requests.txt', { body: stuck.join('\n'), contentType: 'text/plain' }); }
     if (net.blocked.length) await testInfo.attach('blocked-requests.txt', { body: [...new Set(net.blocked)].join('\n'), contentType: 'text/plain' });
     if (seen.length) await testInfo.attach('page-errors.txt', { body: seen.join('\n'), contentType: 'text/plain' });
     expect(api.unexpected, 'script errors on the page').toEqual([]);
