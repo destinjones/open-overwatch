@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // "Tell me when it lands": watch a plane from its card and get a notification (or a toast, where notifications are
 // blocked) when it is on final, when it touches down and where, or when the feeds lose it low down (receivers often
 // can't hear a plane on the ground, so a lost signal near a field usually means it has landed). Needs fresh fixes,

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // World radio: the best-voted geolocated stations in the radio-browser.info community directory as dots on the globe,
 // a details card with Play / Stop, and an analog tuner whose needle steps through the stations near the view centre,
 // west to east, playing each one and flying the globe to the broadcaster. Keyless, and the API sends CORS headers.

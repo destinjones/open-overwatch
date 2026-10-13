@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // "Who's in space right now": the people aboard the ISS and Tiangong (Launch Library 2, copied by the site build into
 // data/astronauts.json; without the copy the page asks the API once). A card of its own, a line in Tonight, and
 // "aboard now" on the station cards.

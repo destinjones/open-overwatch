@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Other solar systems: every confirmed exoplanet (NASA Exoplanet Archive, data/solar/exoplanets.json made by
 // brand/tools/make_exoplanets.py) at its host star in the 3D star map. Fly into a system and it is built on the spot:
 // the star at its real size and colour, the habitable zone, the orbits and the planets at real size, lit by their own

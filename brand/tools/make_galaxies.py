@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Galaxy catalogue for the cosmic-web finale: the 2MASS Redshift Survey (2MRS; Huchra et al. 2012, ApJS 199, 26).
 
     python make_galaxies.py   (VizieR download cached in brand/source/2mrs/, gitignored)

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // country_briefing: one country in a page, what the globe's country card knows plus what is happening there now: its facts
 // (Wikidata, World Bank: the website's data/countries.json), its size from its outline (data/borders.json, simplified, so
 // "about"), this week's earthquakes in it and off its coast (USGS), NASA EONET's open events in it, tropical cyclones near

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // GRIB2 (src/core/grib2.js): messages built here with a small encoder (simple packing, complex packing with first- and
 // second-order spatial differencing, a bitmap), decoded back; the .idx inventory and its byte ranges. The decoder was
 // also checked against ECMWF's eccodes on real GFS fields (10 m wind, 2 m temperature, cloud cover, rain rate: equal to

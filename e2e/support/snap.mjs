@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Picture checks, stored small: a screenshot is shrunk to a thumbnail (160 px wide by default, 5-25 kB as PNG) and
 // compared with a reference in e2e/snapshots/ within tolerances. The shrink averages away what differs between machines
 // (font hinting, anti-aliasing, a pixel of rounding) and keeps what a regression changes: layout, colour, what is drawn

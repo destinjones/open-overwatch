@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Which runways an airport has been using: landings and take-offs found in the flight trails (the moment a trail goes
 // from airborne to on the ground, or back), each matched to the runway the plane was lined up with on its way down or
 // rolled along on its way up, kept for an hour or two and summed per runway end. Airports change runways when the wind

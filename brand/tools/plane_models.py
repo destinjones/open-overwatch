@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """3D aircraft models (.glb) for globe.html, from the same Blender geometry as the top-down sprites.
 
     blender-launcher.exe -b --factory-startup --python plane_models.py -- <out_dir>

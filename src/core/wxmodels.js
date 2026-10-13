@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The weather models the globe can read straight from their open buckets (keyless, CORS, HTTP byte ranges), side by
 // side: NOAA's GFS (1°, with NOAA's WAVEWATCH III ocean waves at 0.25°) and ECMWF's IFS (0.25°, with its wave model;
 // CC BY 4.0). For each: which runs exist when, a forecast hour's files and their inventories, which fields the globe

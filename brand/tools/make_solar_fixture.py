@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """JPL Horizons check positions for the Solar System view's comets and spacecraft -> test/fixtures/horizons_solar_2026-10-12.json
 
     python brand/tools/make_solar_fixture.py

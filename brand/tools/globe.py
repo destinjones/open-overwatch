@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Open Overwatch - final night-side ops globe (Blender 5.2, headless Cycles, emission only).
 
 Run (Git Bash):

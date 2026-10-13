@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Submarine cables and their landing stations (TeleGeography's submarine cable map data): where to get them and the
 // click test that finds the cable under the pointer; for the MCP server, what comes ashore or runs near a place and each
 // cable's own record. Pure (test/cables.test.mjs).

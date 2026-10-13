@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Moon surface maps for solar.html: USGS Astrogeology global mosaics resized for the web.
 
     python make_moon_textures.py   (raw downloads cached in brand/source/moons/, gitignored)

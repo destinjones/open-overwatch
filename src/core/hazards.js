@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Hazards and recent imagery from public feeds, parsed (pure; Node tests it): tropical cyclone forecasts (NOAA NHC's map
 // service for the Atlantic and East / Central Pacific, GDACS for every basin), US wildfire perimeters (NIFC WFIGS),
 // satellite fire detections (NASA's VIIRS thermal anomalies as GIBS vector tiles: FIRMS without a key), and the dates of

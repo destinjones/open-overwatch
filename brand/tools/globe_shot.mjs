@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // globe_shot.mjs — render globe.html in headless Edge (GPU) and save screenshots, for look-development.
 //   node globe_shot.mjs <out_prefix> <width>x<height> "<js run after load>" [settleSeconds] ["<js2>" settle2 ...]
 // Each <js> runs in the page (async ok), then the page renders for <settle> seconds, then a PNG is written as

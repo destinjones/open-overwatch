@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The canvas renderer for moving objects and point sets, the layer registry + panel, and the feed scheduler.
 import { $, C, FONT_MONO, Log, Store, debounce, esc, fmt, hexA, rad } from './util.js';
 import { map } from './mapview.js';

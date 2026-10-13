@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // eclipses: the coming solar eclipses (2027-2030, the website's JPL Horizons tables, data/eclipses.json): kind, when and
 // where the eclipse is greatest and for how long the Sun is hidden there, and, for a place, whether it is seen there at all,
 // when it starts, peaks and ends in local time and how much of the Sun is covered (src/core/eclipselocal.js). Each links

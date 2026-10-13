@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // One polite client for the public Overpass API, shared by every OpenStreetMap layer on the globe (roads for traffic,
 // mapped cameras, buildings, a projected camera's street) and the 2D map's area scan. DOM-free (fetch is injectable). The servers are shared and run by volunteers, and they ask
 // heavy users to slow down: so one request at a time from this page, a pause after each request at least as long as it

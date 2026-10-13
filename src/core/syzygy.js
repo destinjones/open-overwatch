@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Eclipses and lunar occultations, found from Earth-centred ephemerides of the Sun and the Moon (data/solar/ephem.json:
 // JPL Horizons, apparent, ecliptic J2000 axes, km, fitted as Chebyshev series by brand/tools/make_ephem.py; times are
 // Julian Dates in UT). The view's own Moon formula (planets.js) is ~0.3 degrees off, which is half the Moon's width:

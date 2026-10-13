@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Blender (headless): decode an OpenEXR into a float16 numpy array (H x W x 3, top row first) for make_skybox.py.
     blender-launcher -b --factory-startup --python exr_dump.py -- <in.exr> <out.npy>
 (Blender is the EXR reader here; nothing else on this machine decodes half-float EXR.)"""

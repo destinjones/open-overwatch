@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Flight trails on the 2D map, as on the globe (core/trail.js): where a plane has been in the last 10, 30 or 60
 // minutes, coloured by altitude (grey on the ground, orange low, through green and blue to violet at cruise). Every
 // fix the ADS-B feeds bring is recorded (OpenSky's 15-minute snapshots would draw straight lines through turns, so

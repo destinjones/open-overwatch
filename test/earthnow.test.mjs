@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // "Earth now" (src/core/earthnow.js): the aggregation behind the globe's dashboard, against captured feed answers
 // (USGS M4.5+ week, NOAA SWPC's Kp forecast product with its own G-scale labels, NASA EONET wildfires, 2026-10-13).
 import test from 'node:test';

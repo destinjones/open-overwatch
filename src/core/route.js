@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Routes for the globe's directions: OSRM step -> plain-English instruction, distances and times in words, and a point
 // a given distance along a polyline (the "fly it" camera rides that). Pure, so Node tests it.
 

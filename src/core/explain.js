@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // "What am I looking at?": one friendly sentence for a satellite card, from its name, its layer and its orbit. DOM-free.
 
 const NAMED = [

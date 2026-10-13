@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Accuracy against JPL Horizons, measured with the same code the views run. Used by the tests (thresholds) and by the
 // "Under the hood" panel, which loads the same reference file and measures the errors live in the browser.
 import { planetPosition, earthPosition, moonGeocentric } from './planets.js';

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The major annual meteor showers (IMO working list: peak dates shift by a day at most between years, ZHR is the rate
 // an observer would see with the radiant overhead under a perfect dark sky). For "tonight": which shower is active or
 // coming up, how many you could really see from here (radiant height and the Moon cut the rate), and when to look.

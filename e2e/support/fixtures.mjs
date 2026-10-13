@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The `test` every spec imports: Playwright's, with the stub network in front of every page and a watch on script
 // errors. A test fails if, at its end, the page threw, logged console.error, or got an error status for one of the
 // site's own files (a missing module or texture is a real bug), unless the test said it expects that message with

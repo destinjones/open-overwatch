@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Graphics quality: three levels, chosen per device and stepped down automatically when frames run slow.
 // Phones start on "low" (the GPU is the limit there and emulation can't measure it); everything else starts on "high".
 // While the page is visible, the median frame time of each 3 s window is watched: one very slow window (median over

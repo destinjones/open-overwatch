@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The globe's layer switches (remembered per browser) and the dock that shows them.
 import { $, esc, fmt, store, PHONE } from './env.js';
 import { hooks } from './state.js';

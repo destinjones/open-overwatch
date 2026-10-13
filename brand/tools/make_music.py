@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Original soundtrack for the Open Overwatch promo, generated from scratch (numpy only, deterministic).
 
 A dark pulse in the spirit of the app's own Synth: sub drone, 8th-note bass, kick/hats, detuned pads, and

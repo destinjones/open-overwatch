@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // "Where is it now?" search: one ranked list over planets, moons, spacecraft, comets, named asteroids, stars and other
 // planetary systems. DOM-free so it is tested (test/solar.test.mjs).
 //

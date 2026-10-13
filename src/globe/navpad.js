@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // On-screen navigation for desktops (phones get the dock in mobile.js): zoom in / out, a compass that shows where north
 // is and snaps the view north-up and level, top-down, and "reset view" for when you are lost. Keys: + and - zoom,
 // N north up, T top-down, R reset to the whole Earth. Zoom, north and top-down all work from wherever the camera is.

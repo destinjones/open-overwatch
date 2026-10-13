@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // weather_details: the fields the globe's weather mode draws as maps (sea-level pressure with its isobars, gusts, ocean
 // waves), read off at one point, with what a forecaster would say about them: the pressure and which way it is going
 // (a fast fall means a storm on the way), the strongest gust and when, Beaufort force, thunderstorm energy, fog, the

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 /* The photoreal Earth.
    From space: NASA Blue Marble NG (day) and VIIRS Black Marble (night lights, 500 m) streamed from NASA GIBS, real sun
    lighting with Cesium's ground atmosphere, and three shader shells. Two read brand/textures/earth_fx_*.jpg

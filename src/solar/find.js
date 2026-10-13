@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // "Where is it now?": the search box over everything the view knows (planets, moons, dwarf planets, spacecraft, every
 // comet, 26,000 named asteroids, nearby stars and planetary systems), ranked by src/core/search.js, plus the view as a
 // shareable link (src/core/solarlink.js): the URL hash follows what you fly to, and a card button copies it.

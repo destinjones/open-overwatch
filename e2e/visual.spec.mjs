@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Picture checks of a few views that hold still: a fixed moment, a fixed camera, fixture data, the interface's clocks
 // hidden. References are thumbnails in e2e/snapshots/ (support/snap.mjs explains the tolerances and how to update).
 import { test, expect, openMap, openGlobe, openSolar } from './support/fixtures.mjs';

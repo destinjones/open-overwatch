@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Phone orientation (W3C DeviceOrientation: alpha about up, beta about east, gamma about north, applied Z-X'-Y'') to
 // where the back camera looks and which way is up on the screen, in east-north-up components. DOM-free so it is tested.
 

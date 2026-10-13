@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Build the star catalogue for solar.html from the HYG database.
 
     python brand/tools/make_stars.py

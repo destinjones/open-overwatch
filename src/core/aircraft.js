@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Aircraft records from the two kinds of feed both views read: readsb-style JSON (adsb.lol, adsb.fi, airplanes.live: feet,
 // knots, ft/min) and OpenSky's state vectors (metres, m/s). One reader each, in the feeds' own units plus SI, so the 2D map
 // (aviation units) and the globe (metres) keep their own maths without parsing twice. Pure (test/aircraft.test.mjs).

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Rocket launches from The Space Devs' Launch Library 2 (the site build keeps a trimmed copy in data/launches.json; a page
 // without it asks the API directly). One mapping for both, so the build only trims and never reshapes. DOM-free.
 

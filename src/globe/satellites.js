@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Satellites: TLEs from the shared source (src/core/tle.js), SGP4 for every dot in a worker, and Blender-built glTF
 // models with exact per-frame SGP4 for the nearest ones.
 import { C, toast, bigStore, getText, ON_SITE, NO_ENV_MAP, PHONE } from './env.js';

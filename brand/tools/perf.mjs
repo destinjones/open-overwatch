@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // perf.mjs — load numbers and frame rate for each page, desktop and phone-emulated, in headless Edge on the GPU.
 //   node perf.mjs [desktop|phone|both] [page ...]       pages default to globe.html solar.html open-overwatch.html
 // Phone = 390x844 @3x, mobile + touch, CPU throttled 4x (a mid-range phone; the GPU can't be throttled, so phone

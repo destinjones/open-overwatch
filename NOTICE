@@ -1,0 +1,13 @@
+Open Overwatch
+Copyright (c) 2026 Destin Jones
+
+Open Overwatch (the website, the 2D map, the 3D globe, the Solar System view, the MCP server and the tools in this
+repository) was created by Destin Jones, first published on 2026-10-02 at https://github.com/destinjones/open-overwatch
+and https://destinjones.github.io/open-overwatch/.
+
+It is free software under the MIT License (see LICENSE). The MIT License requires that this copyright notice be kept
+in all copies or substantial portions of the software. If you fork, copy or build on Open Overwatch, keep this notice
+and the LICENSE file, and credit "Open Overwatch by Destin Jones" with a link to the original repository.
+
+Third-party data and libraries keep their own licences and credits: see docs/DATA_SOURCES.md and the credits on the
+about page.

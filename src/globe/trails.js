@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Flight trails: where a plane has been in the last half hour, as a line coloured by altitude (grey on the ground,
 // orange low, through green and blue to violet at cruise). Every fix that arrives is recorded (the 60-second military
 // feed and fresh look-ups; the 15-minute OpenSky snapshot is too sparse to count), and the trail is drawn for the plane

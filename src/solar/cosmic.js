@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The cosmic web: 43,480 galaxies of the 2MASS Redshift Survey in 3D (data/solar/galaxies.bin, brand/tools/
 // make_galaxies.py), out to ~700 Mpc, plus labels for the big clusters. Distances come from redshift (Hubble law), so
 // clusters are stretched along our line of sight ("fingers of God"), and the band behind the Milky Way's dust is empty.

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Open Overwatch spacecraft models: ISS, Tiangong (CSS), Hubble and Soyuz MS -> .glb for the CesiumJS globe.
 
 Run headless (Blender 5.2):

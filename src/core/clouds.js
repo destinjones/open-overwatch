@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // "Will it be clear tonight?" from an Open-Meteo hourly forecast (open-meteo.com, CC BY 4.0, free, no key):
 // { hourly: { time: [unix s], cloud_cover: [%], precipitation_probability: [%] } }. DOM-free.
 

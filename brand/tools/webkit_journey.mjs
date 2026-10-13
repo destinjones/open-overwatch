@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // webkit_journey.mjs — the phone journey in Safari's engine (Playwright's WebKit build) with an iPhone profile:
 // screen size, pixel ratio, touch, iOS user agent and a fixed public location. It is not iOS (no Metal, no motion
 // sensors, no iOS memory limits), but it catches what breaks in WebKit: missing APIs, CSS, WebGL differences.

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Weather at an aircraft, for the cockpit HUD: wind, temperature and cloud at its height from Open-Meteo's pressure
 // levels (interpolated in log-pressure between the two around it), visibility and low/mid/high cloud at the surface,
 // and what follows from them: head/tail and cross wind on its track, true airspeed and Mach from the ground speed and

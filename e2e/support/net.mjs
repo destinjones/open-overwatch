@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The network every browser test runs behind. One rule per request, in this order:
 //   1. CelesTrak is refused before it leaves the browser (it firewalled this project's PC once): counted, never fetched.
 //   2. The page's own server: the relay (/proxy) answers from fixtures and never reaches upstream; the site-build copies

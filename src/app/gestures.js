@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Touch on the two maps: a first-run hint card for phones (how to pinch, tilt and long-press), shown once per view
 // and remembered, plus the long press itself (spot.js). ?hints=1 shows the card again; OOApp.hints() too.
 

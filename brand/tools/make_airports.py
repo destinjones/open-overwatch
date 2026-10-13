@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Build data/airports.json, or with --runways data/runways.json, for the globe's airport boards from OurAirports
 (public domain).
 

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The planets as seen from Earth, in numbers people use: how far (from the Sun and from us, and how long their light takes),
 // how far from the Sun in our sky (elongation; evening or morning side), how much of the disc is lit, how bright (visual
 // magnitude), and the next oppositions, conjunctions and greatest elongations. Built on core/planets.js (JPL's approximate

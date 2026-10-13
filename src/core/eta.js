@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Arrival and departure estimates for the airport boards, from nothing but what the live aircraft say about themselves:
 // how far out they are, how fast they are going over the ground, how high they are and how fast they are coming down.
 // There is no schedule and no flight plan here, so every estimate comes with a range, and the range is honest about

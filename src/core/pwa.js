@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The installable app's decisions, DOM-free so Node can test them (src/app/pwa.js and src/app/gestures.js use them).
 //   - whether this page may run the site's service worker (not in an archived /v/<tag>/ copy, not on the local helper
 //     unless asked, never from file://),

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Military Grid Reference System (MGRS) from latitude / longitude on WGS84, for the globe's tactical HUD.
 // UTM by the usual Krüger series (millimetre-level inside a zone), with the Norway and Svalbard zone exceptions.
 // Outside 80°S..84°N MGRS uses the polar UPS grid, which this does not do: null there.

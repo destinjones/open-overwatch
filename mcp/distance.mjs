@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // distance: how far between places, as the crow flies on the real Earth (WGS84, Vincenty: to the millimetre) and, if asked,
 // by road, bike or on foot (OSRM over OpenStreetMap, the same router as the globe's Directions); the bearing to set off on,
 // the halfway point, and for several places the whole path. Its link opens the globe with the line drawn (the drawing

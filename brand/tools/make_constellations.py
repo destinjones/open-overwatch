@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """The 88 constellations' stick figures and names for look-up mode: d3-celestial (BSD 3-clause, Olaf Frohn) -> data/constellations.json
 
     python make_constellations.py        (the downloads are cached in brand/source/constellations/; delete them to refresh)

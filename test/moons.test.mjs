@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Major moons (orbits fitted to Horizons elements over 2026) against Horizons state vectors on 2026-10-02.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

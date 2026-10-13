@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Units, constants and reference frames shared by every view.
 // Space frame everywhere: heliocentric ecliptic J2000 (x -> March equinox, z -> ecliptic north pole), in AU.
 

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Tonight's sky (src/core/sky.js), calendar alerts (src/core/ics.js) and flight queries (src/core/flight.js).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

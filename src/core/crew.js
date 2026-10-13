@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Who is in space right now: Launch Library 2 astronauts with in_space=true (the site build copies them into
 // data/astronauts.json; a page without the copy asks the API). Which station each is on isn't in this list, so it is
 // inferred: China's crews fly to Tiangong, everyone else (on long missions) to the ISS. "Starman", the mannequin in a Tesla

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // "Earth now": one panel that sums up what is happening on the planet right now, from the feeds the globe already reads:
 // earthquakes (24 h, with 7 and 30 days of history from USGS), tropical cyclones, wildfires (NASA EONET's named fires),
 // launches in the next 24 hours (Launch Library 2, the site's copy), people in space, the aurora (NOAA's Kp, 3 days back

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // zoomtest.mjs — the scroll-wheel zoom out from Earth through the hand-off to the Solar System and beyond, with real
 // mouse-wheel events, timing every frame. Prints a per-second timeline (phase, height/distance, fps, worst frame) and,
 // with OO_PROFILE=1, where the main thread spent the time.

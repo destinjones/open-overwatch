@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Draw and measure: distances, bearings and areas on the WGS84 ellipsoid, the words for them, and the drawing as GeoJSON.
 // Pure (no DOM, no Cesium), so Node tests it against GeographicLib (Karney's reference implementation).
 //   inverse / direct  the shortest path over the ellipsoid (Vincenty's formulae, within a millimetre). Points within about

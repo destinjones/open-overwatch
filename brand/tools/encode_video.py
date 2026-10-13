@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Encode composed frames (+ optional soundtrack) to an H.264 MP4 with Blender's built-in FFmpeg.
 
     blender-launcher.exe -b --factory-startup --python encode_video.py -- <frames_dir> <out.mp4> [audio.wav] [--last N]

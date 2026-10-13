@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Open Overwatch helper (Node 18+ or Bun, no dependencies).
 // Serves this folder at http://127.0.0.1:8787/ and relays requests to a short list of data sources
 // that refuse browser (CORS) requests. The page comes from this same origin, so the relayed answers need no CORS header,

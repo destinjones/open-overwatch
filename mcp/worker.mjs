@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The MCP server as a Cloudflare Worker (or any runtime with web Request/Response and, optionally, the Cache API): the
 // same tools over stateless Streamable HTTP at /mcp (mcp/http.mjs), for remote connectors such as claude.ai's custom
 // connectors and ChatGPT's. mcp-worker/ holds the wrangler config and the deploy notes; nothing here is deployed.

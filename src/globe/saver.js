@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The battery saver: the globe draws 60 frames a second only while something on screen moves. Satellites always move,
 // but from far out a second of a satellite's motion is a fraction of a pixel, so with the camera still and nothing near
 // it moving, the globe draws a few times a second: fewer the higher up (the rate at which a low orbit moves under a

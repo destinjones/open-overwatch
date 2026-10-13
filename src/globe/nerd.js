@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // "Under the hood" for the globe (key ` or Layers → Under the hood): frame timing, the GPU, the satellite worker, where
 // every feed came from and how old it is, and how far to trust each kind of position.
 import { esc, fmt } from './env.js';

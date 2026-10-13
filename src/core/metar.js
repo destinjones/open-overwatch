@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // METAR and TAF: the airport weather reports pilots read, decoded from their raw text into numbers and then into plain
 // words ("Wind from the west at 22 knots, gusting 30. Overcast at 300 feet."), with the flight category (VFR, MVFR, IFR,
 // LIFR) from the visibility and the ceiling. Reads the WMO/ICAO code and the US variant (statute miles, inches of

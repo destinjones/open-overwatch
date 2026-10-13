@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // three.js helpers shared by the Solar System view: log-depth shader chunks, textures with a site fallback, glows.
 import * as THREE from 'three';
 import { SITE } from '../core/assets.js';

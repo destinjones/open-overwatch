@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Launch replay: a reconstructed ascent (core/ascent.js) for any launch in the list: the flown path bright, the rest
 // dashed, a chase camera, a T+ clock with the usual events, and scrubbing at 0.25x-16x. Always labelled an estimate:
 // it is built from the pad and the target orbit, not from telemetry.

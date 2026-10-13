@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // close_approaches: the closest coming encounters between objects in orbit (CelesTrak SOCRATES, screened every 8 hours
 // over the whole public catalogue; the website's build keeps the closest in data/socrates.json, and only that copy is
 // read, never CelesTrak), optionally for one satellite, with where over the Earth each happens (SGP4 on the website's

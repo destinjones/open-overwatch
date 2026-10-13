@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The 3D globe (globe.html, CesiumJS in software WebGL): boot, the counters from the (stubbed) feeds, the layer dock,
 // the time bar, the band's panels (search, launches, eclipses, measure), the share link both ways, the link to the 2D
 // map, and a hostile link.

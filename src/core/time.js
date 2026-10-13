@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Julian Dates and the simulation clock. jd is TT ~ UTC (the 69 s difference is far below anything we draw).
 
 export const J2000 = 2451545.0;

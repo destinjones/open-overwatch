@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The registry of things you can focus, label, search and click. A body:
 //   { key, name, kind, color, radius (AU), pos: Vector3 (heliocentric ecliptic AU), info?: () => [[label, value]],
 //     fact?, layer?: layer id that hides it, update?: jd => void, group?: Object3D,

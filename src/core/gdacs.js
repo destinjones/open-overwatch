@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // GDACS (Global Disaster Alert and Coordination System, EU JRC + UN OCHA; CORS, keyless): the disaster alert list behind
 // the 2D map's "Disaster alerts" layer. Pure: the paging is a loop over the injected json().
 import { GDACS_API } from './cyclones.js';

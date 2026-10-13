@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Open Overwatch helper.
 
 Serves this folder at http://127.0.0.1:8787/ and relays requests to a short list of data sources

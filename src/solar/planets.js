@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The Sun, the eight planets and the Moon (other moons: moons.js): real-size textured globes, lit by the Sun, spinning by the IAU models.
 import * as THREE from 'three';
 import { KM_AU, DEG } from '../core/units.js';

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The MCP tools. Each one answers from public open data (the feeds the website reads, or the website's own copies of them)
 // and returns { text, data }: text for people and models, data for programs, with `url`, a link that opens the live globe
 // on what the answer is about. show_on_globe also shows that globe in the conversation where the host can (MCP Apps).

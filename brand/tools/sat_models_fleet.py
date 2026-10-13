@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Open Overwatch satellite fleet: six real-world spacecraft models for the CesiumJS globe.
 
 Builds starlink / gnss / geo / weather / smallsat / rocketbody and exports each as a GLB to brand/models/.

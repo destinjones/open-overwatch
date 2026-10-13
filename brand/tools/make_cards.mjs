@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // make_cards.mjs — caption overlays, intro/end cards and share images for the promo, rendered with headless Edge.
 // Text is real HTML in the brand fonts (Big Shoulders Display, Barlow, IBM Plex Mono from Google Fonts).
 //

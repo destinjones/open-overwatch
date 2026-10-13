@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The globe's clock: live (wall clock) or simulated at a rate, shared with the Solar System view across the hand-over.
 // Everything time-dependent reads Time.nowMs(): sun lighting and models use Cesium's clock directly, the satellite dots
 // ask the worker for positions at this time, and aircraft (live data only) hide when it isn't now.

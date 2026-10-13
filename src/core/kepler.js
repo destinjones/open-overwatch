@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Two-body orbits. Elements: { a (AU), e, i, node, peri (radians), M0 (rad at epoch), epoch (jd) }.
 
 import { DEG, setXYZ } from './units.js';

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The Sun and the clock on the ground: a glowing marker where the Sun is straight overhead, the meridian of local solar noon, and
 // the 24 time-zone meridians (every 15 degrees; they stay put while the Earth turns under the Sun). Moves every 20 s.
 import { C } from './env.js';

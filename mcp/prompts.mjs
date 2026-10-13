@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Ready-made questions (MCP prompts): hosts list them as slash commands or a menu, and each turns a place or a country into
 // the request that walks Claude through the right tools in a good order, ending on the globe. The text is the request a
 // person would type; arguments are quoted into it as data (one line, cut to 120 characters), never as instructions.

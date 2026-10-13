@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Keyless 3D terrain: Mapterhorn's merged global elevation model as quantized-mesh tiles from Re:Earth (no key, CORS,
 // cached 30 days; heights above the WGS84 ellipsoid with EGM2008 undulations blended in, so they match Cesium's frame;
 // Cesium credits it from the tileset). A layer switch, on by default except on phones (more tiles and triangles there).

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The camera networks table (src/core/cameras.js), shared by the 2D map and the globe: each agency's answer shape.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

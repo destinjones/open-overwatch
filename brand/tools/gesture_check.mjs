@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // gesture_check.mjs — the touch side of src/app on a phone profile: the first-run hint card on the globe and the 2D
 // map (shows once, "Got it" closes it, a reload does not bring it back), and the long press (the globe's "This spot"
 // card, the map's spot popup). Screenshots in brand/perf/gestures/.

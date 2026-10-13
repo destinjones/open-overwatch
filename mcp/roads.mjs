@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // road_speeds: how fast traffic is moving on the roads near a place, measured, not modelled: Fintraffic's roadside sensors
 // (all of Finland: 5-minute average speed and vehicles an hour, each direction) and NYC DOT's speed sensors (New York City's
 // highways and arterials; the city publishes them a day or so late, and the answer says how old each reading is). The

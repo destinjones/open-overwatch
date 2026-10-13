@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Colour night-side texture for the 3D globe (globe.html): warm city cores, a green haze around them, faint
 green coastlines so dark continents still read. Built from the textures make_textures.py writes.
 

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Views (presets), the legend, your location, and the ISS follow mode.
 import { $, $$, C, esc, late, Net, pick, Store, toast } from './util.js';
 import { map, vecRenderer } from './mapview.js';

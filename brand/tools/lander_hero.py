@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Open Overwatch - landing-page hero: the ISS over the night-side Earth, flight arcs drawing in (Blender 5.2, Cycles).
 
 Run (Git Bash):

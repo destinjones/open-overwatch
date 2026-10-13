@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Canned answers for the live feeds, so the browser tests never depend on (or bother) the real services. Small and
 // made up, in each feed's real shape (the parsers in src/core/ read them like the real thing); times are relative to
 // the moment of the request, so "the last 24 hours" and "the next launch" always hold something.

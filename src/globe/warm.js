@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Shader pre-warm. Cesium compiles a glTF model's shaders the first time it is drawn, on the main thread: ~100 ms per
 // program under ANGLE/D3D11 and far more on phones and in Firefox, so the first aircraft and satellites coming into view
 // froze the flight down to the ground (perf.mjs: 1.3 s stalls on desktop, 1.5 s on a phone). Here one sub-millimetre

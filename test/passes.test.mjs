@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Satellite pass finding against a synthetic orbit: a circular polar orbit over a non-rotating Earth, observer on the
 // equator at longitude 0, so the satellite passes straight overhead once per orbit.
 import { test } from 'node:test';

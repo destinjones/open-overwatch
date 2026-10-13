@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Beyond the planets: the heliopause, the Oort cloud, 109,400 HYG stars in 3D, the Milky Way and the Local Group.
 import * as THREE from 'three';
 import { LY_AU, PC_AU, radecToEcl, GALACTIC, SUN_TO_GALACTIC_CENTRE_LY } from '../core/units.js';

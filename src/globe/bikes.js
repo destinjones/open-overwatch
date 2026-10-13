@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Bike share worldwide: CityBikes' directory of ~800 systems (keyless, CORS) and the stations of the systems near the
 // view, with how many bikes and free docks each has. A system loads when the camera is below ~150 km within 40 km of it;
 // its stations refresh every 3 minutes while in view (CityBikes allows 300 requests an hour per address, shared by every

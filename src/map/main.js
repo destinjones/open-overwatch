@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Boot: splash, initial layers and feeds, keyboard, and the window.OW console handle.
 import { $, Log, Net, Relay, Sound, Store, esc, fmt, regionOf, sleep, toast } from './util.js';
 import { map } from './mapview.js';

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Runways: which way each runway end faces, the wind along and across it, the runway a plane is lined up with, and
 // the runway in use (the one arrivals are lined up with, else the one most into the wind). From OurAirports runway
 // rows (data/runways.json, built by brand/tools/make_airports.py). DOM-free.

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Aircraft: the OpenSky global snapshot (every 15 min) and adsb.lol military (every 60 s), dead-reckoned between fixes
 // (through the turn a plane was making), each fix stamped with the feed's own time and eased in where it disagrees with
 // where we drew the plane; drawn as Blender-rendered sprites far out (nose along the course from any angle) and as glTF

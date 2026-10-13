@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // More on the aircraft card: what it is (class, maker and type, registration, owner, where it is registered, a photo),
 // what it is doing (flight phase, height above the nearest field), where it is going (the route its callsign flies,
 // from adsbdb, checked against where the plane actually is), its trail, and the boards of the airports at either end.

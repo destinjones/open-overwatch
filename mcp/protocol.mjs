@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The Model Context Protocol over JSON-RPC 2.0, by hand (no SDK, so the package has one small dependency): initialize, ping,
 // tools/list and tools/call, resources/list and resources/read (the globe panel), prompts. Transport-free (no Node
 // built-ins, so it runs on a Worker too): stdio is mcp/stdio.mjs, Streamable HTTP mcp/http.mjs.

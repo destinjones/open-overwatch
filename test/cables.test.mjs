@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Submarine cables (src/core/cables.js): parsing TeleGeography's files, distances to cables (across the antimeridian too),
 // landing stations nearby, and the per-cable and per-station records.
 import { test } from 'node:test';

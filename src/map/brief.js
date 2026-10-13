@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The live situation brief and the first-run welcome.
 import { $, $$, C, deg, esc, fmt, FONT_MONO, haversine, hexA, late, pick, rad, regionOf, Relay, safeHost, Store } from './util.js';
 import { map } from './mapview.js';

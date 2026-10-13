@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Every confirmed exoplanet, grouped by host star, for the Solar System view -> data/solar/exoplanets.json
 
     python make_exoplanets.py        (the archive answer is cached in brand/source/exoplanets/pscomppars.csv)

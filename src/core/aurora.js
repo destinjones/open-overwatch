@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The aurora oval from NOAA SWPC's OVATION model (a 1-degree grid of the chance of seeing aurora, public domain, CORS):
 // one grid and one colour ramp for the 2D map's overlay and the globe's imagery layer. Pure: pictures are RGBA arrays
 // the views put on a canvas. Spot readings with the horizon included: core/sky.js auroraAt.

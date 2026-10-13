@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Where something in the Solar System appears in Earth's sky: its direction (RA/Dec), how far it is from the Sun in
 // the sky (elongation), whether that puts it in the evening or the morning sky, and the constellation figure it sits
 // nearest (data/constellations.json, the d3-celestial stick figures; the nearest figure, not the IAU boundary).

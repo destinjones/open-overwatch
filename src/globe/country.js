@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Click the Earth, get a dossier on the country under the cursor: its border lights up, facts (Wikidata, World Bank), what the
 // globe knows about it right now (earthquakes, lighthouses, companies, the wind), and English-language headlines from its
 // news outlets (GDELT, fetched live and politely: its limit is one request every few seconds). Data: data/countries.json and

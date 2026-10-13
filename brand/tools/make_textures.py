@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """make_textures.py - equirectangular Earth textures for the Open Overwatch 3D globe renders.
 
 Reproducible and offline: reads only the public-domain sources in brand/source and needs nothing but

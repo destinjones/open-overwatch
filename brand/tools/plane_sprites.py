@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Top-down aircraft icon sprites for globe.html, modelled and rendered in headless Blender.
 
     blender-launcher.exe -b --factory-startup --python plane_sprites.py -- <out_dir>

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Contour lines (isobars) and pressure centres (H and L) on a model field: marching squares over a regular latitude/
 // longitude grid, joined into polylines that carry on across the date line on a global grid, and the highs and lows
 // that stand out from their surroundings. Pure (test/contour.test.mjs). Used by the globe's pressure layer (wind.js).

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Photoreal 3D cities: Google Photorealistic 3D Tiles streamed through Cesium ion with the visitor's own free ion token
 // (kept in this browser, the same one "3D buildings" uses; config.js can ship one for everyone). Close up (below ~200 km)
 // the tiles replace the globe's surface, shells and imagery; higher up the usual Earth shows.

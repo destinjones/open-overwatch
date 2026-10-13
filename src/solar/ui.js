@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // DOM side of the Solar System view: time controls, layer switches, labels, the details card (with a mission timeline
 // and where the body is in Earth's sky), captions and the scale readout (search and share links: find.js). Everything that touches document lives here.
 import * as THREE from 'three';

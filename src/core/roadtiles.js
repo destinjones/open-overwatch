@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Roads from vector tiles (the OpenMapTiles schema that OpenFreeMap serves) as "ways" for core/traffic.js's buildGraph.
 // Tiles overlap by a buffer, so each road line is clipped to its own tile and joined to its neighbour where both cross
 // the shared edge; junctions are where lines share a vertex (or where a street ends on another road between its

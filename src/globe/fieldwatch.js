@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Watching an airport (download version): while its card is open, and for any field you ask to keep watching, every
 // plane within ~75 km is asked for a fresh fix every 15 s (adsb.lol, else adsb.fi, through the local helper; 2 minutes off
 // when both say too many), so the board's estimates work from positions seconds old instead of the global snapshot's

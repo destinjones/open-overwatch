@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // 3D buildings. Without a token: OpenStreetMap's buildings with their mapped heights, close to the ground, from OpenFreeMap's vector
 // tiles (tilebuildings.js, no account; the Overpass path in osmbuildings.js is its fallback). With a Cesium ion
 // access token: Cesium's worldwide OpenStreetMap buildings, streamed as 3D Tiles. The token is free but belongs to whoever publishes the site (the one bundled with CesiumJS is for evaluation only, so this

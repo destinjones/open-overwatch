@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // cdp.mjs — a tiny Chrome DevTools Protocol client for headless Microsoft Edge (or Chrome).
 // Node 22+, no packages: uses the built-in WebSocket and child_process.
 //

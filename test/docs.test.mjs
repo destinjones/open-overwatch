@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The docs against the code: the user guide (guide.html), the link format (docs/LINK_FORMAT.md), the developer guide
 // (docs/DEVELOPING.md) and the core reference (docs/CORE.md) must name what the code has. A layer, link parameter,
 // sensor, weather source, band button, voice example or core module added without a line in the docs fails here; so

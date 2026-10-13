@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Ops: the "spy satellite" pack for the globe, all in the browser with no key.
 //   Sensors   one post-process pass: night vision, thermal (white hot, black hot, ironbow), CRT, noir. Off = no cost.
 //   HUD       compass tape, reticle, the ground under the reticle (lat/lon, MGRS), altitude, heading, ground sample

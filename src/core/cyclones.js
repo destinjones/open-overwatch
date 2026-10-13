@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Tropical cyclones, assembled once for every view: NASA EONET's storm tracks (worldwide), NOAA NHC's advisories
 // (Atlantic, East and Central Pacific: name, pressure, movement; CurrentStorms.json has no CORS, so through a relay),
 // NOAA's tropical map service (forecast points, track, cone, watches and warnings, the wind field: CORS) and GDACS

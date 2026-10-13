@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Talk to the globe with no key and no AI service: the browser's own speech recognition hears one sentence,
 // core/voicecmd.js turns it into one action, and the answer is spoken back with the browser's speech synthesis (the
 // nicest voice it has in your language). Press V or the mic, or hold Space while you speak. "What's this?" means the

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Body orientation from the IAU WGCCRE rotation models (main terms only): pole RA/Dec and prime meridian angle W.
 // Body-fixed axes in the ecliptic frame: x = prime meridian on the equator (texture longitude 0), y = north pole,
 // z = x × y, which puts east longitude 90 deg at -z (matching three.js SphereGeometry UVs).

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // capture.mjs — record smooth vertical (1080x1920, 30 fps) PNG sequences of the live Open Overwatch map,
 // and render transparent caption/end-card PNGs. Node 22+, no packages; drives headless Edge through cdp.mjs.
 //

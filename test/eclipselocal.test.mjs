@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Solar eclipses on the ground (src/core/eclipselocal.js) against NASA's published circumstances (Espenak & Meeus,
 // eclipse.gsfc.nasa.gov) for the eclipses in data/eclipses.json, and the Earth-fixed rotation it rests on.
 import { test } from 'node:test';

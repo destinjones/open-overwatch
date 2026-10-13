@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Live transit: buses, trams, metros, trains and ferries in Boston (MBTA), Helsinki (HSL), all of Norway (Entur), Austin
 // (CapMetro) and Minneapolis-St Paul (Metro Transit), straight from each operator's keyless feed (CORS or WebSocket, so
 // the website needs no relay; Austin and Minneapolis publish GTFS-RT protobuf, read by core/gtfsrt.js). A feed runs only while

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The two weather models (src/core/wxmodels.js): runs, files, inventories, parameters; and the new fields in words
 // (src/core/voicecmd.js: gusts, pressure, waves).
 import { test } from 'node:test';

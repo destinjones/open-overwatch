@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Draw and measure: pins, lines and areas on the globe (up to 512 points), distance arrows between two points (and the
 // same trip by road, through the directions' OSRM client), and country outlines from the bundled borders. Everything is
 // draped over whatever is drawn below it, the globe, 3D terrain or Google's 3D city (ClassificationType.BOTH:

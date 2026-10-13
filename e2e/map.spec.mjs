@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The 2D map (open-overwatch.html): boot, the counters from the (stubbed) feeds, the layer rail, views, the guarded
 // balloon layer, the intel tabs, search, keyboard shortcuts, clicking a quake, and the share link both ways.
 import { test, expect, openMap } from './support/fixtures.mjs';

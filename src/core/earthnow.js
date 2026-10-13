@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // "Earth now": what is happening on the planet right now, summed up from the feeds the globe already reads (USGS quakes,
 // tropical cyclones, NASA EONET wildfires, Launch Library 2 launches and astronauts, NOAA's Kp index, NASA/JPL flybys,
 // the weather model's fields). Pure aggregation and the small history charts as SVG text: no DOM, no fetch, so Node can

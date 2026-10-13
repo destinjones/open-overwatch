@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // aircraft_lookup: what a plane is and where a flight goes, from adsbdb (api.adsbdb.com, keyless; the globe's aircraft
 // cards ask it too): by registration ("G-XLEA", "N628TS") or ICAO 24-bit address ("4007f6") the type, maker, class,
 // registered owner and a photo link; by callsign ("BAW15", "UAL1") the airline and the route on file, with the airports

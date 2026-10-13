@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Open Overwatch for Claude (and any MCP client): ask about the live Earth and get answers from public open data, each with
 // a link that opens the 3D globe on it; hosts with MCP Apps (Claude Desktop) show the globe right in the conversation.
 // No account, no keys, no local web server: it reads the public feeds and the website's own data copies.

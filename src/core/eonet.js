@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // NASA EONET (Earth Observatory Natural Event Tracker, v3; CORS, keyless): open wildfires, storms, volcanoes, floods, ice...
 // One parser for the 2D map's events and storm tracks, the globe's cyclones and the MCP server. Pure.
 

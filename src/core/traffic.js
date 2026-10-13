@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Traffic: simulated cars on real roads. No open feed says where individual cars are (it would be a privacy disaster),
 // so the cars are a simulation on OpenStreetMap's road network: how many a road carries comes from its type and the local
 // time, cars follow each other and stop at mapped traffic lights, and where a city publishes measured speeds and counts

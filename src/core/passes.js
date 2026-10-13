@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Satellite passes over an observer: when it rises above a minimum elevation, how high it gets, where it sets, and
 // whether you could see it (the satellite in sunlight while your sky is dark). DOM-free: the caller supplies the
 // satellite's Earth-fixed position at any time (SGP4 in the browser) and the Sun's direction.

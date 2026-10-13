@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // volcanoes: the volcanoes nearest a place (the website's Wikidata list, data/volcanoes.json, the same the globe's volcano
 // layer draws), with what is happening at them now: an eruption NASA EONET has open, and this week's earthquakes nearby
 // (USGS). Heights are left out: the list mixes metres and feet.

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Eclipses and lunar occultations, 2026-2030, seen from space. The events come from src/core/syzygy.js over JPL Horizons'
 // Sun and Moon (data/solar/ephem.json, loaded on first use); while it is loaded the Moon is drawn at Horizons' position
 // (the view's own formula is ~0.3 deg off, which would put the shadow beside it).

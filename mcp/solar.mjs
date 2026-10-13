@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // solar_system: where the planets are and whether you can see them: distance from the Sun and from us (and how old their
 // light is), angle from the Sun, phase and brightness, the next oppositions, conjunctions and greatest elongations, and,
 // for a place, where each is in its sky now and when it rises and sets; plus the Moon and close meetings in the sky. All

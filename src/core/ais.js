@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Ships from AIS, the pure parts: Fintraffic's Digitraffic marine feed (positions as GeoJSON, ship details as JSON),
 // AIS codes in words (ship type, navigational status, flag from the MMSI, ETA bits), and where a ship is between reports
 // (along its course at its speed, through the turn it reports). No DOM, no Cesium (test/ais.test.mjs).

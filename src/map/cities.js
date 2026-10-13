@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // City layers the 3D globe had first: bike share worldwide (CityBikes) and live transit (Boston, Helsinki, Norway, Austin,
 // Minneapolis). The feeds, their loops, the vehicles' motion and the station looks are the globe's own (core/bikes.js,
 // core/transitfeeds.js, core/transit.js); this file only places them on the 2D map's canvas.

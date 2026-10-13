@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Weather models at a moment (src/core/wxload.js), shared by the globe and the 2D map: which run is used, what is
 // fetched for a moment and how hours are blended, the retries, and sampling a moment. The network and the decoding
 // worker are fakes: what the model asks of them is checked as well as what it answers.

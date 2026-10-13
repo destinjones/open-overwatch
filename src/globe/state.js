@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Shared mutable state and late-bound hooks, so feature modules don't import the UI (which imports them).
 export const state = {
   selected: null,        // the object whose card is open

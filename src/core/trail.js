@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Flight trails: the last N minutes of an aircraft's fixes, kept small (a fix every few seconds for an hour is a lot of
 // points on a phone) by dropping repeats and thinning in 3D (Douglas-Peucker on east/north/up metres, so a climb or a
 // turn keeps its points while a straight cruise keeps two), and coloured by altitude like the familiar flight-tracker

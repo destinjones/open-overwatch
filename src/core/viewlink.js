@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // A shared view as a URL hash, and back. Pure functions (the globe's share.js reads and applies them):
 //   #c=lon,lat,height,heading,pitch  &l=layer,ids,on  &w=ir,wind  &t=julianDate,rate  &k=ISO2  &f=CALLSIGN (a flight to find)
 //   &o=nvg.h.d (Ops: sensor, then h = tactical HUD, d = detection boxes)

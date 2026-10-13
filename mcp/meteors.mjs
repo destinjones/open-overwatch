@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // meteor_showers: the year's major meteor showers (the IMO list in src/core/meteors.js): when each peaks, how many an hour
 // you could really see from a place on the peak night (the radiant's height and the Moon cut the textbook rate), when to
 // look and which way, and what each is made of (its parent comet or asteroid).

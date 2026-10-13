@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The Streamable HTTP handler (mcp/http.mjs) served from Node, on a loopback address only: `node mcp/server.mjs --http 8793`.
 // Turns Node's request into a web Request (the body read up to the size limit), and a client that hangs up cancels its call.
 import { createServer } from 'node:http';

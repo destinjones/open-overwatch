@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // CCSDS 121.0-B lossless decompression (Adaptive Entropy Coding, "AEC", the Rice coder libaec implements), as GRIB2 data
 // template 5.42 uses it: ECMWF writes its open-data forecasts this way. Pure (test/aec.test.mjs); checked against eccodes
 // on a real IFS field. Reference: CCSDS 121.0-B-3 "Lossless Data Compression", and libaec's decoder for the details the

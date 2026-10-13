@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // a11y_check.mjs — the accessibility check of every page's HTML (src/core/a11ycheck.js), with a readable report.
 //   node brand/tools/a11y_check.mjs [page.html …]      exit code 1 if any page has errors
 // CI runs the same check through test/a11y.test.mjs; this is the version for people.

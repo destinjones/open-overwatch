@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Asteroid and comet flybys: the next 60 days of close approaches inside ~20 lunar distances (NASA/JPL CNEOS, copied by the
 // site build into data/flybys.json). A list card like Near misses; pick one for a countdown, how close, how fast, how big, and
 // "Show the scale", which flies out and draws the Moon's orbit and the object's closest distance as rings around the Earth.

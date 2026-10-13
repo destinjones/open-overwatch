@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The narrative layer: scale bands with real-world comparisons, the ladder of views, the guided tour, the light pulse
 // and the alignment finder.
 import * as THREE from 'three';

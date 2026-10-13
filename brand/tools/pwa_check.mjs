@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // pwa_check.mjs — the installable app in a real browser, on a copy of the website's layout:
 //   /open-overwatch/            this folder (the site root, the worker's scope)
 //   /open-overwatch/v/<tag>/    an archived version from git (default the newest v* tag) and /v/v9.9.9/, this folder

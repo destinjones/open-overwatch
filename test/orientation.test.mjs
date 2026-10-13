@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Phone orientation to view direction (look-up mode).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The Open Overwatch MCP server, assembled: the network layer, the tools and the globe panel behind the protocol handler.
 // mcp/server.mjs runs it over stdio; tests build it with their own fetch, SGP4 and clock.
 import { createFeeds, SITE, VERSION } from './feeds.mjs';

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Test helper (no tests of its own): a tiny Mapbox Vector Tile encoder, to build test tiles for core/mvt.js decodeTile.
 const varint = (n, out) => { while (n >= 128) { out.push((n % 128) | 128); n = Math.floor(n / 128); } out.push(n); };
 const key = (f, w, out) => varint(f * 8 + w, out);

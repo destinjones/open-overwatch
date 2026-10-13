@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Wind, temperature, cloud, rain, gusts, waves and pressure for weather mode, at any moment of the weather timeline. The
 // source is a weather model (model.js: NOAA GFS or ECMWF IFS, read from their files on AWS), blended between the forecast
 // hours either side of the moment; with a second model chosen, the two are shown side by side, split where the slider

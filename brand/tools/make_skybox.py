@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Star background for the 3D globe: NASA SVS Deep Star Maps 2020 (Hipparcos-2, Tycho-2, Gaia DR2) -> six cube faces.
 
     1. blender-launcher -b --factory-startup --python exr_dump.py -- brand/source/starmap_2020_4k.exr <work>/starmap.npy

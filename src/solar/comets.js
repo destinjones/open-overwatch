@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Comets as bodies you can find, follow and click: the famous ones, the ones near the Sun right now, and any other
 // comet picked in the search. Each has a glowing coma and two tails from src/core/comets.js: a straight blue ion tail
 // along the solar wind and a curved, yellow-white dust tail of grains shed over the past weeks. Both switch on inside

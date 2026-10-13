@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Director: shots to fly through, for clips and demos. Frame a view, Add it (the sensor look comes along), set how long
 // the flight to it takes, then Play; Cinema hides every control for a clean screen recording. Scenes travel as a link
 // (#scene=…, core/scene.js) or a .json file. Esc or a click stops playback.

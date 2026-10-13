@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Fire detections grouped into fires (src/core/fireclusters.js): the tiles that cover an area (across the antimeridian
 // too), single-linkage grouping that holds at high latitudes, fires in words, and NIFC perimeter rows.
 import { test } from 'node:test';

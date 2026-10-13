@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Globe UI: stats, the altitude band and presets, hover tips, the details card, keyboard, and model lighting.
 import { C, $, esc, fmt } from './env.js';
 import { viewer, scene, camera, airIcons, orbitLines, camHeight } from './viewer.js';

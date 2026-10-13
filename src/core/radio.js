@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // World radio: pure helpers for the globe's radio layer (src/globe/radio.js). DOM-free so Node can test them.
 // Stations come from radio-browser.info's /json/stations/search; these turn its rows into small station objects,
 // choose the set the analog tuner steps through, and map the dial's position to a station.

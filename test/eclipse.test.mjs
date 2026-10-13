@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Eclipse geometry on synthetic, exactly aligned set-ups (Sun, Moon and the sub-solar point on one line).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

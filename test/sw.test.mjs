@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The service worker (sw.js) run in a fake worker: Node's own fetch classes, an in-memory Cache Storage and a scripted
 // network. Checks what each kind of request does online and offline, that archived /v/<tag>/ versions and live feeds
 // are never touched, the install crawl, and that a new version cleans up after the old one.

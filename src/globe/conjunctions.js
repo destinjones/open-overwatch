@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Close approaches: the closest upcoming conjunctions from CelesTrak SOCRATES (data/socrates.json, made by the site
 // build), listed in the details card. Picking one sets the clock to 45 s before the time of closest approach (TCA), puts
 // both objects on screen with their orbits, follows the first and counts down while our own SGP4 (same public element

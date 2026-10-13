@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Public traffic and weather cameras: every agency network the 2D map and the globe show, as one table: where its list
 // is, the box it covers, its credit, and a parser from its answer to cameras. Pure (the views fetch; Hong Kong's XML is
 // read here with a small tag reader, so Node can test it). A camera: { net, id, name, view, direction, lat, lon, image,

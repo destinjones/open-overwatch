@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Build deep-space spacecraft trajectories for solar.html from JPL Horizons.
 
     python brand/tools/make_spacecraft.py

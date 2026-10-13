@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // CCSDS AEC (src/core/aec.js) and the JPEG 2000 subset (src/core/jpx.js) behind GRIB2 templates 5.42 and 5.40: round
 // trips through the test encoder (every AEC coding option), the wavelets against their forward transforms, and small
 // GRIB2 messages written by ECMWF's eccodes (libaec, OpenJPEG) checked against eccodes' own decoding of them

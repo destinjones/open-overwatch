@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // transit_vehicles: the buses, trams, metros, trains and ferries moving near a place right now, from the same keyless
 // operator feeds as the globe's transit layer (src/core/transit.js): MBTA (Boston), HSL (Helsinki, its GTFS-RT file),
 // Entur (all of Norway), CapMetro (Austin) and Metro Transit (Minneapolis-St Paul; both GTFS-RT, read by core/gtfsrt.js).

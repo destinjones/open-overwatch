@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // wildfires: fire hot spots in an area from NASA's VIIRS detections (FIRMS's data as GIBS vector tiles, the same the globe's
 // fire layer draws: NOAA-20 and NOAA-21, ~375 m pixels, the last day or two), grouped into fires and ranked by the power
 // they radiate, each placed by name; in the US also the named, mapped fires with their size and containment (NIFC WFIGS).

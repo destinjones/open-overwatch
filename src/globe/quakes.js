@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Earthquakes: USGS M2.5+ in the last 24 h (the feed sends CORS headers, so no relay; parsed by core/quakes.js, like the 2D map's).
 import { C, getJSON } from './env.js';
 import { qkPts } from './viewer.js';

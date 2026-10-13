@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 /* Follow camera for satellites and aircraft, and the glTF conventions both kinds of model share.
    Runs before every frame (scene.preUpdate): re-centres the camera on the object's exact position for this frame and
    keeps the user's orbit offset, so you can drag around it and zoom while it moves. (Cesium's trackedEntity lags one

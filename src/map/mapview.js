@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The Leaflet map and its base maps (incl. dated NASA GIBS imagery). The Sun and the day/night line: core/sky.js.
 import { $, Store, debounce } from './util.js';
 

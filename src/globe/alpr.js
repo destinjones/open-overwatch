@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Licence-plate readers (ALPR) in the US and Canada: every automatic plate reader OpenStreetMap volunteers have mapped
 // (largely through DeFlock), from the vector tiles FlockHopper (dontgetflocked.com) rebuilds every hour and serves with
 // CORS. No Overpass: from far away the tiles carry positions only (a dot cloud of where the readers are), and below

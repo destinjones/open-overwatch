@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // where_in_space: "where is it now?" for anything in the Solar System the website's 3D view knows by name: the planets,
 // the Moon, the major moons, deep-space missions (Voyager, JWST, Parker, Juno, Europa Clipper…), every comet and the
 // 26,000 named asteroids and dwarf planets. How far it is from the Sun and from us, how long its light (or its radio

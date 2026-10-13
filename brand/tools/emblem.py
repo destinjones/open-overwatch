@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Open Overwatch emblem - the final 3D logo ("Radar Scope").
 
 A 3D take on the app's CSS .mark: a dark slate bezel with 36 bearing ticks (4 green cardinals), a thin #7dffa6 ring,

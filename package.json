@@ -9,7 +9,7 @@
   "license": "MIT",
   "author": "Destin Jones",
   "bin": { "open-overwatch-mcp": "mcp/server.mjs" },
-  "files": ["mcp/*.mjs", "mcp/README.md", "src/package.json", "src/core/"],
+  "files": ["mcp/*.mjs", "mcp/README.md", "src/package.json", "src/core/", "NOTICE"],
   "engines": { "node": ">=20" },
   "dependencies": { "satellite.js": "5.0.0" },
   "devDependencies": { "@playwright/test": "1.63.0" },

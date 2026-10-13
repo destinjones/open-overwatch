@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Directions: a street route between two places (typed, said, or picked on the globe), drawn on the ground (on the
 // photoreal city too: it is clamped to whatever is drawn), with turn-by-turn steps, then "Fly it": the camera rides
 // the route like a drone, leading the path. Routing: the FOSSGIS OSRM servers over OpenStreetMap (no key, CORS).

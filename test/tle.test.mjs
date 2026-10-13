@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The shared TLE source: parsing, epochs, source order, caching and failure handling (with fake network/storage).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

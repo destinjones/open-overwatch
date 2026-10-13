@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Human-readable distances, durations and safe HTML.
 
 import { AU_KM, LY_AU, C_KM_S } from './units.js';

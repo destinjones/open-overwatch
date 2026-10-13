@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Rocket launches: the next ~40 from The Space Devs' Launch Library 2 (copied by the site build into data/launches.json every
 // 6 hours; without that copy the page asks the API once). Each pad with a launch coming gets a marker with a live countdown;
 // the band's "Launches" opens the list, and a launch card has the countdown, how sure the time is, the mission, webcasts, a

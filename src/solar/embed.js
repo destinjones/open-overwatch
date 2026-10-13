@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The Solar System as the far half of one continuous zoom: globe.html loads this page in an iframe (?embed=1) and hands
 // the camera over past the Moon; zooming back into Earth hands it back. Cameras cross as Earth-centred vectors in the
 // ecliptic frame (metres) plus the vertical field of view, so both renderers show the same picture at the switch.

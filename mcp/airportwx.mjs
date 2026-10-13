@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // airport_weather: an airport's latest METAR and its TAF from the Aviation Weather Center (NOAA), decoded into plain words
 // by the same code as the globe's airport cards (src/core/metar.js), with the flight category, the forecast period by
 // period, the worst category in the next hours, and which runway the wind favours (the website's OurAirports runways).

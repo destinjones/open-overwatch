@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Read an MP4 back with Blender: report size/length/fps/audio and save chosen frames as PNGs (QA without ffmpeg).
 
     blender-launcher.exe -b --factory-startup --python probe_video.py -- <video.mp4> <out_dir> [frame,frame,...]

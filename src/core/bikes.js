@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Bike share, the pure parts: the CityBikes directory (~800 systems worldwide) and a system's stations, with how full each
 // one is. No DOM, no Cesium (test/bikes.test.mjs).
 

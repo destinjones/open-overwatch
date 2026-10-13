@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // NOAA's GFS weather model on AWS (keyless, CORS, byte ranges): which run to read, its files, the fields the globe
 // draws, how a moment between two forecast hours blends them, and the weather timeline's moments. Pure
 // (test/gfs.test.mjs); the GRIB2 itself is read by core/grib2.js.

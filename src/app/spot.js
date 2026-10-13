@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The long press on the globe and the 2D map: hold a finger still for half a second and that spot opens: its
 // coordinates (decimal, degrees-minutes-seconds, MGRS), Copy, a link that opens the 3D globe there with a pin, and on
 // the globe a pin in the drawing (Measure) and the country it is in; on the 2D map the probe (weather, place, OSM).

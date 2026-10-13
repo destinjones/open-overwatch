@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // "Where is it now?" (src/core/whereis.js): the catalogue and its two searches, an asteroid's elements read by byte range
 // (checked against decoding the whole packed file), the H-G magnitude, and the state from the Sun and from Earth.
 import { test } from 'node:test';

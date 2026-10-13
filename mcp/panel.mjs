@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The globe in the conversation: an MCP Apps view (io.modelcontextprotocol/ui, spec 2026-01-26). Hosts that show apps
 // (Claude Desktop, and others) render this small page in a sandbox when show_on_globe answers; it frames the website's
 // globe in embed mode (#embed=1: just the globe) and moves it to each new view by changing only the link's hash, so the

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // A guided tour, about 80 seconds: the weather, a country dossier, the world's big employers, a volcano, a lighthouse, the aurora,
 // the street, then out through the Solar System. Any touch, key or wheel stops it and puts the layers back as they were.
 import { C, $, toast } from './env.js';

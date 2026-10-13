@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Draw and measure (src/core/measure.js): WGS84 distances, bearings and areas against GeographicLib 2.1 (Karney's
 // reference implementation, Python; run once by hand, values pasted below), the words for them, GeoJSON, voice commands.
 import { test } from 'node:test';

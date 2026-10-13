@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // End-to-end browser tests (e2e/*.spec.mjs): every page in headless Chromium against the local helper (serve.js), with
 // the live feeds stubbed (e2e/support/net.mjs). `npm run e2e`; docs/TESTING.md has the rest. Not part of `node --test`.
 import { chromium, defineConfig, devices } from '@playwright/test';

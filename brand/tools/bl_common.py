@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Shared helpers for the Open Overwatch brand renders (Blender 5.2, run headless).
 
 Run a script with:

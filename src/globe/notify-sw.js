@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Service worker for sky alerts only (alerts.js): phones show page notifications through a worker. It caches nothing
 // and intercepts no requests; tapping a notification brings the globe back.
 self.addEventListener('install', () => self.skipWaiting());

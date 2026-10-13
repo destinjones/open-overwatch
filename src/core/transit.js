@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Live transit, the pure parts: feed parsers (MBTA, Entur, HSL), a minimal MQTT 3.1.1 codec for HSL's WebSocket broker,
 // GTFS-RT agencies (Austin, Minneapolis), and the motion model that turns a fix every few seconds into steady movement.
 // No DOM, no Cesium (test/transit.test.mjs).

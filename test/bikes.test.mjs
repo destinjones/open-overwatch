@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Bike share (src/core/bikes.js): the CityBikes directory, stations, how full each one is.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Where a public traffic camera looks, as a best guess, and the geometry of what it sees. Pure (Node tests it).
 // Feeds publish a camera's position, rarely its aim. The guess, best first:
 //   1. a pose someone calibrated (the globe saves them; data/camera_poses.json can ship them)

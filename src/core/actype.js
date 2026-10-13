@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // What kind of aircraft a feed record is: from the ICAO type designator ("A20N", "B77W", "EC35"), else the readsb
 // emitter category ("A5" heavy, "A7" rotorcraft), else the type text adsbdb gives ("Airbus A330 202"). Also reads an
 // adsbdb answer into one plain record, checks whether its route on file fits where the plane actually is, and names the

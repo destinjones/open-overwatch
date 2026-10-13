@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Planets from JPL's "approximate positions" elements (E. M. Standish, valid 1800-2050) and the Moon from Paul
 // Schlyter's elements with the main perturbations. Heliocentric (Moon: geocentric) ecliptic J2000, AU.
 // https://ssd.jpl.nasa.gov/planets/approx_pos.html · https://stjarnhimlen.se/comp/ppcomp.html

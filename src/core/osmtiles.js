@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // OpenStreetMap layers from vector tiles, without the Overpass API (public Overpass refuses a busy website). Three
 // layers come out of tiles the browser can cache: 3D buildings (OpenFreeMap's `building` layer: render_height and
 // render_min_height, z14), military areas (OpenFreeMap's `landuse` class=military, z9-12, named from the military

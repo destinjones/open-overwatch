@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Share a picture: the globe exactly as it is on screen, with a caption strip (what you're looking at, when, and the
 // site's address), handed to the phone's share sheet with the link to this view, or saved as a PNG on a desktop.
 // The WebGL canvas keeps no copy of its last frame, so the picture is taken inside postRender, before it is presented.

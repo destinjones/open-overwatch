@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Aviation on the globe: aircraft classes from type codes (src/core/actype.js), adsbdb answers and route fits, ICAO
 // address blocks, weather aloft (src/core/aloft.js), airport boards (src/core/airports.js) and trails (src/core/trail.js).
 import { test } from 'node:test';

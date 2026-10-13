@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Wildfires. Worldwide: NASA's VIIRS fire detections from the last 24 hours (FIRMS's data, served by NASA GIBS as vector
 // tiles: keyless, CORS; NOAA-20 and NOAA-21, ~375 m pixels), loaded for the view below ~2,500 km and decoded in a worker,
 // drawn as points sized and coloured by fire radiative power. In the US: current interagency fire perimeters (NIFC WFIGS,

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The shared transit runner (src/core/transitfeeds.js) and the shared fire-tile plan and bike looks: what the globe and
 // the 2D map both run.
 import { test } from 'node:test';

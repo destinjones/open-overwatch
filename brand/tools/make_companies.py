@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """The world's big employers for the globe: Wikidata (CC0) -> data/companies.json
 
     python make_companies.py        (answers are cached in brand/source/companies/; delete that folder to refresh)

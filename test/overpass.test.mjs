@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The shared Overpass client (src/core/overpass.js): one request at a time, the next mirror when one fails, a rest for
 // the one that failed.
 import { test } from 'node:test';

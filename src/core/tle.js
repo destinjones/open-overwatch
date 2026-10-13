@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Satellite element sets (TLEs) for every view: where to get them, how long to keep them, how to read them.
 //
 // Sources: CelesTrak (gp.php, one download per group per 2 h) and the website's own copy of each group, refreshed every

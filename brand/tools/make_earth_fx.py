@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Effects texture for the 3D globe (globe.html): one equirectangular RGB JPEG.
 
     R = cloud density (NASA Blue Marble clouds, contrast-shaped, polar ice suppressed)

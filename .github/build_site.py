@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Build the GitHub Pages site: the current main branch at the root, plus a frozen copy of every released version.
 
     python .github/build_site.py [out_dir]          (default: _site)

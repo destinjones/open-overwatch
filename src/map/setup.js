@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The Setup tab (keys, relay, diagnostics), the open-map probe, and search.
 import { $, esc, fmt, haversine, isHttp, late, Log, Net, Relay, safeHost, Store, toast } from './util.js';
 import { map } from './mapview.js';

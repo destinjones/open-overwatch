@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Weather models at any moment, for every view: the globe's weather mode (src/globe/model.js, wind.js) and the 2D map's
 // model layers (src/map/weather.js) read the same files the same way, and share the browser's cache of them. Each model
 // (core/wxmodels.js: NOAA GFS with WAVEWATCH III, ECMWF IFS with its wave model) finds its newest run that reaches the

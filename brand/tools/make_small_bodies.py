@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Build the asteroid + comet data for the Solar System view (solar.html).
 
 Source: NASA/JPL SBDB Query API (https://ssd-api.jpl.nasa.gov/doc/sbdb_query.html).

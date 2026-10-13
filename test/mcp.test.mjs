@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The MCP server (mcp/): the protocol, argument checks, places and links, the stdio transport, and every tool against
 // canned answers from each source (no network). Orbits use satellite.js (npm install) with test/fixtures/stations.tle.
 import { test } from 'node:test';

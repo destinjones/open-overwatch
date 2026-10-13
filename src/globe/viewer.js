@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The Cesium viewer, camera limits, shared primitive collections and the star background.
 import { C, $, PHONE, loadImage } from './env.js';
 

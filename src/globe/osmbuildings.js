@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // 3D buildings with no account and no key: close to the ground (below ~2.5 km) the globe asks OpenStreetMap, through the public
 // Overpass API, for the building outlines of the 0.01-degree squares around the view, and stands each one up as a block (its mapped
 // height, or its floors x 3.2 m, or 9 m). One request at a time, one every 6 s at most, each square cached for the session.

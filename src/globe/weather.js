@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Weather mode: one timeline from the last couple of hours (what satellites and radar saw) into the next five days (what
 // NOAA's GFS model forecasts; three on phones), and the globe's clock moves with it: drag the slider and the day-night
 // line, the satellites and the weather move together; move the clock in the time bar and the weather follows.

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Fetch a data file, falling back to the published site. Archived versions (/v/<tag>/) and partial checkouts don't
 // carry the big data files, so they read them from the site root instead of duplicating ~40 MB per version.
 

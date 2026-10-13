@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Draw and measure on the 2D map, as on the 3D globe: lines, areas, distance arrows (with the same trip by road, OSRM) and
 // pins, up to 512 points, each leg and the total measured over the WGS84 ellipsoid and areas on it (core/measure.js:
 // within a millimetre of GeographicLib). Lines are drawn as the real shortest paths (curved on a Mercator map), not

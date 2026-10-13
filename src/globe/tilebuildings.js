@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // 3D buildings with no account and no key, and no Overpass: close to the ground (below ~3 km) the z14 vector tiles of
 // OpenFreeMap (the same tiles traffic.js drives on, so the browser often has them already) give every building
 // OpenStreetMap knows, with its height and the height its lowest part starts at (render_height / render_min_height,

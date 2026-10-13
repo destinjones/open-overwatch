@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Solar System view growth: comets on any conic, spacecraft tracks, "where is it now?" search, share links and sky
 // position. Positions are checked against JPL Horizons (test/fixtures/horizons_solar_2026-10-12.json, made by
 // brand/tools/make_solar_fixture.py). Run: node --test

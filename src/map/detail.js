@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Selection, the details panel, tracks, hover tips, tabs and mobile sheets.
 import { $, $$, C, debounce, esc, fmt, isHttp, late, Log, PHONE, Sound, throttle } from './util.js';
 import { map } from './mapview.js';

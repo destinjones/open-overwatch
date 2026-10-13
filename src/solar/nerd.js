@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // "Under the hood" (key ` or the button in the layer panel): live frame timing, GPU work, what is loaded, and the
 // accuracy of every position measured right here against NASA JPL Horizons, with the same code the tests use
 // (core/accuracy.js on test/fixtures/horizons_2026-10-02.json).

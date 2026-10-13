@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Ships from AIS (src/core/ais.js): Digitraffic parsers, AIS codes in words, motion between reports.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

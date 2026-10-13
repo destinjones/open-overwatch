@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The world's volcanoes: ~3,100 from Wikidata (CC0, data/volcanoes.json, made by brand/tools/make_volcanoes.py). Dots appear below
 // ~15,000 km, sized by summit height; extinct ones are dimmer. The data says what a volcano is, not whether it is erupting.
 // Loaded the first time the layer is on.

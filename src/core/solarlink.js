@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The Solar System view as a link, and back: solar.html#f=craft:Voyager%201&t=2026-10-12T06:00&d=0.0012&r=1
 //   f  focus: a body key (planet 'mars', moon 'moon:Titan', 'craft:Juno', 'comet:1P/Halley', 'ast:433 Eros', ...)
 //   q  a search to run instead when there is no key (hand-written links: solar.html#q=halley)

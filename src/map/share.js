@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Share links for the 2D map, in the globe's format (core/viewlink.js): #c=lon,lat,height,0,-90 &l=layers &d=drawing.
 // The map's zoom and the globe's camera height convert both ways, so a link opens the same area in either view; the
 // drawing (measure.js) goes in as its points. A link made on the globe opens here too: its layers that have a 2D

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // What a plane is doing right now, in the words a pilot would use: parked, taxiing, take-off roll, take-off, climbing,
 // cruise, level, descending, approach, final, landing roll; from its own fix (ground flag, speeds, vertical rate,
 // altitude) and the nearest airport (for height above the field and whether it is lined up). DOM-free.

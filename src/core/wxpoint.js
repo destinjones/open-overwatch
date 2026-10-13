@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The weather at one point in detail, from Open-Meteo's answers: the fields the globe's weather mode draws as maps
 // (sea-level pressure, gusts, waves) read off for a place, with the words a forecaster would use for them. Pressure
 // tendency over three hours (the Met Office's terms), Beaufort force, thunderstorm energy (CAPE), visibility (fog and

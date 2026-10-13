@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Assemble the vertical promo frame by frame (Pillow + numpy), then hand the frames to encode_video.py.
 
     python compose.py [--work DIR] [--only 0-120] [--preview]

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Eclipses and lunar occultations (src/core/syzygy.js). The Sun and the Moon come from JPL Horizons
 // (data/solar/ephem.json, brand/tools/make_ephem.py); the fit is checked against 40 Horizons instants it never saw
 // (test/fixtures/horizons_ephem_check.json), the solar eclipses against the globe's own eclipse code on Horizons'

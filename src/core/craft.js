@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Deep-space missions from data/solar/spacecraft.json (JPL Horizons, brand/tools/make_spacecraft.py): where a craft is
 // at any instant, how fast, which way its mission is heading next, and how long its signal takes to reach Earth.
 // A track is evenly spaced samples { t0_jd, step_days, xyz: [x0, y0, z0, x1, ...] } (heliocentric ecliptic J2000, AU).

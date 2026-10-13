@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Isobars and pressure centres (src/core/contour.js) and the field helpers under them (src/core/fields.js).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

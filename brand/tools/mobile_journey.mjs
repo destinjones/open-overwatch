@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // mobile_journey.mjs — a first-time visitor on a phone, A to Z: the landing page, the 3D globe (drag, pinch, panels,
 // zoom out to the Solar System), the Solar System view and the 2D map, all with touch gestures on an emulated
 // mid-range Android phone (390x844 @3x, CPU 4x slower, "Fast 4G" network, empty cache).

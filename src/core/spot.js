@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // "This spot": what a long press on the globe or the 2D map shows (src/app/spot.js): the coordinates in the usual ways,
 // and a link that opens the 3D globe there with a pin on it. DOM-free.
 

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // How weather-model fields look, for every view that draws them (the globe's weather mode, src/globe/wind.js, and the
 // 2D map's model layers, src/map/weather.js): the colour ramps of the washes (temperature, cloud, rain, gusts, waves)
 // and of the wind streaks, the legends drawn from the same stops, a wash painted into an RGBA buffer through any

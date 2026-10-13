@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Deep-space missions from JPL Horizons trajectories (data/solar/spacecraft.json, fixed time steps; maths in
 // src/core/craft.js). Each craft draws the path it has flown (bright) and the path still planned (faint), and the
 // focused craft marks its mission events along the track. Cards carry the mission, the signal time to Earth, the next

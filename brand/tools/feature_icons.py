@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Six 3D "feature icons" for the Open Overwatch landing page, modelled and rendered in headless Blender.
 
     blender-launcher.exe -b --factory-startup --python brand/tools/feature_icons.py -- brand/lander/icons

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Page-level helpers for the 3D globe: Cesium (a global from its UMD build), DOM shortcuts, storage and network.
 export const C = window.Cesium;
 export const $ = s => document.querySelector(s);

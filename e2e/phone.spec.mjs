@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Every page on a phone (the "phone" project: Pixel 7 size, touch, a mobile user agent): nothing sticks out sideways or
 // scrolls the page sideways, the phone controls exist and respond to taps, and the main controls are big enough to hit.
 import { test, expect, expectFitsWidth, openMap, openGlobe, openSolar } from './support/fixtures.mjs';

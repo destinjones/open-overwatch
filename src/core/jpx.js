@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // JPEG 2000 codestreams, just enough for GRIB2 data template 5.40: one grey component, the way NCEP (JasPer) and ECMWF's
 // eccodes (OpenJPEG) write model fields. NOAA's WAVEWATCH III wave model files are packed this way. Pure
 // (test/jpx.test.mjs); checked against eccodes on real wave fields. Reference: ITU-T T.800 (ISO/IEC 15444-1).

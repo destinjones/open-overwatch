@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // GTFS Realtime vehicle positions (the protobuf feed most transit agencies publish), read with the small protobuf reader
 // the map tiles use (core/mvt.js). Only what a moving dot needs: FeedMessage → FeedEntity → VehiclePosition { trip,
 // vehicle, position, current_status, timestamp, stop, occupancy }. Pure (test/gtfsrt.test.mjs).

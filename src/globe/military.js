@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Military areas: land that OpenStreetMap volunteers have mapped as military (landuse=military: bases, ranges, depots,
 // barracks), outlined on the ground below ~400 km, from OpenFreeMap's vector tiles (z9-12: the closer, the finer) rather
 // than the Overpass API. The tiles carry no names for military land, so an area is named after the military airfields

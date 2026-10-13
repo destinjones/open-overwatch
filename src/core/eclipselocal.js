@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Solar eclipses on the ground without Cesium: JPL Horizons' Earth-centred ICRF Sun and Moon (data/eclipses.json) turned
 // Earth-fixed with IAU 1976 precession, the main nutation terms and apparent sidereal time (to ~1 km on the ground:
 // polar motion and UT1-UTC left out), then core/eclipse.js's cones. Gives each eclipse's greatest point and its central

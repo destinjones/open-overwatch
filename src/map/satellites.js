@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Satellites: CelesTrak groups, SGP4 in a worker, ground tracks, passes.
 import { num, idArg } from '../core/format.js';
 import { createTleSource } from '../core/tle.js';

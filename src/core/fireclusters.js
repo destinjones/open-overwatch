@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Fire detections in an area, made answerable: which GIBS tiles cover it (across the antimeridian too), and the hot pixels
 // grouped into fires (single linkage: detections within ~2.5 km of each other are one fire), each with its size, power and
 // last sighting. Pure (test/fireclusters.test.mjs); the MCP server's wildfires tool uses it with core/hazards.js.

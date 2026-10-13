@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // page_check.mjs — open any page of the site in headless Edge, run steps, save screenshots and report every script error.
 //   node page_check.mjs <url> <out_prefix> <width>x<height> "<js>" [settleSeconds] ["<js2>" settle2 ...]
 // Like globe_shot.mjs, but for the 2D map too, and it prints console errors, uncaught exceptions and failed module loads

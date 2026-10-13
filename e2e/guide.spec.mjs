@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The user guide (guide.html) and the about page: every "on this page" link lands on its section, every link into the
 // site opens a page that exists (and the section it names), outside links are https, and the skip link works.
 import { test, expect } from './support/fixtures.mjs';

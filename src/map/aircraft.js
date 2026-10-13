@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Aircraft: ADS-B sources swept tile by tile, OpenSky, emergencies, photos.
 import { num, idArg } from '../core/format.js';
 import { $, C, Log, Net, Store, debounce, destination, esc, fmt, haversine, late, rad, regionOf, toast } from './util.js';

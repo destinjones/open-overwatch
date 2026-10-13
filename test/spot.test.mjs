@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { wrapLon, decimal, dms, plain, describeSpot, spotLink } from '../src/core/spot.js';

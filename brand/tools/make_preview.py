@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Animated WebP preview of the zoom clip for the README (GitHub shows it inline; the MP4 is linked).
 
     python make_preview.py <frames_dir> [out.webp]     (default brand/clip/zoom-preview.webp)

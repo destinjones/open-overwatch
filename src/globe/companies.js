@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The world's big employers as towers at their headquarters: height and glow follow the number of people employed, colour follows
 // the industry. ~1,000 companies from Wikidata (CC0, data/companies.json, made by brand/tools/make_companies.py): Wikidata is
 // edited by volunteers, so figures can be wrong, and market value is deliberately not shown (its values there are stale and

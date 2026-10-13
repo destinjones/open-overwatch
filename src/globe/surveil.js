@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Mapped cameras: surveillance cameras and licence-plate readers (ALPR) that OpenStreetMap volunteers have tagged
 // (man_made=surveillance), loaded for the area in view once you are low enough (below ~25 km), from the public Overpass
 // API. Locations and tags only: no video, no plates. Where a camera's direction is tagged, a small wedge shows where it

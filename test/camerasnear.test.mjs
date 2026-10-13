@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Cameras near a place (src/core/cameras.js, the MCP server's traffic_cameras tool): which networks cover a point, the
 // nearest cameras, and pictures recognised by their bytes.
 import { test } from 'node:test';

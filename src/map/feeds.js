@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Point and vector layers: quakes, events, disasters, storms, news, weather, space weather, radar, clouds, terminator, cables, cameras, ships, balloons, fires, OSM scan.
 import { num, idArg } from '../core/format.js';
 import { COUNTRY, COUNTRY_ALIAS } from './countries.js';

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // GTFS Realtime vehicle positions (src/core/gtfsrt.js) and their mapping to transit fixes (src/core/transit.js).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

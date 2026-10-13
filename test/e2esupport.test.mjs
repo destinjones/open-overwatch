@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The browser tests' own machinery (e2e/support/), checked without a browser: the PNG codec and picture comparison the
 // screenshot checks rest on, and the canned feed answers, read by the same parsers the pages use (so a fixture can't
 // drift from the real feed's shape without this failing), and the stub network's routing table.

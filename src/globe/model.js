@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The weather models for the globe: NOAA's GFS (1°, newest complete run; every 3 h out to +120 h, +72 h on phones) with
 // NOAA's WAVEWATCH III waves, and ECMWF's IFS (0.25°, CC BY 4.0) with its wave model, read straight from their files on
 // AWS one field and one forecast hour at a time (core/wxload.js; fetching and decoding in core/model.worker.js, which

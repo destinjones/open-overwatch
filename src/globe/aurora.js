@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The aurora oval, live: NOAA SWPC's OVATION model (a 1-degree grid of the chance of seeing aurora, updated every few minutes,
 // public domain, sends CORS). Painted once into a 360 x 180 picture and laid over the Earth as a single imagery layer: green
 // where it is faint, through yellow to pink where it is strong. Loaded only while the layer is on; refreshed every 10 minutes.

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // tonight.html: the Tonight card without the 3D globe, for a fast first answer on a phone. It loads only what the card
 // reads: three satellite groups (stations, the brightest, Starlink) through the shared TLE source, NOAA's aurora grid,
 // the launch list, the country borders for "the ISS is over ...", and the eclipse tables. Eclipses use sidereal time to

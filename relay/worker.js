@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Open Overwatch public relay, a Cloudflare Worker. A few feeds the website needs send no CORS headers (the ADS-B
 // aircraft networks, OpenSky, NOAA's hurricane advisories, NYC cameras, some camera lists and stills, the submarine cable map), so a browser page
 // can't read them. This passes those through, and only those, like the download's local helper (serve.js):

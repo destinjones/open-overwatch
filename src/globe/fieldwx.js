@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Airport weather from the reports pilots read: the latest METAR and TAF for a field, decoded into plain words on its
 // card (core/metar.js), and the airport dots in view coloured by flight category (green VFR, blue MVFR, red IFR,
 // magenta LIFR). The reports come from the Aviation Weather Center's data API (aviationweather.gov, US NOAA/NWS), which

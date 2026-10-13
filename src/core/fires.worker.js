@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Shared by the globe (src/globe/fires.js) and the 2D map (src/map/hazards.js).
 // Fire tiles off the main thread: fetch a GIBS VIIRS thermal anomaly vector tile (served gzipped without saying so),
 // unzip it, decode it and keep the detections since `since`. A tile can hold 15,000 detections in a burning season.

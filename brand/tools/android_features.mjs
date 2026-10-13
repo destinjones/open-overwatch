@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // android_features.mjs — the newer globe features on the Android emulator, by touch (see docs/TESTING.md):
 //   OO_ANDROID is implied. Needs the emulator running with adb links (mobile_journey.mjs makes them), and the server on :8787.
 //   node android_features.mjs      screenshots in brand/perf/android-features/

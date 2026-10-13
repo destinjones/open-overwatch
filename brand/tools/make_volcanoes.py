@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """The world's volcanoes for the globe: Wikidata (CC0) -> data/volcanoes.json
 
     python make_volcanoes.py        (the answer is cached in brand/source/volcanoes.json; delete it to refresh)

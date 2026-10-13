@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The shared feed parsers (src/core/quakes, eonet, cyclones, gdacs, aurora, cables): one copy for the 2D map, the globe
 // and the MCP server. Inputs are small hand-made copies of each service's real answer shape.
 import { test } from 'node:test';

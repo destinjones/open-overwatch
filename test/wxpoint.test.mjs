@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The weather at a point (src/core/wxpoint.js): the forecaster's words for pressure tendency, wind, thunder energy,
 // visibility, UV and the sea; the extremes ahead from Open-Meteo's hourly answer; whether the models agree.
 import { test } from 'node:test';

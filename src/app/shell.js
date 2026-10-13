@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // What every page shares, loaded by one <script type="module" src="src/app/shell.js"> per page:
 //   the installable app (pwa.js: service worker, offline banner, new-version prompt, install button),
 //   the accessibility layer (a11y.js: focus rings, keyboard moves, screen-reader names and announcements),

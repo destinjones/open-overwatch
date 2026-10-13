@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Solar eclipses 2027-2030 for the globe: the Sun and Moon minute by minute from JPL Horizons -> data/eclipses.json
 
     python make_eclipses.py        (Horizons answers cached in brand/source/horizons/eclipses/)

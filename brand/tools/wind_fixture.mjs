@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // A made-up wind and temperature grid in the shape of data/wind.json (the site build's Open-Meteo mirror), for the phone
 // journeys: they serve it in place of the real file and block Open-Meteo itself, whose per-IP hourly limit (612 lookups
 // per weather open) a few test runs used to exhaust, after which wind silently stopped drawing.

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Solar eclipses on the globe, 2027-2030 (data/eclipses.json: JPL Horizons Sun and Moon every minute, made by
 // brand/tools/make_eclipses.py). Pick one and the clock jumps to it: the Moon's umbra races across the Earth along its
 // path of totality, the penumbra's edge around it, at 1 minute per second. Positions go ICRF -> Earth-fixed with

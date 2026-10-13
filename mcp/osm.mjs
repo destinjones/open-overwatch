@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Two MCP tools from OpenStreetMap vector tiles, the same tiles and code the globe uses (src/globe/alpr.js, military.js;
 // parsing in src/core/osmtiles.js): licence-plate readers in the US and Canada (FlockHopper's hourly tiles of the ALPRs
 // mapped in OpenStreetMap, mostly through DeFlock) and military land (OpenFreeMap's landuse=military). No Overpass.

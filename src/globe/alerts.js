@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Alerts without a server: a calendar file with a reminder (reaches the phone with the site closed), and browser
 // notifications while the page is open (re-armed from localStorage on the next visit). Phones only show page
 // notifications through a service worker (notify-sw.js, which does nothing else); iPhones only for a home-screen app.

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Cockpit weather: riding a plane (Ops cockpit, or the HUD while following one), the right side of the HUD shows the
 // weather where it is: wind at its height and what it does to it (head or tail, cross), outside air temperature against
 // the standard atmosphere, true airspeed and Mach, cloud at its level and the sky's layers, surface visibility, an

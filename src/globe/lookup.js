@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Look-up mode: stand where you are and look at the real sky. The camera sits at your location; on a phone it follows
 // the phone's motion sensors (point it at the sky), elsewhere you drag to look around. Everything is in its true place
 // already (the star map in ICRF axes, satellites from SGP4, aircraft, the Sun and Moon); this adds the planets, the

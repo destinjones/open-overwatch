@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The planets from Earth (src/core/solarsys.js) against events everyone could look up: oppositions, greatest elongations,
 // Saturn's ring-plane crossing, and the brightness the almanacs gave.
 import { test } from 'node:test';

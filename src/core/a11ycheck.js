@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // A small accessibility check over a page's HTML, DOM-free (test/a11y.test.mjs runs it on every page in CI; the
 // command line is brand/tools/a11y_check.mjs). It reads the markup the page ships with, not what scripts add later
 // (src/app/a11y.js covers those at run time), and checks what can be checked from text:

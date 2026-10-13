@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Lighthouses of the world: every man_made=lighthouse in OpenStreetMap (data/lighthouses.json, made by
 // brand/tools/make_lighthouses.py; (c) OpenStreetMap contributors, ODbL). Dots appear below ~4,000 km; click one for its
 // height, light, range and builder. Loaded on first use, so a visitor with the layer off never downloads it.

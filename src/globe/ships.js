@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Ships: live AIS from Fintraffic's Digitraffic (keyless, CORS): every ship its coastal network hears in the Gulf of
 // Finland, the Gulf of Bothnia, the Archipelago Sea and the northern Baltic (~800 at a time). Polled every 20 s for what
 // changed (a few KB); between reports each ship moves along its course at its speed, through the turn it reports, and

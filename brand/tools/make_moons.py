@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Major moons for the Solar System view: orbits fitted near the present from JPL Horizons -> data/solar/moons.json.
 
     python make_moons.py      (Horizons responses cached in brand/source/horizons/moons/)

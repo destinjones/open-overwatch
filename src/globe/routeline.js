@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The route on the globe for the plane you have open or follow, when its route on file fits where it is (acinfo.js):
 // a dashed great circle from the plane to its destination (holding its height, then down to the field over the last
 // 200 km), and a fainter one back to where it took off. Drawn only for a route that fits: a wrong route is worse than

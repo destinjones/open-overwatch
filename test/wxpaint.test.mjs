@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // How weather-model fields look (src/core/wxpaint.js): colour ramps, washes painted through a projection, wave darts,
 // the isobar chart, and the legends, shared by the globe and the 2D map.
 import { test } from 'node:test';

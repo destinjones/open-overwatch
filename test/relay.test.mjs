@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The public relay (relay/worker.js) with a stand-in upstream: who it serves, what it fetches, what it shares.
 import test from 'node:test';
 import assert from 'node:assert/strict';

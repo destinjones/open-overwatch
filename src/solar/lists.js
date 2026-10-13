@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Three lists in one panel: every deep-space mission with its distance and signal time to Earth (nearest first); the
 // brightest comets now (SBDB magnitude parameters) with when each peaks, then the best placed ones; and the eclipses
 // and lunar occultations of 2026-2030 with buttons that jump the clock there (eclipses.js). Rows fly to the body.

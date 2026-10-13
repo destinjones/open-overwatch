@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Voice (src/core/voicecmd.js): picking from a spoken list, weather questions, counting over a place, weather in words.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

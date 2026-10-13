@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // What you're looking at in the sky, in one or two sentences: distances and light travel times for the planets and the
 // Moon (from where they are at jd), and for the brightest stars (distances in light-years from Hipparcos/Gaia, rounded).
 // DOM-free.

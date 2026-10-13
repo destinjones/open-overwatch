@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Live traffic cameras, projected into the 3D city.
 //   Networks: TfL JamCams (London: stills + 10-second video clips), NYC DOT (through the local helper or the website's
 //   relay), Caltrans (California, by district), Fintraffic weather cameras (Finland); live video from DelDOT (Delaware),

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // adsbdb, the aircraft and route lookup the globe's and the 2D map's cards and boards share (src/core/acinfo.js):
 // one request at a time, a day's cache per hex + callsign in the view's store, a callsign lookup for unknown airframes,
 // and the rate limit honoured. The network is a fake that records what it was asked.

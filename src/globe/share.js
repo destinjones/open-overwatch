@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Share a view: a link that puts the next person where you are, with the same layers, the same time and (if open) the same
 // weather sources and country. Everything lives in the URL hash (nothing is stored on a server):
 //   #c=lon,lat,height,heading,pitch  &l=ids,of,layers,on  &w=ir,wind  &t=julianDate,rate  &k=ISO2  &f=CALLSIGN  &d=drawing

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // OpenStreetMap layers from vector tiles, without the Overpass API (the 3D globe has the same: src/globe/alpr.js,
 // military.js). Plate readers: every ALPR mapped in OpenStreetMap in the US and Canada, from FlockHopper's hourly tiles
 // (a thinned dot cloud below zoom 10, every reader with its tags from 10 up). Military areas: OpenFreeMap's

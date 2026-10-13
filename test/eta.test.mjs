@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Arrival/departure estimates with ranges and their track record (src/core/eta.js), and the runway-use history found in
 // flight trails (src/core/runwaylog.js), on Denver's real runway layout (data/runways.json, OurAirports).
 import { test } from 'node:test';

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // METAR and TAF decoding (src/core/metar.js): every real report in the fixtures (191 METARs and 41 TAFs from
 // aviationweather.gov, 2026-10-13, from Denver to Moscow, Tokyo and Santiago) checked against AWC's own decode of the
 // same text, plus the words the airport card shows and the hand-picked groups that matter most.

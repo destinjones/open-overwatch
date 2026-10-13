@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // submarine_cables: the undersea internet and power cables that come ashore at or run near a place (TeleGeography's
 // submarine cable map, the data the 2D map draws; asked directly, so no relay): the landing stations nearby and the cables
 // at them, with their length, owners and the year they entered service. The two map files (~1 MB) are kept a day.

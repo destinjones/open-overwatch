@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Airports and their boards. The large and medium airports of the world (data/airports.json, from OurAirports, public
 // domain; made by brand/tools/make_airports.py) appear as dots below ~2,500 km, with codes below ~600 km. Click one for
 // its board: the live aircraft near it that are arriving (low, descending towards it), departing (climbing away) or on

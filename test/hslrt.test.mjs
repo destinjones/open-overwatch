@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // HSL's GTFS-RT file read into lines and modes (src/core/transit.js), CapMetro's moving file, and the MCP transit box.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

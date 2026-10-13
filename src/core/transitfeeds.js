@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Live transit feeds, shared by the globe and the 2D map: which operators, where, how often, and the loops that run
 // them (polling over fetch, HSL's MQTT stream over a WebSocket). No DOM: fetch and WebSocket are injected or global, so
 // Node runs the same code in tests. Parsing and the motion model: core/transit.js and core/gtfsrt.js.

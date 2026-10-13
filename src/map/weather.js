@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Forecast weather on the 2D map, from the same models and the same code as the globe's weather mode: NOAA's GFS (with
 // WAVEWATCH III waves) or ECMWF's IFS, read straight from their open buckets by byte range (core/wxload.js, decoded in
 // core/model.worker.js; the browser's cache of those files is shared with the globe), blended between the forecast

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // A calendar file (iCalendar, RFC 5545) with a reminder: the one alert that reaches a phone with the site closed and no
 // server of ours. DOM-free. events: [{ uid, start, end (ms), title, details, alarmMin }].
 

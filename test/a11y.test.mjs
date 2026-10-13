@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The accessibility check (src/core/a11ycheck.js): its rules on small pieces of markup, then every page the site ships.
 import test from 'node:test';
 import assert from 'node:assert/strict';

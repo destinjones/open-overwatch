@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // GFS helpers (src/core/gfs.js): which run, its files, blending between forecast hours, the weather timeline.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

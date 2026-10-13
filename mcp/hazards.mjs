@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The live hazard feeds several tools read (earthquakes, tropical cyclones, natural events), fetched once here and parsed
 // by the shared core parsers the globe and the 2D map use (core/quakes.js, core/cyclones.js, core/eonet.js): the
 // earthquakes, tropical_storms and natural_events tools list them, country_briefing and volcanoes pick out a place's.

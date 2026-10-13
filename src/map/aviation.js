@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Aviation on the 2D map, from the same core code as the globe: what a plane is and where it is going (adsbdb through
 // core/acinfo.js: type, registration, owner, the route its callsign flies checked against where the plane is, with
 // core/actype.js), what it is doing (core/phase.js: parked … cruise … on final, and the runway it is lined up with),

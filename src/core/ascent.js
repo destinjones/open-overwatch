@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // A reconstructed rocket ascent from what a launch listing says: the pad and the target orbit. Not telemetry: a generic
 // two-stage climb to orbit along the launch azimuth that reaches the target inclination, then a short coast. Pure.
 //   profile = ascentProfile({ lat, lon, orbit, mission, rocket })   sample(profile, tSeconds) -> { lat, lon, altKm, speedKms, downrangeKm }

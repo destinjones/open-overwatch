@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Places by name: cities, landmarks, airports, addresses. Photon (komoot), a free geocoder over OpenStreetMap data with
 // no key and CORS. Only the words typed (or said) are sent, never the camera position. Used by Search and voice.
 import { C } from './env.js';

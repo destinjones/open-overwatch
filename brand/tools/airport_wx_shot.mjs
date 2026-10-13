@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Renders for the airport card's METAR/TAF, board estimates and runway history (grow2-aviation, 2026-10-13):
 //   OW_WORK=%LOCALAPPDATA%\oo-brand-<you> OO_URL=http://localhost:<port>/globe.html node brand/tools/airport_wx_shot.mjs <out_prefix> [WxH]
 // globe_shot blocks the aircraft feeds, so the planes and the runway-history events are test fixtures injected here

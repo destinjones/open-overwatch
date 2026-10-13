@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The accessibility layer every page shares. The views build most of their controls in JavaScript, so this works on
 // the live page from a short description per page (PAGES below) instead of touching each view's code:
 //   - names: buttons whose text is only a symbol (« ▶ ☰ ✕) get their title as a name, inputs their placeholder;

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """The Moon and the Sun as seen from Earth, 2026-2030, from JPL Horizons -> data/solar/ephem.json (+ a test fixture)
 
     python brand/tools/make_ephem.py

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Every request the MCP server makes goes through here. Answers are kept in memory for as long as their source takes to
 // change (an earthquake feed a minute, satellite elements hours), so asking again in a conversation costs nothing, and a
 // source that fails falls back to its last answer for a day. It never asks CelesTrak (it firewalls networks that download

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The installable app, page side: registers ../../sw.js (see the decision in core/pwa.js), shows a banner while the
 // device is offline, offers a reload when a new version has been published, and an Install button where the browser
 // allows one (Chrome, Edge, Android; iPhones install from Safari's Share menu).

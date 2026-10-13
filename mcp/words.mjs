@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Small helpers every tool uses: times, numbers, coordinates and places in words, and the place's time zone.
 const METEO = 'https://api.open-meteo.com/v1/forecast';
 

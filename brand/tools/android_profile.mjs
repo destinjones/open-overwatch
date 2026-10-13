@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // android_profile.mjs — profile one interaction in Chrome on the Android emulator (see docs/TESTING.md):
 //   node android_profile.mjs map|mapspace|mappinch|mapspacepinch|handoff|weather
 // map: the 2D map, a 4-second finger drag after "Enter silent" and "Just show the map"; mapspace: the same after the Space

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Which country is at a longitude/latitude? Plain geometry on the simplified borders in data/borders.json ([{ iso, name, poly }]:
 // poly = list of polygons, each a list of rings of [lon, lat], the first the outline and the rest holes). DOM-free, so Node tests it.
 

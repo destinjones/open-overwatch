@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Countries for the globe's click-a-country dossier: facts + simplified borders -> data/countries.json, data/borders.json
 
     python make_countries.py        (answers are cached in brand/source/countries/; delete that folder to refresh)

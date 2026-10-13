@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The Solar System view (solar.html, three.js in software WebGL): boot, "Where is it now?" search (planets, spacecraft,
 // comets, keyboard), the view as a link both ways, the clock, the layer menu and the mission and comet lists.
 import { test, expect, openSolar } from './support/fixtures.mjs';

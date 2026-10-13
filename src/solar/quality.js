@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Graphics quality for the Solar System view, same scheme as the globe (src/globe/quality.js): phones start on "low",
 // other devices on "high"; in "auto", a slow 3 s window (median frame over 50 ms) or two in a row over 28 ms (under
 // ~36 fps: what a Mac laptop in Firefox showed) step down one level.

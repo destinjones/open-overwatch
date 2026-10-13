@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // MCP over Streamable HTTP (spec 2025-03-26 and later), stateless: one JSON-RPC message per POST to /mcp, answered with
 // one JSON response (no event streams, no sessions: every tool answer is a single reply, and nothing is remembered between
 // requests). Written against the web's own Request and Response only, so the same handler could run on a Cloudflare Worker

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // traffic_cameras: the public traffic cameras near a place (the networks the globe and the 2D map show, src/core/cameras.js),
 // nearest first, with the latest still from the nearest few sent as pictures the model can look at. Live-video-only
 // cameras (Delaware, Missouri) are listed with their stream link. Lists are kept 10 minutes, pictures 30 seconds.

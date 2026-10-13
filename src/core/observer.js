@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // An observer on the WGS84 ellipsoid in Earth-fixed coordinates (km), and the Sun's direction in the same frame, without
 // Cesium: what core/passes.js needs to find satellite passes on a page that has no 3D globe. DOM-free.
 import { subsolar } from './sky.js';

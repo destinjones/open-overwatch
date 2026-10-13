@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Airports and their boards. The board is made from the live aircraft we already have, not from schedules: near an
 // airport, a plane low and descending towards it is arriving, one climbing away from it is departing, and one on the
 // ground there is at the gate or taxiing. A route on file (adsbdb) that names the airport makes the call firmer.

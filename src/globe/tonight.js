@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // "Tonight above you": what is in your own sky over the next 24 hours, in plain words. The space stations and Hubble
 // when they pass in sunlight against a dark sky, Starlink launches still flying as a train, the brightest other
 // satellites when they climb high, the bright planets, the Moon's phase and the aurora chance where you stand. Each

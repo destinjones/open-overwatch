@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // What a plane is and where it is going (adsbdb), for the globe: core/acinfo.js asks and caches (shared with the 2D
 // map), this adds where a live record is against its route on file and where it is registered.
 import { store } from './env.js';

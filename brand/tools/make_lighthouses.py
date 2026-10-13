@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Lighthouses of the world for the globe: OpenStreetMap -> data/lighthouses.json
 
     python make_lighthouses.py        (Overpass answers are cached per tile in brand/source/lighthouses/; delete that folder to refresh)

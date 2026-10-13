@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Vector tiles for the OpenStreetMap layers that don't use Overpass (military areas, plate readers, 3D buildings): a
 // TileJSON names each source's tile URLs (OpenFreeMap's change weekly), and tiles come over plain GET with CORS, so the
 // browser's HTTP cache keeps them (traffic.js fetches the same OpenFreeMap z14 tiles). A few requests at a time across

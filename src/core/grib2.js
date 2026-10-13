@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // GRIB2, just enough for the global model fields the globe draws: NOAA's GFS and ECMWF's IFS on their regular
 // latitude/longitude grids (grid template 3.0), packed simply (data template 5.0), with complex packing (5.2) and spatial
 // differencing (5.3) the way NCEP writes them, as JPEG 2000 (5.40: NOAA's WAVEWATCH III, core/jpx.js) or CCSDS (5.42:

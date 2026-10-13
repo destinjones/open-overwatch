@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // GPU checks shared by the 3D views (no DOM: the caller passes the WebGL context).
 
 /** True when the browser draws WebGL in software (hardware acceleration off, or a blocklisted driver): every 3D view

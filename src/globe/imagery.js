@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Before and after: recent satellite pictures of the place in view, split by a slider. NASA's Harmonized Landsat
 // Sentinel-2 (HLS: Landsat 8/9 and Sentinel-2, 30 m, a picture every few days where it is clear), found through NASA CMR
 // for the point at the centre of the view, and NASA VIIRS (daily, 250-375 m) for the days in between; all drawn from NASA

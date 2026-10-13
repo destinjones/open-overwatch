@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Traffic: simulated cars on real roads, close to the ground (below ~6 km). No open feed says where individual cars are
 // (that would track people), so these cars are simulated, and say so: OpenStreetMap's roads around the view (from
 // OpenFreeMap's vector tiles), cars that follow each other and stop at lights where busy roads meet, as many as the road

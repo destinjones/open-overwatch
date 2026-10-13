@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Helpers, settings storage, log + toast + sounds, the network layer with the local relay, the clock.
 import { PUBLIC_RELAY, PUBLIC_RELAY_HOSTS, onPublishedSite } from '../core/relay.js';
 import { destination as geoDestination, haversine } from '../core/geo.js';

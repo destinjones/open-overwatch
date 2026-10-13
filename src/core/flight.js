@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // What someone types to find a plane, turned into what the feeds know. Tickets say "BA 123" (the IATA airline code);
 // the transponder says "BAW123" (the ICAO code, no leading zeros). Also accepts a callsign, an ICAO hex address or a
 // registration. DOM-free.

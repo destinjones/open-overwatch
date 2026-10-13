@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The generative soundtrack and the radio player.
 import { $, $$, Log, Net, Sound, Store, cssVar, esc, hexA, isHttp, toast } from './util.js';
 import { map } from './mapview.js';

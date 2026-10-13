@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Light delay: what you'd actually see from Earth. Light from the focused body takes d/c to reach us, so Earth sees it
 // where it was that long ago: a "ghost" there, joined to where it really is now. Jupiter (~43 min): about 34,000 km back
 // along its orbit; Io moves ~44,000 km in that time; Neptune (~4 h) about three Neptune-widths.

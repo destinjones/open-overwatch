@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Spoken commands for the globe, without an AI service: a sentence in, one action out. Pure (no DOM), so Node tests it.
 // The globe's voice.js listens with the browser's own speech recognition and runs what this returns:
 //   { act: 'sensor', mode }      night vision, thermal, CRT, noir, normal

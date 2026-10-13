@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // What a plane is and where it is going, from adsbdb (api.adsbdb.com: keyless, CORS *, so it works on the website too):
 // type, registration, owner, a photo, and the route its callsign usually flies; for the globe's and the 2D map's
 // aircraft cards and airport boards alike. Asked only for a plane someone looks at (a card, a board, following), one

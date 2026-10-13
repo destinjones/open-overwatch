@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Mapbox Vector Tiles (the .pbf tiles of OpenMapTiles / OpenFreeMap): a small decoder for the layers you ask for.
 // Protocol Buffers by hand: varints, length-delimited fields; geometry as MoveTo / LineTo / ClosePath commands with
 // zigzag deltas, in tile units (0..extent, plus a buffer). Pure (Node tests it).

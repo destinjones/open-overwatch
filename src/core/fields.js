@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Model fields on regular latitude/longitude grids, the shape core/grib2.js decodes them into: { grid: { ni, nj, la1,
 // lo1, di, dj, scan }, values: Float32Array }. Coarsening (a 0.25° global field is a million values, more than the
 // globe can use and 4 MB a field), blending two forecast hours, and sampling that copes with coasts (wave fields are

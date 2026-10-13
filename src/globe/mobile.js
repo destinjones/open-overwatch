@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Phone controls for the 3D globe: a bottom dock (Explore, Layers, Time, Look up, North) with sheets that slide up,
 // in place of the long scrolling destination band and the six tiny time buttons. Built only when PHONE is true, so
 // desktops never see it. It adds no logic of its own: every button clicks the control that already exists

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // A tiny PNG encoder and decoder (8-bit RGBA, no interlace) on Node's zlib: the stand-in map tiles the stubbed network
 // serves, and the small reference pictures the screenshot checks store. No dependencies.
 import { deflateSync, inflateSync } from 'node:zlib';

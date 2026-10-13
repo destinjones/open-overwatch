@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Where a question is about and the view that shows it: a place name (Photon, a free geocoder over OpenStreetMap data) or
 // a point with a radius; a camera that frames it; and the link that opens the globe there (the website's own share-link
 // format, src/core/viewlink.js, so a link from here is exactly a link someone could have copied from the globe).

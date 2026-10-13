@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Tropical cyclones: NASA EONET's open severe-storm events (worldwide, CORS, no key) as a track and a marker sized and
 // coloured by Saffir-Simpson category, NOAA NHC's official advisories for the Atlantic and East / Central Pacific
 // (through the local helper, or the website's public relay), and forecasts: NOAA NHC's map service (CORS) gives the

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Director scenes: a list of camera shots to fly through, as compact text for links and files. Pure (Node tests it).
 // A shot: { lon, lat, h (metres), heading, pitch, roll (degrees), dur (seconds to fly here), sensor, hold (seconds) }.
 // Link form: "#scene=" + base64url of "v1;" + shots joined by "|", each "lon,lat,h,heading,pitch,roll,dur,hold,sensor".

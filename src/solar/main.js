@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Solar System view: one three.js scene in AU, from the Moon to the Local Group, on a logarithmic depth buffer.
 // The camera rides along with whatever it is focused on; every module adds bodies to the registry (world.js) and
 // gets an update(jd) per simulation step and a frame(view) per rendered frame.

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // One continuous zoom: past the Moon the globe hands its camera to the Solar System view (solar.html?embed=1, in an
 // iframe loaded in the background as you climb), and takes it back when you zoom into Earth there. Cameras cross as
 // Earth-centred vectors in the ecliptic J2000 frame: Cesium ECEF -> ICRF (Cesium's IAU 2006 matrices) -> ecliptic.

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The MCP server as a Cloudflare Worker (mcp/worker.mjs, deployed from mcp-worker/), run here in Node without wrangler:
 // the handler gets web Requests, a canned Internet and a stand-in for the Workers Cache API. Who may call (a token in
 // the header or the path, or nobody needed), CORS for claude.ai and ChatGPT, the free plan's tool list, answers shared

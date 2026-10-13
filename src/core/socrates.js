@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Close approaches between objects in orbit: CelesTrak SOCRATES (https://celestrak.org/SOCRATES/), which screens the
 // public catalogue for conjunctions within 5 km over the next 7 days. The site build keeps the closest upcoming ones in
 // data/socrates.json (.github/build_site.py); this module reads that and the raw CSV (for tests and the build).

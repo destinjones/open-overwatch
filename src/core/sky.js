@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Your sky tonight, in plain words: where the Sun, Moon and planets are for an observer on the ground, the Moon's phase,
 // which planets are worth stepping outside for, the aurora chance at your spot (from NOAA's OVATION grid), satellite
 // passes as a sentence, and which Starlink launches are still flying as a "train". DOM-free; times are ms since 1970.

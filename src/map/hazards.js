@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Wildfires without a key, as on the 3D globe: NASA's VIIRS fire detections of the last 24 hours (FIRMS's data served by
 // NASA GIBS as vector tiles, unzipped and decoded in the shared worker core/fires.worker.js) and the current US fire
 // perimeters (NIFC WFIGS). Which tiles, their colours and the perimeter source: core/hazards.js. A detection is a hot

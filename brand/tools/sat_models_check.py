@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Validate the satellite-fleet GLBs and render preview sheets from the RE-IMPORTED files.
 
     blender-launcher.exe -b --factory-startup --python brand/tools/sat_models_check.py -- [model ...] [--close DIR]

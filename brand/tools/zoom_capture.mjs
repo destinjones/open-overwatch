@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // zoom_capture.mjs — the 30-second clip: one unbroken zoom from a London street, past the aircraft and every tracked
 // satellite, through the hand-off into the Solar System, out to the stars, into another solar system (TRAPPIST-1) and
 // back out to the cosmic web. Vertical 1080x1920, 30 fps, as frame_#####.jpg for encode_video.py.

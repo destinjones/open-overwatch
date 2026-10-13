@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Tower view: stand on the airport's tower and watch a plane come in or climb out, with a telephoto lens that keeps it
 // about the same size in the frame (the field of view narrows as it gets further away; the wheel or a pinch zooms the
 // lens on top of that). The eye is 45 m over the field (over the 3D terrain's ground there, when it is on). Esc, the

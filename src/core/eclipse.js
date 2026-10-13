@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Solar eclipse geometry: the Moon's shadow cones and where they meet the Earth, and how much of the Sun is covered
 // from a given place. Everything in one Earth-centred frame in km; for places on the ground that frame must be the
 // Earth-fixed one (the globe converts Horizons' ICRF vectors with Cesium's ICRF -> fixed rotation). DOM-free.

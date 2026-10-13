@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The background star map (NASA SVS Deep Star Maps 2020) on a camera-centred sphere. The shader turns each view
 // direction (ecliptic) into RA/Dec and samples the equirectangular map directly: no cube-map conventions involved.
 import * as THREE from 'three';

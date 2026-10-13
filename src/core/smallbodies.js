@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The packed small-body format written by brand/tools/make_small_bodies.py (asteroids_a.bin / asteroids_b.bin).
 // Column-major, little-endian, N records of 15 bytes:
 //   Float32 a[N] (AU) | Uint16 e[N] (e*65535) | Uint16 i[N] (i/pi) | Uint16 node[N], peri[N], M0[N] (angle/2pi) | Uint8 cls[N]

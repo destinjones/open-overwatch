@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Comets: two-body positions on any conic (ellipse, parabola, hyperbola) from SBDB perihelion elements, names people
 // know them by, how bright they are, and the two tails. Rows are small_bodies.json's comets: [label, q (AU), e, i, node,
 // peri (deg), tp (jd TDB), M1, K1, epoch] (M1 and K1, SBDB's total-magnitude parameters, are null for comets without

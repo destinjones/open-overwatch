@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Search everything the globe knows: satellites (name or NORAD number, plus everyday names like "ISS" or "Hubble"),
 // countries, flights (a ticket number goes to the flight finder), volcanoes, big employers and lighthouses once their
 // layers have loaded, and the views in the band ("moon", "eclipses", "tonight"...). "/" opens it on a desktop.

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Satellites for the MCP tools: element sets (TLEs) from the website's copy of CelesTrak's groups, refreshed every 6 h by
 // the site build (never CelesTrak itself), found by name or catalogue number, and moved with SGP4 (satellite.js 5.0.0, the
 // library the website uses, passed in as `sgp4` so tests can run without it).

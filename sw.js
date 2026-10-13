@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Open Overwatch's service worker: the installable app and its offline copy. A classic script (module workers are still
 // patchy), scoped to the site root. src/app/pwa.js registers it on the website only (on the local helper with ?sw=1).
 //

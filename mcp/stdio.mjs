@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // MCP over stdio: newline-delimited JSON-RPC on stdin/stdout (the transport Claude Desktop and most clients start).
 // Kept apart from protocol.mjs because it needs Node's readline, which a Worker doesn't have.
 import { createInterface } from 'node:readline';

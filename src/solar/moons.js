@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The major moons of Mars, Jupiter, Saturn, Uranus, Neptune and Pluto: real-size lit spheres, orbit lines and labels
 // that appear as you near their planet. Orbits: core/moons.js (fitted to JPL Horizons, data/solar/moons.json).
 import * as THREE from 'three';

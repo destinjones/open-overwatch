@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Every catalogued asteroid (1.57M, JPL SBDB) and closed-orbit comet, each solving Kepler's equation in the vertex
 // shader, plus the named worlds (dwarf planets, famous asteroids) as focusable bodies. Named comets: comets.js.
 import * as THREE from 'three';

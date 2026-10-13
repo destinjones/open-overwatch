@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Regressions from the 2026-10-11 core review: accented place names, hour rollover, int64 tags, cut-off tiles, poles,
 // numeric fire times, GDACS over New Year, the ascent slider below zero, wind with no direction, boxes over the dateline.
 import test from 'node:test';

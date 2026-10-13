@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """Planet textures for solar.html: Solar System Scope maps (CC BY 4.0, solarsystemscope.com/textures) resized for the web.
 
     python make_planet_textures.py   (sources in brand/source/planets/, gitignored)

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """JPL Horizons' total magnitudes (T-mag) of a few comets -> test/fixtures/horizons_comet_mags.json
 
     python brand/tools/make_comet_mags.py

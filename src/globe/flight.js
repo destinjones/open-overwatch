@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Find a flight: type what's on the ticket ("BA 123"), a callsign, a registration or an ICAO hex, and follow that plane
 // on the globe. The download version asks adsb.lol for a fresh fix (every 15 s while you follow it); the ADS-B feeds send
 // no CORS headers, so the website can only search what it already has and otherwise opens adsb.lol's own live map.

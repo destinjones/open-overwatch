@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // sun_and_moon: the day at a place: sunrise, sunset, solar noon and how long the day is, the twilights (civil, nautical,
 // astronomical), the golden and blue hours for photographs, and the Moon's rise, set and phase, in the place's time zone;
 // for any date 1800-2050 (the website's own sky maths, src/core/sky.js: a minute or so).

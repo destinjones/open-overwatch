@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Spherical-Earth geodesy for things that move across the map (aircraft dead reckoning, ship tracks).
 
 export const EARTH_RADIUS_M = 6371000;
