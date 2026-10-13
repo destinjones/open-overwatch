@@ -14,7 +14,7 @@ export const LAYERS = Object.freeze(['stations', 'visual', 'gnss', 'geo', 'weath
   'ships', 'bikes', 'traffic', 'storms', 'fires', 'radio', 'lighthouses', 'sun', 'terrain', 'buildings', 'cams', 'cctv', 'photoreal', 'volcanoes', 'companies', 'aurora',
   'clouds', 'night', 'labels']);
 /** What weather mode can show (src/globe/weather.js sets). */
-export const WEATHER = Object.freeze(['ir', 'radar', 'rain', 'lightning', 'wind', 'temp']);
+export const WEATHER = Object.freeze(['ir', 'radar', 'rain', 'lightning', 'wind', 'temp', 'pres', 'gust', 'wave']);
 
 /** How big a place is when the geocoder gives no outline: km around its centre. */
 const SIZE_KM = { country: 900, state: 300, region: 250, province: 250, county: 40, city: 20, town: 8, village: 4, hamlet: 2, suburb: 4, district: 6, island: 25,

@@ -34,7 +34,7 @@ export function coarsen(f, k, how = 'mean') {
     out[J * ni + I] = n ? s / n : NaN;
   }
   const la2 = g.scan & 0x40 ? g.la1 + (nj - 1) * g.dj * k : g.la1 - (nj - 1) * g.dj * k;
-  return { ...f, grid: { ...g, ni, nj, di: g.di * k, dj: g.dj * k, lo2: g.lo1 + (ni - 1) * g.di * k, la2 }, values: out };
+  return { ...f, grid: { ...g, ni, nj, di: g.di * k, dj: g.dj * k, lo2: ((g.lo1 + (ni - 1) * g.di * k) % 360 + 360) % 360, la2 }, values: out };
 }
 
 /** A field part way (w, 0..1) from a to b, on a's grid (the two hours of one run share it). */

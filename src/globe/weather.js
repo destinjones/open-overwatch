@@ -8,19 +8,21 @@
 //  - Rain: RainViewer's composite of national radars (10-minute frames; only where radar exists).
 //  - Rain from space: NASA IMERG, global between 60 deg N and S, about 7 hours old (still).
 //  - Lightning: NOAA nowCOAST strike density (NLDN + GLD360), the last 15 minutes, the Americas and the Pacific (still).
-//  Forecast, every 3 hours (GFS, 1°: model.js, wind.js): cloud cover and rain rate take the place of the satellite and
-//  radar pictures; wind and temperature run along the whole timeline.
+//  Forecast, every 3 hours (model.js, wind.js): NOAA GFS (1°) or ECMWF IFS (0.25°), or the two side by side with a
+//  slider between them. Cloud cover and rain rate take the place of the satellite and radar pictures; wind, temperature,
+//  pressure (isobars, H and L), gusts and ocean waves (WAVEWATCH III with GFS, ECMWF's own wave model with ECMWF) run
+//  along the whole timeline. A legend says what the colours mean; pointing at the globe reads every field there.
 // Nothing is fetched until the mode is opened. Frames are Cesium imagery layers made on demand; only the current frame (and
 // the next, while playing) is shown, so the GPU holds a few tiles, not the whole loop.
-import { C, $, toast, PHONE } from './env.js';
+import { C, $, toast, store, PHONE } from './env.js';
 import { viewer, camHeight } from './viewer.js';
 import { Earth } from './earth.js';
 import { state, hooks } from './state.js';
 import { PRESETS } from './ui.js';
-import { Wind } from './wind.js';
-import { Model, MAX_H } from './model.js';
+import { Wind, legendFor } from './wind.js';
+import { Models, MAX_H } from './model.js';
 import { Time } from './time.js';
-import { timeline, relTime } from '../core/gfs.js';
+import { timeline, relTime, windFrom, compass } from '../core/gfs.js';
 import { jdFromMs } from '../core/time.js';
 
 const GIBS = 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/';
@@ -54,6 +56,8 @@ const FRAMES = PHONE ? 4 : 6, STEP = 30 * 60e3, PLAY_MS = 900, PLAY_FCST_MS = 70
 const iso = ms => new Date(ms).toISOString().slice(0, 19) + 'Z';
 const hhmm = ms => new Date(ms).toISOString().slice(11, 16) + ' UTC';
 const dayTime = ms => new Date(ms).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+const IMPERIAL = /^en-(us|lr)$|^my\b/i.test(navigator.language || '');
+const MODEL_SETS = ['wind', 'temp', 'pres', 'gust', 'wave'];   // the model's layers that run along the whole timeline
 
 async function haveWms(layer, time, minBytes) {   // whole-world 256x128 image: WMS answers a missing time with a blank image (WMTS: a 404 without CORS headers)
   try { const r = await fetch(`https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=${layer}&STYLES=&SRS=EPSG:4326&BBOX=-180,-90,180,90&WIDTH=256&HEIGHT=128&FORMAT=image/png&TRANSPARENT=true&TIME=${time}`); return r.ok && (await r.blob()).size > minBytes; } catch (e) { return false; }
@@ -65,8 +69,11 @@ async function latest(layer, step, from, to, minBytes) {   // newest time (ms) i
 
 export const Weather = {
   on: false, playing: false, frame: FRAMES - 1, timer: 0, ready: null, layers: new Map(), frames: [], clockSet: false, selfClock: false, following: false,
-  sets: { ir: { name: 'Clouds', on: true }, radar: { name: 'Rain', on: true }, rain: { name: 'Rain from space', on: false }, lightning: { name: 'Lightning (Americas)', on: true }, wind: { name: 'Wind', on: false }, temp: { name: 'Temperature', on: false } },
+  sets: { ir: { name: 'Clouds', on: true }, radar: { name: 'Rain', on: true }, rain: { name: 'Rain from space', on: false }, lightning: { name: 'Lightning (Americas)', on: true }, wind: { name: 'Wind', on: false }, temp: { name: 'Temperature', on: false }, pres: { name: 'Pressure', on: false }, gust: { name: 'Gusts', on: false }, wave: { name: 'Waves', on: false } },
   ir: [], radar: [], rainAt: 0, run: null,
+  modelId: store.get('wx.model', 'gfs') in Models ? store.get('wx.model', 'gfs') : 'gfs', compare: false,
+  get model() { return Models[this.modelId]; },
+  get other() { return Object.values(Models).find(m => m !== this.model); },
 
   async init() {
     if (this.ready) return this.ready;
@@ -76,7 +83,7 @@ export const Weather = {
         Promise.all(SATS.map(async ([layer]) => ({ layer, latest: await latest(layer, 600e3, now - 25 * 60e3, now - 4 * 3600e3, 2000) }))),
         latest('IMERG_Precipitation_Rate_30min', 1800e3, now - 3 * 3600e3, now - 30 * 3600e3, 1500),
         fetch('https://api.rainviewer.com/public/weather-maps.json').then(r => r.json()).catch(() => null),
-        Model.ready().catch(e => { console.warn('weather model', e.message); return null; })]);
+        this.findRun()]);
       this.ir = ir.filter(s => s.latest); this.rainAt = rainAt || 0; this.run = run;
       this.radar = maps && maps.radar ? maps.radar.past.map(f => ({ time: f.time * 1000, url: maps.host + f.path })) : [];
       this.end = this.ir.length ? Math.max(...this.ir.map(s => s.latest)) : Math.max(0, ...this.radar.map(f => f.time));   // the observed frames run on the satellites' clock; radar follows to the nearest frame
@@ -86,10 +93,32 @@ export const Weather = {
     })().catch(e => { this.ready = null; throw e; });
     return this.ready;
   },
+  /** The chosen model's newest run; if it can't be reached, the other model's (and say so). */
+  async findRun() {
+    const run = await this.model.ready().catch(e => { console.warn('weather model', e.message); return null; });
+    if (run || this.compare) return run;
+    const alt = await this.other.ready().catch(() => null);
+    if (alt) { toast(`${this.model.def.short} is not reachable right now: showing ${this.other.def.short}`, 3500); this.modelId = this.other.id; Wind.setModels(this.model, null); }
+    return alt;
+  },
+  /** Another model, or both side by side: the forecast part of the timeline follows the one on the left. */
+  async setModel(id, compare = this.compare) {
+    if (!(id in Models)) return;
+    this.modelId = id; this.compare = compare; store.set('wx.model', id);
+    Wind.setModels(this.model, compare ? this.other : null); this.splitBar(compare && this.on);
+    if (!this.on || !this.frames.length) return;
+    const f = this.frames[this.frame], run = await this.findRun();
+    if (!this.on) return;
+    this.run = run;
+    this.frames = timeline({ obsEnd: this.end, obs: FRAMES, obsStep: STEP, run: this.run, until: Date.now() + MAX_H * 3600e3 });
+    this.frame = f ? this.nearest(f.t) : FRAMES - 1; this.build(); this.show();
+  },
   /** A newer model run is out (every 6 h): rebuild the forecast part of the timeline on it. */
   async newRun() {
-    if (!this.on || !(await Model.refresh().catch(() => false))) return;
-    const f = this.frames[this.frame]; this.run = Model.run;
+    if (!this.on) return;
+    if (this.compare) this.other.refresh().then(n => n && this.show()).catch(() => {});
+    if (!(await this.model.refresh().catch(() => false))) return;
+    const f = this.frames[this.frame]; this.run = this.model.run;
     this.frames = timeline({ obsEnd: this.end, obs: FRAMES, obsStep: STEP, run: this.run, until: Date.now() + MAX_H * 3600e3 });
     this.frame = f ? this.nearest(f.t) : FRAMES - 1; this.build(); this.show();
   },
@@ -126,14 +155,16 @@ export const Weather = {
     }
     // the model: wind and temperature all along; cloud and rain in place of the pictures in the forecast
     const S = this.sets, cloud = this.on && fc && S.ir.on, rain = this.on && fc && S.radar.on;
-    const kinds = [...(S.wind.on ? ['wind'] : []), ...(S.temp.on ? ['temp'] : []), ...(cloud ? ['cloud'] : []), ...(rain ? ['rain'] : [])];
+    const kinds = [...MODEL_SETS.filter(k => S[k].on), ...(cloud ? ['cloud'] : []), ...(rain ? ['rain'] : [])];
     if (this.on && kinds.length) {
       Wind.moment(f.t, kinds).then(model => { if (!model && fc && (cloud || rain)) toast('The weather model is not reachable right now: no forecast pictures', 3500); this.label(); }).catch(() => this.label());
-      if (this.playing && next) Model.prefetch(next.t, kinds);
+      if (this.playing && next) { this.model.prefetch(next.t, kinds); if (this.compare) this.other.prefetch(next.t, kinds); }
     }
     const field = (on, set) => (on ? set(true) : set(false)).catch(() => { toast('Weather model data is not reachable right now'); });
     field(this.on && S.wind.on, on => Wind.setWind(on)); field(this.on && S.temp.on, on => Wind.setWash('temp', on));
     field(cloud, on => Wind.setWash('cloud', on)); field(rain, on => Wind.setWash('rain', on));
+    for (const k of ['pres', 'gust', 'wave']) field(this.on && S[k].on, on => Wind.setWash(k, on));
+    this.legend();
     this.syncClock(f);
     viewer.scene.requestRender();
     this.label();
@@ -161,7 +192,8 @@ export const Weather = {
     const rel = relTime(f.t, Date.now());
     $('#wxTime').textContent = f.fcst ? `${dayTime(f.t)} · ${rel} · forecast` : `${hhmm(f.t)} · ${rel === 'now' ? 'just now' : rel.replace('−', '') + ' ago'} · observed`;
     $('#wxSlider').value = this.frame; $('#wxPlay').textContent = this.playing ? '❚❚' : '▶';
-    const model = (this.sets.wind.on || this.sets.temp.on || f.fcst) && Wind.note() ? ` Model: ${Wind.note()}.` : '';
+    const any = MODEL_SETS.some(k => this.sets[k].on) || f.fcst;
+    const model = any && Wind.note() ? (this.compare ? ` Left: ${Wind.note()}. Right: ${Wind.note('cmp')}.` : ` Model: ${Wind.note()}.`) : '';
     const obs = f.fcst ? (this.run ? 'Forecast: clouds and rain from the model, every 3 hours.' : 'No forecast reachable.')
       : (this.ir.length ? `Infrared: ${this.ir.length} of 3 satellites reached.` : 'No infrared images reachable.') + (this.sets.radar.on && !this.radar.length ? ' Radar unreachable.' : '')
         + (this.sets.rain.on && this.rainAt ? ` Rain from space: ${hhmm(this.rainAt)}.` : '');
@@ -178,6 +210,7 @@ export const Weather = {
   async open() {
     if (this.on) return;
     this.on = true; state.weather = true; $('#wx').classList.add('show'); Earth.apply(); hooks.applyVisibility();
+    Wind.setModels(this.model, this.compare ? this.other : null); this.splitBar(this.compare);
     if (camHeight() < 3.0e6) PRESETS.earth();   // weather is a whole-Earth picture
     try { await this.init(); } catch (e) { this.close(); toast('Weather data is not reachable right now'); return; }
     if (!this.on) return;
@@ -190,7 +223,7 @@ export const Weather = {
   close() {
     this.on = false; state.weather = false; this.play(false); $('#wx').classList.remove('show');
     for (const ls of this.layers.values()) for (const l of ls) viewer.imageryLayers.remove(l, true);
-    Wind.setWind(false); Wind.dropWashes();
+    Wind.setWind(false); Wind.dropWashes(); this.splitBar(false); this.readout(null);
     this.layers.clear(); Earth.apply(); hooks.applyVisibility(); viewer.scene.requestRender();
     document.querySelector('[data-go="weather"]')?.classList.remove('on');
     if (this.clockSet) { this.clockSet = false; this.selfClock = true; try { Time.goLive(); } finally { this.selfClock = false; } }
@@ -212,14 +245,72 @@ export const Weather = {
     viewer.scene.requestRender();
   },
   toggle() { this.on ? this.close() : this.open(); },
+  /** What the colours mean, for each model layer that is on (and cloud or rain in the forecast). */
+  legend() {
+    const el = $('#wxLegend'); if (!el) return;
+    const f = this.frames[this.frame], S = this.sets;
+    const kinds = [...MODEL_SETS.filter(k => S[k].on), ...(f && f.fcst && S.radar.on ? ['rain'] : [])];
+    el.innerHTML = kinds.map(k => legendFor(k, IMPERIAL)).filter(Boolean).map(l => l.gradient
+      ? `<div class="wx-leg"><span class="wx-leg-t">${l.title}</span><span class="wx-leg-bar" style="background:${l.gradient}"></span><span class="wx-leg-ticks">${l.ticks.map(([p, t]) => `<i style="left:${p.toFixed(1)}%">${t}</i>`).join('')}</span></div>`
+      : `<div class="wx-leg"><span class="wx-leg-t">${l.title}</span></div>`).join('');
+  },
+  /** Every loaded field at a point, in a line per model (two side by side). `at` null clears it. */
+  readout(at) {
+    const el = $('#wxRead'); if (!el) return;
+    if (!at || !this.on) { el.textContent = ''; el.hidden = true; return; }
+    const { lat, lon } = at, rows = [];
+    const spd = v => IMPERIAL ? `${Math.round(v * 2.23694)} mph` : `${Math.round(v * 3.6)} km/h`;
+    for (const side of this.compare ? ['main', 'cmp'] : ['main']) {
+      const r = Wind.reading(lat, lon, side); if (!r) continue;
+      const bits = [];
+      if (Number.isFinite(r.temp)) bits.push(IMPERIAL ? `${Math.round(r.temp * 9 / 5 + 32)} °F` : `${Math.round(r.temp)} °C`);
+      if (Number.isFinite(r.speed) && Number.isFinite(r.u)) bits.push(`wind ${r.speed < 0.5 ? 'calm' : `${compassShort(windFrom(r.u, r.v).from)} ${spd(r.speed)}`}`);
+      if (Number.isFinite(r.gust)) bits.push(`gusts ${spd(r.gust)}`);
+      if (Number.isFinite(r.pres)) bits.push(`${Math.round(r.pres)} hPa${Number.isFinite(r.presTrend) && Math.abs(r.presTrend) >= 1 ? (r.presTrend < 0 ? ' ↓' : ' ↑') : ''}`);
+      if (this.sets.wave.on) bits.push(Number.isFinite(r.wave) ? `waves ${IMPERIAL ? Math.round(r.wave * 3.28084) + ' ft' : r.wave.toFixed(1) + ' m'}${Number.isFinite(r.waveFrom) && r.wave >= 0.1 ? ' from ' + compassShort(r.waveFrom) : ''}` : 'no waves (land)');
+      if (Number.isFinite(r.cloud) && this.frames[this.frame]?.fcst) bits.push(`cloud ${Math.round(r.cloud)}%`);
+      if (Number.isFinite(r.rain) && r.rain >= 0.1) bits.push(`rain ${r.rain.toFixed(1)} mm/h`);
+      if (bits.length) rows.push(`${this.compare ? `<b>${r.model ? Models[r.model].def.short : r.source}</b> ` : ''}${bits.join(' · ')}`);
+    }
+    const where = `${Math.abs(lat).toFixed(1)}° ${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(1)}° ${lon >= 0 ? 'E' : 'W'}`;
+    el.hidden = !rows.length;
+    el.innerHTML = rows.length ? `<span class="wx-at">${where}</span>${rows.map(r => `<span>${r}</span>`).join('')}` : '';
+  },
+  /** The bar between the two models, side by side: drag it to move the split. */
+  splitBar(on) {
+    let bar = $('#wxSplit');
+    if (!on) { if (bar) bar.style.display = 'none'; return; }
+    if (!bar) {
+      bar = document.createElement('div'); bar.id = 'wxSplit';
+      bar.innerHTML = '<div class="ws-line"></div><button class="ws-grip" aria-label="Drag to compare the two models">⇆</button><span class="ws-l"></span><span class="ws-r"></span>';
+      document.body.append(bar);
+      const grip = bar.querySelector('.ws-grip');
+      grip.addEventListener('pointerdown', e => {
+        grip.setPointerCapture(e.pointerId);
+        const move = ev => { const r = viewer.scene.canvas.getBoundingClientRect(); Wind.split = Math.min(0.97, Math.max(0.03, (ev.clientX - r.left) / r.width)); this.placeSplit(); };
+        const up = () => { grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', up); };
+        grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up);
+      });
+    }
+    bar.style.display = 'block'; this.placeSplit();
+  },
+  placeSplit() {
+    const bar = $('#wxSplit'); if (!bar) return;
+    const r = viewer.scene.canvas.getBoundingClientRect();
+    bar.style.left = (r.left + Wind.split * r.width) + 'px'; viewer.scene.splitPosition = Wind.split; viewer.scene.requestRender();
+    bar.querySelector('.ws-l').textContent = '◀ ' + this.model.def.short; bar.querySelector('.ws-r').textContent = this.other.def.short + ' ▶';
+  },
   build() {
     $('#wxSets').innerHTML = Object.entries(this.sets).map(([id, s]) => `<button class="chipbtn${s.on ? ' on' : ''}" data-set="${id}">${s.name}</button>`).join('');
+    $('#wxModels').innerHTML = '<span>Model</span>' + Object.values(Models).map(m => `<button class="chipbtn${m.id === this.modelId ? ' on' : ''}" data-model="${m.id}" title="${m.def.name}, ${m.def.grid} (${m.def.licence})">${m.def.short}</button>`).join('')
+      + `<button class="chipbtn${this.compare ? ' on' : ''}" data-compare="1" title="The two models side by side, a slider between them">Compare</button>`;
     const n = this.frames.length, obs = this.frames.filter(f => !f.fcst).length;
     $('#wxSlider').max = Math.max(0, n - 1);
     const split = n > 1 ? (obs - 0.5) / (n - 1) * 100 : 100, last = this.frames[n - 1];
     $('#wxScale').innerHTML = `<span style="flex:0 0 ${split.toFixed(1)}%">◀ past</span><span class="fc">${last && last.fcst ? `forecast to ${dayTime(last.t)} ▶` : 'no forecast reachable'}</span>`;
   },
 };
+const compassShort = deg => ({ north: 'N', 'north-east': 'NE', east: 'E', 'south-east': 'SE', south: 'S', 'south-west': 'SW', west: 'W', 'north-west': 'NW' })[compass(deg)];
 Time.onChange(() => Weather.followClock());
 setInterval(() => { if (Weather.on && !Time.live && Time.rate) Weather.followClock(); }, 1000);   // a running clock carries the weather along
 setInterval(() => { Weather.newRun(); }, 20 * 60e3);
@@ -228,12 +319,36 @@ export function initWeather() {
   const el = document.createElement('div'); el.id = 'wx'; el.className = 'glass';
   el.innerHTML = `<div class="wx-head"><b>Weather</b><span id="wxTime">loading…</span><button class="x" aria-label="Close weather">×</button></div>
     <div id="wxSets" class="wx-sets"></div>
+    <div id="wxModels" class="wx-models"></div>
     <div class="wx-play"><button id="wxPlay" class="chipbtn" aria-label="Play or pause">▶</button><input id="wxSlider" type="range" min="0" max="${FRAMES - 1}" value="${FRAMES - 1}" step="1" aria-label="Time"></div>
     <div id="wxScale" class="wx-scale"></div>
+    <div id="wxLegend" class="wx-legend"></div>
+    <div id="wxRead" class="wx-read" hidden></div>
     <div id="wxNote" class="note"></div>`;
   document.body.append(el);
   el.querySelector('.x').onclick = () => Weather.close();
   $('#wxPlay').onclick = () => Weather.play(!Weather.playing);
   $('#wxSlider').oninput = e => { Weather.play(false); Weather.set(+e.target.value); };
   $('#wxSets').onclick = e => { const b = e.target.closest('[data-set]'); if (!b) return; const s = Weather.sets[b.dataset.set]; s.on = !s.on; b.classList.toggle('on', s.on); Weather.show(); };
+  $('#wxModels').onclick = e => {
+    const b = e.target.closest('[data-model],[data-compare]'); if (!b) return;
+    if (b.dataset.compare) Weather.setModel(Weather.modelId, !Weather.compare);
+    else if (b.dataset.model !== Weather.modelId) Weather.setModel(b.dataset.model);
+    Weather.build();
+  };
+  // the readout: what every loaded field is where the pointer rests (a tap on touch screens)
+  const canvas = viewer.scene.canvas; let last = 0, tid = 0;
+  const read = (x, y) => {
+    if (!Weather.on) return;
+    const g = viewer.camera.pickEllipsoid(new C.Cartesian2(x, y), C.Ellipsoid.WGS84);
+    if (!g) { Weather.readout(null); return; }
+    const c = C.Cartographic.fromCartesian(g); Weather.readout({ lat: C.Math.toDegrees(c.latitude), lon: C.Math.toDegrees(c.longitude) });
+  };
+  canvas.addEventListener('pointermove', e => {
+    if (!Weather.on || e.pointerType !== 'mouse' || e.buttons) return;
+    clearTimeout(tid); const now = performance.now(), x = e.offsetX, y = e.offsetY;
+    if (now - last > 120) { last = now; read(x, y); } else tid = setTimeout(() => read(x, y), 130);
+  }, { passive: true });
+  canvas.addEventListener('pointerup', e => { if (Weather.on && e.pointerType !== 'mouse') read(e.offsetX, e.offsetY); }, { passive: true });
+  addEventListener('resize', () => { if (Weather.compare && Weather.on) Weather.placeSplit(); });
 }
