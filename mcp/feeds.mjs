@@ -3,7 +3,7 @@
 // source that fails falls back to its last answer for a day. It never asks CelesTrak (it firewalls networks that download
 // too often): satellite elements come from the website's own copy, refreshed every 6 h.
 
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 export const SITE = 'https://destinjones.github.io/open-overwatch/';
 export const USER_AGENT = `open-overwatch-mcp/${VERSION} (+https://github.com/destinjones/open-overwatch)`;
 const STALE_OK_MS = 24 * 3600e3;
@@ -19,21 +19,34 @@ const local = u => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(u.hostname);
  * fetchImpl: fetch-compatible (tests pass their own). site: the Open Overwatch address links point at and the data copies
  * come from. Returns { json, text, bytes, site(path), siteBase, clear() }; json/text/bytes(url, { ttl, headers, timeout, signal,
  * method, body, maxBytes }). bytes resolves to { bytes: Uint8Array, type } (a picture, a protobuf feed, a gzipped tile).
+ * memo: the Map answers are kept in (pass one to share parsed answers between servers: the Worker makes a server per
+ * request). shared: a cache in front of the network that outlives the process, { match(key) -> Response | undefined,
+ * put(key, Response, seconds) } (the Worker's Cache API); GET answers go through it for as long as their ttl.
  */
-export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntries = 150, now = Date.now } = {}) {
-  const cache = new Map(), inflight = new Map();
+export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntries = 150, now = Date.now, memo = new Map(), shared = null } = {}) {
+  const cache = memo, inflight = new Map();
   const remember = (key, v, ttl) => {
     cache.delete(key); cache.set(key, { t: now(), ttl, v });
     while (cache.size > maxEntries) cache.delete(cache.keys().next().value);   // oldest first
   };
 
-  async function load(url, as, headers, timeout, method, body, maxBytes) {
-    const u = new URL(url);
-    let r;
-    try {
-      r = await fetchImpl(url, { method, body, headers: { 'User-Agent': USER_AGENT, Accept: as === 'json' ? 'application/json' : '*/*', ...headers }, signal: AbortSignal.timeout(timeout) });
-    } catch (e) {
-      throw new ToolError(`${u.hostname} did not answer${e && e.name === 'TimeoutError' ? ' in time' : ''}; try again in a minute`, 'unavailable');
+  async function load(url, as, headers, timeout, method, body, maxBytes, key, ttl) {
+    const u = new URL(url), viaShared = shared && method === 'GET';
+    let r = viaShared ? await Promise.resolve(shared.match(key)).catch(() => null) : null;
+    if (!r) {
+      try {
+        r = await fetchImpl(url, { method, body, headers: { 'User-Agent': USER_AGENT, Accept: as === 'json' ? 'application/json' : '*/*', ...headers }, signal: AbortSignal.timeout(timeout) });
+      } catch (e) {
+        if (e instanceof ToolError) throw e;   // the caller's own refusal (the Worker's subrequest budget)
+        throw new ToolError(`${u.hostname} did not answer${e && e.name === 'TimeoutError' ? ' in time' : ''}; try again in a minute`, 'unavailable');
+      }
+      if (viaShared && r.ok && (r.status === 200 || r.status === 206) && !(+r.headers.get('content-length') > maxBytes)) {   // keep a copy for every later request, then read our own
+        const buf = await r.arrayBuffer().catch(() => null);
+        if (buf == null) throw new ToolError(`${u.hostname} sent something unreadable`, 'unavailable');
+        const type = r.headers.get('content-type') || '';
+        try { shared.put(key, new Response(buf.slice(0), { status: 200, headers: type ? { 'Content-Type': type } : {} }), Math.max(1, Math.round(ttl / 1000))); } catch { /* a cache that refuses is no cache */ }
+        r = new Response(buf, { status: 200, headers: type ? { 'Content-Type': type } : {} });
+      }
     }
     if (!r.ok) throw new ToolError(`${u.hostname} answered HTTP ${r.status}${r.status === 429 ? ' (too many requests): try again later' : ''}`, r.status === 429 ? 'retry_later' : r.status === 404 ? 'not_found' : 'unavailable');
     if (+r.headers.get('content-length') > maxBytes) throw new ToolError(`${u.hostname} sent more than ${Math.round(maxBytes / 1e6)} MB`, 'unavailable');
@@ -48,11 +61,12 @@ export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntr
     const u = new URL(url);
     if (/(^|\.)celestrak\.(org|com)$/i.test(u.hostname)) throw new ToolError('CelesTrak is never asked directly: satellite elements come from the website copy', 'unavailable');
     if (u.protocol !== 'https:' && !(u.protocol === 'http:' && local(u))) throw new ToolError('Only https sources are used', 'unavailable');
-    const key = as + ' ' + method + ' ' + url + (body ? ' ' + body : ''), hit = cache.get(key);
+    const range = headers.Range || headers.range;   // a byte range is a different answer
+    const key = as + ' ' + method + ' ' + url + (range ? ' ' + range : '') + (body ? ' ' + body : ''), hit = cache.get(key);
     if (hit && now() - hit.t < hit.ttl) return hit.v;
     let p = inflight.get(key);
     if (!p) {
-      p = load(url, as, headers, timeout, method, body, maxBytes).then(v => { remember(key, v, ttl); return v; },
+      p = load(url, as, headers, timeout, method, body, maxBytes, key, ttl).then(v => { remember(key, v, ttl); return v; },
         e => { if (hit && now() - hit.t < STALE_OK_MS) return hit.v; throw e; })   // the last good answer beats none
         .finally(() => inflight.delete(key));
       inflight.set(key, p);
