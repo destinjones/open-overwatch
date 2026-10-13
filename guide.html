@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04060a">
+<title>User guide | Open Overwatch</title>
+<meta name="description" content="How to use Open Overwatch: the 3D globe, the 2D map and the Solar System view, every layer and where its data comes from, keyboard shortcuts, voice commands, draw and measure, the weather timeline, the Ops looks, sharing and embedding, the download version and privacy.">
+<meta name="author" content="Destin Jones">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://destinjones.github.io/open-overwatch/guide.html">
+<link rel="icon" href="brand/emblem/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="brand/emblem/apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Open Overwatch">
+<meta property="og:title" content="User guide | Open Overwatch">
+<meta property="og:description" content="Every view, every layer, every shortcut: how to use Open Overwatch, the free live map of the planet that zooms out to the cosmic web.">
+<meta property="og:url" content="https://destinjones.github.io/open-overwatch/guide.html">
+<meta property="og:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Open Overwatch: the Earth with live aircraft and satellites">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="User guide | Open Overwatch">
+<meta name="twitter:description" content="Every view, every layer, every shortcut: how to use Open Overwatch.">
+<meta name="twitter:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"TechArticle","headline":"Open Overwatch user guide","url":"https://destinjones.github.io/open-overwatch/guide.html","inLanguage":"en",
+  "about":{"@type":"SoftwareApplication","name":"Open Overwatch","url":"https://destinjones.github.io/open-overwatch/"},
+  "author":{"@type":"Person","name":"Destin Jones","url":"https://destinjones.github.io/open-overwatch/about.html"}},
+ {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Open Overwatch","item":"https://destinjones.github.io/open-overwatch/"},{"@type":"ListItem","position":2,"name":"User guide","item":"https://destinjones.github.io/open-overwatch/guide.html"}]}
+]}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;900&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#04060a; --panel:#080c12; --panel-2:#0e141c; --line:#182230; --line-strong:#26343f;
+  --ink:#e6edf3; --ink-dim:#8b9bab; --ink-faint:#55667a; --accent:#7dffa6; --accent-dim:rgba(125,255,166,.14);
+  --civ:#5fd3ff; --mil:#ffb44d; --sat:#d9ccff; --evt:#ffd45c;
+  --display:"Big Shoulders Display","Arial Narrow",sans-serif; --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --gut:clamp(16px,4vw,56px); --max:1100px; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 var(--body);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit} img{display:block;max-width:100%}
+.skip{position:absolute;left:-999px;top:8px;background:var(--accent);color:#04060a;padding:8px 12px;z-index:200;border-radius:6px} .skip:focus{left:8px}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gut)}
+.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:22px;height:1px;background:currentColor}
+h1,h2,h3{font-family:var(--display);font-weight:900;text-transform:uppercase;letter-spacing:.01em;line-height:.95;margin:0}
+h1{font-size:clamp(54px,9vw,120px)} h2{font-size:clamp(34px,5vw,60px)} h3{font-size:24px}
+nav{position:sticky;top:0;z-index:50;background:rgba(4,6,10,.84);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:24px;height:64px;max-width:none}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;font:900 21px/1 var(--display);letter-spacing:.08em;text-transform:uppercase}
+.brand img{width:32px;height:32px}
+nav .links{display:flex;gap:24px;margin-left:auto;font:500 13px var(--mono);letter-spacing:.12em;text-transform:uppercase;flex-wrap:wrap;justify-content:flex-end}
+nav .links a{text-decoration:none;color:var(--ink-dim)} nav .links a:hover,nav .links a[aria-current]{color:var(--ink)} nav .links a[aria-current]{border-bottom:1px solid var(--accent)}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border:1px solid var(--line-strong);background:rgba(8,12,18,.7);color:var(--ink);text-decoration:none;font:600 13px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;transition:background .2s,transform .2s}
+.btn:hover{background:var(--panel-2);transform:translateY(-1px)} .btn.primary{background:var(--accent);color:#04060a;border-color:var(--accent);box-shadow:0 0 36px rgba(125,255,166,.3)} .btn.primary:hover{background:#a6ffc2}
+.hero{padding:clamp(56px,9vw,110px) 0 clamp(40px,6vw,80px);background:radial-gradient(900px 420px at 80% 0%,rgba(125,255,166,.07),transparent),radial-gradient(700px 400px at 0% 100%,rgba(95,211,255,.06),transparent)}
+.hero p.sub{font:500 14px/1.5 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:18px 0 26px}
+.hero .lede{font-size:clamp(18px,2.1vw,22px);color:var(--ink);max-width:40em}
+.hero .lede+.lede{color:var(--ink-dim);margin-top:14px}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+section{padding:clamp(54px,8vw,100px) 0;border-top:1px solid var(--line)}
+section>.wrap>.eyebrow{margin-bottom:16px} section h2{margin-bottom:28px}
+section h3{margin:38px 0 12px;color:var(--accent);font-size:26px}
+section p,section li{color:var(--ink-dim);max-width:48em} section p b,section li b{color:var(--ink);font-weight:600}
+section ul,section ol{padding-left:1.2em} section li{margin:4px 0}
+code,kbd{font:500 .86em var(--mono);color:var(--ink)}
+kbd{display:inline-block;min-width:1.7em;text-align:center;padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:5px;background:var(--panel)}
+.toc{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:34px}
+.toc a{background:var(--bg);padding:14px 18px;text-decoration:none;font:500 12.5px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim)} .toc a:hover{color:var(--accent);background:var(--panel)}
+.tbl{overflow-x:auto;border:1px solid var(--line);margin:18px 0 8px}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+th{font:500 11px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);background:var(--panel)}
+td{color:var(--ink-dim)} td:first-child{color:var(--ink);white-space:nowrap} td code{white-space:nowrap}
+tr.grp td{font:500 11px/1.3 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent);background:rgba(125,255,166,.03)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;vertical-align:1px}
+.cols{display:grid;grid-template-columns:repeat(2,1fr);gap:28px 44px}
+.say{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;padding:0;list-style:none}
+.say li{margin:0;padding:6px 11px;border:1px solid var(--line-strong);background:var(--panel);font:500 13px/1.3 var(--mono);color:var(--ink)}
+.tip{border-left:2px solid var(--accent);padding:4px 0 4px 16px;margin:18px 0}
+.warn{border-left:2px solid var(--mil);padding:4px 0 4px 16px;margin:18px 0}
+figure.shot{margin:22px 0;border:1px solid var(--line-strong);max-width:860px} figure.shot img{width:100%;height:auto}
+figure.shot figcaption{font:500 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);padding:10px 12px;border-top:1px solid var(--line)}
+footer{border-top:1px solid var(--line);padding:40px 0 60px;font-size:14px;color:var(--ink-faint)}
+footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margin:0 0 8px} footer a{color:var(--ink-dim)}
+@media (max-width:860px){.toc{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr}footer .wrap{grid-template-columns:1fr}nav .links a:nth-child(-n+2){display:none}}
+@media (max-width:480px){.brand{font-size:16px}.brand img{width:26px;height:26px}nav .links{gap:14px;font-size:11.5px}nav .links a:nth-child(3){display:none}.toc{grid-template-columns:1fr}td:first-child{white-space:normal}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn{transition:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<nav aria-label="Main">
+  <div class="wrap">
+    <a class="brand" href="index.html"><img src="brand/emblem/emblem-256.png" alt="">Open Overwatch</a>
+    <div class="links"><a href="index.html#features">Features</a><a href="index.html#get">Download</a><a href="about.html">About</a><a href="guide.html" aria-current="page">Guide</a><a href="https://github.com/destinjones/open-overwatch">GitHub</a></div>
+  </div>
+</nav>
+
+<main id="main">
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">User guide</div>
+    <h1>How it works</h1>
+    <p class="sub">Every view, every layer, every key</p>
+    <p class="lede">Open Overwatch is a live view of the planet built only from public data: satellites, aircraft, ships, earthquakes, storms, weather, cameras and more, on a 3D globe that keeps zooming out through the Solar System to the cosmic web. There is also a classic 2D map. No account, no key, nothing to install.</p>
+    <p class="lede">This page explains what each part shows, where its data comes from and how to drive it: with a mouse, a finger, the keyboard or your voice.</p>
+    <div class="cta">
+      <a class="btn primary" href="globe.html">Open the 3D globe</a>
+      <a class="btn" href="open-overwatch.html">The 2D map</a>
+      <a class="btn" href="solar.html">The Solar System</a>
+      <a class="btn" href="tonight.html">Tonight above you</a>
+    </div>
+    <div class="toc" aria-label="On this page">
+      <a href="#views">The views</a><a href="#moving">Moving around</a><a href="#band">The band</a>
+      <a href="#layers">Globe layers</a><a href="#cards">Clicking things</a><a href="#sky">Tonight and look up</a>
+      <a href="#weather">Weather timeline</a><a href="#measure">Draw and measure</a><a href="#ops">Ops looks</a>
+      <a href="#voice">Voice commands</a><a href="#keys">Keyboard</a><a href="#share">Share and embed</a>
+      <a href="#map2d">The 2D map</a><a href="#solar">Solar System</a><a href="#download">Download version</a>
+      <a href="#claude">Ask Claude</a><a href="#privacy">Privacy</a><a href="#limits">Limits</a>
+    </div>
+  </div>
+</header>
+
+<section id="views" aria-labelledby="views-h">
+  <div class="wrap">
+    <div class="eyebrow">Start here</div>
+    <h2 id="views-h">The views</h2>
+    <div class="cols">
+      <div><h3>3D globe</h3><p><a href="globe.html">globe.html</a>, built on CesiumJS. The Earth with real day and night, clouds and city lights, every satellite CelesTrak publishes at its real height, aircraft, ships, storms and many more layers. Fly from orbit down to a street. It is the main view and most of this guide is about it.</p></div>
+      <div><h3>Solar System</h3><p><a href="solar.html">solar.html</a>, built on three.js. The planets and 20 major moons at their real positions, 1.57 million asteroids, comets, spacecraft, nearby stars, 6,339 exoplanets, the Milky Way and 43,480 galaxies. Zoom out far enough on the globe and it takes over by itself.</p></div>
+      <div><h3>2D map</h3><p><a href="open-overwatch.html">open-overwatch.html</a>, built on Leaflet. The original situation map: aircraft, satellites, earthquakes, disaster alerts, news, radar, cables, cameras and ships on a flat map, with a daily brief, a feed log and a setup tab for optional keys.</p></div>
+      <div><h3>Tonight</h3><p><a href="tonight.html">tonight.html</a>. The globe's "Tonight above you" card on its own page, without the 3D globe, so it opens fast on a phone: what you can see in your sky tonight and when.</p></div>
+    </div>
+    <figure class="shot"><img src="brand/hero/hero-wide.webp" alt="The 3D globe: the Earth from orbit with satellites" loading="lazy" width="2560" height="1600"><figcaption>The 3D globe</figcaption></figure>
+  </div>
+</section>
+
+<section id="moving" aria-labelledby="moving-h">
+  <div class="wrap">
+    <div class="eyebrow">The 3D globe</div>
+    <h2 id="moving-h">Moving around</h2>
+    <h3>Mouse and touch</h3>
+    <ul>
+      <li><b>Drag</b> to turn the globe, <b>scroll</b> or <b>pinch</b> to zoom, <b>right-drag</b> (or two fingers) to tilt.</li>
+      <li><b>Click</b> anything (a dot, a marker, a country) for its card. Touch picks within a wider area than the mouse, so small dots are easy to tap.</li>
+      <li><b>Esc</b> stops following an object, or closes the card when nothing is followed.</li>
+    </ul>
+    <h3>The navigation pad (desktops)</h3>
+    <p>Bottom right: <kbd>+</kbd> and <kbd>−</kbd> zoom, the compass needle points north and snaps the view north-up and level (<kbd>N</kbd>), <kbd>⤓</kbd> looks straight down (<kbd>T</kbd>), <kbd>⎘</kbd> copies a link to this view, <kbd>&lt;/&gt;</kbd> copies embed code for your own web page, <kbd>◫</kbd> shares a picture (<kbd>P</kbd>) and <kbd>◎</kbd> resets to the whole Earth (<kbd>R</kbd>). North-up and top-down ask you to stop following first.</p>
+    <h3>The phone dock</h3>
+    <p>On phones the long band and the time buttons are replaced by a dock at the bottom: <b>Explore</b> (every destination and tool in the band, as a sheet), <b>Layers</b>, <b>Time</b> (the clock speeds), <b>Look up</b> and <b>North</b>. The buttons click the same controls as on a desktop, so everything works the same way.</p>
+    <h3>The time bar</h3>
+    <p>Top of the screen. <kbd>«</kbd> runs backwards an hour a second, <kbd>❚❚</kbd> pauses, <kbd>▶</kbd> is live, <kbd>›</kbd> is a minute a second, <kbd>»</kbd> ten minutes a second, <kbd>⏩</kbd> an hour a second, and <b>NOW</b> returns to the present. Satellites, the Sun, the Moon and the weather follow the clock. Aircraft hide while the clock is away from live, because there is no record of where they were. The clock carries over into the Solar System view and back.</p>
+    <h3>The layers panel</h3>
+    <p>The <b>Layers</b> button (top right) opens the dock of switches listed in <a href="#layers">Globe layers</a>, plus:</p>
+    <ul>
+      <li><b>Base map</b>: <i>Satellite imagery</i> (Esri World Imagery) or <i>Dark map</i> (Esri dark grey canvas). Far out, NASA's Blue Marble and, on the night side, Black Marble city lights are drawn over it.</li>
+      <li><b>Graphics</b>: <i>Auto</i>, <i>High</i>, <i>Balanced</i> or <i>Low</i>. Auto starts from your device and steps down if frames get slow. Lower levels draw fewer aircraft and satellite models and coarser tiles.</li>
+      <li><b>Battery saver</b>: fewer frames (5 to 15 a second) while nothing moves; full speed returns on any touch, key or motion.</li>
+      <li><b>Under the hood</b> (also the <kbd>`</kbd> key): frame rate and times, draw calls, the GPU, every data source and how old its data is, and the satellite worker's timing.</li>
+    </ul>
+    <p>Your layer choices are remembered in this browser.</p>
+  </div>
+</section>
+
+<section id="band" aria-labelledby="band-h">
+  <div class="wrap">
+    <div class="eyebrow">The band along the bottom</div>
+    <h2 id="band-h">Places, panels and tools</h2>
+    <p>The band at the bottom of the globe (the <b>Explore</b> sheet on phones) holds every destination and tool. On the left it shows the camera's height and what that height is called.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Button</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>⌕ Search</code></td><td>Search satellites (by name, NORAD number or everyday name such as ISS, Hubble, Tiangong), countries, flight numbers, places by name (Photon, OpenStreetMap), the views in this band, and volcanoes, big employers and lighthouses once their layers have loaded. <kbd>/</kbd> opens it.</td></tr>
+        <tr><td><code>Street</code></td><td>Flies to London at about 3.5 km, tilted, to show street-level detail.</td></tr>
+        <tr><td><code>Airspace</code></td><td>Europe from 1,400 km: the air traffic picture.</td></tr>
+        <tr><td><code>Earth</code></td><td>The whole planet, looking at the sunlit side.</td></tr>
+        <tr><td><code>GEO belt</code></td><td>Far enough out (160,000 km) to see the ring of geostationary satellites 36,000 km up.</td></tr>
+        <tr><td><code>Moon</code></td><td>Flies out to the Moon at its real position and looks at it.</td></tr>
+        <tr><td><code>Near misses</code></td><td>Upcoming close approaches between objects in orbit (CelesTrak SOCRATES, under 5 km in the next week). Pick one to watch both objects at the moment of closest approach.</td></tr>
+        <tr><td><code>Tonight</code></td><td>What you can see in your sky tonight. See <a href="#sky">Tonight and look up</a>.</td></tr>
+        <tr><td><code>Look up</code></td><td>Your sky right now, from where you stand: point your phone up. See <a href="#sky">Tonight and look up</a>.</td></tr>
+        <tr><td><code>Find flight</code></td><td>Type a ticket number (BA 123 becomes BAW123), a callsign, a registration or a hex address and follow that plane. The website searches the aircraft it already has and otherwise opens adsb.lol's own map; the download version asks adsb.lol directly and refreshes every 15 seconds.</td></tr>
+        <tr><td><code>▶ Tour</code></td><td>A guided 80-second flight through what the globe can do. Any click, scroll or <kbd>Esc</kbd> stops it.</td></tr>
+        <tr><td><code>Launches</code></td><td>Every upcoming rocket launch (Launch Library 2): countdowns, how sure the time is, webcasts, calendar and notification reminders, fly to the pad, and a reconstructed ascent replay (an estimate, labelled as one).</td></tr>
+        <tr><td><code>Flybys</code></td><td>Asteroids and comets passing Earth in the next 60 days (NASA/JPL CNEOS), with distance in lunar distances and a rough size.</td></tr>
+        <tr><td><code>Directions</code></td><td>A route by car, on foot or by bike between two places (FOSSGIS OSRM, OpenStreetMap), turn by turn, then "fly it" along the route.</td></tr>
+        <tr><td><code>Weather</code></td><td>Weather mode: one timeline from the last couple of hours into the next five days. See <a href="#weather">Weather timeline</a>.</td></tr>
+        <tr><td><code>Before/after</code></td><td>Recent Landsat and Sentinel-2 pictures of the place in view (NASA HLS, VIIRS daily), the newest fairly clear one against an older one, split by a slider.</td></tr>
+        <tr><td><code>Measure</code></td><td>Draw pins, lines, areas and distance arrows; outline a country. <kbd>M</kbd> opens it. See <a href="#measure">Draw and measure</a>.</td></tr>
+        <tr><td><code>Eclipses</code></td><td>The solar eclipses of 2027 to 2030: watch the Moon's shadow cross the Earth, with the path of totality and how much of the Sun is covered where you are.</td></tr>
+        <tr><td><code>Solar system ↗</code></td><td>Keeps zooming out: the camera climbs until the Solar System view takes over, with Earth in the same place on screen.</td></tr>
+      </tbody>
+    </table></div>
+    <p>Two more panels open from search, voice or a link rather than the band: <b>People in space</b> (who is aboard the ISS and Tiangong now, from Launch Library 2) and the camera <b>Director</b> (in the Ops rail, see <a href="#ops">Ops looks</a>).</p>
+  </div>
+</section>
+
+<section id="layers" aria-labelledby="layers-h">
+  <div class="wrap">
+    <div class="eyebrow">Layers panel</div>
+    <h2 id="layers-h">Globe layers</h2>
+    <p>Every switch in the globe's Layers panel, what it shows and where the data comes from. "On" is how a fresh visit starts; some layers start off on phones to save battery and memory. The id in the first column is the name share links use (see <a href="#share">Share and embed</a>).</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Layer</th><th>What it shows</th><th>Source</th><th>Starts</th></tr></thead>
+      <tbody>
+        <tr class="grp"><td colspan="4">Space</td></tr>
+        <tr><td><span class="dot" style="background:#7dffa6"></span><code>stations</code></td><td>Space stations: the ISS, Tiangong and other crewed or station objects. The nearest satellites get 3D models.</td><td>CelesTrak element sets (the website's copy, refreshed every 6 hours), positions by SGP4 in your browser</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#e6edf3"></span><code>visual</code></td><td>Bright satellites, the ones you can see with the naked eye.</td><td>CelesTrak</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#ffd45c"></span><code>gnss</code></td><td>Navigation satellites: GPS, Galileo, GLONASS, BeiDou.</td><td>CelesTrak</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#b48cff"></span><code>geo</code></td><td>The geostationary belt.</td><td>CelesTrak</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#62e0c8"></span><code>weather</code></td><td>Weather satellites.</td><td>CelesTrak</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#d9ccff"></span><code>starlink</code></td><td>Starlink, including fresh launches still flying in a train.</td><td>CelesTrak</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#8fb8ff"></span><code>active</code></td><td>Every other active satellite CelesTrak lists.</td><td>CelesTrak</td><td>on (off on phones)</td></tr>
+        <tr><td><span class="dot" style="background:#ff6b6b"></span><code>debris</code></td><td>The debris clouds of the 2007 Fengyun-1C anti-satellite test and the 2009 Iridium 33 / Cosmos 2251 collision. The full catalogue with every rocket body and fragment is Space-Track's and may not be redistributed.</td><td>CelesTrak</td><td>on (off on phones)</td></tr>
+        <tr><td><span class="dot" style="background:#ff9f5c"></span><code>launches</code></td><td>The next 40 rocket launches as markers on their pads, with countdowns. Pads at one site share one label.</td><td>Launch Library 2 (The Space Devs), copied by the site build every 6 hours</td><td>on</td></tr>
+        <tr class="grp"><td colspan="4">Air</td></tr>
+        <tr><td><span class="dot" style="background:#5fd3ff"></span><code>air</code></td><td>Civil aircraft, dead-reckoned between reports so they keep moving; the nearest ones become 3D models that bank and climb.</td><td>OpenSky Network snapshot every 15 minutes (download version: the website can't reach it, see <a href="#download">Download version</a>)</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#ffb44d"></span><code>mil</code></td><td>Military aircraft.</td><td>adsb.lol every 60 seconds (download version)</td><td>on</td></tr>
+        <tr class="grp"><td colspan="4">Earth</td></tr>
+        <tr><td><span class="dot" style="background:#ff7b4f"></span><code>quakes</code></td><td>Earthquakes of magnitude 2.5 and up in the last 24 hours.</td><td>USGS real-time feed</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#3ee08f"></span><code>transit</code></td><td>Live buses, trams and trains in Boston, Helsinki, Norway, Austin and Minneapolis-St Paul, moving smoothly between real reports.</td><td>MBTA, HSL, Entur, CapMetro, Metro Transit</td><td>off</td></tr>
+        <tr><td><span class="dot" style="background:#5fb0ff"></span><code>ships</code></td><td>Ships in the northern Baltic from live AIS: arrows far out, true-size hulls with wakes close in.</td><td>Fintraffic Digitraffic</td><td>off</td></tr>
+        <tr><td><span class="dot" style="background:#7dffb0"></span><code>bikes</code></td><td>Bike-share stations and free bikes in about 800 systems worldwide, near the view. Systems whose feeds stopped are greyed.</td><td>CityBikes</td><td>off</td></tr>
+        <tr><td><span class="dot" style="background:#f5c26b"></span><code>traffic</code></td><td>Simulated cars on real roads, with traffic lights and rush hours by local time. In New York and Finland measured speeds (and counts) drive the cars and colour the roads. The cars themselves are a simulation and say so.</td><td>Roads from OpenFreeMap vector tiles; speeds from NYC DOT and Fintraffic</td><td>off</td></tr>
+        <tr><td><span class="dot" style="background:#7fd0ff"></span><code>storms</code></td><td>Tropical cyclones: tracks, forecast cones, coastal watches and warnings, wind fields.</td><td>NOAA NHC (Atlantic and East/Central Pacific), GDACS (every other basin), NASA EONET</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#ff7a2f"></span><code>fires</code></td><td>Wildfire hot spots seen by satellite in the last 24 hours, worldwide, and current US fire perimeters.</td><td>NASA VIIRS thermal anomalies (via GIBS), NIFC</td><td>off</td></tr>
+        <tr><td><span class="dot" style="background:#ff6fd8"></span><code>radio</code></td><td>About 3,000 radio stations (1,500 on phones) at their cities, with an analog tuner whose dial snaps to real stations and flies to them.</td><td>radio-browser.info</td><td>off</td></tr>
+        <tr><td><span class="dot" style="background:#ffe27a"></span><code>lighthouses</code></td><td>Lighthouses of the world, with their light characteristics.</td><td>OpenStreetMap</td><td>on (off on phones)</td></tr>
+        <tr><td><span class="dot" style="background:#ffd45c"></span><code>sun</code></td><td>The point where the Sun is overhead, its meridian, and 24 time-zone meridians.</td><td>Computed</td><td>off</td></tr>
+        <tr><td><span class="dot" style="background:#c9b38f"></span><code>terrain</code></td><td>3D terrain: mountains and valleys. Cars, buses, planes on the ground and drawings stand on it.</td><td>Re:Earth terrain (Mapterhorn), no key</td><td>on (off on phones)</td></tr>
+        <tr><td><span class="dot" style="background:#c9d3e0"></span><code>buildings</code></td><td>3D buildings close up, stood up from OpenStreetMap outlines and heights.</td><td>OpenStreetMap via the Overpass API</td><td>off</td></tr>
+        <tr><td><span class="dot" style="background:#ff6fb5"></span><code>cams</code></td><td>Live traffic cameras and video from 12 networks in the US, Canada, Europe and Asia. A camera's picture can be projected into the 3D city from its estimated position; "Look through" lets you line it up and save.</td><td>TfL, NYC DOT, Caltrans, Fintraffic, DelDOT, Iowa DOT, MoDOT, Statens vegvesen, DriveBC, City of Calgary, Hong Kong, Singapore LTA</td><td>off</td></tr>
+        <tr><td><span class="dot" style="background:#c9a0ff"></span><code>cctv</code></td><td>Cameras and plate readers that volunteers have mapped in OpenStreetMap, with view wedges, close up.</td><td>OpenStreetMap via the Overpass API</td><td>off</td></tr>
+        <tr><td><span class="dot" style="background:#9fe3ff"></span><code>photoreal</code></td><td>Photoreal 3D cities. Needs your own free Cesium ion token, kept in your browser; while on, place search uses Google's geocoder.</td><td>Google Photorealistic 3D Tiles through Cesium ion</td><td>off</td></tr>
+        <tr><td><span class="dot" style="background:#ff5a36"></span><code>volcanoes</code></td><td>Volcanoes of the world: type and height (not whether they are erupting).</td><td>Wikidata</td><td>on (off on phones)</td></tr>
+        <tr><td><span class="dot" style="background:#ff9f5c"></span><code>companies</code></td><td>Big employers (20,000+ staff) as towers at their headquarters.</td><td>Wikidata</td><td>on (off on phones)</td></tr>
+        <tr><td><span class="dot" style="background:#7dffb0"></span><code>aurora</code></td><td>The aurora forecast: the chance of seeing it, refreshed every 10 minutes.</td><td>NOAA SWPC OVATION</td><td>on (off on phones)</td></tr>
+        <tr><td><span class="dot" style="background:#e6edf3"></span><code>clouds</code></td><td>A cloud layer 9 km up with cloud shadows.</td><td>NASA Blue Marble</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#fff1d0"></span><code>night</code></td><td>City lights on the night side.</td><td>NASA Black Marble (VIIRS)</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#8b9bab"></span><code>labels</code></td><td>Place names when close.</td><td>Esri</td><td>on</td></tr>
+      </tbody>
+    </table></div>
+    <p class="tip">Every source, its licence, how fresh it is and how accurate, is written down in <a href="https://github.com/destinjones/open-overwatch/blob/main/docs/DATA_SOURCES.md">docs/DATA_SOURCES.md</a>. Counts next to each switch show how many objects a layer holds right now.</p>
+  </div>
+</section>
+
+<section id="cards" aria-labelledby="cards-h">
+  <div class="wrap">
+    <div class="eyebrow">Click anything</div>
+    <h2 id="cards-h">Cards, following and the cockpit</h2>
+    <ul>
+      <li><b>Satellites</b>: what the satellite is in one sentence, its orbit, height and speed, whether it is in sunlight, and <b>When can I see it?</b> (its passes over you in the next 3 days). Space stations say how many people are aboard.</li>
+      <li><b>Aircraft</b>: callsign, type, height, speed, a photo when Planespotters has one, and <b>Share</b> (a link that finds that flight wherever it is when opened).</li>
+      <li><b>A country</b>: click the ground and its border lights up, with facts (Wikidata, World Bank), what the globe knows about it right now (earthquakes, lighthouses, big employers, the wind) and English-language headlines from its news outlets (GDELT).</li>
+      <li><b>Everything else</b> (quakes, storms, fires, ships, buses, cameras, stations, volcanoes, launches, drawings) opens its own card.</li>
+    </ul>
+    <h3>Follow</h3>
+    <p>Double-click a satellite or aircraft (or press <b>Follow in 3D</b> on its card) and the camera rides along with it while you orbit around it. <kbd>Esc</kbd> lets go.</p>
+    <h3>Cockpit</h3>
+    <p>While following, press <kbd>C</kbd> (or <b>CKPT</b> in the Ops rail) to ride the satellite (or, in the download version, the plane) looking along its path. Drag to look around, the wheel or a pinch zooms the lens, the arrow keys turn your head, <kbd>Esc</kbd> gets out. The model and its orbit line hide while you are inside.</p>
+  </div>
+</section>
+
+<section id="sky" aria-labelledby="sky-h">
+  <div class="wrap">
+    <div class="eyebrow">Stargazing</div>
+    <h2 id="sky-h">Tonight and look up</h2>
+    <h3>Tonight above you</h3>
+    <p>The <b>Tonight</b> button (or <a href="tonight.html">tonight.html</a>, or <code>globe.html#go=tonight</code>) asks for your location once and then says, in plain words:</p>
+    <ul>
+      <li>Visible passes of the ISS, Tiangong and Hubble, Starlink trains still low after launch, and the brightest satellites, each marked clear or cloudy from the cloud forecast (Open-Meteo, location rounded to about 10 km).</li>
+      <li>The five bright planets, the Moon's phase, moonrise and moonset, sunset, darkness and sunrise, the next full Moon by its name (and whether it is a supermoon).</li>
+      <li>Meteor showers with an honest rate from where you are, the chance of aurora where you stand, the next solar eclipse you can see from home, meetings of the Moon and planets in the next 30 days, launches within 1,000 km in the next week, and the spacecraft farthest from home.</li>
+      <li><b>Calendar</b> downloads an .ics file with a 10-minute reminder that works with the site closed; <b>Remind me</b> shows a notification while the page is open. <b>Share tonight</b> sends a one-line summary with a link.</li>
+    </ul>
+    <p>Sections fold and stay folded. Your location is saved on your device only, rounded.</p>
+    <h3>Look up</h3>
+    <p>Your sky from where you stand. On a phone, hold it up and the view follows the phone's motion sensors; on a computer, drag. It shows planets, bright stars, constellation figures (<b>Figures</b>), satellites and aircraft overhead, a compass ring and the next ISS pass. Things on the ground are hidden so they don't streak across the sky.</p>
+    <ul>
+      <li><b>Find</b>: pick a planet, the Moon, the ISS or a bright star, and an arrow leads you to it ("turn right 32°, up 11°").</li>
+      <li><b>Tap</b> anything in the sky to learn what it is: distance, light travel time, "the light reaching your eyes left Vega in 2001".</li>
+      <li><b>Sky on</b>: any date from 1800 to 2049 (planets, Moon and stars; satellites only within 3 days of today). <b>Now</b> returns to the present.</li>
+      <li><b>Red</b>: a red-light view that keeps your eyes used to the dark (remembered). <b>Done</b> or <kbd>Esc</kbd> leaves.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="weather" aria-labelledby="weather-h">
+  <div class="wrap">
+    <div class="eyebrow">Weather mode</div>
+    <h2 id="weather-h">The weather timeline</h2>
+    <p><b>Weather</b> in the band opens one timeline that runs from what satellites and radar saw in the last couple of hours into what NOAA's GFS model forecasts for the next five days (three on phones). Nothing is downloaded until you open it.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Switch</th><th>Shows</th><th>Source</th></tr></thead>
+      <tbody>
+        <tr><td>Clouds <code>ir</code></td><td>Infrared cloud images every 10 minutes, cold cloud tops in colour. Covers the Americas, the Pacific and Asia-Australia; Europe, Africa and the Indian Ocean need Meteosat, which no free tile service carries. In the forecast part, the model's cloud cover takes over.</td><td>NASA GIBS: NOAA GOES-East and GOES-West, JMA Himawari</td></tr>
+        <tr><td>Rain <code>radar</code></td><td>Weather radar where national radars exist. In the forecast, the model's rain rate.</td><td>RainViewer</td></tr>
+        <tr><td>Rain from space <code>rain</code></td><td>Global rain between 60° north and south, about 7 hours old (a still).</td><td>NASA IMERG</td></tr>
+        <tr><td>Lightning <code>lightning</code></td><td>Strike density in the last 15 minutes, the Americas and the Pacific (a still).</td><td>NOAA nowCOAST</td></tr>
+        <tr><td>Wind <code>wind</code></td><td>Animated wind at 10 m along the whole timeline.</td><td>NOAA GFS, read straight from its files on AWS</td></tr>
+        <tr><td>Temperature <code>temp</code></td><td>Temperature at 2 m along the whole timeline.</td><td>NOAA GFS</td></tr>
+      </tbody>
+    </table></div>
+    <p>Clouds, rain and lightning start on. Drag the slider, or press play: the globe's clock moves with it, so the day-night line and the satellites move with the weather, and moving the clock in the time bar moves the slider. Closing weather mode puts the clock back to live.</p>
+  </div>
+</section>
+
+<section id="measure" aria-labelledby="measure-h">
+  <div class="wrap">
+    <div class="eyebrow">Measure</div>
+    <h2 id="measure-h">Draw and measure</h2>
+    <p><b>Measure</b> in the band, <kbd>M</kbd>, or your voice. Pick a tool and click (or tap) on the globe:</p>
+    <ul>
+      <li><b>Line</b>: each leg and the total length. On 3D terrain, finished lines up to 30 km also get the length over the hills and the climb and descent.</li>
+      <li><b>Area</b>: the area and perimeter of the shape you draw.</li>
+      <li><b>Distance</b>: an arrow from one place to another, with the bearing, and optionally the trip by road (OSRM).</li>
+      <li><b>Pin</b>: a named marker.</li>
+      <li><b>Outline a country</b>: its border and its area.</li>
+    </ul>
+    <p>Distances are measured on the real shape of the Earth (the WGS84 ellipsoid, within a millimetre of the reference library GeographicLib) and areas on it too. Up to 512 points. A quick second click on the last point, <kbd>Enter</kbd> or <b>Finish</b> ends a shape; <kbd>Backspace</kbd>, <kbd>Delete</kbd> or <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes the last point; <b>Clear</b> removes the drawing; <b>Copy GeoJSON</b> takes it to other mapping software. Share links carry the drawing (see <a href="#share">Share and embed</a>).</p>
+    <p>On phones, while a tool is armed the card shrinks to a slim strip above the dock with the running total, Undo, Finish and a chevron for the rest.</p>
+  </div>
+</section>
+
+<section id="ops" aria-labelledby="ops-h">
+  <div class="wrap">
+    <div class="eyebrow">The Ops rail</div>
+    <h2 id="ops-h">Ops looks</h2>
+    <p>The <b>OPS</b> rail on the globe holds camera looks and tactical overlays. Off costs nothing; they run in your browser with no key.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Button</th><th>Key</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>EO</code> <code>normal</code></td><td><kbd>1</kbd></td><td>Normal colour.</td></tr>
+        <tr><td><code>NVG</code> <code>nvg</code></td><td><kbd>2</kbd></td><td>Night vision.</td></tr>
+        <tr><td><code>WHT</code> <code>flir</code></td><td><kbd>3</kbd></td><td>Thermal, white hot.</td></tr>
+        <tr><td><code>BHT</code> <code>flirbh</code></td><td><kbd>4</kbd></td><td>Thermal, black hot.</td></tr>
+        <tr><td><code>IRN</code> <code>iron</code></td><td><kbd>5</kbd></td><td>Thermal, ironbow colours.</td></tr>
+        <tr><td><code>CRT</code> <code>crt</code></td><td><kbd>6</kbd></td><td>An old monitor, with scan lines.</td></tr>
+        <tr><td><code>NOIR</code> <code>noir</code></td><td><kbd>7</kbd></td><td>Black and white.</td></tr>
+        <tr><td><code>HUD</code></td><td><kbd>H</kbd></td><td>Tactical HUD: compass tape, reticle, the ground under it in latitude/longitude and MGRS, altitude, ground sample distance, UTC, and a lock line with range to the followed object.</td></tr>
+        <tr><td><code>DET</code></td><td><kbd>D</kbd></td><td>Detection: boxes and IDs on the nearest things in view (46, or 22 on phones): satellites, aircraft, quakes, storms, cameras, buses, ships.</td></tr>
+        <tr><td><code>CKPT</code></td><td><kbd>C</kbd></td><td>Cockpit: ride the object you follow (see <a href="#cards">Cards</a>).</td></tr>
+        <tr><td><code>DIR</code></td><td></td><td>Director: frame a view and Add it as a shot (the look comes along), set how long the flight to it takes, then Play. Cinema hides every control for a clean screen recording. Scenes travel as a link or a .json file.</td></tr>
+        <tr><td>mic</td><td><kbd>V</kbd></td><td>Voice: see <a href="#voice">Voice commands</a>.</td></tr>
+      </tbody>
+    </table></div>
+    <p class="warn">The thermal looks are a style, not real infrared: they map brightness and edges, not temperature.</p>
+  </div>
+</section>
+
+<section id="voice" aria-labelledby="voice-h">
+  <div class="wrap">
+    <div class="eyebrow">Talk to it</div>
+    <h2 id="voice-h">Voice commands</h2>
+    <p>Press the mic in the Ops rail or <kbd>V</kbd>, or hold <kbd>Space</kbd>, speak, and let go. It uses your browser's own speech recognition (Chrome, Edge and Safari; not Firefox) and turns the sentence into one action without any AI service. It answers out loud and with a short sound. You can start with "Hey Overwatch" or "Computer", and "please" is fine. Say <b>"help"</b> for a list.</p>
+    <h3>Ideas to try</h3>
+    <ul class="say">
+      <li>Take me to Tokyo</li><li>Track the ISS</li><li>Night vision</li><li>Thermal</li><li>Enter cockpit</li><li>Turn on earthquakes</li>
+      <li>Walking route from Big Ben to the Tower of London</li><li>How many satellites are in view?</li><li>What's this?</li><li>Show me the launches</li>
+      <li>Zoom out to a globe view</li><li>What's the weather in Paris?</li><li>How many planes over Texas?</li><li>Measure from Paris to Berlin</li>
+      <li>Outline France</li><li>How big is Brazil?</li><li>Draw an area</li><li>Clear the drawing</li>
+    </ul>
+    <h3>Everything it understands</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>Kind</th><th>Say, for example</th></tr></thead>
+      <tbody>
+        <tr><td>Go somewhere</td><td>"take me to Tokyo", "fly to Mount Everest", "show me the ISS", "where is Hubble", "zoom in", "zoom out", "back up"</td></tr>
+        <tr><td>Follow</td><td>"track the ISS", "follow Hubble", "lock on to the space station"; "stop", "stop tracking", "let go"</td></tr>
+        <tr><td>Views and panels</td><td>"what's above me tonight", "look up", "show the launches", "open the solar system", "play the tour", "near misses", "eclipses", "asteroids", "who is in space", "the Moon", "geostationary"</td></tr>
+        <tr><td>Layers</td><td>"turn on earthquakes", "switch off Starlink", "hide the satellites"</td></tr>
+        <tr><td>Camera</td><td>"reset", "whole Earth", "north up", "top down", "bird's eye"</td></tr>
+        <tr><td>Time</td><td>"pause", "speed up", "fast forward", "go live", "back to now"</td></tr>
+        <tr><td>Looks</td><td>"night vision", "thermal", "black hot", "ironbow", "CRT", "old TV", "noir", "black and white", "normal"; "HUD on", "detection off", "enter cockpit", "exit cockpit"</td></tr>
+        <tr><td>Questions</td><td>"what's this?" (what the pointer rests on), "where am I", "how many satellites are in view", "how many ships near Helsinki", "how many planes over Texas"</td></tr>
+        <tr><td>Answers in a list</td><td>"the second one", "number three": picks from what the last answer listed</td></tr>
+        <tr><td>Weather</td><td>"what's the weather here", "is it raining in London", "how cold is it in Oslo", "temperature in Rome"</td></tr>
+        <tr><td>Routes</td><td>"route from Paris to Lyon", "walk from Big Ben to the Tower of London", "how do I cycle from A to B", then "fly the route"</td></tr>
+        <tr><td>Measure</td><td>"measure from Paris to Berlin", "driving distance from Boston to New York", "how far is Tokyo", "how far is the Moon", "how far is the ISS"</td></tr>
+        <tr><td>Draw</td><td>"draw an area", "draw a line", "measure a distance", "drop a pin", "drop a pin on Rome", "finish", "undo", "clear the drawing", "how long is it", "stop drawing"</td></tr>
+        <tr><td>Outlines</td><td>"outline France", "show the border of Japan", "how big is Brazil"</td></tr>
+      </tbody>
+    </table></div>
+    <p>Spoken weather answers use Celsius and kilometres an hour, or Fahrenheit and miles an hour when your browser's language uses them (US English, for example). Place names are looked up with Photon (OpenStreetMap). With weather mode open, the forecast at the moment shown answers weather questions; otherwise Open-Meteo is asked about that one place.</p>
+  </div>
+</section>
+
+<section id="keys" aria-labelledby="keys-h">
+  <div class="wrap">
+    <div class="eyebrow">Keyboard</div>
+    <h2 id="keys-h">Keyboard shortcuts</h2>
+    <p>Keys do nothing while you type in a text box. Shortcuts with letters are case-insensitive.</p>
+    <div class="cols">
+      <div>
+        <h3>3D globe</h3>
+        <div class="tbl"><table><tbody>
+          <tr><td><kbd>/</kbd></td><td>Search</td></tr>
+          <tr><td><kbd>+</kbd> <kbd>−</kbd></td><td>Zoom in, out</td></tr>
+          <tr><td><kbd>N</kbd></td><td>North up and level</td></tr>
+          <tr><td><kbd>T</kbd></td><td>Look straight down</td></tr>
+          <tr><td><kbd>R</kbd></td><td>Reset: the whole Earth</td></tr>
+          <tr><td><kbd>P</kbd></td><td>Share a picture of the view</td></tr>
+          <tr><td><kbd>M</kbd></td><td>Open or close Measure</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Finish the shape (Measure)</td></tr>
+          <tr><td><kbd>Backspace</kbd> <kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Undo the last point (Measure)</td></tr>
+          <tr><td><kbd>1</kbd>–<kbd>7</kbd></td><td>Sensor looks</td></tr>
+          <tr><td><kbd>H</kbd> <kbd>D</kbd> <kbd>C</kbd></td><td>HUD, detection, cockpit</td></tr>
+          <tr><td>arrow keys</td><td>Turn your head in the cockpit</td></tr>
+          <tr><td><kbd>V</kbd>, hold <kbd>Space</kbd></td><td>Voice</td></tr>
+          <tr><td><kbd>`</kbd></td><td>Under the hood</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Leave the cockpit, stop following, close the card, leave look up, stop a tour or a flight</td></tr>
+        </tbody></table></div>
+      </div>
+      <div>
+        <h3>2D map</h3>
+        <div class="tbl"><table><tbody>
+          <tr><td><kbd>/</kbd></td><td>Search</td></tr>
+          <tr><td><kbd>1</kbd>–<kbd>5</kbd></td><td>Presets: Around me, Military air picture, Space, Storms &amp; quakes, Everything</td></tr>
+          <tr><td><kbd>L</kbd></td><td>Show or hide the layers rail</td></tr>
+          <tr><td><kbd>P</kbd></td><td>Pause</td></tr>
+          <tr><td><kbd>I</kbd></td><td>Follow the ISS</td></tr>
+          <tr><td><kbd>M</kbd></td><td>Surprise me: a random notable military aircraft</td></tr>
+          <tr><td><kbd>S</kbd></td><td>Sound effects on or off</td></tr>
+          <tr><td><kbd>A</kbd></td><td>Music on or off</td></tr>
+          <tr><td><kbd>N</kbd></td><td>Next music set</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Close the detail panel</td></tr>
+        </tbody></table></div>
+        <h3>Solar System</h3>
+        <div class="tbl"><table><tbody>
+          <tr><td><kbd>Esc</kbd></td><td>Stop riding along with the focused body</td></tr>
+          <tr><td><kbd>`</kbd></td><td>Under the hood</td></tr>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd></td><td>Choose a search result</td></tr>
+        </tbody></table></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="share" aria-labelledby="share-h">
+  <div class="wrap">
+    <div class="eyebrow">Pass it on</div>
+    <h2 id="share-h">Share, embed and pictures</h2>
+    <h3>A link to this view</h3>
+    <p>The <kbd>⎘</kbd> button (phone menu: Share) copies a link that puts the next person exactly where you are: the camera, which layers are on, the time if you moved the clock, the weather sources if weather mode is open, the country card, the flight you are looking for, the Ops look, and your drawing. Everything is in the part of the address after <code>#</code>; nothing is stored on a server. A very large drawing is left out of the link (Measure → Copy GeoJSON keeps it).</p>
+    <p>Links that open a panel by themselves work too, for example <code>globe.html#go=tonight</code> or <code>globe.html#go=launches</code>. The full format, for anyone building links (the Claude extension does), is in <a href="https://github.com/destinjones/open-overwatch/blob/main/docs/LINK_FORMAT.md">docs/LINK_FORMAT.md</a>.</p>
+    <h3>Put the globe on your web page</h3>
+    <p>The <kbd>&lt;/&gt;</kbd> button copies an <code>&lt;iframe&gt;</code> of the current view in embed mode: just the globe, no toasts about location or reminders, no Ops rail, and an "Open Overwatch ↗" link that opens the full site at the same view. Paste it into any page.</p>
+    <h3>Share a picture</h3>
+    <p><kbd>◫</kbd> or <kbd>P</kbd> takes the view with a caption strip and the site's address. On phones it goes to the share sheet with the link; on computers you get a PNG and the link is copied.</p>
+    <h3>Install as an app</h3>
+    <p>Your browser can install the site as an app (Add to Home Screen on phones). It opens full screen, with shortcuts to Tonight and Find a flight. If your device asks for reduced motion, camera flights jump instead of swooping.</p>
+  </div>
+</section>
+
+<section id="map2d" aria-labelledby="map2d-h">
+  <div class="wrap">
+    <div class="eyebrow">The classic view</div>
+    <h2 id="map2d-h">The 2D map</h2>
+    <p><a href="open-overwatch.html">open-overwatch.html</a> is a flat situation map. The rail on the left holds the layers in groups; each layer has a description, a live count and status, and some have options (which satellite groups, which aircraft network, which camera cities). The tabs on the right are <b>Brief</b> (what is notable now), <b>Log</b> (each feed's errors as they happen) and <b>Setup</b> (the helper, optional keys, a test of every feed). On first visit you choose to enter with audio or silent: the map can play a soundtrack generated in the browser, or radio stations.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Layer</th><th>What it shows</th><th>Starts</th></tr></thead>
+      <tbody>
+        <tr class="grp"><td colspan="3">Air (the aircraft feeds need the download version's helper)</td></tr>
+        <tr><td><code>air_local</code></td><td>All aircraft in view (ADS-B from adsb.lol, adsb.fi, or airplanes.live with their permission), swept across the visible area.</td><td>on</td></tr>
+        <tr><td><code>air_mil</code></td><td>Military aircraft, worldwide.</td><td>on</td></tr>
+        <tr><td><code>air_emg</code></td><td>Emergency squawks worldwide: 7700 emergency, 7600 radio failure, 7500 unlawful interference.</td><td>on</td></tr>
+        <tr><td><code>air_opensky</code></td><td>A global civil snapshot from OpenSky every 15 minutes.</td><td>off</td></tr>
+        <tr class="grp"><td colspan="3">Space</td></tr>
+        <tr><td><code>sats</code></td><td>Satellites from CelesTrak element sets, propagated live with SGP4; pick groups, and an automatic ground track and footprint for the selected one.</td><td>on</td></tr>
+        <tr class="grp"><td colspan="3">Sea &amp; sky</td></tr>
+        <tr><td><code>ships_fi</code></td><td>Ships around Finland (Fintraffic Digitraffic AIS); zoom in past level 5 for individual ships.</td><td>off</td></tr>
+        <tr><td><code>ships_ws</code></td><td>Global ships from aisstream.io (needs a free key).</td><td>off</td></tr>
+        <tr><td><code>balloons</code></td><td>Weather balloons from SondeHub: community-uploaded and unverified, so it asks first and shows a warning.</td><td>off</td></tr>
+        <tr class="grp"><td colspan="3">Ground</td></tr>
+        <tr><td><code>quakes</code></td><td>Earthquakes (USGS).</td><td>on</td></tr>
+        <tr><td><code>events</code></td><td>Natural events: wildfires, storms, volcanoes, floods, ice (NASA EONET).</td><td>off</td></tr>
+        <tr><td><code>gdacs</code></td><td>Disaster alerts from GDACS (EU/UN), the last 14 days.</td><td>off</td></tr>
+        <tr><td><code>news</code></td><td>World news from GDELT: the last 24 hours matching your query, placed by the reporting country.</td><td>off</td></tr>
+        <tr><td><code>cams</code></td><td>Official traffic cameras from zoom 8 over London, New York, California, Singapore and Finland; a Windy key adds webcams worldwide.</td><td>on</td></tr>
+        <tr><td><code>fires</code></td><td>Active fires from NASA FIRMS (needs a free MAP_KEY).</td><td>off</td></tr>
+        <tr class="grp"><td colspan="3">Weather &amp; space weather</td></tr>
+        <tr><td><code>storms</code></td><td>Tropical cyclones (EONET tracks, NHC advisories).</td><td>on</td></tr>
+        <tr><td><code>nws</code></td><td>Extreme and severe US weather warnings with their areas (NWS).</td><td>on</td></tr>
+        <tr><td><code>aurora</code></td><td>The aurora forecast (NOAA SWPC OVATION).</td><td>off</td></tr>
+        <tr><td><code>radar</code></td><td>Precipitation radar (RainViewer).</td><td>off</td></tr>
+        <tr><td><code>irsat</code></td><td>Infrared cloud images (NASA GIBS: GOES-East, GOES-West, Himawari).</td><td>off</td></tr>
+        <tr><td><code>terminator</code></td><td>Day and night, computed in the browser.</td><td>on</td></tr>
+        <tr class="grp"><td colspan="3">Infrastructure</td></tr>
+        <tr><td><code>cables</code></td><td>Submarine cables (TeleGeography), live through the helper or the public relay, an older copy otherwise.</td><td>off</td></tr>
+        <tr><td><code>landing</code></td><td>Where the cables come ashore.</td><td>off</td></tr>
+        <tr><td><code>osm_scan</code></td><td>Results of an area scan: military areas, airfields, nuclear sites and harbours from OpenStreetMap, run from a map probe.</td><td>on</td></tr>
+      </tbody>
+    </table></div>
+    <p>Keys are optional and stored only in your browser, sent only to the provider that issued them: Windy (webcams anywhere), aisstream.io (global ships) and NASA FIRMS (fires). Setup → <b>Test all feeds</b> lists every source with ok, blocked or error and its response time.</p>
+  </div>
+</section>
+
+<section id="solar" aria-labelledby="solar-h">
+  <div class="wrap">
+    <div class="eyebrow">Past the Moon</div>
+    <h2 id="solar-h">The Solar System view</h2>
+    <p><a href="solar.html">solar.html</a>, or zoom out from the globe past about 300,000 km. Drag to orbit, scroll or pinch to zoom, right-drag (or Ctrl-drag) to move the view, click anything for its card. Planets are drawn at their real size, so zoom in to see them. Click a body to fly to it and ride along with it; <kbd>Esc</kbd> or <b>let go</b> leaves the camera where it is. Zoom back in to Earth and the globe takes over again.</p>
+    <h3>The scale band</h3>
+    <p>Along the bottom, one button per rung of the ladder: Earth &amp; Moon, Inner planets, Asteroid belt, Outer planets, Kuiper belt, Voyager, Oort cloud, Nearest stars, Other worlds, Neighbourhood, Milky Way, Local Group, Cosmic web. The current rung lights up as you zoom.</p>
+    <h3>Show</h3>
+    <ul>
+      <li><b>Planet orbits</b> and <b>Labels</b>.</li>
+      <li><b>Moons</b>: 20 major moons from Mars to Pluto, on orbits fitted to JPL Horizons.</li>
+      <li><b>Dwarf planets</b>, <b>Asteroids</b> (1.57 million from JPL's Small-Body Database, each class switchable: main belt, near-Earth, Jupiter Trojans, Centaurs, Kuiper belt and beyond, Mars-crossers, other) and <b>Comets</b>.</li>
+      <li><b>Spacecraft</b>: trajectories from JPL Horizons, Voyager included.</li>
+      <li><b>Stars near the Sun</b> (HYG catalogue) and <b>Our radio bubble</b>: how far our broadcasts have travelled since 1920, with the stars inside tinted.</li>
+      <li><b>Planets of other stars</b>: 6,339 exoplanets from the NASA Exoplanet Archive at their stars; fly into a system to see real sizes and the habitable zone.</li>
+      <li><b>Light delay</b>: a ghost of the focused body where Earth sees it, because its light is minutes or hours old.</li>
+      <li><b>Milky Way &amp; galaxies</b>: our galaxy seen from outside and 43,480 galaxies of the 2MASS Redshift Survey, with the big clusters named.</li>
+      <li><b>Graphics</b>: Auto or a fixed level.</li>
+    </ul>
+    <h3>Wow</h3>
+    <p><b>Guided tour: Earth to Andromeda</b>, <b>Send a light pulse from the Sun</b> (a shell of light spreads out at 60 times its real speed and names each planet it reaches), <b>Next planetary alignment</b>, and <b>Under the hood</b>: speed, and the positions' error measured live against NASA JPL Horizons. Search (Mars, Ceres, Voyager 1, Sirius…) flies to anything by name. The time bar runs from a year a second backwards to a year a second forwards; planet positions are good from 1800 to 2050.</p>
+  </div>
+</section>
+
+<section id="download" aria-labelledby="download-h">
+  <div class="wrap">
+    <div class="eyebrow">On your machine</div>
+    <h2 id="download-h">The download version</h2>
+    <p>The website works with nothing installed. The download adds what a website can't reach: <b>live aircraft and military flights</b>. The ADS-B networks and OpenSky send no permission for web pages to read them and refuse cloud servers, so a small helper on your own computer asks them for you.</p>
+    <ol>
+      <li>Get <code>open-overwatch.zip</code> from the <a href="https://github.com/destinjones/open-overwatch/releases/latest">latest release</a> (about 70 MB) and unzip it into one folder.</li>
+      <li>On Windows, double-click <b>Start Open Overwatch.bat</b>. On Mac or Linux, run <code>python3 serve.py</code> or <code>node serve.js</code> in that folder. It needs Python 3 or Node 18 or newer.</li>
+      <li>Your browser opens the map at <code>http://127.0.0.1:8787/open-overwatch.html</code>; the globe is at <code>/globe.html</code>.</li>
+    </ol>
+    <p>The helper serves the folder on your computer only and relays a fixed list of sources, only for its own pages. It has no dependencies and talks to nothing else. To update, download the new zip.</p>
+  </div>
+</section>
+
+<section id="claude" aria-labelledby="claude-h">
+  <div class="wrap">
+    <div class="eyebrow">MCP</div>
+    <h2 id="claude-h">Ask Claude about the Earth</h2>
+    <p>Open Overwatch also comes as a small Model Context Protocol server, so Claude (and other AI apps that speak MCP) can answer questions from the same open data: earthquakes, where a satellite is and when you can see it, launches, who is in space, asteroid flybys, tropical storms, natural events, Baltic ships, bike share, the weather, the aurora and tonight's sky. Every answer carries a link that opens the globe there, and in Claude Desktop the globe appears in the chat. Install it from <code>open-overwatch.mcpb</code> on the <a href="https://github.com/destinjones/open-overwatch/releases/latest">latest release</a>; details in <a href="https://github.com/destinjones/open-overwatch/blob/main/mcp/README.md">mcp/README.md</a>. It runs on your computer, needs no key, and stores nothing.</p>
+  </div>
+</section>
+
+<section id="privacy" aria-labelledby="privacy-h">
+  <div class="wrap">
+    <div class="eyebrow">Your data</div>
+    <h2 id="privacy-h">Privacy</h2>
+    <ul>
+      <li><b>No accounts, ads, cookies or analytics.</b> Your settings (layers, keys, folded sections, a rounded location for Tonight) stay in your browser's own storage.</li>
+      <li><b>Your browser talks to the data providers directly</b> to load the map and the data, and to a code CDN (jsDelivr, cdnjs) and Google Fonts. Those services can see your IP address under their own policies, and the map area you look at is requested from them.</li>
+      <li><b>Your location</b> (Tonight, Look up, Around me) is used on your device. The cloud forecast for Tonight sends it to Open-Meteo rounded to about 10 km.</li>
+      <li><b>Searches and spoken places</b> send only the words to Photon (komoot). Directions go to the FOSSGIS routing servers; mapped cameras and buildings to the public Overpass API.</li>
+      <li><b>Voice</b> uses your browser's speech recognition: Chrome and Edge send the audio to Google or Microsoft, Safari to Apple. This site receives none of it, and the microphone listens for one command each time you press the mic or <kbd>V</kbd>, or while you hold <kbd>Space</kbd>.</li>
+      <li><b>The public relay</b> on Cloudflare carries a few feeds a browser can't read directly (NOAA hurricanes, NYC cameras, some camera lists and pictures, cable routes). It carries only those and runs no logging code of its own.</li>
+      <li><b>Photoreal 3D</b>, if you turn it on, uses your own Cesium ion token and sends it only to Cesium. <b>Radio</b> reports each station you start to radio-browser.info.</li>
+    </ul>
+    <p>The full notice, with every service named, is on the <a href="index.html#legal">landing page</a>.</p>
+  </div>
+</section>
+
+<section id="limits" aria-labelledby="limits-h">
+  <div class="wrap">
+    <div class="eyebrow">Read this</div>
+    <h2 id="limits-h">Limits</h2>
+    <p class="warn">Open Overwatch is a hobby project for curiosity and awareness. Never use it for navigation, flying, sailing, driving, emergencies or anything where a late, wrong or missing position could hurt someone. Everything comes from third parties and can be late, incomplete or wrong; positions broadcast by the transmitter itself (aircraft, ships, balloons) can be spoofed.</p>
+    <ul>
+      <li>Satellite positions come from public element sets that are hours old; the error grows by roughly 1 to 3 km a day.</li>
+      <li>Aircraft on the website are only what it can reach (none of the live ADS-B networks); the download version has them.</li>
+      <li>Cars in the traffic layer are simulated; only the measured roads in New York and Finland are real readings, and New York's are often a day late.</li>
+      <li>Infrared clouds don't cover Europe, Africa or the Indian Ocean; the forecast does.</li>
+      <li>Launch replays are reconstructed estimates, not telemetry.</li>
+    </ul>
+    <div class="cta">
+      <a class="btn primary" href="globe.html">Open the globe</a>
+      <a class="btn" href="https://github.com/destinjones/open-overwatch/issues">Report a bug or a wrong line here</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <p><a class="brand" href="index.html" style="font-size:18px;color:var(--ink)"><img src="brand/emblem/emblem-256.png" alt="" style="width:26px;height:26px">Open Overwatch</a></p>
+      <p>A free, open source project by <a href="about.html">Destin Jones</a>. A hobby project built on public data, for awareness and curiosity, not for navigation, safety or operational decisions. No accounts, no ads, no tracking.</p>
+    </div>
+    <div>
+      <p><a href="index.html">Home</a> · <a href="globe.html">3D globe</a> · <a href="solar.html">Solar System</a> · <a href="open-overwatch.html">2D map</a> · <a href="tonight.html">Tonight</a></p>
+      <p><a href="https://github.com/destinjones/open-overwatch">Source on GitHub</a> · <a href="https://github.com/destinjones/open-overwatch/releases">Releases</a> · <a href="https://github.com/destinjones/open-overwatch/issues">Report a bug</a></p>
+      <p><a href="index.html#legal">Notices</a>: open source licences, no warranty, not for safety use. Data sources and licences: <a href="https://github.com/destinjones/open-overwatch/blob/main/docs/DATA_SOURCES.md">docs/DATA_SOURCES.md</a>.</p>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
