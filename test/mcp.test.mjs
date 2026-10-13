@@ -324,7 +324,7 @@ test('mcp: the stdio server answers a client and exits when stdin closes', async
   const lines = out.trim().split('\n').map(l => JSON.parse(l)), byId = id => lines.find(l => l.id === id);   // answers may come in any order
   assert.equal(lines.length, 3, out);
   assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 14); assert.equal(byId(null).error.code, -32700);
-  assert.match(err, /open-overwatch-mcp \d+\.\d+\.\d+ · links to https:\/\/destinjones\.github\.io\/open-overwatch\//);
+  assert.match(err, /open-overwatch-mcp \d+\.\d+\.\d+ - links to https:\/\/destinjones\.github\.io\/open-overwatch\//);
 });
 
 test('mcp: the npm package, the Claude Desktop bundle and the server agree on the version and the tools', async () => {
