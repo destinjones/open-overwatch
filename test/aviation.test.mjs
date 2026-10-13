@@ -328,3 +328,40 @@ test('search: class words and type codes', () => {
   const exact = typeMatcher('B38M'); assert.ok(exact('B38M')); assert.ok(!exact('B39M'));
   assert.equal(typeMatcher('hello world'), null); assert.equal(typeMatcher(''), null);
 });
+
+import { findAirport } from '../src/core/airports.js';
+test('finding an airport by code, name or city', () => {
+  const list = [...APS, ...parseAirports({ airports: [['KDEN', 'DEN', 'Denver International Airport', 'Denver', 'US', 39.86, -104.67, 5431, 2], ['KAPA', 'APA', 'Centennial Airport', 'Denver', 'US', 39.57, -104.85, 5885, 1],
+    ['LFPG', 'CDG', 'Charles de Gaulle International Airport', 'Paris', 'FR', 49.01, 2.55, 392, 2], ['KLGA', 'LGA', 'LaGuardia Airport', 'New York', 'US', 40.78, -73.87, 21, 2]] })];
+  assert.equal(findAirport(list, 'lhr').icao, 'EGLL'); assert.equal(findAirport(list, 'EGKK').iata, 'LGW'); assert.equal(findAirport(list, 'LHR airport').icao, 'EGLL');
+  assert.equal(findAirport(list, 'Heathrow').icao, 'EGLL'); assert.equal(findAirport(list, 'gatwick airport').icao, 'EGKK');
+  assert.equal(findAirport(list, 'Charles de Gaulle').icao, 'LFPG'); assert.equal(findAirport(list, 'Denver').icao, 'KDEN', 'the large one');
+  assert.equal(findAirport(list, 'kennedy').icao, 'KJFK'); assert.equal(findAirport(list, 'laguardia').icao, 'KLGA');
+  assert.equal(findAirport(list, 'london city').icao, 'EGLC'); assert.equal(findAirport(list, 'atlantis'), null); assert.equal(findAirport(list, ''), null);
+});
+
+import { parse as voice } from '../src/core/voicecmd.js';
+test('voice: airport boards, what a plane is, trails', () => {
+  assert.deepEqual(voice('Arrivals at Heathrow'), { act: 'board', place: 'heathrow', which: 'arriving' });
+  assert.deepEqual(voice("What's taking off from JFK?"), { act: 'board', place: 'jfk', which: 'departing' });
+  assert.deepEqual(voice('what is landing at denver airport'), { act: 'board', place: 'denver', which: 'arriving' });
+  assert.deepEqual(voice('show me the departures from Charles de Gaulle'), { act: 'board', place: 'charles de gaulle', which: 'departing' });
+  assert.deepEqual(voice('show Gatwick airport'), { act: 'board', place: 'gatwick', which: null });
+  assert.deepEqual(voice('flights at LAX'), { act: 'board', place: 'lax', which: null });
+  assert.deepEqual(voice('what plane is that'), { act: 'what' });
+  assert.deepEqual(voice('what kind of aircraft is this?'), { act: 'what' });
+  assert.deepEqual(voice('where is that plane going'), { act: 'what' });
+  assert.deepEqual(voice('show trails'), { act: 'trails', on: true }); assert.deepEqual(voice('hide the flight trails'), { act: 'trails', on: false });
+  assert.deepEqual(voice('trails off'), { act: 'trails', on: false });
+  // nothing else changed meaning
+  assert.equal(voice('take me to Tokyo').act, 'go'); assert.equal(voice('how many planes over Texas').act, 'count'); assert.equal(voice('turn on planes').act, 'layer');
+  assert.equal(voice('track BA 123').act, 'track'); assert.equal(voice("what's the weather in Paris").act, 'weather');
+});
+
+import { trailGeoJSON } from '../src/core/trail.js';
+test('trail as GeoJSON', () => {
+  const g = trailGeoJSON([{ t: 0, lat: 51.1234567, lon: -0.1, alt: 100.4 }, { t: 60e3, lat: 51.2, lon: -0.2, alt: 900.6 }], { callsign: 'BAW1' });
+  assert.equal(g.geometry.type, 'LineString'); assert.deepEqual(g.geometry.coordinates[0], [-0.1, 51.123457, 100]); assert.deepEqual(g.geometry.coordinates[1], [-0.2, 51.2, 901]);
+  assert.deepEqual(g.properties.coordTimes, ['1970-01-01T00:00:00.000Z', '1970-01-01T00:01:00.000Z']); assert.equal(g.properties.callsign, 'BAW1');
+  assert.equal(trailGeoJSON([{ t: 0, lat: 1, lon: 1 }]), null);
+});

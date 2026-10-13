@@ -95,3 +95,12 @@ export function trailStats(pts) {
   for (const p of pts) max = Math.max(max, p.alt || 0);
   return { minutes: pts.length > 1 ? (pts[pts.length - 1].t - pts[0].t) / 60e3 : 0, km, climbM: climb, descentM: desc, maxAltM: max };
 }
+
+/** A trail as a GeoJSON Feature: a LineString of [lon, lat, altitude m] with the fix times alongside (coordTimes, ISO,
+ *  as GPX/KML converters read them), for pasting into geojson.io, QGIS or Google Earth. null if under two points. */
+export function trailGeoJSON(pts, props = {}) {
+  if (!pts || pts.length < 2) return null;
+  const r6 = v => Math.round(v * 1e6) / 1e6;
+  return { type: 'Feature', properties: { ...props, coordTimes: pts.map(p => new Date(p.t).toISOString()), altitude: 'barometric, metres' },
+    geometry: { type: 'LineString', coordinates: pts.map(p => [r6(p.lon), r6(p.lat), Math.round(p.alt || 0)]) } };
+}

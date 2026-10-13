@@ -13,7 +13,10 @@ import { state, hooks } from './state.js';
 import { L, LAYERS, syncDock } from './layers.js';
 import { Follow } from './follow.js';
 import { Sats, SatModels } from './satellites.js';
-import { Air, AirModels } from './aircraft.js';
+import { Air, AirModels, airClass } from './aircraft.js';
+import { Airports } from './airports.js';
+import { AcInfo } from './acinfo.js';
+import { Trails } from './trails.js';
 import { Country } from './country.js';
 import { Time } from './time.js';
 import { select, flyToObject, PRESETS, tipFor } from './ui.js';
@@ -32,6 +35,8 @@ import { parse, EXAMPLES, weatherSentence } from '../core/voicecmd.js';
 import { windFrom } from '../core/gfs.js';
 import { shipTypeName } from '../core/ais.js';
 import { inCountry } from '../core/borders.js';
+import { findAirport, etaText } from '../core/airports.js';
+import { flightPhase } from '../core/phase.js';
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const SENSOR_SAY = { normal: 'Normal colour.', nvg: 'Night vision.', flir: 'Thermal, white hot.', flirbh: 'Thermal, black hot.', iron: 'Thermal, ironbow.', crt: 'Old monitor.', noir: 'Noir.' };
@@ -108,7 +113,15 @@ const sayable = t => String(t || '').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]
 /** One thing, said in a sentence. */
 function describe(o) {
   if (o.kind === 'sat') { const i = Sats.info(o); return `${o.name}, ${fmt(i.alt)} kilometres up, moving at ${fmt(i.speed)} kilometres an hour.`; }
-  if (o.kind === 'air') return `${nameOf(o)}. ${o.ground ? 'On the ground' : fmt((o.alt || 0) / 0.3048) + ' feet'}${o.type ? ', a ' + o.type : ''}${o.gs ? `, ${fmt(o.gs * 1.94384)} knots` : ''}.`;
+  if (o.kind === 'air') {   // what it is (adsbdb when known), what it is doing, where it is going (only a route that fits)
+    const a = o.info && o.info.aircraft, k = airClass(o), what = a && (a.manufacturer || a.type) ? [a.manufacturer, a.type].filter(Boolean).join(' ') : o.type ? o.type : k.why !== 'guess' ? k.name.toLowerCase() : '';
+    const op = o.op || (a && a.owner) || '', ap = Airports.index.list.length ? Airports.index.nearest(o.cur?.lat ?? o.lat, o.cur?.lon ?? o.lon, 300) : null;
+    const ph = flightPhase({ ...o, lat: o.cur?.lat ?? o.lat, lon: o.cur?.lon ?? o.lon, cls: k.cls }, ap), rt = o.info && o.info.route, fit = AcInfo.fit(o);
+    const doing = o.ground ? ph.words.toLowerCase() + ' on the ground' : `${ph.words.toLowerCase()} at ${fmt((o.alt || 0) / 0.3048)} feet${o.gs ? `, ${fmt(o.gs * 1.94384)} knots` : ''}`;
+    const going = fit && fit.fits ? ` From ${rt.origin.city || rt.origin.name} to ${rt.destination.city || rt.destination.name}${fit.etaS != null && !o.ground ? `, about ${etaText(fit.etaS)} to go` : ''}.` : '';
+    return `${nameOf(o)}${what ? ', ' + (/^[aeiou]/i.test(what) ? 'an ' : 'a ') + what : ''}${op ? ', ' + op : ''}. ${doing[0].toUpperCase() + doing.slice(1)}.${going}`;
+  }
+  if (o.kind === 'airport') { const b = Airports.board(o); return `${o.name}: ${b.arriving.length} arriving, ${b.departing.length} departing, ${b.ground.length} on the ground that the feeds can see.`; }
   if (o.kind === 'quake') return `A magnitude ${o.mag.toFixed(1)} earthquake, ${o.place}, ${ago(Date.now() - o.time)}.`;
   if (o.kind === 'storm') return `${o.title}${o.kt ? `, winds ${fmt(o.kt)} knots` : ''}.`;
   if (o.kind === 'ship') { const m = o.m || {}; return `${o.label}, ${shipTypeName(m.type).split(' · ')[0].toLowerCase()}${o.sog >= 0.5 ? `, doing ${Math.round(o.sog)} knots` : ''}${m.destination ? `, heading for ${m.destination}` : ''}.`; }
@@ -285,6 +298,18 @@ async function run(cmd, heard) {
     case 'measure': case 'outline': case 'draw': case 'pin': case 'undoDraw': case 'clearDraw': case 'drawInfo':
       return say(await Measure.voice(cmd, { here: () => pointerSpot() || centreSpot(), famousSat: q => ALIAS[q] ? findSat(q) : null }), heard);
     case 'flyroute': if (!Directions.route) return say('Ask for a route first, like: walking route from Big Ben to the Tower of London.', heard); Directions.fly(); return say('Flying the route.', heard);
+    case 'board': {
+      await Airports.load();
+      const a = findAirport(Airports.list, cmd.place); if (!a) return say(`I don't know an airport called ${cmd.place}.`, heard);
+      if (!L.air.on && !L.mil.on) setLayers([L.air, L.mil], true);
+      await Airports.show(a.icao);
+      const b = Airports.board(a), list = cmd.which ? b[cmd.which] : [...b.arriving, ...b.departing];
+      if (!list.length) return say(`${a.name}: no ${cmd.which || 'arriving or departing'} aircraft the feeds can see right now.`, heard);
+      const top = list.slice(0, 3).map(e => `${nameOf(e.r)}${e.status === 'arriving' && e.etaS != null ? ` in ${etaText(e.etaS)}` : ''}`).join(', ');
+      listed = { items: list.map(e => e.r), t: performance.now() };   // "the second one" opens it
+      return say(`${a.name}: ${b.arriving.length} arriving, ${b.departing.length} departing. ${cmd.which === 'departing' ? 'Departing' : cmd.which === 'arriving' ? 'Next in' : 'First'}: ${top}.`, heard);
+    }
+    case 'trails': Trails.setOn(cmd.on); return say(cmd.on ? 'Trails on: the plane you follow or open draws where it has been.' : 'Trails off.', heard);
     case 'help': return say(`Try: ${EXAMPLES.slice(0, 5).join(' · ')}.`, heard);
     default: return say(`Didn't catch a command. Try "take me to Tokyo" or "night vision".`, heard);
   }

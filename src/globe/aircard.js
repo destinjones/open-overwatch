@@ -3,13 +3,13 @@
 // from adsbdb, checked against where the plane actually is), its trail, and the boards of the airports at either end.
 // ui.js builds the card; this fills in a section of it: the static part once (and again when adsbdb answers), the
 // live part every 5 s (so the photo doesn't reload).
-import { $, esc, fmt } from './env.js';
+import { $, esc, fmt, toast } from './env.js';
 import { state, hooks } from './state.js';
 import { airClass, Air } from './aircraft.js';
 import { AcInfo } from './acinfo.js';
 import { Trails } from './trails.js';
 import { Airports } from './airports.js';
-import { altRampCss } from '../core/trail.js';
+import { altRampCss, trailGeoJSON } from '../core/trail.js';
 import { etaText } from '../core/airports.js';
 import { flightPhase } from '../core/phase.js';
 
@@ -53,6 +53,7 @@ function trailHtml(o) {
   return `<div class="ac-trail"><span class="ac-ramp" style="background:${altRampCss()}" title="Altitude: ground grey, orange low, violet at 40,000 ft"></span>`
     + `<span class="note">Trail (last ${Trails.minutes} min): ${esc(what)}</span>`
     + `<span class="ac-tbtns"><button class="chipbtn" data-tr="pin" title="Keep its trail drawn after you close this card">${pinned ? 'Unpin trail' : 'Pin trail'}</button>`
+    + (s ? '<button class="chipbtn" data-tr="geo" title="Copy the trail as GeoJSON (with times and altitudes)">Copy GeoJSON</button>' : '')
     + `<select data-tr="min" aria-label="Trail length">${[10, 30, 60].map(m => `<option value="${m}" ${m === Trails.minutes ? 'selected' : ''}>${m} min</option>`).join('')}</select></span></div>`;
 }
 
@@ -69,6 +70,12 @@ function fillLive(o, card) {
   live.innerHTML = phaseHtml(o) + routeHtml(o) + trailHtml(o);
   live.querySelectorAll('[data-ap]').forEach(b => { b.onclick = () => hooks.openAirport?.(b.dataset.ap, o.info && o.info.route); });
   const pin = live.querySelector('[data-tr="pin"]'); if (pin) pin.onclick = () => { Trails.pin(o); fillLive(o, card); };
+  const geo = live.querySelector('[data-tr="geo"]');
+  if (geo) geo.onclick = () => {
+    const t = Trails.get(o), g = t && trailGeoJSON(t.pts, { callsign: (o.flight || '').trim(), hex: o.hex, type: o.type || o.info?.aircraft?.icaoType || '', source: o.src });
+    if (!g) return;
+    navigator.clipboard.writeText(JSON.stringify(g)).then(() => toast(`Copied ${g.geometry.coordinates.length} points as GeoJSON`, 2500), () => toast('The browser would not let me copy', 3000));
+  };
   const min = live.querySelector('[data-tr="min"]'); if (min) min.onchange = () => { Trails.setMinutes(+min.value); fillLive(o, card); };
 }
 
