@@ -28,7 +28,10 @@ export const Pwa = {
   /** Forget saved data, tiles and libraries (the pages stay, so the app still opens offline). */
   clearSaved() { return ask(sw && sw.controller, { type: 'clear-saved' }); },
   /** Check for a new version now. */
-  update() { return this.reg ? this.reg.update().catch(() => null) : Promise.resolve(null); },
+  async update() {
+    const reg = this.reg || (sw && this.decision && this.decision.register && await sw.getRegistration(ROOT).catch(() => null));
+    return reg ? reg.update().catch(() => null) : null;
+  },
 };
 
 /** A question to a worker over a MessageChannel; null if there is no answer within 3 s. */
@@ -66,10 +69,12 @@ async function removeOwnWorker() {
     const w = r.active || r.waiting || r.installing;
     if (r.scope === ROOT && w && w.scriptURL === SW_URL.href) {
       await r.unregister();
-      for (const k of await caches.keys()) if (k.startsWith('oo-')) await caches.delete(k);
       console.info('[oo] site worker removed (local helper; ?sw=1 turns it on)');
     }
   }
+  // its saved copies too (the page it still controls until it is left may save a few more: they go next time)
+  const mine = /^oo-(shell|data|asset|lib|tile)-/;
+  for (const k of await caches.keys().catch(() => [])) if (mine.test(k)) await caches.delete(k);
 }
 
 async function register() {

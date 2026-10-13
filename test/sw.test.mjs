@@ -216,17 +216,18 @@ test('the install crawl finds every module a page reaches, and nothing outside t
     <link rel="stylesheet" href="src/globe/ops.css"><link rel="manifest" href="manifest.webmanifest"><link rel="preconnect" href="https://fonts.googleapis.com">`, true)],
   ['src/app/shell.js', 'src/globe/ops.css', 'manifest.webmanifest']);
   assert.deepEqual([...oo.references(`import { a,\n b } from './a.js';\nimport * as C from "../core/c.js";\nimport './side.js';\nexport { x } from './x.js';
-    const w = new Worker(new URL('./w.worker.js', import.meta.url), { type: 'module' }); const lib = await import('https://cdn/hls.mjs'); import('./lazy.js');
-    // a comment: import nothing from here`, false)].sort(), ['../core/c.js', './a.js', './lazy.js', './side.js', './w.worker.js', './x.js']);
+    const w = new Worker(new URL('./w.worker.js', import.meta.url), { type: 'module' }); const lib = await import('https://cdn/hls.mjs'); import('./lazy.js'); css.href = new URL('shell.css', import.meta.url).href; new URL('../../sw.js', import.meta.url);
+    // a comment: import nothing from here`, false)].sort(), ['../../sw.js', '../core/c.js', './a.js', './lazy.js', './side.js', './w.worker.js', './x.js', 'shell.css']);
   const site = {
     'globe.html': '<script type="module" src="src/globe/main.js"></script><a href="v/v0.9/globe.html">old</a>',
-    'src/globe/main.js': "import { t } from '../core/time.js'; import '../../v/v0.9/src/x.js';",
+    'src/globe/main.js': "import { t } from '../core/time.js'; import '../../v/v0.9/src/x.js'; new URL('../../sw.js', import.meta.url);",
     'src/core/time.js': "export const t = 1;",
     'index.html': '<script type="module" src="src/app/shell.js"></script>', 'src/app/shell.js': "import './pwa.js';", 'src/app/pwa.js': '',
   };
   const got = await oo.crawl(async href => { const rel = href.slice(SCOPE.length); if (!(rel in site)) throw new Error('404'); return site[rel]; });
   for (const f of ['src/globe/main.js', 'src/core/time.js', 'src/app/shell.js', 'src/app/pwa.js', 'offline.html']) assert.ok(got.includes(SCOPE + f), f);
   assert.ok(!got.some(u => u.includes('/v/')), 'archived files stay out');
+  assert.ok(!got.includes(SCOPE + 'sw.js'), 'the worker never caches itself');
 });
 
 test('install saves the app; a new version waits, then deletes the old one\'s pages and keeps the data', async () => {

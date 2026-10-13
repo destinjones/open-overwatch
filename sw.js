@@ -113,7 +113,7 @@ function markOffline(res) {
 const cacheFor = kind => kind === 'page' || kind === 'code' ? SHELL : CACHES[kind === 'data-live' ? 'data' : kind];
 const limitFor = kind => kind === 'page' || kind === 'code' ? LIMITS.shell : LIMITS[kind === 'data-live' ? 'data' : kind];
 const okToKeep = (res, kind) => !!res && res.ok && res.status === 200 && (res.type === 'basic' || res.type === 'cors' || res.type === 'default')
-  && !(kind !== 'lib' && /no-store/i.test(res.headers.get('cache-control') || ''));
+  && !(kind === 'tile' && /no-store/i.test(res.headers.get('cache-control') || ''));   // our own files are ours to keep (the local helper says no-store to everything)
 
 const putCount = {};
 async function keep(kind, key, res) {
@@ -229,7 +229,7 @@ function references(text, isPage) {
   } else {
     for (const m of text.matchAll(/\b(?:import|export)\s+(?:[\w*{}\s,$]+\s+from\s+)?["']([^"']+)["']/g)) add(m[1]);
     for (const m of text.matchAll(/\bimport\(\s*["']([^"']+)["']\s*\)/g)) add(m[1]);
-    for (const m of text.matchAll(/\bnew\s+URL\(\s*["']([^"']+\.(?:m?js|json))["']\s*,\s*import\.meta\.url\s*\)/g)) add(m[1]);
+    for (const m of text.matchAll(/\bnew\s+URL\(\s*["']([^"']+\.(?:m?js|json|css))["']\s*,\s*import\.meta\.url\s*\)/g)) add(m[1]);
   }
   return [...out];
 }
@@ -237,9 +237,10 @@ function references(text, isPage) {
 /** Everything the app needs to open offline: CORE + PAGES + the modules and styles they reach, same site, under scope. */
 async function crawl(fetchText, limit = MAX_PRECACHE) {
   const seen = new Set(), queue = [];
-  const push = (rel, base) => {
-    let u; try { u = new URL(rel, base); } catch { return; }
-    if (u.origin !== SCOPE.origin || !u.pathname.startsWith(SCOPE.pathname) || archived(u.pathname.slice(SCOPE.pathname.length))) return;
+  const push = (ref, base) => {
+    let u; try { u = new URL(ref, base); } catch { return; }
+    const rel = u.pathname.slice(SCOPE.pathname.length);
+    if (u.origin !== SCOPE.origin || !u.pathname.startsWith(SCOPE.pathname) || archived(rel) || rel === 'sw.js') return;
     u.search = ''; u.hash = '';
     if (seen.has(u.href) || seen.size >= limit) return;
     seen.add(u.href); queue.push(u.href);

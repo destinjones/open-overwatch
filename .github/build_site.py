@@ -6,6 +6,8 @@
 - /v/<tag>/: the app files of each `v*` tag, taken straight from git (git archive), so old versions keep working
   exactly as released without storing copies in the repo.
 - /versions.json: the list the landing page reads for its version picker and version history.
+- /sw.js: the service worker (the installable app), stamped with this build's version and commit so every published
+  version is a new worker and the pages offer a reload. Archived versions never get a worker of their own.
 - /data/tle/<group>.txt: a copy of each CelesTrak satellite group the apps use (the workflow also runs every 6 h to
   refresh it). The website reads these instead of CelesTrak, which firewalls networks that download too often; the
   download version falls back to them when CelesTrak fails.
@@ -48,6 +50,26 @@ def extract(ref, paths, dest, skip):
 
 
 SITE = 'https://destinjones.github.io/open-overwatch/'
+
+
+def stamp_worker(root):
+    """sw.js says BUILD = 'dev' in git; the site's copy names the version (OW_VERSION) and the commit, so a published
+    version changes the worker's bytes (browsers then install it and the pages offer a reload) while the 6-hourly data
+    rebuilds of the same commit leave it byte for byte the same (no prompt)."""
+    path = os.path.join(root, 'sw.js')
+    if not os.path.exists(path):
+        return None
+    with open(os.path.join(root, 'open-overwatch.html'), encoding='utf-8') as f:
+        m = re.search(r"const OW_VERSION = '([0-9A-Za-z.\-]+)'", f.read())
+    build = (m.group(1) if m else 'unknown') + '+' + git('rev-parse', '--short=10', 'HEAD')
+    with open(path, encoding='utf-8') as f:
+        src = f.read()
+    stamped = src.replace("const BUILD = 'dev';", f"const BUILD = '{build}';", 1)
+    if stamped == src:
+        raise SystemExit("sw.js: the line const BUILD = 'dev'; was not found; the worker would never update")
+    with open(path, 'w', encoding='utf-8', newline='') as f:
+        f.write(stamped)
+    return build
 
 
 def fix_archived_links(root):
@@ -313,6 +335,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     n = extract('HEAD', ['.'], OUT, SKIP_ROOT)
     print(f'root: {n} entries from HEAD')
+    print(f'sw.js: build {stamp_worker(OUT)}')
     versions = []
     for tag in git('tag', '-l', 'v*', '--sort=-v:refname').split():
         paths = [p for p in APP_PATHS if exists(tag, p)]
