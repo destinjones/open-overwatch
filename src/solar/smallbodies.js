@@ -136,11 +136,6 @@ export function createSmallBodies({ scene, renderer }) {
     }
     return best ? asteroidBody(best) : null;
   }
-  function search(q, limit) {
-    const out = [];
-    for (const n of S.named) if (n[2].toLowerCase().includes(q)) { out.push(n); if (out.length >= limit) break; }
-    return out;
-  }
 
   onLayers(() => {
     S.files.forEach((f, i) => { if (f) f.points.visible = layerOn('asteroids') && (i === 0 || S.full); });
@@ -160,7 +155,7 @@ export function createSmallBodies({ scene, renderer }) {
     },
     /** Inside the globe: hold the big file back until the view is actually entered. */
     defer(on) { S.defer = on; if (!on && S.full && S.files[0] && layerOn('asteroids')) loadAll(); },
-    S, load, asteroidBody, pickAsteroid, search, set onChange(fn) { onChange = fn; },
+    S, load, asteroidBody, pickAsteroid, set onChange(fn) { onChange = fn; },
     update(jd) { uniforms.uDays.value = jd - S.epoch; },
     frame({ camSun, fade }) {
       uniforms.uPR.value = renderer.getPixelRatio();

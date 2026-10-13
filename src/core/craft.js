@@ -113,3 +113,20 @@ export const missionDays = (c, jd) => jd - (c.launch_jd ?? c.t0_jd);
 
 /** Search words for a craft: its name, aliases and agency. */
 export const craftAliases = c => [...(c.alias || []), ...(c.agency ? [c.agency] : [])];
+
+/** Sun-Earth Lagrange points L1 and L2 (heliocentric AU) for Earth at `earth`: on the Sun-Earth line, a Hill radius
+ *  r (mu / 3)^(1/3) inside and outside Earth (mu = Earth+Moon over Sun; ~1.5 million km). */
+export const EARTH_MOON_MU = 3.0404e-6;
+export function lagrangeL1L2(earth, mu = EARTH_MOON_MU) {
+  const k = Math.cbrt(mu / 3);
+  return { L1: { x: earth.x * (1 - k), y: earth.y * (1 - k), z: earth.z * (1 - k) }, L2: { x: earth.x * (1 + k), y: earth.y * (1 + k), z: earth.z * (1 + k) } };
+}
+
+/** One line per mission for a list: { name, phase, au (from Earth) | null, light (s) | null, next: [jd, text] | null }, nearest first. */
+export function missionsNow(tracks, jd, earth) {
+  const p = {};
+  return tracks.map(c => {
+    const at = trackPosition(c, jd, p), au = at && jd >= c.launch_jd ? Math.hypot(p.x - earth.x, p.y - earth.y, p.z - earth.z) : null;
+    return { name: c.name, status: c.status, phase: missionPhase(c, jd), au, light: au == null ? null : lightSeconds(au), next: eventsAround(c, jd).next };
+  }).sort((a, b) => (a.au ?? Infinity) - (b.au ?? Infinity));
+}

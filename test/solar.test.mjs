@@ -8,9 +8,9 @@ import { AU_KM, DEG } from '../src/core/units.js';
 import { earthPosition, planetPosition } from '../src/core/planets.js';
 import {
   GM_SUN, cometFromRow, cometPosition, cometVelocity, conicInPlane, solveHyperbolic, solveBarker, cometNames, cometClass,
-  cometPeriodYears, activity, ionTail, dustTail, dustDays, cometsNearNow, conicArc, stateToConic,
+  cometPeriodYears, activity, ionTail, dustTail, dustDays, cometsNearNow, conicArc, stateToConic, perihelionPassages,
 } from '../src/core/comets.js';
-import { trackPosition, trackSpeed, escaping, missionPhase, eventsAround, relativeTime, sampleIndex, lightSeconds } from '../src/core/craft.js';
+import { trackPosition, trackSpeed, escaping, missionPhase, eventsAround, relativeTime, sampleIndex, lightSeconds, lagrangeL1L2, missionsNow } from '../src/core/craft.js';
 import { craftAt } from '../src/core/sky.js';
 import { normalize, editDistance, buildIndex, search, mergeResults, kindRank } from '../src/core/search.js';
 import { encodeSolarView, decodeSolarView, isoMinute, parseIsoMinute } from '../src/core/solarlink.js';
@@ -123,11 +123,21 @@ test('comets: tails point away from the Sun, the dust tail curves behind, both s
   for (let k = 0; k < 12; k++) assert.ok(Math.hypot(d[k * 3] - s0.x, d[k * 3 + 1] - s0.y, d[k * 3 + 2] - s0.z) < 3, 'within 3 AU of the nucleus');
 });
 
+test('comets: perihelion passages (two-body estimate): Halley in 1910, 1986 and 2061', () => {
+  const h = cometFromRow(row('1P/')), yr = jd => 2000 + (jd - 2451545) / 365.25;
+  const t = perihelionPassages(h, 2415020, 2480000).map(yr);   // 1900 .. 2078
+  assert.equal(t.length, 3);
+  assert.ok(Math.abs(t[0] - 1910.3) < 0.6 && Math.abs(t[1] - 1986.1) < 0.01 && Math.abs(t[2] - 2061.6) < 0.6, t.join());
+  const i3 = cometFromRow(row('C/2025 N1'));
+  assert.equal(perihelionPassages(i3, 2460000, 2462000).length, 1);
+  assert.equal(perihelionPassages(i3, 2462000, 2470000).length, 0);
+});
+
 test('comets: the ones near the Sun now, and arcs of open orbits', () => {
   const jd = F.comets_jd, E = earthPosition(jd), near = cometsNearNow(SB.comets, jd, E, { maxR: 3, limit: 50 });
   assert.ok(near.length >= 5, `${near.length} comets inside 3 AU`);
   for (let k = 1; k < near.length; k++) assert.ok(near[k].score >= near[k - 1].score);
-  for (const n of near) assert.ok(n.r < 3 && n.delta > 0 && !/^\d*D\/|-[A-Z]( |$)/.test(n.row[0]), n.row[0]);
+  for (const n of near) assert.ok(n.r < 3 && n.delta > 0 && !/^\d*D\/|-[A-Z]{1,2}( |$)/.test(n.row[0]), n.row[0]);
   const arc = conicArc(cometFromRow(row('C/2025 N1')), jd - 365, jd + 365, 64);
   assert.equal(arc.length, 192);
   const mid = conicArc(cometFromRow(row('C/2025 N1')), 2460977.99, 2460977.99, 2);
@@ -217,6 +227,21 @@ test('spacecraft: events, countdowns, light time and the flown/ahead split', () 
   assert.ok(hours > 23 && hours < 24.5, `Voyager 1 signal ${hours.toFixed(2)} h (it passes one light-day in late 2026)`);
 });
 
+test('spacecraft: Sun-Earth L1 and L2, and the missions list', () => {
+  const E = earthPosition(F.comets_jd), { L1, L2 } = lagrangeL1L2(E), r = Math.hypot(E.x, E.y, E.z);
+  for (const L of [L1, L2]) { const km = Math.hypot(L.x - E.x, L.y - E.y, L.z - E.z) * AU_KM; assert.ok(Math.abs(km - 1.5e6) < 0.03e6 * (r / 1) + 3e4, `${km}`); }
+  assert.ok(Math.hypot(L1.x, L1.y, L1.z) < r && Math.hypot(L2.x, L2.y, L2.z) > r);
+  // JWST is within 1 million km of L2 (its halo orbit is ~800,000 km across)
+  const j = trackPosition(CRAFT.find(c => c.name === 'James Webb Space Telescope'), F.comets_jd);
+  assert.ok(Math.hypot(j.x - L2.x, j.y - L2.y, j.z - L2.z) * AU_KM < 1e6);
+  const list = missionsNow(CRAFT, F.comets_jd, E);
+  assert.equal(list.length, CRAFT.length);
+  assert.equal(list[0].name, 'James Webb Space Telescope');                     // the nearest, at L2
+  const v1 = list.find(m => m.name === 'Voyager 1'); assert.ok(v1.light > 23 * 3600);
+  for (let k = 1; k < list.length; k++) assert.ok((list[k].au ?? Infinity) >= (list[k - 1].au ?? Infinity));
+  assert.equal(list.find(m => m.name === 'Cassini').au, null);                   // no position after 2017
+});
+
 // ---------------------------------------------------------------- search
 
 const ITEMS = [
@@ -264,6 +289,7 @@ test('search: ranking puts the obvious answer first', () => {
   assert.equal(top('sirius'), 'star:Sirius');
   assert.equal(top('trappist'), 'exo:TRAPPIST-1');
   assert.equal(top('eros'), 'ast:433 Eros');                          // word inside a numbered name
+  assert.ok(!search(IDX, '67p', 12).some(r => /^\d+ /.test(r.name)), 'no numbered asteroid just for containing "67" then "p"');
   assert.deepEqual(search(IDX, 'm', 5), []);                          // one letter is too little
   assert.deepEqual(search(IDX, 'zzzzqqq', 5), []);
 });

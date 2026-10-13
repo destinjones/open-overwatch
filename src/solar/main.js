@@ -14,6 +14,7 @@ import { createSmallBodies, CLASS_LAYERS } from './smallbodies.js';
 import { createSpacecraft } from './spacecraft.js';
 import { createComets } from './comets.js';
 import { createFind } from './find.js';
+import { createLists } from './lists.js';
 import { createDeepSpace } from './deepspace.js';
 import { createCosmicWeb } from './cosmic.js';
 import { createLightDelay } from './lightdelay.js';
@@ -105,6 +106,7 @@ const quality = createQuality({ renderer, small, onAutoChange: q => { ui.renderL
 const ui = createUI({ camera, controls, clock, nav, story, small, deep, quality, exo });
 find = createFind({ nav, story, small, comets, exo, clock, camera, controls, caption: (...a) => ui.caption(...a) });
 ui.onShare = () => find.copyLink();
+createLists({ craft, comets, clock, find });
 exo.onChange = () => { applyLayers(); ui.renderLayers(); };
 const nerd = createNerd({ renderer, quality, small, exo, moons });
 document.querySelector('#bNerd').onclick = () => nerd.toggle();

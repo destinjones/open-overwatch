@@ -191,6 +191,14 @@ Round 2 (2026-10-10, local):
       Finish, a chevron for the rest); card and dock went from 46% to 21% of the screen (WebKit iPhone 15 profile)
 - [x] NYC traffic: measured speeds were all dropped (NYC DOT publishes ~a day late; the cut-off was 4 h). Now up to 48 h,
       with the age said on the card; 70 measured road pieces around the FDR. Midtown's side streets have no sensors at all
+- [x] Solar System growth (2026-10-12, branch claude/grow-solar-ac7965): 22 Horizons missions (Juno, JWST, BepiColombo,
+      Solar Orbiter, Hera, OSIRIS-APEX, Hayabusa2, Cassini, Rosetta, Dawn, Galileo, Ulysses added) with flown/planned
+      paths, event markers, mission cards (signal time, next event countdown, timeline that sets the clock) and a
+      "missions now" list; comets with comae and physical ion + dust tails (exact syndyne), open orbits (3I/ATLAS),
+      perihelion timelines and a "comets near the Sun" list; "Where is it now?" ranked search over everything with
+      where-in-Earth's-sky; the view as a link (#f=, #t=, #d=, #q=); Sun-Earth L1/L2. Tests against Horizons fixtures
+- [ ] Solar: comet brightness (SBDB M1/K1 magnitude parameters, a new SBDB pull) so the list can say what is bright,
+      not just well placed; denser Juno track (1-day) for its perijoves
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
 - [ ] An MCP server (download version), and a real-phone check of everything above
 

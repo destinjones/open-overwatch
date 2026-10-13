@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { KM_AU } from '../core/units.js';
 import { orbitPath } from '../core/kepler.js';
-import { cometFromRow, cometNames, cometPosition, cometVelocity, cometClass, cometPeriodYears, activity, ionTail, dustTail, dustDays, cometsNearNow, conicArc, COMET_FACTS } from '../core/comets.js';
+import { cometFromRow, cometNames, cometPosition, cometVelocity, cometClass, cometPeriodYears, activity, ionTail, dustTail, dustDays, cometsNearNow, conicArc, perihelionPassages, COMET_FACTS } from '../core/comets.js';
 import { distance, period } from '../core/format.js';
 import { formatUtc } from '../core/time.js';
 import { relativeTime } from '../core/craft.js';
@@ -77,6 +77,10 @@ export function createComets({ scene, focus: focusOf = () => null }) {
     const b = addBody({ key, name: names.display, kind: 'comet', color: '#bfe3ff', radius: 5 * KM_AU, pos: new THREE.Vector3(), group, c, coma, dust, ion, orbit, small: true, layer: 'comets', transient,
       aliases: names.aliases, weight: FAMOUS.some(f => row[0].startsWith(f)) ? 60 : 20, fact,
       posAt: (jd, out) => cometPosition(c, jd, out),
+      // perihelion passages around now (two-body: within days to months for a century or two either side)
+      timeline: () => { const jd = b.jd ?? c.tp, span = Math.min(250, Math.max(10, P * 2.5)) * 365.25, t = perihelionPassages(c, jd - span, jd + span);
+        const keep = t.length > 9 ? t.filter(x => Math.abs(x - jd) <= [...t].map(y => Math.abs(y - jd)).sort((a, z) => a - z)[8]) : t;
+        return keep.map(x => [x, c.e >= 1 ? 'Perihelion: its one pass by the Sun' : 'Perihelion (two-body estimate)']); },
       update(jd) { cometPosition(c, jd, b.pos); group.position.copy(b.pos); b.jd = jd; },
       info() {
         const jd = b.jd, r = b.pos.length(), dE = b.pos.distanceTo(byKey.earth.pos), out = [['Type', cometClass(c)], ['Designation', names.designation === names.display ? row[0] : names.designation],

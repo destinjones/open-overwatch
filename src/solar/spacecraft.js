@@ -7,12 +7,9 @@ import { KM_AU } from '../core/units.js';
 import { fetchAsset } from '../core/assets.js';
 import { distance, lightTime } from '../core/format.js';
 import { formatUtc } from '../core/time.js';
-import { trackPosition, trackSpeed, sampleIndex, missionPhase, eventsAround, relativeTime, escaping } from '../core/craft.js';
+import { trackPosition, trackSpeed, sampleIndex, missionPhase, eventsAround, relativeTime, escaping, lagrangeL1L2 } from '../core/craft.js';
 import { STAR_TEXTURE } from './util.js';
 import { addBody, byKey, layer, layerOn, onLayers } from './world.js';
-
-/** Position at jd from a track (cubic between samples); null before launch or past the data for a craft that stays. */
-export const samplePosition = (c, jd, out) => trackPosition(c, jd, out);
 
 const FLOWN = 0xffb44d, AHEAD = 0xffd9a3;
 
@@ -69,7 +66,7 @@ export function createSpacecraft({ scene }) {
           const { last, next } = eventsAround(s, jd);
           if (last && last[1] !== 'Launch') rows.push(['Last', last[1] + ' · ' + relativeTime(last[0] - jd)]);
           if (next) rows.push(['Next', next[1] + ' · ' + relativeTime(next[0] - jd)]);
-          if (!leaving && phase === 'flying' && s.end_jd < 2464000) rows.push(['Track ends', formatUtc(s.end_jd).slice(0, 10)]);
+          if (!leaving && phase === 'flying' && s.end_jd < 2464290) rows.push(['Track ends', formatUtc(s.end_jd).slice(0, 10)]);
           return rows;
         },
         timeline: () => s.events,
@@ -78,6 +75,14 @@ export function createSpacecraft({ scene }) {
       craft.push(c);
     }
     layer('craft').n = craft.length;
+  }
+  // Sun-Earth L1 and L2, where JWST, Gaia, SOHO and others work: points that ride along with Earth
+  const LPOINTS = [['L1', 'Sun-Earth L1', 'Between the Sun and Earth, 1.5 million km out: SOHO, DSCOVR and Aditya-L1 watch the Sun from here without Earth ever getting in the way.'],
+    ['L2', 'Sun-Earth L2', 'Beyond Earth, 1.5 million km out, with the Sun, Earth and Moon all on one side: JWST, Gaia and Euclid observe from orbits around this point.']];
+  for (const [id, name, fact] of LPOINTS) {
+    const p = addBody({ key: 'lagrange:' + id, name, kind: 'Lagrange point', color: '#ffd9a3', radius: 0, pos: new THREE.Vector3(), fact, layer: 'craft', aliases: [id], weight: 20,
+      update() { const E = byKey.earth; if (E) p.pos.copy(lagrangeL1L2(E.pos)[id]); },
+      info: () => [['From Earth', distance(p.pos.distanceTo(byKey.earth.pos))], ['From the Sun', distance(p.pos.length())]] });
   }
   onLayers(() => { for (const c of craft) c.line.visible = layerOn('craft'); if (!layerOn('craft')) marks.visible = false; else if (marked) markEvents(marked); });
   return {

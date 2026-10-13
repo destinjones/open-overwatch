@@ -56,7 +56,7 @@ export function matchScore(e, q, qc = compact(q), qw = q.split(' ')) {
     if (n === q || c === qc) s = 1000;
     else if (n.startsWith(q) || c.startsWith(qc)) s = 800 - Math.min(80, n.length - q.length);
     else if (qw.every(w => e.words[k].some(x => x.startsWith(w)))) s = 600;
-    else if (n.includes(q) || (qc.length >= 3 && c.includes(qc))) s = 400;
+    else if (n.includes(q) || ((qc.length >= 5 || q.includes(' ')) && c.includes(qc))) s = 400;   // short runs of digits would hit thousands of numbers
     else if (qc.length >= 4) {
       const max = qc.length >= 8 ? 2 : 1;
       // a typo in the whole name, or in the start of it (search-as-you-type: "jupit" for "jupiter")

@@ -58,6 +58,10 @@ export function createFind({ nav, story, small, comets, exo, clock, camera, cont
     $('#hits').innerHTML = hits.map((h, i) => { const w = where(h);
       return `<button data-i="${i}" class="${i === sel ? 'sel' : ''}"><span>${esc(h.name)}${w ? `<em>${esc(w)}</em>` : ''}</span><small>${esc(h.kind)}</small></button>`; }).join('') || '<div class="note">Nothing found. Try a planet, a moon, a spacecraft (Voyager, JWST), a comet (Halley, 67P) or an asteroid.</div>';
     $('#hits').style.display = 'block';
+    if (innerWidth <= 900) {   // phones: across the screen under the box, not hanging off the left edge
+      const r = $('#search').getBoundingClientRect();
+      Object.assign($('#hits').style, { left: Math.round(10 - r.left) + 'px', right: 'auto', width: (innerWidth - 20) + 'px' });
+    }
     document.querySelectorAll('#hits button').forEach(b => { b.onclick = () => pick(+b.dataset.i); });
   }
   $('#q').addEventListener('input', () => {
@@ -74,6 +78,7 @@ export function createFind({ nav, story, small, comets, exo, clock, camera, cont
     if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && hits.length) { sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + hits.length) % hits.length; document.querySelectorAll('#hits button').forEach((b, i) => b.classList.toggle('sel', i === sel)); e.preventDefault(); }
   });
   document.addEventListener('click', e => { if (!$('#search').contains(e.target)) $('#hits').style.display = 'none'; });
+  addEventListener('keydown', e => { if (e.key === '/' && !/input|textarea/i.test(e.target.tagName)) { e.preventDefault(); $('#q').focus(); } });   // "/" to search
 
   // ---- the view as a link
   const viewLink = () => {

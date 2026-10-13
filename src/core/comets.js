@@ -202,7 +202,7 @@ export const dustDays = r => Math.max(4, Math.min(60, 30 / (r * r))) * (activity
 export function cometsNearNow(rows, jd, earth, { maxR = 3, limit = 12 } = {}) {
   const out = [], p = {};
   for (const row of rows) {
-    if (/^\d*D\/|-[A-Z]( |$)/.test(row[0])) continue;      // defunct (D/) comets and fragments (C/2020 P4-B) are not shown
+    if (/^\d*D\/|-[A-Z]{1,2}( |$)/.test(row[0])) continue;      // defunct (D/) comets and fragments (C/2020 P4-B, 73P/... 3-AA) are not shown
     const c = cometFromRow(row);
     if (c.q > maxR) continue;
     cometPosition(c, jd, p);
@@ -221,4 +221,13 @@ export function conicArc(c, jd0, jd1, n = 256) {
     pts[k * 3] = p.x; pts[k * 3 + 1] = p.y; pts[k * 3 + 2] = p.z;
   }
   return pts;
+}
+
+/** Perihelion passages of a closed orbit between jd0 and jd1 (two-body: an estimate, planets shift them by days to
+ *  months over centuries); an open orbit has its one passage if it falls inside. */
+export function perihelionPassages(c, jd0, jd1) {
+  if (c.e >= 1) return c.tp >= jd0 && c.tp <= jd1 ? [c.tp] : [];
+  const P = cometPeriodYears(c) * 365.25, out = [];
+  for (let t = c.tp + Math.ceil((jd0 - c.tp) / P) * P; t <= jd1 && out.length < 200; t += P) out.push(t);
+  return out;
 }
