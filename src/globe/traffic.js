@@ -69,7 +69,7 @@ const inBox = (b, lat, lon) => lat > b[0] && lat < b[2] && lon > b[1] && lon < b
 // ---- cars and measured roads describe themselves (hover tips, cards) ----------------------------------------------
 const CLASS = { motorway: 'Motorway', motorway_link: 'Motorway ramp', trunk: 'Major road', trunk_link: 'Major road ramp', primary: 'Main road', primary_link: 'Main road turn',
   secondary: 'Secondary road', secondary_link: 'Secondary road turn', tertiary: 'Local through road', tertiary_link: 'Local road turn', unclassified: 'Minor road', residential: 'Residential street', living_street: 'Living street' };
-const SRC = { nyc: ['NYC DOT', 'New York City DOT traffic speed sensors (the city publishes them a few hours late)'], fintraffic: ['Fintraffic', 'a Fintraffic roadside sensor, 5-minute average (digitraffic.fi, CC BY 4.0)'] };
+const SRC = { nyc: ['NYC DOT', 'New York City DOT traffic speed sensors (the city publishes them late, often a day or more)'], fintraffic: ['Fintraffic', 'a Fintraffic roadside sensor, 5-minute average (digitraffic.fi, CC BY 4.0)'] };
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const ago = ms => ms < 90e3 ? 'just now' : ms < 3600e3 ? Math.round(ms / 60e3) + ' min ago' : (ms / 3600e3).toFixed(1).replace(/\.0$/, '') + ' h ago';
 const clock = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -77,7 +77,8 @@ const roadName = e => e.name || CLASS[e.cls] || 'Road';
 const limit = e => `${fmt(e.speed)} km/h`;
 function measText(e) {
   const m = e.meas; if (!m) return '';
-  return `${fmt(m.kmh)} km/h${m.flow != null ? ` · ${fmt(m.flow)} vehicles an hour` : ''}, measured by ${SRC[m.src][0]} ${ago(Date.now() - m.t)}`;
+  const old = Date.now() - m.t > 4 * 3600e3 ? ' (the latest reading the city has published)' : '';
+  return `${fmt(m.kmh)} km/h${m.flow != null ? ` · ${fmt(m.flow)} vehicles an hour` : ''}, measured by ${SRC[m.src][0]} ${ago(Date.now() - m.t)}${old}`;
 }
 const CarProto = {
   get lat() { return along(this.e, this.s).lat; },
@@ -107,7 +108,7 @@ const RoadProto = {
     const e = this.e, m = e.meas, [who, how] = SRC[m.src];
     return `<div class="k" style="--c:${speedColor(m.kmh / e.speed).toCssHexString()}">Measured traffic · ${esc(who)}</div><h2>${esc(roadName(e))}</h2><dl>`
       + `<dt>Speed</dt><dd>${fmt(m.kmh)} km/h (limit ${limit(e)})</dd>` + (m.flow != null ? `<dt>Flow</dt><dd>${fmt(m.flow)} vehicles an hour this way</dd>` : '')
-      + `<dt>Measured</dt><dd>${esc(clock(m.t))} (${esc(ago(Date.now() - m.t))})</dd>` + (m.name ? `<dt>Sensor</dt><dd>${esc(m.name)}</dd>` : '') + '</dl>'
+      + `<dt>Measured</dt><dd>${esc(clock(m.t))} (${esc(ago(Date.now() - m.t))}${Date.now() - m.t > 4 * 3600e3 ? ', the latest the city has published' : ''})</dd>` + (m.name ? `<dt>Sensor</dt><dd>${esc(m.name)}</dd>` : '') + '</dl>'
       + `<div class="note" style="margin-top:8px">From ${esc(how)}. The simulated cars on this stretch drive at this speed.</div>`;
   },
 };
@@ -278,11 +279,13 @@ function rebuild() {
 
 // ---- measured speeds: New York City DOT (every 5 min over NYC) and Fintraffic (every 2 min over Finland) -----------
 const NYC_BOX = [40.47, -74.28, 40.93, -73.67], FI_BOX = [59.6, 19.0, 70.2, 31.7];
+// NYC DOT publishes its sensor readings late (27 h behind on 2026-10-12): a 4-hour cut-off dropped every one of them
+const NYC_MAX_AGE = 48 * 3600e3;
 const meas = { nyc: { links: [], at: 0 }, fi: { stations: null, points: [], at: 0, where: null } };
 let measBusy = false, measCredit = new Set();
 const digitraffic = url => fetch(url, { headers: { 'Digitraffic-User': 'OpenOverwatch/globe' } }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
 async function loadNyc() {
-  const q = new URLSearchParams({ $select: 'link_id,speed,data_as_of,link_name,borough,link_points', $order: 'data_as_of DESC', $limit: '600' });
+  const q = new URLSearchParams({ $select: 'link_id,speed,data_as_of,link_name,borough,link_points', $order: 'data_as_of DESC', $limit: '1200' });   // ~150 links, several readings each
   meas.nyc.links = parseNyc(await getJSON('https://data.cityofnewyork.us/resource/i4gi-tjb9.json?' + q, { timeout: 30000 }));
 }
 async function loadFi(c) {
@@ -304,7 +307,7 @@ async function loadFi(c) {
 /** Put the fresh readings on the roads (none while the time bar is away from now: they are readings of now). */
 function measure(edges) {
   const now = Date.now(), live = Math.abs(Time.nowMs() - now) < 30 * 60e3;
-  const fi = live ? meas.fi.points.filter(p => now - p.t < 20 * 60e3) : [], nyc = live ? meas.nyc.links.filter(l => now - l.t < 4 * 3600e3) : [];
+  const fi = live ? meas.fi.points.filter(p => now - p.t < 20 * 60e3) : [], nyc = live ? meas.nyc.links.filter(l => now - l.t < NYC_MAX_AGE) : [];
   matchSpeeds(edges, fi, nyc);
   for (const [k, used, text] of [['nyc', nyc.length, 'Road speeds: NYC DOT'], ['fi', fi.length, 'Road speeds: Fintraffic / digitraffic.fi (CC BY 4.0)']])
     if (used && !measCredit.has(k)) { measCredit.add(k); viewer.creditDisplay.addStaticCredit(new C.Credit(text)); }
