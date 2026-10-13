@@ -322,6 +322,14 @@ Round 2 (2026-10-10, local):
 - [ ] Launches per month from real history: the site copies only upcoming launches; a trimmed `launches/previous` copy
       in build_site.py (a few more LL2 requests per build) would give a true monthly count. Needs the owner's OK
 - [ ] An `earth_now` MCP tool on the same core sums
+### End-to-end browser tests (grow2-e2e, 2026-10-13, local)
+- [x] Playwright suite (`e2e/`, `npm run e2e`, port 8805): every page in headless Chromium with software WebGL, the feeds
+      stubbed (CelesTrak refused, fixtures in e2e/support/feeds.mjs), main controls driven, share links both ways, phone
+      layouts (Pixel 7), five picture checks against small thumbnails; its own CI job (docs/TESTING.md)
+- [x] Fixed on the way: the 2D map's "3D globe" button lost the view on a middle-click
+- [ ] At 1366x820 the globe's zoom pad covers the right end of the band (Measure, Eclipses, Solar system ↗)
+- [ ] The 2D map's phone bar buttons are 37.5 px tall: under the 44-48 px a finger wants
+- [ ] First CI run on Linux: if fonts push the picture checks past their limits, add `<name>.linux.png` references
 
 ## Rules of thumb
 - One clear goal per session; read this file first, tick boxes as they land.

@@ -131,11 +131,12 @@ Runs every `test/*.test.mjs` with Node's own runner. No dependencies except `sat
 | `mcpworker.test.mjs` | the MCP server as a Cloudflare Worker, in Node: tokens, CORS, the free plan's tools, the Cache API between requests and isolates, the subrequest budget, the rate limit, a Node-free import graph |
 | `wxpoint.test.mjs`, `whereis.test.mjs` | the weather at a point (tendency, Beaufort, CAPE, sea state, model agreement); "where is it now" (byte-range asteroid elements against the whole file, the quick search, H-G magnitudes) |
 | `docs.test.mjs` | these docs against the code: layer ids, link parameters, voice examples, band buttons, core modules and their exports |
+| `e2esupport.test.mjs` | the browser tests' machinery without a browser: the PNG codec and picture comparison, every feed fixture read by the real parsers, which URL gets which fixture |
 
 Run one file with `node --test test/measure.test.mjs`. CI (`.github/workflows/ci.yml`) runs on every push: a syntax
 check of every module and tool (`node --check`, `py_compile`), a check that every `src/…` module a page loads exists,
 the accessibility check (`node brand/tools/a11y_check.mjs`: names, alt text, labels, ids, colour contrast on every
-page), then `npm ci` and `node --test`. A new page goes into `PAGES` in `a11y_check.mjs`, the lists in
+page), then `npm ci` and `node --test`; a second job runs the browser tests (`npx playwright test`). A new page goes into `PAGES` in `a11y_check.mjs`, the lists in
 `test/a11y.test.mjs` and `PAGES` in `sw.js` (so it works offline), and loads `src/app/shell.js`.
 
 **When to add a test.** Anything in `src/core/` gets one, in the file for its area (or a new `test/<area>.test.mjs`), and a section in
@@ -143,7 +144,13 @@ page), then `npm ci` and `node --test`. A new page goes into `PAGES` in `a11y_ch
 Prefer real reference data (Horizons vectors, GeographicLib values, a captured feed answer in `test/fixtures/`) over
 numbers the code produced itself. A bug that reached a user gets a line in `regress.test.mjs`.
 
-Browser-level checks (frame rates, the phone journeys, the Android emulator, WebKit) are in [TESTING.md](TESTING.md).
+**End-to-end browser tests** (`e2e/*.spec.mjs`, Playwright, a dev dependency): `npm run e2e` opens every page in headless
+Chromium against `serve.js` on port 8805 with the live feeds stubbed (CelesTrak refused, the rest from
+`e2e/support/feeds.mjs`), clicks through the main controls, checks phone layouts and compares five still views with
+small reference pictures in `e2e/snapshots/`. CI runs them as their own job. A change to a page's controls may need its
+spec updated; see [TESTING.md](TESTING.md#end-to-end-browser-tests-playwright-in-ci).
+
+Other browser-level checks (frame rates, the phone journeys, the Android emulator, WebKit) are in [TESTING.md](TESTING.md).
 
 ## 4. Rendering headless (globe_shot)
 

@@ -46,6 +46,8 @@ export const Share = {
 };
 // the rail's "3D globe" button opens the globe where the map is
 const g = $('#btnGlobe'); if (g) g.addEventListener('click', e => { if (e.button || e.metaKey || e.ctrlKey || e.shiftKey) { g.href = Share.globeLink(); return; } e.preventDefault(); location.href = Share.globeLink(); });
+// a middle-click fires auxclick, not click, and "open in new tab" reads the address on the context menu
+if (g) for (const ev of ['auxclick', 'contextmenu']) g.addEventListener(ev, () => { g.href = Share.globeLink(); });
 const s = $('#btnShare'); if (s) s.addEventListener('click', () => Share.copy());
 window.addEventListener('hashchange', () => Share.restore());
 late.Share = Share;
