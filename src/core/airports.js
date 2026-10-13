@@ -179,6 +179,24 @@ export function planesNear(ap, records, point, now = Date.now()) {
   return out;
 }
 
+const placeWords = a => a ? `${a.iata || a.icao}${a.city || a.name ? ' ' + (a.city || a.name) : ''}` : '';
+/**
+ * The route line of an aircraft card, the same on every view: { pct (progress, 0-100), places ("ORD Chicago → MIA
+ * Miami · American Airlines AA2341"), state ("1,234 km left · about 2 h 05 to go at this speed"), off (why the plane is
+ * not on it: "heading away from the destination on file", or '') }, or null without both ends. fit: core/actype.js
+ * routeFit for where the plane is now.
+ */
+export function routeWords(rt, fit, { ground = false, fmt = n => Math.round(n).toLocaleString('en-US') } = {}) {
+  if (!rt || !rt.origin || !rt.destination) return null;
+  const places = `${placeWords(rt.origin)} → ${placeWords(rt.destination)}${rt.airline ? ' · ' + rt.airline.name : ''}${rt.iata ? ' ' + rt.iata : ''}`;
+  if (!fit) return { pct: 0, places, state: '', off: '' };
+  if (!fit.fits) return { pct: Math.round(fit.progress * 100), places, state: '', off: fit.why };
+  const eta = fit.etaS != null && !ground ? ` · about ${etaText(fit.etaS)} to go at this speed` : '';
+  return { pct: Math.round(fit.progress * 100), places, state: `${fmt(fit.leftKm)} km left${eta}`, off: '' };
+}
+/** What a route that may not be today's flight is, after the reason: one wording for every view. */
+export const ROUTE_CAVEAT = "this callsign's usual route, which it may not be flying today";
+
 const BOARD_STATUS = { taxiing: 'taxiing', ground: 'parked' };
 /**
  * One board row in words, the same on every view: { where ("from MAD" / "to JFK": the other end of the route on file,

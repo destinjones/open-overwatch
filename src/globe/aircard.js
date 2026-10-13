@@ -13,16 +13,16 @@ import { LandWatch } from './landwatch.js';
 import { TowerView } from './towerview.js';
 import { Runways } from './runways.js';
 import { altRampCss, trailGeoJSON } from '../core/trail.js';
-import { etaText } from '../core/airports.js';
-import { flightPhase } from '../core/phase.js';
+import { routeWords, ROUTE_CAVEAT } from '../core/airports.js';
+import { flightPhase, phaseWords } from '../core/phase.js';
+import { kindWords } from '../core/actype.js';   // the card's words are core's: the 2D map's card says the same
 
 const row = (k, v) => v ? `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>` : '';
-const apText = a => a ? `${a.iata || a.icao}${a.city || a.name ? ' ' + (a.city || a.name) : ''}` : '';
 
 function staticHtml(o) {
   const v = o.info, a = v && v.aircraft, k = airClass(o);
   const what = a ? [a.manufacturer, a.type].filter(Boolean).join(' ') : o.desc || '';
-  let html = `<dl class="ac-dl">${row('Kind', k.name + (k.why === 'guess' ? ' (a guess: no type known)' : k.why === 'category' ? ' (from its transponder category)' : ''))}${row('Aircraft', what)}`
+  let html = `<dl class="ac-dl">${row('Kind', kindWords(k))}${row('Aircraft', what)}`
     + `${!o.type && a && a.icaoType ? row('Type code', a.icaoType) : ''}${!o.reg && a && a.reg ? row('Registration', a.reg) : ''}${row('Operator', o.op || (a && a.owner) || '')}`
     + `${!o.country ? row('Registered in', (a && a.ownerCountry) || AcInfo.country(o)) : ''}</dl>`;
   if (v && v.route && !v.route.origin && v.route.airline) html += `<p class="note">${esc(v.route.airline.name)}${v.route.iata ? ' ' + esc(v.route.iata) : ''} · no route on file for this callsign</p>`;
@@ -33,20 +33,15 @@ function staticHtml(o) {
 function phaseHtml(o) {
   const p = { ...o, lat: o.cur?.lat ?? o.lat, lon: o.cur?.lon ?? o.lon, cls: airClass(o).cls };
   const ap = Airports.index.list.length ? Airports.index.nearest(p.lat, p.lon, 300) : null, f = flightPhase(p, ap);
-  if (f.phase === 'unknown') return '';
-  const where = ap ? ` · ${fmt(ap.km)} km from ${esc(ap.iata || ap.icao)}${f.agl != null && !o.ground && ap.km < 40 ? `, ${fmt(Math.max(0, f.agl) / 0.3048)} ft above it` : ''}` : '';
-  const fin = (f.phase === 'final' || f.phase === 'approach') && ap ? Runways.final(ap, p) : null;
-  return `<p class="ac-phase"><b>${esc(f.words)}${fin ? ' for ' + esc(fin.end.ident) : ''}</b>${where}</p>`;
+  const fin = (f.phase === 'final' || f.phase === 'approach') && ap ? Runways.final(ap, p) : null, w = phaseWords(f, ap, { fin, ground: o.ground, fmt });
+  return w ? `<p class="ac-phase"><b>${esc(w.head)}</b>${w.where ? ' · ' + esc(w.where) : ''}</p>` : '';
 }
 
 function routeHtml(o) {
-  const rt = o.info && o.info.route; if (!rt || !rt.origin || !rt.destination) return '';
-  const f = AcInfo.fit(o), pct = f ? Math.round(f.progress * 100) : 0;
-  const eta = f && f.fits && f.etaS != null && !o.ground ? ` · about ${etaText(f.etaS)} to go at this speed` : '';
-  return `<div class="ac-route ${f && !f.fits ? 'off' : ''}"><div class="ac-legs"><button class="ac-ap" data-ap="${esc(rt.origin.icao)}" title="${esc(rt.origin.name)}: its board">${esc(rt.origin.iata || rt.origin.icao)}</button>`
-    + `<span class="ac-bar"><i style="width:${pct}%"></i></span><button class="ac-ap" data-ap="${esc(rt.destination.icao)}" title="${esc(rt.destination.name)}: its board">${esc(rt.destination.iata || rt.destination.icao)}</button></div>`
-    + `<div class="note">${esc(apText(rt.origin))} → ${esc(apText(rt.destination))}${rt.airline ? ' · ' + esc(rt.airline.name) : ''}${rt.iata ? ' ' + esc(rt.iata) : ''}`
-    + (f ? (f.fits ? ` · ${fmt(f.leftKm)} km left${eta}` : ` · <b>${esc(f.why)}</b>: this callsign's usual route, which it may not be flying today`) : '') + '</div></div>';
+  const rt = o.info && o.info.route, w = routeWords(rt, rt ? AcInfo.fit(o) : null, { ground: o.ground, fmt }); if (!w) return '';
+  return `<div class="ac-route ${w.off ? 'off' : ''}"><div class="ac-legs"><button class="ac-ap" data-ap="${esc(rt.origin.icao)}" title="${esc(rt.origin.name)}: its board">${esc(rt.origin.iata || rt.origin.icao)}</button>`
+    + `<span class="ac-bar"><i style="width:${w.pct}%"></i></span><button class="ac-ap" data-ap="${esc(rt.destination.icao)}" title="${esc(rt.destination.name)}: its board">${esc(rt.destination.iata || rt.destination.icao)}</button></div>`
+    + `<div class="note">${esc(w.places)}${w.state ? ' · ' + esc(w.state) : ''}${w.off ? ` · <b>${esc(w.off)}</b>: ${esc(ROUTE_CAVEAT)}` : ''}</div></div>`;
 }
 
 function trailHtml(o) {

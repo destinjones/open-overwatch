@@ -81,6 +81,9 @@ export function classify(r = {}) {
   return { cls, shape: c.shape, scale: c.scale, name: c.name, why };
 }
 
+/** A class in words for a card, saying how sure it is: "Narrow-body airliner (a guess: no type known)". */
+export const kindWords = k => k.name + (k.why === 'guess' ? ' (a guess: no type known)' : k.why === 'category' ? ' (from its transponder category)' : '');
+
 /** Model shape only (the sprite and glTF names in brand/). */
 export const shapeOf = r => classify(r).shape;
 

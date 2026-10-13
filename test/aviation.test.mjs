@@ -463,3 +463,25 @@ test('board rows in words: where from or to, ETA and final, the climb, parked or
   assert.equal(boardRowWords({ r: {}, status: 'departed', agoS: 400, km: 3 }, LHR).right, 'departed about 7 min ago');
   assert.deepEqual(BOARD_SECTIONS.map(s => s[0]), ['arriving', 'departing', 'recent', 'ground']);
 });
+test('card words shared by both views: kind, phase, route', async () => {
+  const { kindWords } = await import('../src/core/actype.js');
+  const { phaseWords, flightPhase } = await import('../src/core/phase.js');
+  const { routeWords, ROUTE_CAVEAT } = await import('../src/core/airports.js');
+  assert.equal(kindWords(classify({ type: 'B38M' })), 'Narrow-body airliner');
+  assert.equal(kindWords(classify({})), 'Narrow-body airliner (a guess: no type known)');
+  assert.match(kindWords(classify({ cat: 'A7' })), /\(from its transponder category\)$/);
+  const jfk = { icao: 'KJFK', iata: 'JFK', lat: 40.6398, lon: -73.7789, elevM: 4, km: 3.2 };
+  const f = flightPhase({ lat: 40.66, lon: -73.80, alt: 46, vr: -3.6, gs: 79, track: 121, ground: false }, jfk);
+  assert.equal(f.phase, 'final');
+  assert.deepEqual(phaseWords(f, jfk, { fin: { end: { ident: '13L' } } }), { head: 'On final for 13L', where: '3 km from JFK, 138 ft above it', code: 'JFK' });
+  assert.deepEqual(phaseWords({ phase: 'cruise', words: 'Cruising', agl: 11000 }, { ...jfk, km: 250 }), { head: 'Cruising', where: '250 km from JFK', code: 'JFK' }, 'far out: no height above it');
+  assert.equal(phaseWords({ phase: 'unknown' }, jfk), null);
+  assert.deepEqual(phaseWords({ phase: 'climb', words: 'Climbing', agl: 900 }, null), { head: 'Climbing', where: '', code: '' });
+  const rt = { origin: { icao: 'KORD', iata: 'ORD', city: 'Chicago' }, destination: { icao: 'KJFK', iata: 'JFK', city: 'New York' }, airline: { name: 'American Airlines' }, iata: 'AA2341' };
+  const on = routeWords(rt, { fits: true, progress: 0.62, leftKm: 412.4, etaS: 2700 });
+  assert.deepEqual(on, { pct: 62, places: 'ORD Chicago → JFK New York · American Airlines AA2341', state: '412 km left · about 45 min to go at this speed', off: '' });
+  assert.equal(routeWords(rt, { fits: true, progress: 1, leftKm: 0, etaS: 5 }, { ground: true }).state, '0 km left', 'on the ground: no ETA');
+  assert.deepEqual(routeWords(rt, { fits: false, progress: 0.3, why: 'off the route on file' }).off, 'off the route on file');
+  assert.equal(routeWords(rt, null).state, ''); assert.equal(routeWords({ airline: { name: 'X' } }, null), null);
+  assert.match(ROUTE_CAVEAT, /usual route/);
+});

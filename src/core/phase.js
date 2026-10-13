@@ -41,6 +41,19 @@ export function flightPhase(p, ap = null) {
   return out('level');
 }
 
+/**
+ * The phase line of an aircraft card, the same on every view: { head ("On final for 13L"), where ("3 km from JFK, 137 ft
+ * above it"), code (the airport's) } or null when the phase is unknown. f: flightPhase's answer; ap: the nearest airport
+ * with .km; fin: the runway end it is lined up with; fmt: the view's number format.
+ */
+export function phaseWords(f, ap, { fin = null, ground = false, fmt = n => Math.round(n).toLocaleString('en-US') } = {}) {
+  if (!f || f.phase === 'unknown') return null;
+  const head = f.words + (fin && (f.phase === 'final' || f.phase === 'approach') ? ' for ' + fin.end.ident : '');
+  if (!ap) return { head, where: '', code: '' };
+  const code = ap.iata || ap.icao, above = f.agl != null && !ground && ap.km < 40 ? `, ${fmt(Math.max(0, f.agl) / 0.3048)} ft above it` : '';
+  return { head, where: `${fmt(ap.km)} km from ${code}${above}`, code };
+}
+
 /** Points along the great circle from 1 to 2 (n + 1 of them, both ends included), as [lat, lon]; lon kept continuous
  *  across the antimeridian (it may run past ±180, which globes draw fine). */
 export function greatCircle(lat1, lon1, lat2, lon2, n = 64) {

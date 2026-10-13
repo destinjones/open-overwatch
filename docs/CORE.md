@@ -563,7 +563,8 @@ What kind of aircraft a record is (from its ICAO type designator, else the emitt
 adsbdb answers read into one record, whether a route on file fits where the plane actually is, and the country an ICAO
 address belongs to. Used by globe, map, core.
 
-- `classify`, `shapeOf`, `CLASSES`: the class and the 3D model drawn for it.
+- `classify`, `shapeOf`, `CLASSES`: the class and the 3D model drawn for it. `kindWords`: the class in words, saying how
+  sure it is.
 - `parseAdsbdb`: an adsbdb answer → `{ aircraft, route }`. `routeFit`: does the route fit the plane? `gcKm`, `bearing`.
 - `hexCountry`: where an address was allocated. `classWord`, `typeMatcher`: search by kind or type ("helicopters",
   "747").
@@ -583,6 +584,7 @@ What a plane is doing, in a pilot's words (parked, taxiing, take-off, climbing, 
 landing roll), from its own fix and the nearest airport. Used by globe, map.
 
 - `flightPhase`: `{ phase, words, agl, apKm }`. `PHASES`. `greatCircle`: points along a great circle (the route arc).
+- `phaseWords`: the card's phase line ("On final for 13L · 3 km from JFK, 138 ft above it"), the same on both views.
 
 ### `airports.js`
 
@@ -593,7 +595,7 @@ on file makes the call firmer. Used by globe, map.
 - `parseAirports`, `AirportIndex`, `findAirport`: the OurAirports list, nearest and in view, by code, name or city.
 - `makeBoard`, `boardStatus`, `BOARD`: the board. `recentMove`: planes that just landed or took off. `etaText`.
 - `planesNear`: the records worth checking for a board. `boardRowWords`, `BOARD_SECTIONS`: a row and the sections in
-  words, the same on both views.
+  words, the same on both views. `routeWords`, `ROUTE_CAVEAT`: the card's route line and its caveat.
 
 ### `runways.js`
 

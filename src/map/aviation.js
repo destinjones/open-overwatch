@@ -13,9 +13,9 @@ import { Detail } from './detail.js';
 import { Air, Photos } from './aircraft.js';
 import { fetchAsset } from '../core/assets.js';
 import { createAcInfo } from '../core/acinfo.js';
-import { classify, routeFit, hexCountry } from '../core/actype.js';
-import { flightPhase } from '../core/phase.js';
-import { parseAirports, AirportIndex, makeBoard, etaText, findAirport, BOARD, BOARD_SECTIONS, boardRowWords, planesNear } from '../core/airports.js';
+import { classify, kindWords, routeFit, hexCountry } from '../core/actype.js';
+import { flightPhase, phaseWords } from '../core/phase.js';
+import { parseAirports, AirportIndex, makeBoard, findAirport, BOARD, BOARD_SECTIONS, boardRowWords, planesNear, routeWords, ROUTE_CAVEAT } from '../core/airports.js';
 import { parseRunways, RunwayBook, windWords } from '../core/runways.js';
 import { airportWxUrl, airportWx, airportWxLine } from '../core/aloft.js';
 
@@ -138,32 +138,26 @@ Detail.renderers.airport = a => {
 };
 
 /* ============================================================ more on the aircraft card */
-const apText = a => a ? `${a.iata || a.icao}${a.city || a.name ? ' ' + (a.city || a.name) : ''}` : '';
 /** The aviation section of an aircraft card (aircraft.js puts it under the photo). */
 Air.more = a => {
   if (a.info === undefined && !AcInfo.limited) AcInfo.get(a).then(v => { if (v && Sel.kind === 'air' && Sel.id === a.hex) Detail.render(); });
   if (!Airports.list.length && !Airports.loading) Airports.load().then(() => { if (Sel.kind === 'air') Detail.render(); }).catch(() => {});
   const v = a.info, ac = v && v.aircraft, p = airPoint(a), k = classify(p || {});
-  const rows = [['Kind', k.name + (k.why === 'guess' ? ' (a guess: no type known)' : k.why === 'category' ? ' (from its transponder category)' : '')],
+  const rows = [['Kind', kindWords(k)],
     ['Aircraft', ac ? [ac.manufacturer, ac.type].filter(Boolean).join(' ') : null], ['Type code', !a.t && ac ? ac.icaoType : null], ['Registration', !a.r && ac ? ac.reg : null],
     ['Operator', !a.ownOp && ac ? ac.owner : null], ['Registered in', (ac && ac.ownerCountry) || a.country || hexCountry(a.hex)]];
   let html = Detail.kv(rows);
   // the phase, and the runway it is lined up with
   const ap = Airports.nearest(p), f = p ? flightPhase({ ...p, cls: k.cls }, ap) : null;
-  if (f && f.phase !== 'unknown') {
-    const fin = (f.phase === 'final' || f.phase === 'approach') && ap ? Airports.runways.final(ap, p) : null;
-    const where = ap ? ` · ${fmt.n(ap.km)} km from <button type="button" class="ac-ap" data-ap="${esc(ap.icao)}">${esc(ap.iata || ap.icao)}</button>${f.agl != null && !a.ground && ap.km < 40 ? `, ${fmt.n(Math.max(0, f.agl) / FT)} ft above it` : ''}` : '';
-    html += `<p class="ac-phase"><b>${esc(f.words)}${fin ? ' for ' + esc(fin.end.ident) : ''}</b>${where}</p>`;
-  }
+  const fin = f && (f.phase === 'final' || f.phase === 'approach') && ap ? Airports.runways.final(ap, p) : null, pw = phaseWords(f, ap, { fin, ground: a.ground, fmt: fmt.n });
+  if (pw) html += `<p class="ac-phase"><b>${esc(pw.head)}</b>${pw.where ? ' · ' + esc(pw.where).replace(esc(pw.code), `<button type="button" class="ac-ap" data-ap="${esc(ap.icao)}">${esc(pw.code)}</button>`) : ''}</p>`;   // the airport opens its card
   // the route its callsign flies, checked against where it is
   const rt = v && v.route;
-  if (rt && rt.origin && rt.destination) {
-    const fit = p ? routeFit(rt, p) : null, pct = fit ? Math.round(fit.progress * 100) : 0;
-    const eta = fit && fit.fits && fit.etaS != null && !a.ground ? ` · about ${etaText(fit.etaS)} to go at this speed` : '';
-    html += `<div class="ac-route${fit && !fit.fits ? ' off' : ''}"><div class="ac-legs"><button type="button" class="ac-ap" data-ap="${esc(rt.origin.icao)}" title="${esc(rt.origin.name)}: its board">${esc(rt.origin.iata || rt.origin.icao)}</button>`
-      + `<span class="ac-bar"><i style="width:${pct}%"></i></span><button type="button" class="ac-ap" data-ap="${esc(rt.destination.icao)}" title="${esc(rt.destination.name)}: its board">${esc(rt.destination.iata || rt.destination.icao)}</button></div>`
-      + `<div class="note">${esc(apText(rt.origin))} → ${esc(apText(rt.destination))}${rt.airline ? ' · ' + esc(rt.airline.name) : ''}${rt.iata ? ' ' + esc(rt.iata) : ''}`
-      + (fit ? (fit.fits ? ` · ${fmt.n(fit.leftKm)} km left${eta}` : ` · <b>${esc(fit.why)}</b>: this callsign's usual route, which it may not be flying today`) : '') + '</div></div>';
+  const rw = routeWords(rt, rt && p ? routeFit(rt, p) : null, { ground: a.ground, fmt: fmt.n });
+  if (rw) {
+    html += `<div class="ac-route${rw.off ? ' off' : ''}"><div class="ac-legs"><button type="button" class="ac-ap" data-ap="${esc(rt.origin.icao)}" title="${esc(rt.origin.name)}: its board">${esc(rt.origin.iata || rt.origin.icao)}</button>`
+      + `<span class="ac-bar"><i style="width:${rw.pct}%"></i></span><button type="button" class="ac-ap" data-ap="${esc(rt.destination.icao)}" title="${esc(rt.destination.name)}: its board">${esc(rt.destination.iata || rt.destination.icao)}</button></div>`
+      + `<div class="note">${esc(rw.places)}${rw.state ? ' · ' + esc(rw.state) : ''}${rw.off ? ` · <b>${esc(rw.off)}</b>: ${esc(ROUTE_CAVEAT)}` : ''}</div></div>`;
   } else if (rt && rt.airline) html += `<p class="note">${esc(rt.airline.name)}${rt.iata ? ' ' + esc(rt.iata) : ''} · no route on file for this callsign</p>`;
   if (ac && ac.thumb && Photos.cache.get(a.hex) === null) html += `<a class="ac-photo" href="${esc(ac.photo || ac.thumb)}" target="_blank" rel="noopener"><img src="${esc(ac.thumb)}" alt="Photo of ${esc(ac.reg || a.hex)}" loading="lazy" referrerpolicy="no-referrer"><span>photo: airport-data.com</span></a>`;
   if (AcInfo.limited) html += '<p class="note">adsbdb asked us to slow down: details again in a minute.</p>';
