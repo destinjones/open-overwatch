@@ -1,6 +1,7 @@
 // Comets: two-body positions on any conic (ellipse, parabola, hyperbola) from SBDB perihelion elements, names people
 // know them by, how bright they are, and the two tails. Rows are small_bodies.json's comets: [label, q (AU), e, i, node,
-// peri (deg), tp (jd TDB), M1, K1] (M1 and K1, SBDB's total-magnitude parameters, are null for comets without them).
+// peri (deg), tp (jd TDB), M1, K1, epoch] (M1 and K1, SBDB's total-magnitude parameters, are null for comets without
+// them; epoch is the orbit solution's: SBDB keeps each comet's last solution, and two-body motion drifts away from it).
 //
 // Tails, physically (not to scale for brightness, but pointing and curving the right way):
 // - the ion (plasma) tail is blown straight out by the solar wind, so it lies along the wind's velocity as the comet sees
@@ -59,8 +60,8 @@ export function cometNames(label) {
 
 /** small_bodies.json row -> elements { q, e, i, node, peri (rad), tp, label }. */
 export function cometFromRow(row) {
-  const [label, q, e, i, node, peri, tp, m1 = null, k1 = null] = row;
-  return { label, q, e, i: i * DEG, node: node * DEG, peri: peri * DEG, tp, m1: m1 ?? null, k1: k1 ?? null };
+  const [label, q, e, i, node, peri, tp, m1 = null, k1 = null, epoch = null] = row;
+  return { label, q, e, i: i * DEG, node: node * DEG, peri: peri * DEG, tp, m1: m1 ?? null, k1: k1 ?? null, epoch: epoch ?? null };
 }
 
 /** Rotate an in-plane point (perihelion along +x) into heliocentric ecliptic J2000. */
@@ -289,16 +290,28 @@ export function cometPeak(c, jd0, jd1) {
 }
 
 /**
+ * Can two-body motion from the comet's elements be trusted at jd? SBDB keeps the last orbit solution (some from the
+ * 1990s); a comet that has been round the Sun since may have met Jupiter (16P/Brooks 2's 2016 elements put it 1.5 AU
+ * from the Horizons position in 2026, 67P's 2015 ones 0.3 AU). Trusted: within 8 years of the epoch and, on a closed
+ * orbit, within 1.2 periods of it. Comets without an epoch count as trusted.
+ */
+export function orbitFresh(c, jd) {
+  if (c.epoch == null) return true;
+  const yrs = Math.abs(jd - c.epoch) / 365.25, P = cometPeriodYears(c);
+  return yrs <= 8 && (!Number.isFinite(P) || yrs <= 1.2 * P);
+}
+
+/**
  * The brightest comets at jd: [{ row, c, mag, r, delta, peak: { jd, mag } | null }], brightest first, down to maxMag.
- * Only comets with magnitude parameters and within maxR AU of the Sun (beyond that none is bright); defunct (D/)
- * comets and fragments are left out. The peak is searched within +-span days.
+ * Only comets with magnitude parameters, an orbit fresh enough to trust (orbitFresh) and within maxR AU of the Sun
+ * (beyond that none is bright); defunct (D/) comets and fragments are left out. The peak is searched within +-span days.
  */
 export function brightComets(rows, jd, { maxMag = 15, limit = 15, maxR = 6, span = 400, earth = earthPosition(jd, {}) } = {}) {
   const out = [], p = {};
   for (const row of rows) {
     if (row[7] == null || /^\d*D\/|-[A-Z]{1,2}( |$)/.test(row[0])) continue;
     const c = cometFromRow(row);
-    if (c.q > maxR) continue;
+    if (c.q > maxR || !orbitFresh(c, jd)) continue;
     cometPosition(c, jd, p);
     const r = Math.hypot(p.x, p.y, p.z); if (r > maxR) continue;
     const delta = Math.hypot(p.x - earth.x, p.y - earth.y, p.z - earth.z), mag = cometMagnitude(c, r, delta);
@@ -308,4 +321,23 @@ export function brightComets(rows, jd, { maxMag = 15, limit = 15, maxR = 6, span
   const top = out.slice(0, limit);
   for (const o of top) o.peak = cometPeak(o.c, jd - span, jd + span);
   return top;
+}
+
+/**
+ * Comets due to peak brighter than maxMag in the next `days`: [{ row, c, peak: { jd, mag } }], soonest first. Only
+ * trusted orbits (orbitFresh at the peak) with a perihelion inside the window (or just before it) and q under 3 AU.
+ */
+export function cometsComing(rows, jd, { days = 730, maxMag = 12, limit = 10 } = {}) {
+  const out = [];
+  for (const row of rows) {
+    if (row[7] == null || /^\d*D\/|-[A-Z]{1,2}( |$)/.test(row[0])) continue;
+    const c = cometFromRow(row);
+    if (c.q > 3) continue;
+    const tp = perihelionPassages(c, jd - 60, jd + days)[0]; if (tp == null) continue;
+    // the brightest a comet can get is near perihelion with Earth close: skip what cannot reach maxMag even at Earth's distance
+    if (cometMagnitude(c, c.q, Math.max(0.05, Math.abs(c.q - 1))) > maxMag) continue;
+    const pk = cometPeak(c, Math.max(jd, tp - 150), Math.min(jd + days, tp + 150));
+    if (pk && pk.mag <= maxMag && pk.jd > jd + 1 && orbitFresh(c, pk.jd)) out.push({ row, c, peak: pk });
+  }
+  return out.sort((a, b) => a.peak.jd - b.peak.jd).slice(0, limit);
 }

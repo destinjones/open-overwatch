@@ -356,3 +356,49 @@ test('sky position: elongation, evening or morning, and the constellation it is 
   const pole = raDecOf(0, Math.sin(23.4392911 * DEG), Math.cos(23.4392911 * DEG));
   assert.ok(pole.dec > 89.999, 'the celestial pole in ecliptic coordinates comes out at Dec +90');
 });
+
+// ---------------------------------------------------------------- comet brightness (SBDB M1/K1)
+
+import { cometMagnitude, cometMagnitudeAt, cometPeak, brightComets, cometsComing, seeingWords, orbitFresh } from '../src/core/comets.js';
+const MAGS = read('test/fixtures/horizons_comet_mags.json');
+
+test('comets: total magnitudes match JPL Horizons T-mag where the orbit is fresh; stale orbits are flagged', () => {
+  let checked = 0;
+  for (const { label, rows } of MAGS.comets) {
+    const c = cometFromRow(row(label));
+    assert.ok(c.m1 != null && c.k1 != null && c.epoch > 2.4e6, label);
+    for (const [d, tmag, r, delta] of rows) {
+      const jd = +d.slice(2);
+      // the formula alone, on Horizons' own distances: exact
+      assert.ok(Math.abs(cometMagnitude(c, r, delta) - tmag) < 0.006, `${label} formula ${cometMagnitude(c, r, delta)} vs ${tmag}`);
+      if (!orbitFresh(c, jd)) continue;
+      // our two-body orbit and Earth: within 0.1 mag of Horizons' integration
+      assert.ok(Math.abs(cometMagnitudeAt(c, jd) - tmag) < 0.1, `${label} ${d}: ${cometMagnitudeAt(c, jd).toFixed(2)} vs ${tmag}`);
+      checked++;
+    }
+  }
+  assert.ok(checked >= 15, `${checked} fresh comparisons`);
+  // 16P/Brooks 2 (2016 elements, 1.5 AU off now) and 67P (2015, a Jupiter pass since) must not count as fresh
+  assert.equal(orbitFresh(cometFromRow(row('16P/')), jdFromMs(Date.UTC(2026, 9, 12))), false);
+  assert.equal(orbitFresh(cometFromRow(row('67P/')), jdFromMs(Date.UTC(2026, 9, 12))), false);
+  assert.equal(orbitFresh(cometFromRow(row('2P/')), jdFromMs(Date.UTC(2026, 9, 12))), true);
+  assert.equal(cometMagnitude({ m1: null, k1: 4 }, 1, 1), null);
+});
+
+test('comets: the peak of an apparition and the "bright now" and "coming up" lists', () => {
+  // 2P/Encke's 2027 return: Horizons has it at 13.8 on 2027-02-19 (r 0.43 AU); its peak is near that perihelion
+  const enc = cometFromRow(row('2P/')), pk = cometPeak(enc, jdFromMs(Date.UTC(2026, 9, 1)), jdFromMs(Date.UTC(2027, 5, 1)));
+  assert.ok(Math.abs(pk.jd - enc.tp - Math.round((pk.jd - enc.tp) / (cometPeriodYears(enc) * 365.25)) * cometPeriodYears(enc) * 365.25) < 20, 'near a perihelion');
+  assert.ok(pk.mag < cometMagnitudeAt(enc, jdFromMs(Date.UTC(2026, 9, 12))) && pk.mag < 13.8 + 0.1);
+  // the minimum really is one: a day either side is fainter
+  assert.ok(cometMagnitudeAt(enc, pk.jd - 1) >= pk.mag - 1e-9 && cometMagnitudeAt(enc, pk.jd + 1) >= pk.mag - 1e-9);
+  const jd = jdFromMs(Date.UTC(2026, 9, 12)), now = brightComets(SB.comets, jd, { maxMag: 16, limit: 20 });
+  assert.ok(now.length >= 1);
+  for (let i = 1; i < now.length; i++) assert.ok(now[i].mag >= now[i - 1].mag);
+  for (const n of now) { assert.ok(orbitFresh(n.c, jd) && n.mag <= 16 && !/^\d*D\//.test(n.row[0])); if (n.peak) assert.ok(n.peak.mag <= n.mag + 1e-9); }
+  assert.ok(!now.some(n => n.row[0].startsWith('16P/')), 'a stale orbit never makes the list');
+  const soon = cometsComing(SB.comets, jd, { days: 1100, maxMag: 12 });
+  for (let i = 1; i < soon.length; i++) assert.ok(soon[i].peak.jd >= soon[i - 1].peak.jd);
+  for (const s of soon) assert.ok(s.peak.mag <= 12 && s.peak.jd > jd && s.peak.jd < jd + 1100);
+  assert.equal(seeingWords(3), 'naked eye'); assert.equal(seeingWords(8), 'binoculars'); assert.equal(seeingWords(null), 'brightness unknown');
+});

@@ -4,7 +4,7 @@
 // Numbers follow the clock.
 import { esc, distance, lightTime } from '../core/format.js';
 import { missionsNow, relativeTime } from '../core/craft.js';
-import { cometsNearNow, cometNames, perihelionPassages, brightComets, seeingWords } from '../core/comets.js';
+import { cometsNearNow, cometNames, perihelionPassages, brightComets, cometsComing, seeingWords } from '../core/comets.js';
 import { formatUtc } from '../core/time.js';
 import { byKey } from './world.js';
 
@@ -25,15 +25,24 @@ export function createLists({ craft, comets, clock, find, eclipses }) {
       <p class="note">Trajectories: JPL Horizons. Past the published track a craft leaving the Sun coasts on in a straight line; the others stop.</p>`;
   }
   // the brightest comets: recomputed only when the clock has moved a day (each needs a peak search)
-  let bright = null, brightJd = null;
+  let bright = null, coming = null, brightJd = null;
+  function comingHtml() {
+    if (!coming.length) return '';
+    return `<div class="k">Coming up: comets due to peak brighter than magnitude 12</div><h3>Next three years · peak brightness as predicted</h3>
+      <table><tr><th>Comet</th><th>Peak</th><th>Mag</th></tr>${coming.map(n => `<tr data-row="${esc(n.row[0])}"><td>${esc(cometNames(n.row[0]).display)}<small>${esc(seeingWords(n.peak.mag))}</small></td>
+        <td>${esc(formatUtc(n.peak.jd).slice(0, 10))}<small>${esc(relativeTime(n.peak.jd - clock.jd))}</small></td><td>${n.peak.mag.toFixed(1)}</td></tr>`).join('')}</table>`;
+  }
   function brightHtml() {
-    if (brightJd == null || Math.abs(clock.jd - brightJd) > 1) { brightJd = clock.jd; bright = brightComets(comets.rows, clock.jd, { maxMag: 13, limit: 10, earth: byKey.earth.pos }); }
-    if (!bright.length) return '';
+    if (brightJd == null || Math.abs(clock.jd - brightJd) > 1) {
+      brightJd = clock.jd; bright = brightComets(comets.rows, clock.jd, { maxMag: 15, limit: 10, earth: byKey.earth.pos });
+      coming = cometsComing(comets.rows, clock.jd, { days: 1100, maxMag: 12, limit: 8 });
+    }
+    if (!bright.length) return comingHtml();
     return `<div class="k">Brightest comets ${esc(clock.live ? 'now' : "at the clock's time")}</div><h3>Total magnitude (lower is brighter; 6 is the naked-eye limit) · when it peaks</h3>
       <table><tr><th>Comet</th><th>Mag</th><th>Peak</th></tr>${bright.map(n => { const nm = cometNames(n.row[0]), pk = n.peak, pkNow = pk && Math.abs(pk.jd - clock.jd) < 3;
         return `<tr data-row="${esc(n.row[0])}"><td>${esc(nm.display)}<small>${esc(seeingWords(n.mag))} · ${n.delta.toFixed(2)} AU from Earth</small></td><td>${n.mag.toFixed(1)}</td>
           <td>${pk ? (pkNow ? 'now' : esc(formatUtc(pk.jd).slice(0, 10))) + `<small>${pk.mag.toFixed(1)}${pkNow ? '' : ' · ' + esc(relativeTime(pk.jd - clock.jd))}</small>` : '—'}</td></tr>`; }).join('')}</table>
-      <p class="note">Magnitudes: JPL SBDB's M1 and K1 (m = M1 + 5 log Δ + K1 log r, as in Horizons). Comets often brighten or fade by magnitudes against these predictions.</p>`;
+      <p class="note">Magnitudes: JPL SBDB's M1 and K1 (m = M1 + 5 log Δ + K1 log r, as in Horizons). Comets often brighten or fade by magnitudes against these predictions; comets whose last orbit solution is too old to trust are left out.</p>` + comingHtml();
   }
   function cometsHtml() {
     const E = byKey.earth.pos, near = cometsNearNow(comets.rows, clock.jd, E, { maxR: 3, limit: 15 });

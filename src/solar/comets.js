@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { KM_AU } from '../core/units.js';
 import { orbitPath } from '../core/kepler.js';
-import { cometFromRow, cometNames, cometPosition, cometVelocity, cometClass, cometPeriodYears, activity, ionTail, dustTail, dustDays, cometsNearNow, conicArc, perihelionPassages, COMET_FACTS } from '../core/comets.js';
+import { cometFromRow, cometNames, cometPosition, cometVelocity, cometClass, cometPeriodYears, activity, ionTail, dustTail, dustDays, cometsNearNow, conicArc, perihelionPassages, COMET_FACTS, cometMagnitude, cometPeak, seeingWords, orbitFresh } from '../core/comets.js';
 import { distance, period } from '../core/format.js';
 import { formatUtc } from '../core/time.js';
 import { relativeTime } from '../core/craft.js';
@@ -92,6 +92,14 @@ export function createComets({ scene, focus: focusOf = () => null }) {
         if (Number.isFinite(P)) out.push(['Orbit', period(P * 365.25) + ' · out to ' + (c.q * (1 + c.e) / (1 - c.e)).toFixed(1) + ' AU']);
         else out.push(['Orbit', c.e > 1.2 ? 'hyperbolic: passing through once, from another star' : 'open: leaving the Solar System']);
         out.push(['Tails', activity(r) > 0.02 ? 'active (drawn to direction; lengths illustrative)' : 'none this far from the Sun']);
+        const m = cometMagnitude(c, r, dE);
+        if (m != null) {
+          out.push(['Brightness', `magnitude ${m.toFixed(1)} · ${seeingWords(m)} (predicted from SBDB's M1 ${c.m1}, K1 ${c.k1})`]);
+          // the peak around this passage: a year either side (cached per passage; it needs ~800 magnitude evaluations)
+          if (!b.peakFor || Math.abs(b.peakFor - tp) > 1) { b.peakFor = tp; b.peak = cometPeak(c, tp - 365, tp + 365); }
+          if (b.peak) out.push(['Peak', `${formatUtc(b.peak.jd).slice(0, 10)} · ${relativeTime(b.peak.jd - jd)} · magnitude ${b.peak.mag.toFixed(1)}`]);
+        }
+        if (c.epoch != null && !orbitFresh(c, jd)) out.push(['Orbit data', `from ${formatUtc(c.epoch).slice(0, 4)}: drawn two-body from then, so it may be well off its real place (planets, Jupiter most, have pulled on it since)`]);
         return out;
       } });
     list.push(b); return b;
@@ -118,13 +126,15 @@ export function createComets({ scene, focus: focusOf = () => null }) {
     init, cometBody, list,
     get rows() { return rows; },
     frame({ camera, camSun, fade, jd }) {
-      const on = layerOn('comets'), far = 1 - fade(2000, 3e4, camSun); cam.copy(camera.position);
+      const earthPos = byKey.earth?.pos, on = layerOn('comets'), far = 1 - fade(2000, 3e4, camSun); cam.copy(camera.position);
       const pxAngle = 2 * Math.tan(camera.fov * Math.PI / 360) / innerHeight;   // radians per CSS pixel
       for (const b of list) {
         b.orbit.material.opacity = b.orbit.userData.opacity * far;
         const r = b.pos.length(), act = activity(r), camD = cam.distanceTo(b.pos), show = on && act > 0.005 && camSun < 400 && jd != null;
-        // we have no brightness (absolute magnitude) for most comets: the famous ones are drawn bright, others faint
-        const glow = b === focusOf() ? 0.8 : b.weight >= 60 ? 0.6 : 0.25;
+        // brighter comets glow more (SBDB magnitudes: 0.85 at magnitude 4 or brighter down to 0.2 at 14); without
+        // magnitude parameters the famous ones are drawn bright, others faint
+        const m = cometMagnitude(b.c, r, b.pos.distanceTo(earthPos ?? b.pos));
+        const glow = Math.max(b === focusOf() ? 0.8 : 0, m != null ? 0.2 + 0.65 * Math.min(1, Math.max(0, (14 - m) / 10)) : b.weight >= 60 ? 0.6 : 0.25);
         b.coma.visible = b.dust.visible = b.ion.visible = show; if (!show) continue;
         // coma: real size ~10^5 km scaled by activity, but never under ~5 px, so a comet reads as a fuzzy star
         const s = Math.max(4e5 * KM_AU * act, camD * pxAngle * 5); b.coma.position.copy(b.pos); b.coma.scale.setScalar(s * 2); b.coma.material.opacity = 0.35 + 0.65 * act;

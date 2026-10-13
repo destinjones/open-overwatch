@@ -6,6 +6,7 @@ Outputs (data/solar/):
   asteroids_a.bin  brightest 300,000 asteroids (by H)
   asteroids_b.bin  the rest
   small_bodies.json  epoch, file counts, class labels, named bodies, comets
+                     (comet rows: label, q, e, i, node, peri, tp, M1, K1, epoch)
 
 Binary layout (column-major, little-endian, N records):
   Float32 a[N] (AU) | Uint16 e[N] = round(e*65535) | Uint16 i[N] = round(i/pi*65535)
@@ -39,7 +40,7 @@ SPLIT = 300_000
 PAGE = 400_000                  # asteroid rows per request (~1.57M total -> 4 requests)
 
 AST_FIELDS = "pdes,name,full_name,a,e,i,om,w,ma,epoch,H,diameter,class"
-COM_FIELDS = "full_name,pdes,name,q,e,i,om,w,tp,epoch,class"
+COM_FIELDS = "full_name,pdes,name,q,e,i,om,w,tp,epoch,class,M1,K1"   # M1, K1: total-magnitude parameters
 
 CLASSES = {0: "Main belt", 1: "Near-Earth", 2: "Jupiter Trojan", 3: "Centaur",
            4: "Trans-Neptunian", 5: "Mars-crosser", 6: "Other"}
@@ -93,7 +94,7 @@ def fetch_asteroids():
 
 
 def fetch_comets():
-    d = sbdb({"fields": COM_FIELDS, "sb-kind": "c"}, "comets.json.gz")
+    d = sbdb({"fields": COM_FIELDS, "sb-kind": "c"}, "comets_mag.json.gz")
     return d["fields"], d["data"]
 
 
@@ -195,8 +196,11 @@ def build_comets(fields, rows):
             continue
         if fam:
             famous_found.add(fam)
+        m1, k1 = fnum(r[ix["M1"]]), fnum(r[ix["K1"]])   # m = M1 + 5 log delta + K1 log r; null where SBDB has none
+        mag = [round(m1, 2), round(k1, 2)] if math.isfinite(m1) and math.isfinite(k1) else [None, None]
+        ep = fnum(r[ix["epoch"]])   # the orbit solution's epoch: two-body drifts from it (Jupiter moves short-period comets)
         out.append([name, round(q, 6), round(e, 7), round(inc, 4),
-                    round(om % 360, 4), round(w % 360, 4), round(tp, 4)])
+                    round(om % 360, 4), round(w % 360, 4), round(tp, 4), *mag, round(ep, 1) if math.isfinite(ep) else None])
     missing = set(FAMOUS_COMETS) - famous_found
     if missing:
         print("WARNING famous comets not found:", sorted(missing))
