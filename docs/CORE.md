@@ -1015,3 +1015,12 @@ hash of every inline script. `test/sri.test.mjs` runs it on every page, `brand/t
 - `checkPage`: problems on one page. `withCspHashes`: the page with script-src's hashes brought up to date.
 - `cdnTags`, `importMaps`, `inlineScripts`, `scripts`, `cspMeta`, `parseCsp`, `cdnUrlsIn`, `scriptText`, `isCdn`,
   `isExact`, `EXACT`, `CDN_HOSTS`, `EVAL_OK` (the pages allowed 'unsafe-eval': the globe, for Cesium's Knockout).
+
+### `provenance.js`
+
+Where a live item came from, how old its data is (the data, not the download) and how many independent sources agree:
+the one record every live layer and card uses. Not yet wired into the views.
+
+- `source`: one source's report, times to ms. `provenance`: `{ sources, agree, of, dataAt, ageMs, maxAgeMs, confidence, rule }`,
+  confidence confirmed, reported, stale or unknown (`CONFIDENCE`, `RULE`).
+- `provenanceText`: one plain line. `provenanceHtml`: the card block, upstream strings escaped. `ageText`.
