@@ -39,6 +39,8 @@ test('aircraft: same hex, close in time and place (allowing for speed), similar 
   const a = { hex: 'abc123', lat: 51.5, lon: -0.1, t: now, gsKt: 450, altFt: 35000 };
   assert.ok(sameAircraft(a, { ...a, lat: 51.505 }));                                   // 550 m
   assert.ok(sameAircraft(a, { ...a, t: now - 10e3, lon: -0.1 + 0.03 }));               // 2.1 km in 10 s at 450 kt (2.3 km)
+  assert.ok(sameAircraft(a, { ...a, t: now - 60e3, lon: -0.1 + 0.18, altFt: 33000 }));   // 12.4 km and 2,000 ft in a minute: reachable
+  assert.ok(!sameAircraft(a, { ...a, t: now - 60e3, lon: -0.1 + 0.3 }));                // 21 km in a minute at 450 kt: not
   assert.ok(!sameAircraft(a, { ...a, lon: -0.1 + 0.1 }));                              // 7 km at the same time
   assert.ok(!sameAircraft(a, { ...a, t: now - (AIR_AGREE.maxDtS + 1) * 1e3 }));
   assert.ok(!sameAircraft(a, { ...a, altFt: 36000 }));
@@ -74,6 +76,7 @@ test('storms: EONET + NHC agree but NHC is counted once; GDACS from JTWC is a se
   let { reports, agreeing } = stormAgreement(list[0]);
   assert.deepEqual(reports.map(r => r.src), ['eonet', 'nhc']);
   assert.deepEqual(agreeing, ['nhc']);   // EONET repeats NHC's own advisory
+  assert.equal(provLine(stampReports(list[0], 'storms', reports, agreeing), now), "NASA EONET (NOAA's data again) + NOAA NHC · 1 of 2 agree · data 60 min old · reported");
   assert.equal(agencyOf('JTWC'), 'jtwc'); assert.equal(agencyOf('NOAA_NHC'), 'noaa');
   const pac = stormsFromEonet([{ ...ev, id: 'E2', title: 'Typhoon Kong', sources: [{ id: 'JTWC', url: 'https://x' }], track: [{ lat: 15, lon: 135, t: now - 3 * 3600e3, kt: 90 }] }]);
   mergeGdacs(pac, [{ name: 'KONG', nice: 'Kong', lat: 15.6, lon: 134.5, kmh: 170, eventid: 1, episodeid: 2, to: now - 3600e3, fc: { id: 1, source: 'JMA', advisory: now - 3600e3, cone: [], forecast: [], past: [], points: [] } }]);
@@ -91,6 +94,8 @@ test('noteAircraftReport: a second network confirms, an old report drops out', a
   assert.equal(provLine(rec, now), 'adsb.lol + OpenSky (copy) · 2 of 2 agree · data 2 s old · confirmed');
   noteAircraftReport(rec, { src: 'adsb.lol', lat: 50.1, lon: 8, t: now + 200e3 }, { now: now + 200e3 });
   assert.equal(recordOf(rec, now + 200e3).of, 1);
+  noteAircraftReport(rec, { src: 'adsb.fi', lat: 50.1, lon: 8, t: now + 50e3 }, { now: now + 200e3 });   // 150 s older: kept, not compared
+  assert.equal(recordOf(rec, now + 200e3).of, 1); assert.equal(rec._reports.length, 2);
 });
 
 test('stampQuake: GDACS repeating USGS is listed but does not confirm; an independent one does', async () => {

@@ -138,5 +138,5 @@ export function metresBetween(a, b) {
 /** Stamp from agreement reports ([{ src, t }], as agreeingIds and the layers' merge code keep them). cached: the source
  *  ids that came through a copy (the relay, the site mirror). */
 export function stampReports(item, layer, reports, agreeing = null, { cached = [] } = {}) {
-  return stamp(item, layer, (reports || []).map(r => ({ id: r.src, dataAt: r.t ?? null, cached: cached.includes(r.src) })), { agreeing });
+  return stamp(item, layer, (reports || []).map(r => ({ id: r.src, name: r.name || null, dataAt: r.t ?? null, cached: cached.includes(r.src) })), { agreeing });
 }

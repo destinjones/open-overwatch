@@ -90,6 +90,7 @@ export function sameStorm(a, b, tol = STORM_AGREE) {
   const h = Number.isFinite(a.t) && Number.isFinite(b.t) ? Math.abs(a.t - b.t) / 3600e3 : 0;
   return distKm(a, b) <= Math.min(tol.maxKm, tol.km + tol.kmPerHour * h);
 }
+const FEED_NAME = { eonet: 'NASA EONET', gdacs: 'GDACS', nhc: 'NOAA NHC' }, AGENCY_NAME = { noaa: 'NOAA', jtwc: 'JTWC', jma: 'JMA', imd: 'IMD', bom: 'BoM', mfr: 'Météo-France', pagasa: 'PAGASA' };
 function addReport(s, r) {
   s.reports = s.reports || [];
   const old = s.reports.find(x => x.src === r.src);
@@ -106,7 +107,7 @@ export function stormAgreement(s) {
   const agreeing = [], agencies = new Set();
   const order = r => ({ nhc: 0, gdacs: 1, eonet: 2 }[r.src] ?? 3);   // the agency's own feed before the copies of it
   for (const r of reports.filter(x => x === freshest || sameStorm(freshest, x)).sort((x, y) => order(x) - order(y))) {
-    if (r.agency && agencies.has(r.agency)) continue;
+    if (r.agency && agencies.has(r.agency)) { r.name = `${FEED_NAME[r.src] || r.src} (${AGENCY_NAME[r.agency] || r.agency.toUpperCase()}'s data again)`; continue; }
     if (r.agency) agencies.add(r.agency);
     agreeing.push(r.src);
   }

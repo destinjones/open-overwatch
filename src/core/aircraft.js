@@ -47,9 +47,10 @@ export function openskyState(s) {
 }
 
 /** When two feeds' reports are the same aircraft in the same place (provenance agreement): the same hex, data times at most
- *  maxDtS apart, positions within posM plus the distance it flies in the gap (the faster ground speed, slack × it), and
- *  barometric altitudes within altFt where both have one. */
-export const AIR_AGREE = Object.freeze({ maxDtS: 30, posM: 1500, slack: 1.25, altFt: 500 });
+ *  maxDtS apart (the feeds are polled 15-60 s apart), positions within posM plus the distance it can fly in the gap (the
+ *  faster ground speed, slack × it: a turn only shortens the line), and barometric altitudes within altFt plus climbFpm
+ *  over the gap where both have one. Reports further apart in time are not compared at all (outdated, not contradicting). */
+export const AIR_AGREE = Object.freeze({ maxDtS: 120, posM: 1500, slack: 1.15, altFt: 500, climbFpm: 4000 });
 
 /** Do reports a and b ({ hex, lat, lon, t (ms), gsKt?, altFt? }) agree within AIR_AGREE? */
 export function sameAircraft(a, b, tol = AIR_AGREE) {
@@ -59,7 +60,7 @@ export function sameAircraft(a, b, tol = AIR_AGREE) {
   const r = Math.PI / 180, x = (b.lon - a.lon) * r * Math.cos((a.lat + b.lat) / 2 * r), y = (b.lat - a.lat) * r;
   const m = Math.hypot(x, y) * 6371008.8, v = Math.max(fin(a.gsKt) || 0, fin(b.gsKt) || 0) * KT;
   if (m > tol.posM + v * dt * tol.slack) return false;
-  return !(fin(a.altFt) != null && fin(b.altFt) != null && Math.abs(a.altFt - b.altFt) > tol.altFt);
+  return !(fin(a.altFt) != null && fin(b.altFt) != null && Math.abs(a.altFt - b.altFt) > tol.altFt + tol.climbFpm * dt / 60);
 }
 
 /** A readsb report's data time (ms): the response's `now` (s or ms) less the aircraft's seen_pos. */
@@ -73,11 +74,13 @@ export const AIR_SOURCE_ID = Object.freeze({ 'adsb.lol': 'adsblol', 'adsb.fi': '
  * which agree (sameAircraft) and stamps the record. r: { src (a feed name), lat, lon, t (ms, the position's time), gsKt?,
  * altFt? }; cached: it came from a copy (a stored snapshot, the public relay). Returns the record.
  */
-export function noteAircraftReport(rec, r, { now = Date.now(), keepMs = 120e3, cached = false } = {}) {
+export function noteAircraftReport(rec, r, { now = Date.now(), keepMs = 150e3, cached = false } = {}) {
   if (!rec || !r) return rec;
   const src = AIR_SOURCE_ID[r.src] || String(r.src || 'adsb').toLowerCase().replace(/[^a-z0-9]/g, '') || 'adsb';
   const rep = { src, hex: rec.hex, lat: r.lat, lon: r.lon, t: Number.isFinite(r.t) ? r.t : null, gsKt: fin(r.gsKt), altFt: fin(r.altFt), cached: !!cached };
   const reps = (rec._reports || []).filter(x => x.src !== src && (x.t == null || now - x.t <= keepMs));
   reps.push(rep); rec._reports = reps;
-  return stampReports(rec, 'aircraft', reps, agreeingIds(reps, sameAircraft), { cached: reps.filter(x => x.cached).map(x => x.src) });
+  const newest = reps.reduce((m, x) => ((x.t ?? -Infinity) > (m.t ?? -Infinity) ? x : m));   // only reports close enough in time to compare count
+  const near = reps.filter(x => x === newest || (x.t != null && newest.t != null && Math.abs(newest.t - x.t) <= AIR_AGREE.maxDtS * 1000));
+  return stampReports(rec, 'aircraft', near, agreeingIds(near, sameAircraft), { cached: near.filter(x => x.cached).map(x => x.src) });
 }
