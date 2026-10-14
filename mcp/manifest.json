@@ -42,6 +42,7 @@
     { "name": "volcanoes", "description": "The volcanoes nearest a place, with open eruptions (NASA EONET) and this week's earthquakes nearby." },
     { "name": "road_speeds", "description": "Measured traffic speeds on the roads near a place (Finland live, New York City)." },
     { "name": "close_approaches", "description": "The closest coming encounters between satellites and debris (CelesTrak SOCRATES via the website)." },
+    { "name": "reentries", "description": "Satellites and debris predicted to re-enter in the next 30 days, each with its window, uncertainty and corridor (worked out from CelesTrak element sets via the website)." },
     { "name": "sun_and_moon", "description": "Sunrise, sunset, day length, twilight, golden and blue hours, and the Moon at a place on a day." },
     { "name": "meteor_showers", "description": "The coming meteor showers: when they peak and how many you could see from a place." },
     { "name": "plate_readers", "description": "Licence-plate readers (ALPR) mapped in OpenStreetMap near a place in the US or Canada." },

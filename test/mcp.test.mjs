@@ -145,7 +145,7 @@ test('mcp: initialize agrees a protocol version and says what the server offers'
 
 test('mcp: every tool is listed read-only with a schema; show_on_globe names the globe panel', async () => {
   const { server } = serve(), { tools } = (await rpc(server, 'tools/list')).result;
-  assert.equal(tools.length, 36);
+  assert.equal(tools.length, 37);
   for (const t of tools) {
     assert.match(t.name, /^[a-z_]+$/); assert.ok(t.description.length > 60, t.name); assert.equal(t.inputSchema.type, 'object');
     assert.equal(t.annotations.readOnlyHint, true); assert.equal(t.annotations.openWorldHint, true);
@@ -386,7 +386,7 @@ test('mcp: the stdio server answers a client and exits when stdin closes', async
   assert.equal(code, 0, err);
   const lines = out.trim().split('\n').map(l => JSON.parse(l)), byId = id => lines.find(l => l.id === id);   // answers may come in any order
   assert.equal(lines.length, 3, out);
-  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 36); assert.equal(byId(null).error.code, -32700);
+  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 37); assert.equal(byId(null).error.code, -32700);
   assert.match(err, /open-overwatch-mcp \d+\.\d+\.\d+ - links to https:\/\/destinjones\.github\.io\/open-overwatch\//);
 });
 
@@ -604,7 +604,7 @@ test('mcp http: one JSON-RPC message per POST, answered as JSON; notifications g
   assert.equal(init.status, 200); assert.match(init.headers.get('content-type'), /application\/json/); assert.equal(init.headers.get('mcp-protocol-version'), '2025-06-18');
   assert.equal((await init.json()).result.serverInfo.name, 'open-overwatch');
   const list = await (await h(post({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, { 'mcp-protocol-version': '2025-06-18' }))).json();
-  assert.equal(list.result.tools.length, 36);
+  assert.equal(list.result.tools.length, 37);
   const q = await (await h(post({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'earthquakes', arguments: {} } }))).json();
   assert.equal(q.result.structuredContent.total, 3);
   const n = await h(post({ jsonrpc: '2.0', method: 'notifications/initialized' })); assert.equal(n.status, 202); assert.equal(await n.text(), '');
@@ -669,7 +669,7 @@ test('mcp http: node mcp/server.mjs --http serves Streamable HTTP until stopped'
     let err = '';
     const url = await new Promise((res, rej) => { p.stderr.on('data', b => { err += b; const m = err.match(/Streamable HTTP at (http:\/\/127\.0\.0\.1:\d+\/mcp)/); if (m) res(m[1]); }); p.on('close', c => rej(new Error('exited ' + c + ': ' + err))); });
     const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
-    assert.equal(r.status, 200); assert.equal((await r.json()).result.tools.length, 36);
+    assert.equal(r.status, 200); assert.equal((await r.json()).result.tools.length, 37);
   } finally { p.kill(); }
   const bad = spawn(process.execPath, [new URL('mcp/server.mjs', root).pathname.replace(/^\/([A-Za-z]:)/, '$1'), '--http', '0', '--host', '0.0.0.0'], { stdio: ['ignore', 'pipe', 'pipe'] });
   let e2 = ''; bad.stderr.on('data', b => { e2 += b; });
@@ -781,6 +781,31 @@ test('mcp: close approaches in orbit: closest first, for one satellite, placed o
   assert.deepEqual(ok(await call(server, 'close_approaches', { satellite: 'iss' })).structuredContent.approaches.map(x => x.b.name), ['SL-16 R/B']);
   assert.equal(ok(await call(server, 'close_approaches', { max_km: 0.05 })).structuredContent.total, 0);
   assert.ok(net.asked.every(u => !/celestrak/i.test(u)));
+});
+
+test('mcp: re-entries: soonest first with windows, working or debris, provenance, corridor; manoeuvring and far-off left out', async () => {
+  // real element sets from the website's copy, 2026-10-14 (test/fixtures/reentry/); the other groups answer 404
+  const at = Date.parse('2026-10-14T20:00:00Z'), net = pretendInternet([[SITE + 'data/tle/active.txt', fx('reentry/active.tle')], [SITE + 'data/tle/cosmos-2251-debris.txt', fx('reentry/cosmos-2251-debris.tle')]]);
+  const server = createOverwatchServer({ fetchImpl: net.fetchImpl, now: () => at });
+  const r = ok(await call(server, 'reentries', {})), d = r.structuredContent, text = r.content[0].text;
+  assert.deepEqual(d.reentries.map(x => x.norad), ['54776', '58435', '33939'], 'soonest first; the ISS and the Starlink lowering itself with thrusters are not there');
+  const [sl, cos, deb] = d.reentries;
+  assert.equal(sl.working, true); assert.equal(deb.working, false); assert.equal(deb.group, 'cosmos-2251-debris');
+  assert.equal(cos.window.plus_minus_percent, 25); assert.ok(Date.parse(cos.window.from) < Date.parse('2026-10-18T04:46Z') && Date.parse(cos.window.to) > Date.parse('2026-10-18T04:46Z'), 'CORDS\'s time inside');
+  assert.match(cos.window.words, /^between \w{3} \d\d:\d\d and \w{3} \d\d:\d\d UTC$/);
+  assert.match(cos.provenance, /^CelesTrak \(copy\) · data \d+(\.\d)? h old · (reported|stale)$/);
+  assert.equal(cos.url, `${SITE}globe.html#go=reentry&id=58435`); assert.equal(d.url, `${SITE}globe.html#go=reentry`);
+  assert.equal(cos.corridor, undefined, 'the corridor only when asked');
+  assert.match(text, /^3 objects predicted to re-enter in the next 30 days:\nSTARLINK-5470 \(NORAD 54776, a working satellite\) · likeliest 2026-10-1\d/);
+  assert.match(text, /Rocket bodies are not in the public groups/); assert.match(text, /Not read this time: stations, iridium-33-debris, fengyun-1c-debris/);
+  const one = ok(await call(server, 'reentries', { satellite: '58435', corridor: true })).structuredContent;
+  assert.equal(one.total, 1); const c = one.reentries[0].corridor;
+  assert.ok(c.segments.length >= 1 && c.segments.flat().every(([lat, lon]) => Math.abs(lat) <= 83.4 && Math.abs(lon) <= 180), 'within ±(180 - 96.7)°');
+  assert.equal(ok(await call(server, 'reentries', { satellite: 'cosmos', days: 2 })).structuredContent.total, 0);
+  assert.equal(ok(await call(server, 'reentries', { satellite: 'COSMOS 2251' })).structuredContent.reentries[0].norad, '33939');
+  assert.ok(net.asked.every(u => !/celestrak/i.test(u)));
+  const none = await call(createOverwatchServer({ fetchImpl: pretendInternet([]).fetchImpl, now: () => at }), 'reentries', {});
+  assert.equal(none.isError, true); assert.match(none.content[0].text, /element sets are not there/);
 });
 
 test('mcp: the day at a place: sunrise, sunset, twilight, golden hour and the Moon, in local time', async () => {

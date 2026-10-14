@@ -35,7 +35,7 @@ export const CONNECTOR_ORIGINS = Object.freeze(['https://claude.ai', 'https://ch
  * A fresh isolate's first call that parses a big data copy (eclipses, countries, small bodies: 15-150 ms) can still
  * overrun the free plan; the answer is cached after that. PLAN = "paid" lists everything.
  */
-export const HEAVY = Object.freeze(['satellite_passes', 'night_sky', 'close_approaches', 'where_is_satellite', 'solar_system', 'wildfires', 'plate_readers', 'military_areas', 'ships_baltic', 'traffic_cameras', 'transit_vehicles']);
+export const HEAVY = Object.freeze(['satellite_passes', 'night_sky', 'close_approaches', 'reentries', 'where_is_satellite', 'solar_system', 'wildfires', 'plate_readers', 'military_areas', 'ships_baltic', 'traffic_cameras', 'transit_vehicles']);
 /** Subrequests (fetches and Cache API calls together) one request may make: Cloudflare's 50 / 10,000, less a margin. */
 export const SUBREQUESTS = Object.freeze({ free: 45, paid: 900 });
 /** Seconds a tool's answer is shared (default 60: most feeds change by the minute; the answers say "5 min ago"). */

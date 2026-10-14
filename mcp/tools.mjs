@@ -32,6 +32,7 @@ import { volcanoesTool } from './volcanoes.mjs';
 import { seaTool, airTool } from './ocean.mjs';
 import { roadsTool } from './roads.mjs';
 import { conjTool } from './conj.mjs';
+import { reentryTool } from './reentry.mjs';
 import { sunTool } from './sun.mjs';
 import { meteorsTool } from './meteors.mjs';
 import { createOsmTools } from './osm.mjs';
@@ -485,7 +486,7 @@ export function createTools(ctx) {
 
   return [showOnGlobe, earthquakes, whereSat, passes, launches, crew, flybys, storms, events, ships, bikes, weather, aurora, night,
     camerasTool(ctx), transitTool(ctx), firesTool(ctx), countryTool(ctx), cablesTool(ctx), solarTool(ctx), eclipsesTool(ctx), distanceTool(ctx), volcanoesTool(ctx), roadsTool(ctx),
-    conjTool(ctx), sunTool(ctx), meteorsTool(ctx), ...createOsmTools(ctx, link), weatherDetailsTool(ctx), aircraftTool(ctx), spaceTool(ctx), airportWxTool(ctx), seaTool(ctx), airTool(ctx), spaceWeatherTool(ctx)];
+    conjTool(ctx), reentryTool(ctx), sunTool(ctx), meteorsTool(ctx), ...createOsmTools(ctx, link), weatherDetailsTool(ctx), aircraftTool(ctx), spaceTool(ctx), airportWxTool(ctx), seaTool(ctx), airTool(ctx), spaceWeatherTool(ctx)];
 }
 
 /** Server instructions: how the tools fit together. */

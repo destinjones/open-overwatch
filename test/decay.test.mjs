@@ -60,6 +60,11 @@ test('decay: a fresh ISS set is nowhere near coming down (years without reboosts
   assert.ok(p.days > 365 * 3, spanText(p.days));
   assert.ok(p.windowMs[0] - p.epochMs > 180 * DAY, 'even the window\'s near edge is months away');
   assert.equal(fallingSoon([{ id: '25544', name: 'ISS', l1: ISS[0], l2: ISS[1] }], { now: p.epochMs }).length, 0);
+  // and a fresh one (the site's copy, 2026-10-13), near solar maximum's tail
+  const now = predict('1 25544U 98067A   26286.82178372  .00006592  00000+0  12831-3 0  9991', '2 25544  51.6325  73.0089 0006710 259.3258 100.6975 15.48855783590140');
+  assert.ok(now.days > 365 && !now.manoeuvring, spanText(now.days));
+  assert.equal(expField(' 00000+0'), 0);
+  assert.ok(Math.abs(expField(' 25552+0') - 0.25552) < 1e-12);
 });
 
 test('decay: Tiangong-1, 34 h before it came down, has 2018-04-02 00:16 UTC inside its window', () => {

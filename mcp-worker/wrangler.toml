@@ -10,7 +10,7 @@ workers_dev = true
 # satellite.js and src/core/ are bundled from the repository (npm install at the root first)
 
 [vars]
-PLAN = "free"        # "paid" on the Workers Paid plan: every tool (the free plan leaves the 11 heaviest out)
+PLAN = "free"        # "paid" on the Workers Paid plan: every tool (the free plan leaves the 12 heaviest out)
 PUBLIC = "false"     # "true" opens /mcp to anyone (no token): the data is public, but mind the rate limit
 OO_SITE = "https://destinjones.github.io/open-overwatch/"
 # ALLOW_ORIGINS = "https://example.com"   # browser origins beyond claude.ai and ChatGPT

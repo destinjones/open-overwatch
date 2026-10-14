@@ -79,6 +79,7 @@ old the data is and a confidence word (confirmed, reported, stale, unknown), the
 | `volcanoes` | Wikidata (the website's copy), NASA EONET, USGS | the volcanoes nearest a place, any open eruption, and this week's earthquakes next to them |
 | `road_speeds` | Fintraffic (Finland), NYC DOT | measured traffic speeds and volumes on the roads near a place |
 | `close_approaches` | CelesTrak SOCRATES (the website's copy), SGP4 | the closest coming encounters between satellites and debris, and where over the Earth they happen |
+| `reentries` | CelesTrak element sets (the website's copy), the globe's decay model (`src/core/decay.js`) | what is predicted to re-enter in the next 30 days, soonest first: the window (±25% of the time left), the orbit, working satellite or debris, provenance, and optionally the corridor (ground track over the window) |
 | `sun_and_moon` | the website's own sky maths | sunrise, sunset, day length, the twilights, golden and blue hours, and the Moon, at a place on any day |
 | `meteor_showers` | the IMO shower list, the website's sky maths | the coming showers, how many an hour you could really see from a place, and when to look |
 | `plate_readers` | OpenStreetMap via DeFlock and FlockHopper's hourly tiles | the licence-plate readers mapped near a place in the US or Canada: how many, makes, operators, facings, the nearest ones (a count only for a big area) |
@@ -115,7 +116,7 @@ The same server runs as a Cloudflare Worker ([`mcp-worker/`](../mcp-worker/READM
 stateless Streamable HTTP at `/mcp`, guarded by a secret (`Authorization: Bearer <token>`, or the token as the last part of
 the path for connectors that only take a URL), with CORS for claude.ai and ChatGPT, every feed and every tool answer
 shared through the Workers Cache API, and a rate limit per address. On Cloudflare's free plan (10 ms of CPU and 50
-look-ups a request) it leaves out the eleven heaviest tools (satellite pass searches, the planets' look-ahead, tile
+look-ups a request) it leaves out the twelve heaviest tools (satellite pass searches, re-entry predictions, the planets' look-ahead, tile
 decoding, vessel-by-vessel AIS); on Workers Paid it lists all of them. Once deployed, add
 `https://open-overwatch-mcp.<account>.workers.dev/mcp/<token>` in claude.ai (Settings → Connectors → Add custom
 connector). It is deployed on the owner's Cloudflare account (ask the owner for a connector URL); the deploy steps are in [mcp-worker/README.md](../mcp-worker/README.md).
