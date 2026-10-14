@@ -3,6 +3,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". This page allows inline script (its popups use onclick= attributes). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: http: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<script type="importmap">{ "integrity": { "https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.light.mjs": "sha384-OQpxx4NyhnwaH6BpRnuHkLoE710dl+R2jDCUYLeXFVi1Msn+cqfvyy9F0Tt0FmXP" } }</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <script>/* iOS ignores user-scalable=no: stop its page pinch-zoom too (the views handle pinch themselves) */ addEventListener('gesturestart', e => e.preventDefault(), { passive: false });</script>
 <meta name="theme-color" content="#04060a">
@@ -17,9 +20,7 @@
 <meta property="og:title" content="Open Overwatch">
 <meta property="og:description" content="Live picture from open feeds: aircraft, satellites, ships, storms and quakes on one map.">
 <meta property="og:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;900&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="brand/fonts/fonts.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha384-c6Rcwz4e4CITMbu/NBmnNS8yN2sC3cUElMEMfP3vqqKFp7GOYaaBBCqmaWBjmkjb" crossorigin="anonymous">
 <link rel="stylesheet" href="src/map/measure.css">
 <link rel="stylesheet" href="src/map/weather.css">

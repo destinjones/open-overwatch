@@ -19,7 +19,7 @@ jobs:
           cp -r src "$D/"                                                                          # the apps' ES modules
           cp open-overwatch.html globe.html solar.html tonight.html manifest.webmanifest sw.js offline.html serve.js serve.py README.txt \
              "Start Open Overwatch.bat" "Start Open Overwatch (minimized).vbs" "$D/"
-          cp -r brand/emblem brand/sprites "$D/brand/"
+          cp -r brand/emblem brand/fonts brand/sprites "$D/brand/"
           rm -rf "$D/brand/sprites/raw"
           cp brand/hero/*.webp "$D/brand/hero/"
           cp brand/social/og-1200x630.png "$D/brand/social/"

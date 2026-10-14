@@ -3,6 +3,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-P5skaw/CUJLcCGM1kcv/zrG7kvCOWsU/C6sLyGeX7cM=' 'sha256-4g6IFy3jZIsVr0D4turpDZpMhToQ3aT7b3lxYOo7hTs='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <script>/* iOS ignores user-scalable=no: stop its page pinch-zoom too (the views handle pinch themselves) */ addEventListener('gesturestart', e => e.preventDefault(), { passive: false });</script>
 <meta name="theme-color" content="#000000">
@@ -14,8 +16,7 @@
 <meta property="og:type" content="website"><meta property="og:site_name" content="Open Overwatch"><meta property="og:title" content="Open Overwatch · the Solar System, live"><meta property="og:description" content="Fly from Earth to the cosmic web: planets, moons, asteroids, spacecraft, exoplanets, stars and galaxies, where they really are. Free and open source."><meta property="og:url" content="https://destinjones.github.io/open-overwatch/solar.html">
 <meta property="og:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Open Overwatch · the Solar System, live"><meta name="twitter:description" content="Fly from Earth to the cosmic web: planets, moons, asteroids, spacecraft, exoplanets, stars and galaxies, where they really are. Free and open source."><meta name="twitter:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png">
 <link rel="icon" href="brand/emblem/favicon.svg">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="brand/fonts/fonts.css">
 <style>
 html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%} /* no page pinch-zoom; panels still scroll */
 /* Open Overwatch · Solar System: Three.js, one scene from the Moon to the Local Group, in AU (log depth buffer). */
@@ -162,6 +163,10 @@ a{color:var(--accent)}
 <script type="importmap">{ "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+}, "integrity": {
+  "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js": "sha384-m8JoFX52V6NGv2usipnlLJKnJfL7IE8dbniPDDCSGSQv3Hm4n6PjfV6syVwfuoRc",
+  "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.core.js": "sha384-mdKeCwPEcbDvzaxwhm+MVuLoMou+E7jQqrs4tmu/n8HBYPGI1kZt0MkJxlMR4zFM",
+  "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/controls/OrbitControls.js": "sha384-LSqANrugPGTgf0eYsQTloqKWy926dOOXo2iZ9y6wLMIDEQoU9AaCLJF1Vcc7oJXr"
 } }</script>
 </head>
 <body>

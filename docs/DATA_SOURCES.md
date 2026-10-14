@@ -173,3 +173,10 @@ liveness review.
 | Where in space (where_in_space) | the website's `data/solar/spacecraft.json` (JPL Horizons tracks), `moons.json`, `small_bodies.json` (JPL SBDB elements) and `constellations.json`; one asteroid's elements by seven HTTP byte ranges of `asteroids_a.bin` / `asteroids_b.bin` | from GitHub Pages, kept a day (ranges a week); a server that ignores ranges sends the file and it is sliced | the small-body list (1.3 MB) is only loaded when a name isn't a planet, moon or mission |
 | Remote endpoint (mcp/worker.mjs on Cloudflare Workers, not deployed) | the sources above, asked from Cloudflare's network | every GET answer kept in the Workers Cache API for its ttl, tool answers for 1-60 min (keyed by a SHA-256 of the question) | the ADS-B networks refuse Cloudflare (no tool reads them); nothing logged but the tool name and time (`LOG`) |
 | Streamable HTTP (`--http <port>`) | none: the same tools over HTTP on 127.0.0.1 | stateless, one JSON-RPC message per POST, JSON answers | Host and Origin checked (loopback, or `--allow-origin`); nothing is logged but the tool name and time |
+
+## Libraries and fonts (the pages themselves)
+| What | From | How it's checked | Licence |
+|---|---|---|---|
+| CesiumJS 1.146.0, satellite.js 5.0.0, three.js 0.186.1, hls.js 1.5.20, &lt;model-viewer&gt; 4.0.0 | [jsDelivr](https://www.jsdelivr.com) (npm files at exact versions) | `integrity` sha384 on each tag, or the page's import map `integrity` (three.js, hls.js); `node brand/tools/sri.mjs --fetch` compares them with the CDN | Apache 2.0 (Cesium, model-viewer), MIT (satellite.js, three.js), Apache 2.0 (hls.js) |
+| Leaflet 1.9.4 | [cdnjs](https://cdnjs.com) | `integrity` sha384 | BSD 2-Clause |
+| Fonts: Big Shoulders Display, Barlow, IBM Plex Mono | served from this site (`brand/fonts/`, Google Fonts' woff2 builds, latin + latin-ext); no request to Google | files in the repository | SIL Open Font License 1.1 (`brand/fonts/OFL-*.txt`) |

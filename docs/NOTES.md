@@ -815,3 +815,50 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
 - **Globe clicks**: `hooks.seaAt(lon, lat)` in ui.js runs when a click lands on the Earth but in no country and a picture
   layer is on; it opens a "value here" card. Land clicks still open the country.
 
+
+## Supply chain: SRI, Content-Security-Policy, self-hosted fonts (core/sricheck.js, brand/tools/sri.mjs, brand/fonts/) — 2026-10-14
+- **SRI.** Every CDN `<script src>` and `<link rel=stylesheet>` carries `integrity="sha384-…" crossorigin="anonymous"`
+  (without CORS the browser does not check the hash). Module URLs go in an import map's `"integrity"` object instead:
+  solar.html lists three.module.js, three.core.js (three.module.js imports it) and OrbitControls.js; globe.html and
+  open-overwatch.html carry an integrity-only import map for hls.js, which cams.js / map feeds.js `import()` on first
+  use. Import-map integrity needs Chrome 127, Safari 18, Firefox 138; older browsers load those modules unchecked.
+  Not covered, by design of the browser: Cesium's own follow-up files (Workers/*.js, Assets, ThirdParty wasm, loaded
+  from CESIUM_BASE_URL at run time; the files are immutable on jsDelivr at an exact version) and satellite.js inside
+  the blob workers (`importScripts`, no integrity option; it is the same URL the page itself checked).
+- **Bumping a library:** change the URL on every page, then `node brand/tools/sri.mjs --fetch --write` downloads each
+  pinned file and writes the new hashes (`--fetch` alone only compares). A new tag needs `integrity=""
+  crossorigin="anonymous"` first; a new import-map module needs its `"integrity"` entry (the tool prints it). jsDelivr
+  only serves fixed bytes for files the npm package ships: never pin a jsDelivr auto-minified `.min.js` the package
+  lacks (both pinned .min files are in their packages; checked with data.jsdelivr.com).
+- **CSP** is a `<meta http-equiv>` right after `<meta charset>` (it only governs what follows it). Per page script-src
+  is 'self' plus the exact CDN origins the page loads, plus the sha256 of each inline script; `test/sri.test.mjs`
+  fails when an inline script changes without `node brand/tools/sri.mjs --csp` (hashes are of the LF text, as the HTML
+  parser sees it, so a CRLF checkout agrees). Exceptions, on purpose:
+  - open-overwatch.html uses `'unsafe-inline'` and no hashes: its popups are HTML strings with `onclick=` attributes
+    (21 of them, all built with num()/idArg()/esc()), and the publish script rewrites the inline OW_VERSION line. A hash
+    anywhere in script-src would make browsers ignore 'unsafe-inline'; the check refuses that mix. Moving those
+    handlers to one delegated listener would let the map drop 'unsafe-inline'.
+  - globe.html adds `'unsafe-eval'`: CesiumJS's Viewer widgets run on Knockout, which reads `(0,eval)("this")` as
+    Cesium.js loads (without it the globe never starts: "EvalError … 'unsafe-eval' is not an allowed source") and
+    compiles each `data-bind` with `new Function`. It also covers Cesium's WebAssembly (draco, KTX2/basis decoders;
+    'wasm-unsafe-eval' alone would do for those). Dropping it means replacing Viewer's widgets with CesiumWidget plus
+    our own controls. Every other page is refused 'unsafe-eval' by the check (`EVAL_OK` in core/sricheck.js).
+  - style-src keeps 'unsafe-inline' (style attributes and the pages' own <style> everywhere; styles do not run code).
+  - img-src / media-src / connect-src allow `https:` (plus data:, blob:): the feeds come from dozens of hosts and
+    users can add their own (relay URL, radio streams), so an allowlist would break on every new feed. img-src also
+    allows http: (a few camera stills; images cannot run code), and the 2D map's connect-src allows http: for a
+    custom relay on the local network (the Setup tab warns about it). Scripts are the part that is locked down.
+  - worker-src / child-src 'self' blob: (satellite workers are blob: URLs, which inherit the page's policy, so their
+    `importScripts` from jsDelivr passes script-src); frame-src 'self' (the globe frames solar.html for the zoom-out).
+    The globe also lists https://cdn.jsdelivr.net there: Cesium first tries `new Worker(<jsDelivr URL>)` and falls back
+    to a blob: wrapper only when that throws. Chrome throws for a cross-origin worker, but a CSP block is reported
+    later as an error event, so with 'self' blob: alone Cesium's workers never started (createGeometry,
+    createVerticesFromQuantizedTerrainMesh: the globe stayed without terrain tiles).
+  - frame-ancestors, report-uri and sandbox are ignored in a `<meta>` CSP. GitHub Pages cannot send headers, so
+    framing is not restricted (the MCP Apps view frames the globe on purpose).
+- **Fonts** are self-hosted (brand/fonts/: Google Fonts' woff2 builds of Big Shoulders Display (variable, 600-900),
+  Barlow 400/500/600, IBM Plex Mono 400/500, latin + latin-ext, `fonts.css`, the three SIL OFL files). brand/fonts is
+  in APP_PATHS and the release zip. The look-dev tools brand/tools/capture.mjs and make_cards.mjs still ask Google
+  Fonts for their own card pages (local tooling, not the site).
+- **Check before publishing a page change:** `node brand/tools/sri.mjs` (or `node --test`). In a browser, a CSP
+  violation shows as a console error "Refused to …"; listen for `securitypolicyviolation` to catch them in a script.
