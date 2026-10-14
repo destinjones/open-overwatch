@@ -1,0 +1,8 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
+# Every change is reviewed by the project's maintainer (see GOVERNANCE.md).
+*                     @destinjones
+/.github/             @destinjones
+/mcp/                 @destinjones
+/mcp-worker/          @destinjones
+/relay/               @destinjones
+/src/core/            @destinjones
