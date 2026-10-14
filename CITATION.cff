@@ -11,8 +11,8 @@ doi: 10.5281/zenodo.23348946
 repository-code: "https://github.com/destinjones/open-overwatch"
 url: "https://destinjones.github.io/open-overwatch/"
 license: MIT
-version: "0.9.2.11"
-date-released: 2026-10-13
+version: "0.9.2.12"
+date-released: 2026-10-14
 keywords:
   - open data
   - situational awareness
