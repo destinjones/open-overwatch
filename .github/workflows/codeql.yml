@@ -1,0 +1,59 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
+# CodeQL code scanning: the JavaScript (src/, mcp/, mcp-worker/, relay/, the tools) and the workflows themselves, on
+# pushes and pull requests to main and once a week. Data, renders and the browser tests' caches are left out so the
+# scan stays quick; results appear under the repository's Security tab.
+name: CodeQL
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['data/**', 'brand/**/*.png', 'brand/**/*.jpg', 'brand/**/*.webp', 'brand/**/*.mp4', 'brand/**/*.blend', '**/*.md']
+  pull_request:
+    branches: [main]
+    paths-ignore: ['data/**', 'brand/**/*.png', 'brand/**/*.jpg', 'brand/**/*.webp', 'brand/**/*.mp4', 'brand/**/*.blend', '**/*.md']
+  schedule:
+    - cron: '23 4 * * 1'
+permissions:
+  contents: read
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          config: |
+            paths-ignore:
+              - data
+              - e2e/.cache
+              - e2e/.report
+              - e2e/.results
+              - e2e/snapshots
+              - test/fixtures
+              - brand/about        # brand/ is renders, models and textures; brand/tools (scripts) is scanned
+              - brand/blend
+              - brand/clip
+              - brand/emblem
+              - brand/hero
+              - brand/lander
+              - brand/models
+              - brand/social
+              - brand/source
+              - brand/sprites
+              - brand/textures
+              - node_modules
+              - '**/*.min.js'
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}

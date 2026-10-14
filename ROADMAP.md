@@ -360,6 +360,12 @@ Round 2 (2026-10-10, local):
       redeploys it (`npx wrangler deploy` in relay/). Tides, sea temperature, smoke and air quality need no relay
 - [ ] Ocean next: NOAA's HF-radar surface currents (ERDDAP, CORS); Argo floats; a tide curve on the card (the 6-minute
       predictions); tide gauges outside the US (IOC sea level monitoring, no CORS: relay); the 2D map's click-to-read
+### CI security and coverage (ci-security-coverage, 2026-10-14, local)
+- [x] Dependabot (npm and github-actions, weekly, grouped, against main), CodeQL (JavaScript and actions; push and PR
+      to main, weekly; data, renders and fixtures skipped), `npm audit --audit-level=high` and a licence allowlist
+      check (`brand/tools/license_check.mjs`, no new dependency) in the test job, and a coverage floor (`npm run
+      coverage`: src/core and mcp, lines 96 / branches 81 / functions 91 against 99.3 / 84.2 / 94.3 measured)
+- [ ] Raise the branch floor as the MCP tools' error paths get tests (airportwx, hazards, ocean are 51-59 % branches)
 
 ## Rules of thumb
 - One clear goal per session; read this file first, tick boxes as they land.

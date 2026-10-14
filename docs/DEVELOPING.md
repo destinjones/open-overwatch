@@ -132,12 +132,14 @@ Runs every `test/*.test.mjs` with Node's own runner. No dependencies except `sat
 | `ocean.test.mjs` | the sea and air feeds against answers captured on 2026-10-13: NDBC buoys, stations and a DART file; CO-OPS gauges, a level and tide predictions; GIBS colour maps read back from a pixel; Open-Meteo air quality; the cards' words |
 | `wxpoint.test.mjs`, `whereis.test.mjs` | the weather at a point (tendency, Beaufort, CAPE, sea state, model agreement); "where is it now" (byte-range asteroid elements against the whole file, the quick search, H-G magnitudes) |
 | `docs.test.mjs` | these docs against the code: layer ids, link parameters, voice examples, band buttons, core modules and their exports |
+| `license.test.mjs` | the licence check of the dependency tree (`brand/tools/license_check.mjs`): SPDX expressions against the allowlist |
 | `e2esupport.test.mjs` | the browser tests' machinery without a browser: the PNG codec and picture comparison, every feed fixture read by the real parsers, which URL gets which fixture |
 
 Run one file with `node --test test/measure.test.mjs`. CI (`.github/workflows/ci.yml`) runs on every push: a syntax
 check of every module and tool (`node --check`, `py_compile`), a check that every `src/…` module a page loads exists,
 the accessibility check (`node brand/tools/a11y_check.mjs`: names, alt text, labels, ids, colour contrast on every
-page), then `npm ci` and `node --test`; a second job runs the browser tests (`npx playwright test`). A new page goes into `PAGES` in `a11y_check.mjs`, the lists in
+page), then `npm ci`, `npm audit`, the licence check and the tests with a coverage floor (below); a second job runs the
+browser tests (`npx playwright test`). A new page goes into `PAGES` in `a11y_check.mjs`, the lists in
 `test/a11y.test.mjs` and `PAGES` in `sw.js` (so it works offline), and loads `src/app/shell.js`.
 
 **When to add a test.** Anything in `src/core/` gets one, in the file for its area (or a new `test/<area>.test.mjs`), and a section in
@@ -150,6 +152,23 @@ Chromium against `serve.js` on port 8805 with the live feeds stubbed (CelesTrak 
 `e2e/support/feeds.mjs`), clicks through the main controls, checks phone layouts and compares five still views with
 small reference pictures in `e2e/snapshots/`. CI runs them as their own job. A change to a page's controls may need its
 spec updated; see [TESTING.md](TESTING.md#end-to-end-browser-tests-playwright-in-ci).
+
+**Security and coverage checks.** CI's test job also runs:
+
+- `npm audit --audit-level=high`: fails on a high or critical advisory anywhere in the tree. Dev dependencies
+  (Playwright) are included on purpose: CI runs them, and today the tree has no advisories at all.
+- `node brand/tools/license_check.mjs`: every package in the production tree (from `package-lock.json`, licences read
+  from `node_modules`) must be MIT, ISC, BSD-2/3-Clause, Apache-2.0, 0BSD, CC0-1.0 or BlueOak-1.0.0; SPDX `OR`/`AND`
+  are understood; a missing or unknown licence fails. satellite.js 5.0.0 is MIT. `--dev` checks Playwright too
+  (Apache-2.0).
+- `npm run coverage`: the whole suite with Node's coverage over `src/core/` and `mcp/` only, failing below the floors
+  in `package.json` (lines 96, branches 81, functions 91; measured 2026-10-14: 99.3 / 84.2 / 94.3). Node 22 reads the
+  floors as whole numbers, so keep them integers; raise them when coverage rises. Node only counts files a test
+  imports, so a new core module with no test doesn't lower the number: give it a test anyway.
+
+`.github/workflows/codeql.yml` runs CodeQL (JavaScript and the workflows) on pushes and pull requests to `main` and
+weekly, skipping `data/`, renders and fixtures; `.github/dependabot.yml` opens weekly grouped updates for npm and the
+workflows' actions against `main`.
 
 Other browser-level checks (frame rates, the phone journeys, the Android emulator, WebKit) are in [TESTING.md](TESTING.md).
 
