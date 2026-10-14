@@ -15,6 +15,7 @@ import { oceanAt } from '../core/explain.js';
 import { haversine } from '../core/geo.js';
 import { planetsTonight, darkWindow, moonPhase, auroraAt, describePass, starlinkTrains, sunAlt, riseSet, nextFullMoon, craftAt, meetings } from '../core/sky.js';
 import { fetchAsset } from '../core/assets.js';
+import { SunNow, sunTonightHtml } from './sunnow.js';
 import { hoursOf, cloudAt, night, sky as skyWord } from '../core/clouds.js';
 import { earthPosition } from '../core/planets.js';
 import { jdFromMs } from '../core/time.js';
@@ -196,6 +197,7 @@ function draw(initial) {
     <h3>Moon</h3><p class="tn-p">${esc(moon.name)} · ${Math.round(moon.lit * 100)}% lit · ${esc(sm.moonText)}${sky > 0 ? ' · it is daytime here now' : ''}<br><small>${esc(sm.full)}</small></p>
     <h3>Aurora</h3><p class="tn-p">${S.aurora ? esc(S.aurora.text) + (S.aurora.err ? '' : ` <small>(NOAA OVATION: ${S.aurora.overhead}% overhead)</small>`) : 'Checking NOAA\'s aurora forecast…'}</p>
     <div class="acts"><button class="chipbtn" id="tnAur">${watching ? 'Stop aurora alerts' : 'Alert me if aurora gets likely'}</button></div>
+    ${sunTonightHtml(S.sun, S.sunErr)}
     ${soon.length ? `<h3>Coming up in the sky</h3><div class="tn-list">${soon.map(t => `<div class="tn-row"><span>${esc(t)}</span></div>`).join('')}</div>` : ''}
     ${S.ecl ? `<h3>Next solar eclipse you can see</h3><div class="tn-list"><div class="tn-row"><span>${esc(new Date(S.ecl.at).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}, ${esc(new Date(S.ecl.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}: ${S.ecl.kind === 'total' ? '<b class="ok">TOTAL</b> from here' : S.ecl.kind === 'annular' ? 'a ring of fire from here' : `the Moon covers ${Math.round(S.ecl.covered * 100)}% of the Sun from here`}${S.ecl.e.type === 'total' && S.ecl.kind !== 'total' ? ' (totality elsewhere)' : ''}. Never look at the Sun without eclipse glasses.</span>${D.watchEclipse ? '<span class="tn-b"><button class="chipbtn" id="tnEcl">Watch the shadow</button></span>' : ''}</div></div>` : S.ecl === false ? '<h3>Solar eclipses</h3><p class="tn-p">None visible from here in 2027–2030.</p>' : ''}
     ${S.far.length ? `<h3>Farthest from home</h3><div class="tn-list">${S.far.map(f => `<div class="tn-row"><span>${esc(f.text)}</span></div>`).join('')}</div>` : ''}
@@ -228,7 +230,7 @@ function draw(initial) {
 }
 
 async function show(loc) {
-  const run = ++S.run; S.open = true; S.loc = loc; S.passLoc = loc; S.passes = []; S.aurora = null; S.computing = true; S.satErr = ''; S.memo = null; render(true);
+  const run = ++S.run; S.open = true; S.loc = loc; S.passLoc = loc; S.passes = []; S.aurora = null; S.sun = null; S.sunErr = false; S.computing = true; S.satErr = ''; S.memo = null; render(true);
   const obs = observer(loc.lat, loc.lon), t0 = Date.now(), t1 = t0 + DAY;
   S.crew = '';
   Crew.load().then(() => { if (run === S.run) { S.crew = Crew.sentence(); render(); } }, () => {});
@@ -238,6 +240,7 @@ async function show(loc) {
   forecast(loc.lat, loc.lon).then(h => { if (run === S.run) { S.hours = h; S.hoursLoc = loc; render(); } }, e => { console.warn('clouds', e); if (run === S.run) { S.cloudErr = 'The cloud forecast is unreachable right now.'; render(); } });
   farthest(Date.now()).then(x => { if (run === S.run) { S.far = x; render(); } }, e => console.warn('farthest', e));
   launchesNear(loc).then(x => { if (run === S.run) { S.launches = x; render(); } }, () => {});
+  SunNow.load().then(x => { if (run === S.run) { S.sun = x; render(); } }, () => { if (run === S.run) { S.sunErr = true; render(); } });   // the solar wind, flares and SWPC's warnings (globe/sunnow.js)
   D.auroraGrid().then(g => { if (run === S.run) { S.aurora = auroraAt(g.coordinates, loc.lat, loc.lon); render(); } }, () => { if (run === S.run) { S.aurora = { level: 0, overhead: 0, err: true, text: 'NOAA\'s aurora forecast is unreachable right now.' }; render(); } });
   const ok = await satsReady(); if (run !== S.run) return;   // a newer show() (another place) took over while satellites loaded
   if (!ok) {   // not "no passes": the orbits never arrived. Say so, and finish the job if they turn up later

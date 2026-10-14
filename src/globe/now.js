@@ -22,6 +22,7 @@ import { Sats } from './satellites.js';
 import { Model } from './model.js';
 import { Weather } from './weather.js';
 import { Country } from './country.js';
+import { SunNow, sunNowHtml } from './sunnow.js';
 import { usgsUrl, parseUsgs, quakeTitle } from '../core/quakes.js';
 import { eonetUrl, parseEonet } from '../core/eonet.js';
 import { countdown } from '../core/launches.js';
@@ -192,6 +193,10 @@ function auroraHtml(sum, err) {
   }
   return section('aurora', 'Aurora', '#7dffb0', h, 'NOAA SWPC planetary K index · 3-hour values, the last 3 days and the forecast (faint) · the dashed line is G1');
 }
+function sunHtml(s, err) {
+  const h = err ? failed("NOAA's solar wind feed") : !s ? waiting : sunNowHtml(s, row, () => { layerOn('aurora'); fly(nightPoleLon(), 68, 7.5e6); });
+  return section('sun', 'The Sun', '#ffd27d', h, 'NOAA SWPC · solar wind at L1, GOES X-rays, watches and warnings');
+}
 /** The longitude where it is about midnight now (the aurora is best seen there). */
 function nightPoleLon() { const d = new Date(), h = d.getUTCHours() + d.getUTCMinutes() / 60; return ((180 - h * 15) + 540) % 360 - 180; }
 
@@ -246,7 +251,7 @@ function render(data) {
   acts = [];
   const scroll = body.scrollTop;
   body.innerHTML = [
-    quakesHtml(data.s24), stormsHtml(data.storms), auroraHtml(data.kp, data.kpErr), launchesHtml(data.launches, data.launchErr),
+    quakesHtml(data.s24), stormsHtml(data.storms), auroraHtml(data.kp, data.kpErr), sunHtml(data.sun, data.sunErr), launchesHtml(data.launches, data.launchErr),
     crewHtml(data.crew, data.crewErr), flybysHtml(data.flybys, data.flybyErr), firesHtml(data.fires, data.fireErr), weatherHtml(data.wx, data.wxErr),
   ].join('');
   body.scrollTop = scroll;
@@ -268,6 +273,7 @@ async function refresh(force = false) {
       data.kp = kpSummary(series); data.kpErr = !data.kp;
       chartCache.kp = kpChart(series, { title: 'Planetary K index, 3-hour values: the last 3 days and the next day (forecast)', id: 'nwkp' });
     }, () => { data.kpErr = true; }),
+    SunNow.load(force).then(x => { data.sun = x; data.sunErr = false; }, () => { data.sunErr = !data.sun; }),
     Launches.load().then(() => {
       if (Launches.error && !Launches.list.length) { data.launchErr = true; return; }
       data.launches = Launches.list; data.launchErr = false;

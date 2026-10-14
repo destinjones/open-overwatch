@@ -145,7 +145,7 @@ test('mcp: initialize agrees a protocol version and says what the server offers'
 
 test('mcp: every tool is listed read-only with a schema; show_on_globe names the globe panel', async () => {
   const { server } = serve(), { tools } = (await rpc(server, 'tools/list')).result;
-  assert.equal(tools.length, 35);
+  assert.equal(tools.length, 36);
   for (const t of tools) {
     assert.match(t.name, /^[a-z_]+$/); assert.ok(t.description.length > 60, t.name); assert.equal(t.inputSchema.type, 'object');
     assert.equal(t.annotations.readOnlyHint, true); assert.equal(t.annotations.openWorldHint, true);
@@ -322,6 +322,28 @@ test('mcp: the aurora: Kp now and ahead, the chance at a place, the oval on the 
   assert.deepEqual(hashOf(d.url).add, ['aurora']); assert.equal(ok(await call(server, 'aurora', {})).structuredContent.local, null);
 });
 
+test('mcp: space weather: the solar wind and Bz, flares, SWPC warnings, each with its data age', async () => {
+  const sw = f => fx('spaceweather/' + f), at = Date.parse('2026-10-14T19:50:00Z');
+  const routes = [['https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json', sw('rtsw_mag_1m.json')], ['https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json', sw('rtsw_wind_1m.json')],
+    ['https://services.swpc.noaa.gov/json/goes/primary/xray-flares-latest.json', sw('xray-flares-latest.json')], ['https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json', sw('xray-flares-7-day.json')],
+    ['https://services.swpc.noaa.gov/products/alerts.json', sw('alerts.json')]];
+  const mk = (when, r = routes) => createOverwatchServer({ fetchImpl: pretendInternet(r).fetchImpl, now: () => when });
+  const r = ok(await call(mk(at), 'space_weather')), d = r.structuredContent, text = r.content[0].text;
+  assert.equal(d.solar_wind.speed_km_s, 550); assert.equal(d.solar_wind.minutes_to_earth, 45); assert.equal(d.bz.now_nt, 2.9); assert.equal(d.bz.southward, false);
+  assert.equal(d.bz.provenance.confidence, 'reported'); assert.equal(d.bz.provenance.data_time, '2026-10-14T19:45:00Z'); assert.equal(d.bz.provenance.age_s, 300);
+  assert.equal(d.flares.now.class, 'B7.2'); assert.equal(d.flares.peak_24h.class, 'C6.9');
+  assert.deepEqual(d.alerts_in_force, []); assert.match(text, /No NOAA space weather watches or warnings in force/);
+  assert.match(text, /Bz \(north-south field at L1\): northward/); assert.deepEqual(hashOf(d.url).add, ['aurora']);
+  // on the storm day the warnings are in force and plain; half an hour without new data says so
+  const storm = ok(await call(mk(Date.parse('2026-10-10T19:30:00Z')), 'space_weather')).structuredContent;
+  assert.ok(storm.alerts_in_force.some(e => e.scale === 'G3' && e.kind === 'warning'));
+  assert.ok(storm.alerts_in_force.every(e => e.active && e.provenance.data_time));
+  assert.match(ok(await call(mk(at + 30 * 60e3), 'space_weather')).content[0].text, /data 35 min old: the feed may be lagging/);
+  // a part that fails leaves the rest; all failing is an error
+  assert.equal(ok(await call(mk(at, routes.slice(0, 2)), 'space_weather')).structuredContent.alerts_in_force, null);
+  const none = await call(mk(at, []), 'space_weather'); assert.equal(none.isError, true); assert.match(none.content[0].text, /SWPC/);
+});
+
 test('mcp: tonight\'s sky: darkness, clouds, planets, the Moon, showers and bright passes', needsSgp4, async () => {
   const { server } = serve(), r = ok(await call(server, 'night_sky', { place: 'Helsinki' })), d = r.structuredContent, text = r.content[0].text;
   assert.match(text, /^Tonight from Helsinki, Uusimaa, Finland \(times Europe\/Helsinki\):/);
@@ -364,7 +386,7 @@ test('mcp: the stdio server answers a client and exits when stdin closes', async
   assert.equal(code, 0, err);
   const lines = out.trim().split('\n').map(l => JSON.parse(l)), byId = id => lines.find(l => l.id === id);   // answers may come in any order
   assert.equal(lines.length, 3, out);
-  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 35); assert.equal(byId(null).error.code, -32700);
+  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 36); assert.equal(byId(null).error.code, -32700);
   assert.match(err, /open-overwatch-mcp \d+\.\d+\.\d+ - links to https:\/\/destinjones\.github\.io\/open-overwatch\//);
 });
 
@@ -582,7 +604,7 @@ test('mcp http: one JSON-RPC message per POST, answered as JSON; notifications g
   assert.equal(init.status, 200); assert.match(init.headers.get('content-type'), /application\/json/); assert.equal(init.headers.get('mcp-protocol-version'), '2025-06-18');
   assert.equal((await init.json()).result.serverInfo.name, 'open-overwatch');
   const list = await (await h(post({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, { 'mcp-protocol-version': '2025-06-18' }))).json();
-  assert.equal(list.result.tools.length, 35);
+  assert.equal(list.result.tools.length, 36);
   const q = await (await h(post({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'earthquakes', arguments: {} } }))).json();
   assert.equal(q.result.structuredContent.total, 3);
   const n = await h(post({ jsonrpc: '2.0', method: 'notifications/initialized' })); assert.equal(n.status, 202); assert.equal(await n.text(), '');
@@ -647,7 +669,7 @@ test('mcp http: node mcp/server.mjs --http serves Streamable HTTP until stopped'
     let err = '';
     const url = await new Promise((res, rej) => { p.stderr.on('data', b => { err += b; const m = err.match(/Streamable HTTP at (http:\/\/127\.0\.0\.1:\d+\/mcp)/); if (m) res(m[1]); }); p.on('close', c => rej(new Error('exited ' + c + ': ' + err))); });
     const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
-    assert.equal(r.status, 200); assert.equal((await r.json()).result.tools.length, 35);
+    assert.equal(r.status, 200); assert.equal((await r.json()).result.tools.length, 36);
   } finally { p.kill(); }
   const bad = spawn(process.execPath, [new URL('mcp/server.mjs', root).pathname.replace(/^\/([A-Za-z]:)/, '$1'), '--http', '0', '--host', '0.0.0.0'], { stdio: ['ignore', 'pipe', 'pipe'] });
   let e2 = ''; bad.stderr.on('data', b => { e2 += b; });
