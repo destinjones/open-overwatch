@@ -26,7 +26,7 @@ export const ALIAS = { iss: '25544', 'space station': '25544', 'international sp
 // views without a band button: [label, sub]
 const EXTRA = { crew: ['People in space', 'Who is aboard the ISS and Tiangong right now'] };
 const VIEW_WORDS = { crew: 'astronaut astronauts crew people cosmonaut taikonaut who', tonight: 'tonight sky stars above me passes meteor', lookup: 'look up sky', moon: 'moon lunar', eclipses: 'eclipse eclipses', flybys: 'asteroid comet flyby flybys',
-  weather: 'weather clouds rain radar wind storm', conj: 'near miss collision conjunction', space: 'solar system planets mars jupiter saturn venus mercury uranus neptune pluto stars galaxy',
+  weather: 'weather clouds rain radar wind storm', conj: 'near miss collision conjunction', reentry: 'reentry re-entry falling decay deorbit crash debris', space: 'solar system planets mars jupiter saturn venus mercury uranus neptune pluto stars galaxy',
   geo: 'geostationary geo belt tv satellites', route: 'directions route walk drive cycle navigate', tour: 'tour guide', launches: 'launch launches rocket spacex nasa artemis falcon starship countdown', flight: 'flight plane aircraft', measure: 'measure distance ruler length area draw pin outline border' };
 
 let results = [], timer = 0, seq = 0;

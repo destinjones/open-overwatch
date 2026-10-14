@@ -47,6 +47,7 @@ same code runs in Node tests and in the render loop without allocating.
 | `tle.js` | satellite element sets: CelesTrak / site-copy order, 2 h cache, parsing, epochs |
 | `geo.js` | great-circle destination, haversine, dead reckoning for aircraft and ships |
 | `socrates.js` | CelesTrak SOCRATES close-approach CSV parsing, upcoming conjunctions |
+| `decay.js` | re-entry predictions from TLEs (n-dot and B* drag, solar-scaled atmosphere, ±25% window, corridor ground track) |
 | `passes.js` | satellite passes over an observer (rise / peak / set, look angles, sunlit + dark-sky visibility) |
 | `orientation.js` | W3C device orientation → camera direction and screen-up (look-up mode) |
 | `eclipse.js` | Moon shadow cones, where they meet the WGS84 ellipsoid, shadow outlines, what an observer sees |

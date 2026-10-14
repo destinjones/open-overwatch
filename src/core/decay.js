@@ -13,8 +13,8 @@
 //      atmosphere) scaled by solar activity, da/dt = -(Cd·A/m)·ρ·√(μa), until the perigee is at 100 km. Eccentric orbits:
 //      the perigee stays put while the apogee comes down (drag acts near perigee), then the circle shrinks; the density is
 //      the orbit average ρ(perigee)·e^-x·I0(x), x = a·e/H (King-Hele).
-//   4. The window: ±25% of the time the object had left at the TLE's epoch. That is the usual rule of thumb (Aerospace
-//      Corporation and ESA quote ±20-25% of the remaining lifetime for uncontrolled re-entries): the air density at
+//   4. The window: ±25% of the time the object had left at the TLE's epoch. That is the usual rule of thumb for uncontrolled
+//      re-entries (analysts quote 10-25% of the remaining lifetime; this takes the wide end): the air density at
 //      150-300 km swings with the Sun from day to day, and the object's attitude (so its drag) is unknown. When n-dot and
 //      B* disagree by more than a factor of 2 the window is ±50%.
 //   5. The corridor: the ground track (Kepler plus J2 node and perigee drift, phase from the decaying mean motion) over the
@@ -27,8 +27,9 @@
 // callers that know better pass { f107, kp }. Activity changes the density's shape with height; the n-dot path is calibrated
 // on the real atmosphere of the last days, so it moves less with these numbers than the B* path does.
 //
-// Not modelled: thrusters (a working satellite can raise its orbit or come down on purpose at any time; newly launched
-// ones still raising their orbit look like they are falling, so the list leaves out the last 30 days' launches), lift,
+// Not modelled: thrusters (a working satellite can raise its orbit or come down on purpose at any time). Two signs of them
+// are caught: a decay too fast to be drag (MAX_BALLISTIC) and a growing orbit (n-dot clearly negative: a new satellite still
+// raising itself, whose B* alone would say it is falling). Callers may also pass the last 30 days' launches to leave out. Lift,
 // tumbling, the fortnightly and 11-year swings of the Sun beyond the one F10.7 number.
 
 import { tleEpochMs } from './tle.js';
@@ -49,6 +50,7 @@ export const MAX_YEARS = 25;                   // beyond this the answer is "mor
 // a Starlink 0.01-0.1); Starlinks lowering themselves with thrusters at 420-550 km come out at 0.3-3. Light debris (insulation
 // flakes) can reach this too, and is left out with them: a rare miss, against a list full of false alarms.
 export const MAX_BALLISTIC = 0.25;
+export const RISING_NDOT = -1e-5;              // rev/day²: below this (and under 600 km) the orbit is being raised, not decaying
 
 // Vallado, Fundamentals of Astrodynamics and Applications, table 8-4 (CIRA-72): base height km, density kg/m³, scale height km
 const ATM = [
@@ -159,7 +161,8 @@ export function predict(l1, l2, { solar = DEFAULT_SOLAR, keepPath = false } = {}
   if (!(el.n > 0) || !Number.isFinite(el.a)) return null;
   const Bn = ballisticFromNdot(el, solar), Bb = ballisticFromBstar(el);
   if (!Bn && !Bb) return null;
-  const manoeuvring = (Bn || Bb) > MAX_BALLISTIC;
+  // n-dot clearly negative low down: the orbit is growing, so something is pushing it up (a new satellite raising its orbit)
+  const manoeuvring = (Bn || Bb) > MAX_BALLISTIC || (el.ndot < RISING_NDOT && el.perigeeKm < 600);
   const main = lifetime(el, Bn || Bb, solar, { keepPath });
   const other = Bn && Bb ? lifetime(el, Bb, solar).days : null;
   const days = main.days, fraction = fracOf(days, other);

@@ -196,6 +196,36 @@ module parses the raw CSV for the tests.
 - `parseSocrates`: CSV → `{ a, b, tca, rangeKm, speedKmS, maxProb }`.
 - `upcoming`: the ones still ahead, closest first. `csvFields`: one RFC 4180 CSV line.
 
+### `decay.js`
+
+Re-entry predictions from public element sets, worked out here (keyless, offline). Used by the globe's "Falling soon"
+(`src/globe/reentry.js`), the 2D map's re-entry layer and the MCP `reentries` tool; checked in `test/decay.test.mjs` against
+Tiangong-1 and GOCE (real re-entry times) and against Aerospace CORDS predictions read by hand.
+
+How: the TLE's n-dot (line 1, stored as n-dot/2 in rev/day²) is the decay measured over about the last day,
+da/dt = -(2/3)·a·ṅ/n; divided by the air density half a day back up the orbit (`FIT_LAG_DAYS`: n-dot lags the decay,
+which matters in the last days) it gives the ballistic factor Cd·A/m the object really flew with. B* gives it another way
+(`BSTAR_TO_BALLISTIC` = 12.741621 per unit B*) and is the fallback and cross-check. That factor is flown down through
+Vallado's exponential atmosphere (table 8-4, CIRA-72) scaled by solar flux, da/dt = -(Cd·A/m)·ρ·√(μa), midpoint steps of
+2% of a scale height, until the perigee reaches `END_KM` (100 km). Eccentric orbits keep their perigee while the apogee
+comes down, with the orbit-averaged density ρ(perigee)·e^-x·I0(x), x = ae/H (King-Hele). The window is ±`WINDOW_FRACTION`
+(25%) of the remaining lifetime at the epoch, ±`DISAGREE_FRACTION` when n-dot and B* differ by more than `DISAGREE_RATIO`.
+
+- `predict`: `(l1, l2, { solar, keepPath })` → `{ id, epochMs, perigeeKm, apogeeKm, incl, periodMin, method, ballistic, days,
+  reentryMs, windowMs, fraction, otherDays, manoeuvring, solar, el, path }`, or null when neither drag term says anything.
+  Manoeuvring means faster than drag can do (`MAX_BALLISTIC`, 0.25 m²/kg) or an orbit being raised (n-dot below `RISING_NDOT`).
+- `fallingSoon`: `(sats, { now, days, solar, exclude })` → predictions inside the next 30 days (or as many as asked) or with the window
+  still open, soonest first, stamped, with a working flag (any group but debris). Skips perigees above 700 km and, with
+  `quickDays` (a scale height over today's decay rate), everything nowhere near: ~30,000 objects in ~0.1 s.
+- `corridor`: the ground track (Kepler + J2 drift, phase from the decaying mean motion) over the window, or over 3 orbits
+  around the likeliest time when the window is longer: `{ from, to, coversWindow, latMax, segments }` split at the antimeridian.
+- `stampDecay`: provenance with the TLE epoch as data time and `prov.maxAgeMs` = a fifth of the time left (2 h to 3 days),
+  so "stale" means a newer element set would have moved the window.
+- Words: `windowWords` ("between Tue 03:00 and Thu 21:00 UTC"), `whereWords`, `uncertaintyWords`, `spanText`. `status`:
+  'ahead', 'window' or 'past'.
+- Pieces: `elements`, `expField`, `density`, `scaleHeight`, `effectiveFlux`, `lifetime`, `ballisticFromNdot`,
+  `ballisticFromBstar`. `DEFAULT_SOLAR`: F10.7 140 sfu, Kp 2 (`spaceweather.js` has no flux index yet). `MU`, `RE`, `MAX_YEARS`.
+
 ### `explain.js`
 
 "What am I looking at?": one friendly sentence for a satellite card. Used by globe.
@@ -1077,7 +1107,8 @@ item when it builds it. The record is made when a card is drawn, so ages stay tr
 - `SOURCES`: the feeds (name, link, terms) by id. `LAYERS`: each live layer's maximum age and what its data time is.
 - `rep`: one source's report from the catalogue plus its times. `stamp`: put `{ layer, sources, agreeing }` on an item;
   `provStamp` makes the same for a prototype's `get prov()`. `stampReports`: from agreement reports `[{ src, t }]`.
-- `recordOf`: the provenance record of a stamped item now. `provBlock`: its card block (empty for unstamped things).
+- `recordOf`: the provenance record of a stamped item now (an item's own `prov.maxAgeMs` beats its layer's: re-entry
+  predictions set one each). `provBlock`: its card block (empty for unstamped things).
   `provLine`: its line (exports, MCP).
 - `agreeingIds`: which reports agree with the freshest one, one vote per source. `metresBetween`.
 - The layers decide what "the same" means, with tolerances in their own modules: `AIR_AGREE` / `sameAircraft` and

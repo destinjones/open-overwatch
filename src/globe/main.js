@@ -16,6 +16,7 @@ import { updateStats, updateBand, PRESETS, Lighting, select } from './ui.js';
 import { Space } from './space.js';
 import { Quality, LEVELS } from './quality.js';
 import { Conj } from './conjunctions.js';
+import { Reentry } from './reentry.js';
 import { LookUp } from './lookup.js';
 import { Eclipses } from './eclipses.js';
 import { initMobile } from './mobile.js';
@@ -79,7 +80,7 @@ function applyAll() {
   for (const s of Sats.list) if (s.pt) s.pt.show = L[s.layer].on && !s.ent && !s.docked && !s.gone;
   airPts.show = airIcons.show = !state.weather; satPts.show = !state.weather;
   for (const a of Air.map.values()) { const on = airShown(a); a.pt.show = on && !a.ent; a.icon.show = on && !a.ent; if (!on && a.ent) AirModels.drop(a); }
-  qkPts.show = L.quakes.on; Lighthouses.apply(); Aurora.apply(); Companies.apply(); Volcanoes.apply(); SunLine.apply(); Buildings.apply(); Launches.apply(); Photoreal.apply(); Storms.apply(); Events.apply(); Surveil.apply(); Alpr.apply(); Military.apply(); Radio.apply(L.radio.on); Cams.apply(); Transit.apply(L.transit.on); Traffic.apply(L.traffic.on); Terrain.apply(L.terrain.on); Fires.apply(); Imagery.apply(); Measure.apply(); Directions.apply(); Ships.apply(L.ships.on); Bikes.apply(L.bikes.on); Airports.apply(); Buoys.apply(); Darts.apply(); Tides.apply(); SeaImagery.apply(); AirQuality.apply();
+  qkPts.show = L.quakes.on; Lighthouses.apply(); Aurora.apply(); Companies.apply(); Volcanoes.apply(); SunLine.apply(); Buildings.apply(); Launches.apply(); Reentry.apply(); Photoreal.apply(); Storms.apply(); Events.apply(); Surveil.apply(); Alpr.apply(); Military.apply(); Radio.apply(L.radio.on); Cams.apply(); Transit.apply(L.transit.on); Traffic.apply(L.traffic.on); Terrain.apply(L.terrain.on); Fires.apply(); Imagery.apply(); Measure.apply(); Directions.apply(); Ships.apply(L.ships.on); Bikes.apply(L.bikes.on); Airports.apply(); Buoys.apply(); Darts.apply(); Tides.apply(); SeaImagery.apply(); AirQuality.apply();
   Earth.apply(); updateBand(); updateStats();
 }
 hooks.applyVisibility = applyVisibility;
@@ -92,6 +93,7 @@ scene.preUpdate.addEventListener((sc, time) => { Follow.track(time); Ops.ride(ti
 scene.preRender.addEventListener((sc, time) => { SatModels.updateSun(time); Sats.update(Time.nowMs()); Earth.update(camHeight()); Space.update(); Transit.update(Date.now()); Ships.update(Date.now()); Traffic.update(); });   // transit and ships are live: the time bar doesn't move them
 PRESETS.space = () => Space.go();
 PRESETS.conj = () => Conj.openList();
+PRESETS.reentry = () => Reentry.openList();
 PRESETS.lookup = () => { hooks.clearPresets(); LookUp.enter(); };
 PRESETS.eclipses = () => Eclipses.openList();
 PRESETS.weather = () => Weather.toggle();
@@ -202,7 +204,7 @@ setInterval(() => { if (L.events.on && !Events.past) Events.load(); }, 30 * 60e3
 // time travel: the layers with history follow the clock into the past (their archives) and back (core/history.js)
 { const travel = () => { Quakes.sync(); Storms.sync(); Events.sync(); Sats.travel(); }; Time.onChange(travel); setInterval(travel, 1000); }
 
-window.OO3D = { Now, Events, TimeTravel, Aviation, Ops, Voice, Photoreal, Storms, Directions, Ascent, Director, Surveil, Alpr, Military, Radio, Cams, Look, Transit, Traffic, Terrain, Fires, Imagery, Measure, Ships, Bikes, Saver, Model, Conj, LookUp, Eclipses, Tonight, Flight, Snapshot, Search, Launches, Crew,
+window.OO3D = { Now, Events, TimeTravel, Aviation, Ops, Voice, Photoreal, Storms, Directions, Ascent, Director, Surveil, Alpr, Military, Radio, Cams, Look, Transit, Traffic, Terrain, Fires, Imagery, Measure, Ships, Bikes, Saver, Model, Conj, Reentry, LookUp, Eclipses, Tonight, Flight, Snapshot, Search, Launches, Crew,
   viewer, space: Space, time: Time, Earth, marbleLayer, nightLayer, fxShell, cloudShell, limbShell, Fx, Sats, Air, Quakes, Lighthouses, Weather, Wind, Country, Aurora, Flybys, Companies, Volcanoes, Buoys, Darts, Tides, SeaImagery, AirQuality, SunLine, Buildings, Share, Tour, setIonToken: t => Buildings.setToken(t), L, PRESETS, moonPosition, SatModels, AirModels, Follow, select, applyVisibility,
   /** debug: the axes test model at lon/lat/height, body X = east, Y = north, Z = up, arrays turned by `deg` */
   debugAxes(lon, lat, h, deg = 0, uri = 'brand/models/test/axes.glb') {

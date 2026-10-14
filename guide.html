@@ -188,6 +188,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td><code>GEO belt</code></td><td>Far enough out (160,000 km) to see the ring of geostationary satellites 36,000 km up.</td></tr>
         <tr><td><code>Moon</code></td><td>Flies out to the Moon at its real position and looks at it.</td></tr>
         <tr><td><code>Near misses</code></td><td>Upcoming close approaches between objects in orbit (CelesTrak SOCRATES, under 5 km in the next week). Pick one to watch both objects at the moment of closest approach.</td></tr>
+        <tr><td><code>Falling soon</code></td><td>Satellites and debris predicted to re-enter the atmosphere in the next 30 days, soonest first, each with its window in plain words and its re-entry corridor. Worked out in your browser from the same element sets. See <a href="#reentry">Falling soon</a>.</td></tr>
         <tr><td><code>Tonight</code></td><td>What you can see in your sky tonight. See <a href="#sky">Tonight and look up</a>.</td></tr>
         <tr><td><code>Look up</code></td><td>Your sky right now, from where you stand: point your phone up. See <a href="#sky">Tonight and look up</a>.</td></tr>
         <tr><td><code>Find flight</code></td><td>Type a ticket number (BA 123 becomes BAW123), a callsign, a registration or a hex address and follow that plane. The website searches the aircraft it already has and otherwise opens adsb.lol's own map; the download version asks adsb.lol directly and refreshes every 15 seconds.</td></tr>
@@ -225,6 +226,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td><span class="dot" style="background:#8fb8ff"></span><code>active</code></td><td>Every other active satellite CelesTrak lists.</td><td>CelesTrak</td><td>on (off on phones)</td></tr>
         <tr><td><span class="dot" style="background:#ff6b6b"></span><code>debris</code></td><td>The debris clouds of the 2007 Fengyun-1C anti-satellite test and the 2009 Iridium 33 / Cosmos 2251 collision. The full catalogue with every rocket body and fragment is Space-Track's and may not be redistributed.</td><td>CelesTrak</td><td>on (off on phones)</td></tr>
         <tr><td><span class="dot" style="background:#ff9f5c"></span><code>launches</code></td><td>The next 40 rocket launches as markers on their pads, with countdowns. Pads at one site share one label.</td><td>Launch Library 2 (The Space Devs), copied by the site build every 6 hours</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#ff5a4f"></span><code>reentry</code></td><td>Re-entry corridors: the ground track of every object predicted to come down in the next 30 days, around its likeliest time. See <a href="#reentry">Falling soon</a>.</td><td>Predicted here from CelesTrak element sets</td><td>off</td></tr>
         <tr class="grp"><td colspan="4">Air</td></tr>
         <tr><td><span class="dot" style="background:#5fd3ff"></span><code>air</code></td><td>Civil aircraft, dead-reckoned between reports so they keep moving; the nearest ones become 3D models that bank and climb.</td><td>OpenSky Network snapshot every 15 minutes (download version: the website can't reach it, see <a href="#download">Download version</a>)</td><td>on</td></tr>
         <tr><td><span class="dot" style="background:#ffb44d"></span><code>mil</code></td><td>Military aircraft.</td><td>adsb.lol every 60 seconds (download version)</td><td>on</td></tr>
@@ -344,6 +346,43 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
       </tbody>
     </table></div>
     <p>The charts are drawn in the page: hover a bar (or tap it) for its value; screen readers hear every value. The panel refreshes every five minutes while it is open, and <b>↻</b> refreshes it now. Nothing is downloaded while it is closed.</p>
+  </div>
+</section>
+
+<section id="reentry" aria-labelledby="reentry-h">
+  <div class="wrap">
+    <div class="eyebrow">Re-entries</div>
+    <h2 id="reentry-h">Falling soon</h2>
+    <p><b>Falling soon</b> in the band (or a <code>globe.html#go=reentry</code> link) lists the objects predicted to come back
+      into the atmosphere in the next 30 days: old Starlinks, spent satellites, debris. Each says when, as a window
+      ("between Tue 03:00 and Thu 21:00 UTC") rather than a moment, and where, as a corridor: the stretch of its ground track
+      it could come down on. The <code>reentry</code> layer draws every corridor at once. Nothing is downloaded for this: the
+      globe works it out from the element sets it already has, in about a tenth of a second.</p>
+    <h3>How it is worked out</h3>
+    <p>Each element set says how fast the object's orbit is shrinking (the change in its mean motion, n-dot) and how much drag
+      it feels (B*). From those and a model of the upper atmosphere, the globe flies the object down, step by step, until its
+      lowest point is 100 km up: below that it is minutes from the end. The atmosphere is thicker when the Sun is active, so
+      the model is scaled by the Sun's radio flux (F10.7; 140 is assumed for late 2026). Checked against real re-entries:
+      Tiangong-1 (2 April 2018) and GOCE (11 November 2013) fall inside the windows their last element sets give.</p>
+    <h3>Why the windows are so wide</h3>
+    <p>Re-entry predictions are uncertain by nature, even at the space agencies. The window is <b>±25% of the time the object
+      has left</b>, the usual rule of thumb for objects coming down without control (re-entry analysts quote 10-25%; we take
+      the wide end):</p>
+    <ul>
+      <li><b>The air up there changes.</b> At 200-400 km it is so thin that one solar flare or geomagnetic storm can double
+        its density within a day, and nobody can forecast the Sun weeks ahead.</li>
+      <li><b>We don't know how the object flies.</b> A tumbling panel has several times the drag of the same panel edge-on.</li>
+      <li><b>The elements are a few hours old</b> and are themselves a fit to radar tracking. Every new set (every few hours)
+        moves the window, and it narrows as the day comes closer: weeks ahead it spans days, the last day it spans hours.</li>
+      <li><b>Where follows from when.</b> An object circles the Earth every 90 minutes, so an hour's doubt in time is 40,000 km
+        along its track. Until the window is a few orbits long, it can come down anywhere between the latitudes its orbit
+        reaches; the tracks drawn are the orbits around the likeliest time.</li>
+    </ul>
+    <p>Satellites that still have fuel are a different case: an operator can keep one up, or bring it down on purpose over
+      an empty ocean, and then the prediction does not apply. Their cards say so. Objects whose orbit is clearly being pushed
+      (shrinking faster than drag could manage, or growing) are left off the list. The card's provenance line uses the
+      element set's epoch as its data time and calls a prediction stale once its elements are older than a fifth of the time
+      it had left. Most of what re-enters burns up; for authoritative warnings, follow your space agency.</p>
   </div>
 </section>
 

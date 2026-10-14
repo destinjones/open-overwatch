@@ -98,6 +98,10 @@ test('decay: thruster burns are not drag (manoeuvring objects are flagged and le
   assert.ok(p.ballistic > MAX_BALLISTIC && p.manoeuvring);
   assert.equal(fallingSoon([{ id: '64792', l1, l2, group: 'starlink' }], { now: p.epochMs }).length, 0);
   assert.equal(predict(...TG1).manoeuvring, false);
+  // a new satellite raising itself from 300 km: n-dot negative (the orbit grows); B* alone would have it falling in weeks
+  const r1 = '1 66000U 26200A   26287.25000000 -.00050000  00000-0  30000-3 0  9990';
+  const r2 = '2 66000  53.0000 100.0000 0005000  90.0000 270.0000 15.9000000000100';
+  assert.equal(predict(r1, r2).manoeuvring, true);
 });
 
 test('decay: the corridor is the ground track around the likeliest time, never beyond ±inclination', () => {

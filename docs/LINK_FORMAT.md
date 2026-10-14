@@ -43,7 +43,7 @@ same way, and the examples here use them for readability.
 | `o` | `sensor.h.d` | `o=flir.h.d` | the Ops look: sensor, HUD, detection boxes |
 | `d` | drawing | `d=pvrzH4prniD*QmlnIEJlbg` | the draw-and-measure shapes |
 | `go` | panel name | `go=tonight` | open a panel (links **without** `c` only) |
-| `id` | item id | `go=launches&id=abc-123` | one launch or eclipse in that panel |
+| `id` | item id | `go=launches&id=abc-123` | one launch, eclipse or re-entry (NORAD number) in that panel |
 | `embed` | `1` | `embed=1&c=…` | embed mode, for an `<iframe>` |
 | `scene` | base64url | `scene=djE7…` | a Director scene (takes precedence over a view) |
 
@@ -91,7 +91,7 @@ geostationary belt. The globe's camera stops at 600 million m; beyond about 300 
 `l=id,id,id` turns on the listed layers and **turns every other layer off**. Ids are the `id` fields of `LAYERS` in
 `src/globe/layers.js`:
 
-`stations` `visual` `gnss` `geo` `weather` `starlink` `active` `debris` `launches` `air` `mil` `airq` `smoke` `airports`
+`stations` `visual` `gnss` `geo` `weather` `starlink` `active` `debris` `launches` `reentry` `air` `mil` `airq` `smoke` `airports`
 `quakes` `transit` `buoys` `dart` `tides` `sst` `ships` `bikes` `traffic` `storms` `events` `fires` `radio` `lighthouses` `sun` `terrain` `buildings` `cams` `cctv`
 `alpr` `milareas` `photoreal` `volcanoes` `companies` `aurora` `clouds` `night` `labels`
 
@@ -239,6 +239,7 @@ country borders, which load on arrival.
 | `eclipses` | the solar eclipses |
 | `flybys` | asteroid and comet flybys |
 | `conj` | near misses (close approaches in orbit) |
+| `reentry` | Falling soon: predicted re-entries (with `id=<NORAD>`, that object's card) |
 | `now` | Earth now, the dashboard |
 | `history` | Time travel (also read with a camera: links copied from the panel carry `t=` and `go=history`) |
 
@@ -249,7 +250,7 @@ linked view.
 ### `id` — one item in the panel
 
 With `go=launches`, a Launch Library 2 launch id opens the list at that launch; with `go=eclipses`, an eclipse's date
-(`YYYY-MM-DD`, as in `data/eclipses.json`) does the same. 1 to 40 characters from `[A-Za-z0-9_.-]`; anything else is ignored. `tonight.html` hands launches and
+(`YYYY-MM-DD`, as in `data/eclipses.json`) does the same, and with `go=reentry` a NORAD catalogue number opens that object's re-entry card (when it is on the list). 1 to 40 characters from `[A-Za-z0-9_.-]`; anything else is ignored. `tonight.html` hands launches and
 eclipses over to the globe this way.
 
 ```
