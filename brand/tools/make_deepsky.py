@@ -100,7 +100,7 @@ def main():
         'fields': FIELDS,
         'rows': out,
     }
-    OUT.write_text(json.dumps(doc, separators=(',', ':'), ensure_ascii=False).replace('],[', '],\n['), encoding='utf-8')
+    OUT.write_text(json.dumps(doc, separators=(',', ':'), ensure_ascii=False).replace('],[', '],\n['), encoding='utf-8', newline='\n')
     ms = sum(1 for o in out if o[1])
     print(f'{OUT.name}: {len(out)} objects ({ms} Messier), {OUT.stat().st_size / 1e3:.0f} KB')
 
