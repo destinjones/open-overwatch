@@ -25,6 +25,7 @@ import './satellites.js';
 import './feeds.js';
 import './osmlayers.js';
 import './ocean.js';
+import './darksky.js';
 import './weather.js';
 import './aviation.js';
 import './trails.js';

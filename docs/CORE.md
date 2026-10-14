@@ -20,7 +20,7 @@ is also used by its tests in `test/`.
 - [Time, units and frames](#time-units-and-frames): `time.js`, `units.js`, `rotation.js`
 - [Orbits and the Solar System](#orbits-and-the-solar-system): `kepler.js`, `planets.js`, `moons.js`, `smallbodies.js`, `comets.js`, `craft.js`, `accuracy.js`
 - [Satellites](#satellites): `tle.js`, `passes.js`, `observer.js`, `socrates.js`, `explain.js`
-- [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `whereis.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `syzygy.js`, `orientation.js`, `deepsky.js`, `lightpollution.js`
+- [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `whereis.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `syzygy.js`, `orientation.js`, `deepsky.js`, `lightpollution.js`, `darksky.js`
 - [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`
 - [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`
 - [Weather](#weather): `gfs.js`, `wxmodels.js`, `wxload.js`, `model.worker.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpaint.js`
@@ -332,7 +332,7 @@ east-north-up components: look-up mode. Used by globe.
 Deep-sky objects for "what's up tonight": every Messier object and the NGC/IC objects to about magnitude 12.5 from
 `data/deepsky.json` (2,405 objects, CC-BY-SA-4.0, derived from OpenNGC by `brand/tools/make_deepsky.py`, which pins the
 release and checks each CSV's SHA-256). Positions are J2000 against the mean sidereal time of date, like `sky.js`: a
-degree or so. Read-only. Used by sky (planned), core.
+degree or so. Read-only. Used by core (darksky.js), mcp.
 
 - `loadDeepsky`, `parseDeepsky`: the file's rows as objects (catalogue id, Messier number, type, RA/Dec,
   magnitude, size, common name, constellation). `TYPES`: OpenNGC's type codes with a label and a group. `label`.
@@ -344,12 +344,34 @@ degree or so. Read-only. Used by sky (planned), core.
 
 How dark the sky is at a spot, from the 2015 World Atlas of artificial sky brightness (Falchi et al. 2016, CC BY-NC
 4.0, non-commercial use only) resampled to 1/15° in `data/lightpollution.bin` (1.7 MB, `brand/tools/make_lightpollution.py`;
-format in `data/lightpollution.md`). A modelled clear, moonless sky in 2014-15. Used by sky (planned), core.
+format in `data/lightpollution.md`). A modelled clear, moonless sky in 2014-15. Used by globe (Tonight, the light
+pollution layer), map (its layer), mcp, core (darksky.js).
 
 - `loadAtlas`, `decodeAtlas`: the grid (decoded with DecompressionStream, so browsers and Node alike).
 - `artificialAt`: the artificial zenith brightness (mcd/m²) at lat/lon, bilinear; null outside 60° S to 85° N.
 - `skyAt`: total brightness, the ratio to the natural sky, an SQM reading (mag/arcsec²) and the Bortle class.
 - `sqmFromMcd`, `mcdFromSqm`, `bortleFromSqm`, `BORTLE`, `NATURAL_MCD`: the conversions on their own.
+
+### `darksky.js`
+
+The two sky datasets turned into answers: what a spot's light pollution means for the eye, the nearest darker sky, how
+good tonight is, the deep-sky objects within reach of the observer's gear, and the overlay's colours. Used by globe
+(Tonight via `globe/darksky.js`, the layer in `globe/lightmap.js`), map (`map/darksky.js`), mcp (its dark_sky tool).
+Tests: `test/darksky.test.mjs`.
+
+- `skyWords`: a `skyAt` result in words (the Milky Way, the faintest star, about how many stars). `nelmFromSqm` (the
+  usual SQM-to-limiting-magnitude fit), `starsVisible` (Allen's counts, the part of the sky that is up).
+- `nearestDark`: the nearest cell at Bortle 3 or better (its four neighbours too) within 1,000 km, scanned outward in a box
+  and checked on land by a `land(lat, lon)` callback (the atlas is dark offshore; the callers use `borders.js`).
+  `nearestDarker`: Bortle 3, else Bortle 4 (marked as the fallback). `darkText`, `bearing`, `qLimit`, `COMPASS_WORDS`.
+- `moonOver`: the Moon over a dark window (lit fraction, hours up, the longest moonless stretch, its added sky brightness).
+  `tonightQuality`: one line from the sky, the Moon and `clouds.js` `night()`, a score and a word, and the sky brightness
+  the night really has (the Moon counts unless it leaves two moonless hours).
+- `GEAR` (eyes, binoculars, a small telescope), `gearLimits` (limiting magnitude and surface brightness under a sky),
+  `surfaceBrightness`, `withinReach`, `describe` ("Globular cluster in Hercules · mag 5.8 · 17′ across"), `deepSkyTonight`
+  (`deepsky.js visibleTonight` at 25°+, Messier first among equals).
+- `overlayTable`, `paintAtlas` (equirectangular, the brightest cell under each pixel), `paintTile` (Web Mercator).
+  `ATLAS_CREDIT`, `ATLAS_SHORT`, `ATLAS_URL`, `NGC_CREDIT`, `NGC_URL`: the credit lines wherever the data shows.
 
 ## Geometry on the Earth
 

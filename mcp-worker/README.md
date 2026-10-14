@@ -43,7 +43,7 @@ To change it, `npx wrangler secret put MCP_TOKEN` again and update the connector
 |---|---|---|
 | Transport | stdio, or Streamable HTTP on loopback | Streamable HTTP at `/mcp` (stateless, JSON answers) |
 | Who may call | your own machine | the token (header or path), or anyone with `PUBLIC = "true"` |
-| Tools | all of them | all on `PLAN = "paid"`; the free plan leaves out the 11 heaviest (`HEAVY` in mcp/worker.mjs) |
+| Tools | all of them | all on `PLAN = "paid"`; the free plan leaves out the 12 heaviest (`HEAVY` in mcp/worker.mjs) |
 | Caching | in memory | the Workers Cache API (each feed for its own lifetime, each tool answer for 1-60 min) plus the isolate's memory |
 | The globe in the chat | Claude Desktop shows it (MCP Apps) | links only, unless the host supports MCP Apps over remote connectors |
 

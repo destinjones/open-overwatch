@@ -16,6 +16,8 @@ import { haversine } from '../core/geo.js';
 import { planetsTonight, darkWindow, moonPhase, auroraAt, describePass, starlinkTrains, sunAlt, riseSet, nextFullMoon, craftAt, meetings } from '../core/sky.js';
 import { fetchAsset } from '../core/assets.js';
 import { SunNow, sunTonightHtml } from './sunnow.js';
+import { DarkSky, yourSkyHtml, deepSkyHtml, deepSkyFor } from './darksky.js';
+import { moonOver, tonightQuality } from '../core/darksky.js';
 import { hoursOf, cloudAt, night, sky as skyWord } from '../core/clouds.js';
 import { earthPosition } from '../core/planets.js';
 import { jdFromMs } from '../core/time.js';
@@ -56,7 +58,7 @@ function passesOf(s, obs, t0, t1, step = 30e3) {
   return findPasses(ecfAt(sl, rec), obs, t0, t1, { step, sunAt: sunEcef });
 }
 
-const S = { open: false, run: 0, loc: null, passes: [], aurora: null, iss: '', launches: [], far: [], hours: null, hoursLoc: null, passLoc: null, cloudErr: '', satErr: '' };
+const S = { open: false, run: 0, loc: null, passes: [], aurora: null, iss: '', launches: [], far: [], hours: null, hoursLoc: null, passLoc: null, cloudErr: '', satErr: '', dark: null, darkErr: false, cat: null, catErr: false, dsMore: false };
 // "tonight" = the dark part of the next 24 h; opened in the small hours, a stretch ending within 2 h gives way to the coming night
 const NIGHT = { minLeft: 2 * HOUR };
 // cloud forecast: Open-Meteo (CC BY 4.0, free, no key, sends CORS), for a point rounded to 0.1 deg (~10 km), cached an hour
@@ -171,10 +173,14 @@ function draw(initial) {
   const scrolls = [cur.scrollTop, ...[...cur.querySelectorAll('.tn-list')].map(el => el.scrollTop)];   // a redraw must not throw away where the reader had scrolled to
   const { lat, lon, demo } = S.loc, now = Date.now(), list = S.passes.filter(p => p.set > now).sort((a, b) => a.rise - b.rise);
   const mk = `${lat},${lon},${Math.floor(now / 60e3)}`;   // the sky maths (~5 ms) is the same within a minute
-  if (!S.memo || S.memo.key !== mk) S.memo = { key: mk, planets: planetsTonight(lat, lon, now, { time, ...NIGHT }), sm: sunMoon(lat, lon, now), showers: showersFor(lat, lon, now, { time, ...NIGHT }).filter(m => m.days > -2 || m.rate >= 3) };
+  if (!S.memo || S.memo.key !== mk) S.memo = { key: mk, planets: planetsTonight(lat, lon, now, { time, ...NIGHT }), sm: sunMoon(lat, lon, now), showers: showersFor(lat, lon, now, { time, ...NIGHT }).filter(m => m.days > -2 || m.rate >= 3), moon: (w => w && moonOver(lat, lon, w))(darkWindow(lat, lon, now, NIGHT)) };
   const { planets, sm, showers } = S.memo, up = planets.filter(p => p.up), moon = moonPhase(now);
   const first = list.find(p => p.visible), sky = sunAlt(lat, lon, now);
   const cl = cloudText(lat, lon, now);
+  // your sky and the deep-sky list (globe/darksky.js): the site's sky, the Moon and the clouds in one line; the list under the sky you'll really have
+  const q = tonightQuality({ sky: S.dark && S.dark.sky, moon: S.memo.moon, clouds: cl, time }), gear = DarkSky.gear();
+  const dk = `${lat},${lon},${gear},${Math.floor(now / 600e3)},${!!S.cat},${S.dark ? q.sqm.toFixed(1) : '-'}`;
+  if (S.cat && S.dark && (!S.ds || S.ds.key !== dk)) S.ds = { key: dk, list: deepSkyFor(S.cat, lat, lon, now, { gear, sqm: S.dark.sky ? q.sqm : 21.5, time, minLeft: NIGHT.minLeft }) };
   const soon = (S.meet && S.meetAt > now - 3600e3 ? S.meet : (S.meetAt = now, S.meet = meetings(now, { days: 30 }))).filter(m => m.elong >= 15).slice(0, 5)
     .map(m => `${new Date(m.at).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}: ${m.ka === 'moon' ? `the Moon passes ${m.sep.toFixed(1)}° from ${m.b}` : `${m.a} and ${m.b} just ${m.sep.toFixed(1)}° apart`}${m.elong < 30 ? ' (low, in twilight)' : ''}. ${m.sep < 1 ? 'They\'ll fit in the same binocular view.' : 'A pretty pair to the eye.'}`);
   const head = [first ? `Next to see: <b>${esc(first.short)} at ${esc(time(first.rise))}</b>, look ${esc(compass(first.azRise))}.` : S.computing ? 'Working out the passes…' : S.satErr ? `<b class="cl">${esc(S.satErr)}</b>` : 'No bright satellite passes in a dark sky in the next 24 hours.',
@@ -183,14 +189,16 @@ function draw(initial) {
     S.aurora && S.aurora.level >= 2 ? `<b class="ok">${esc(S.aurora.text)}</b>` : ''].filter(Boolean).join(' ');
   const watching = !!store.get('auroraWatch', null);
   S.summary = [`Tonight's sky${demo ? ' over Greenwich' : ''}:`, first ? `${first.short} at ${time(first.rise)}, look ${compass(first.azRise)}` : '', cl ? (cl.clear.length ? `clear ${time(cl.clear[0].from)} to ${time(cl.clear[0].to)}` : `cloudy (${cl.mean}%)`) : '',
-    up.length ? `${up.map(p => p.name).join(', ')} up` : '', `Moon ${Math.round(moon.lit * 100)}% lit`, S.aurora && S.aurora.level >= 2 ? S.aurora.text : ''].filter(Boolean).join(' · ');
+    up.length ? `${up.map(p => p.name).join(', ')} up` : '', S.dark && S.dark.sky ? `Bortle ${S.dark.sky.bortle} sky, ${q.word} for stars` : '', `Moon ${Math.round(moon.lit * 100)}% lit`, S.aurora && S.aurora.level >= 2 ? S.aurora.text : ''].filter(Boolean).join(' · ');
   const c = card(`<div class="k" style="--c:#7dffa6">${demo ? 'Greenwich, London (example)' : `Your sky · ${lat.toFixed(2)}, ${lon.toFixed(2)} · saved on this device`}</div><h2>Tonight above you</h2>
     <p class="tn-head">${head}</p>
     ${S.iss ? `<p class="tn-p" style="margin-top:6px">${esc(S.iss)}${S.crew ? ` ${esc(S.crew)} <a href="#" id="tnCrew">Who?</a>` : ''}</p>` : ''}
     <h3>Clouds tonight</h3><p class="tn-p">${cl ? esc(cl.text) + (cl.next ? ' ' + esc(cl.next) : '') : S.cloudErr ? esc(S.cloudErr) : S.hours ? 'No dark sky to forecast.' : 'Checking the cloud forecast…'} <small>Forecast: Open-Meteo.com (CC BY 4.0)</small></p>
+    ${yourSkyHtml(S.dark, q, S.darkErr)}
     <h3>Satellites you can see${S.computing ? ' <small>· still searching…</small>' : ''}</h3>
     <div class="tn-list">${list.filter(p => p.visible).map(p => passRow(p, S.passes.indexOf(p))).join('') || (S.satErr ? `<p class="note warn">${esc(S.satErr)} <button class="chipbtn" id="tnRetry">Try again</button></p>` : S.computing ? '' : '<p class="note">None in sunlight against a dark sky in the next 24 hours. Passes in daylight happen, but you can\'t see them.</p>')}</div>
     <h3>Planets</h3><div class="tn-list">${planets.map(p => `<div class="tn-row${p.up ? '' : ' dim'}"><span>${esc(p.text)}</span></div>`).join('')}</div>
+    ${deepSkyHtml(S.ds && S.ds.list, { gear, sqm: S.dark && S.dark.sky ? q.sqm : null, err: S.catErr || S.darkErr, loading: !(S.cat && S.dark), more: S.dsMore, canFind: !!D.lookUp })}
     ${showers.length ? `<h3>Meteor showers</h3><div class="tn-list">${showers.map((m, i) => `<div class="tn-row"><span>${esc(m.text)}</span>${m.radiantAlt >= 10 && m.nights >= 1 ? `<span class="tn-b"><button class="chipbtn" data-met="${i}" title="A calendar event for the best time on the peak night">Calendar</button></span>` : ''}</div>`).join('')}</div>` : ''}
     ${S.launches.length ? `<h3>Rocket launches</h3><div class="tn-list">${S.launches.map((x, i) => `<div class="tn-row"><span>${esc(x.text)}</span><span class="tn-b"><button class="chipbtn" data-lch="${i}">Details</button></span></div>`).join('')}</div>` : ''}
     <h3>Sun</h3><p class="tn-p">${esc(sm.sunText)}</p>
@@ -205,6 +213,9 @@ function draw(initial) {
     <p class="note">Times are yours (${esc(Intl.DateTimeFormat().resolvedOptions().timeZone || 'local')}). "Calendar" adds an event that reminds you 10 minutes before, even with this site closed. "Remind me" and aurora alerts work while this page is open in a tab.</p>`);
   [c, ...c.querySelectorAll('.tn-list')].forEach((el, i) => { if (scrolls[i]) el.scrollTop = scrolls[i]; });
   bindPasses(c);
+  c.querySelectorAll('[data-gear]').forEach(b => { b.onclick = () => { store.set('dsGear', b.dataset.gear); render(true); }; });
+  if (c.querySelector('#dsMore')) c.querySelector('#dsMore').onclick = () => { S.dsMore = !S.dsMore; render(true); };
+  c.querySelectorAll('[data-dso]').forEach(b => { b.onclick = () => { const v = S.ds.list[+b.dataset.dso]; Tonight.close(); D.lookUp({ name: v.label, ra: v.obj.ra, dec: v.obj.dec, text: v.text }); }; });
   if (c.querySelector('#tnRetry')) c.querySelector('#tnRetry').onclick = () => show(S.loc);
   if (c.querySelector('#tnCrew')) c.querySelector('#tnCrew').onclick = e => { e.preventDefault(); S.open = false; Crew.open({ back: () => Tonight.reopen() }); };
   if (c.querySelector('#tnEcl')) c.querySelector('#tnEcl').onclick = () => { S.open = false; D.watchEclipse(S.ecl.e); };
@@ -237,6 +248,9 @@ async function show(loc) {
   S.ecl = null;
   (D.nextEclipse ? D.nextEclipse(loc.lat, loc.lon) : Promise.resolve(null)).then(x => { if (run === S.run) { S.ecl = x || false; render(); } }, e => console.warn('eclipse', e));
   S.iss = ''; S.launches = []; S.far = []; S.hours = null; S.cloudErr = '';
+  S.dark = null; S.darkErr = false; S.ds = null;
+  DarkSky.at(loc.lat, loc.lon).then(d => { if (run !== S.run) return; S.dark = d; render(); if (d.more) d.more.then(() => { if (run === S.run) render(); }); }, e => { console.warn('light pollution', e); if (run === S.run) { S.darkErr = true; render(); } });
+  if (!S.cat) DarkSky.deepsky().then(c => { S.cat = c; if (run === S.run) render(); }, e => { console.warn('deep sky', e); if (run === S.run) { S.catErr = true; render(); } });
   forecast(loc.lat, loc.lon).then(h => { if (run === S.run) { S.hours = h; S.hoursLoc = loc; render(); } }, e => { console.warn('clouds', e); if (run === S.run) { S.cloudErr = 'The cloud forecast is unreachable right now.'; render(); } });
   farthest(Date.now()).then(x => { if (run === S.run) { S.far = x; render(); } }, e => console.warn('farthest', e));
   launchesNear(loc).then(x => { if (run === S.run) { S.launches = x; render(); } }, () => {});
@@ -295,7 +309,8 @@ function bindPasses(c) {
  *   sats: { list, byId }    satellites with { id, name, layer, l1, l2 }, filled as they load
  *   auroraGrid() -> Promise<OVATION json>      countryName(lon, lat) -> Promise<name | null>
  *   launches() -> Promise<[launch]>            showLaunch(launch)
- *   nextEclipse(lat, lon) -> Promise | null     watchEclipse(e)      lookUp()   (optional: their buttons hide without them)
+ *   nextEclipse(lat, lon) -> Promise | null     watchEclipse(e)      lookUp(target?)   (optional: their buttons hide without them;
+ *   target { name, ra, dec, text } is a deep-sky object to point at)
  */
 let D = null;
 

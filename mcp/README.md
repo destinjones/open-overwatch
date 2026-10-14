@@ -67,6 +67,7 @@ old the data is and a confidence word (confirmed, reported, stale, unknown), the
 | `weather` | Open-Meteo | now and up to 7 days, metric or imperial, in the place's time zone |
 | `aurora` | NOAA SWPC | Kp now and for 3 days, and the chance of aurora overhead or on the horizon at a place |
 | `space_weather` | NOAA SWPC | the solar wind at L1 (speed, density, Bz: southward is aurora-friendly), X-ray flares now and the 24 h peak, watches, warnings and alerts in force (storms, CMEs), each with its data age |
+| `dark_sky` | the light pollution atlas (Falchi et al. 2016, CC BY-NC) and the OpenNGC deep-sky catalogue (CC-BY-SA-4.0), both the website's copies; Open-Meteo | the Bortle class and SQM at a place, what that means (Milky Way, stars), the nearest darker sky and which way, how good tonight is (sky, Moon, clouds), and the galaxies, clusters and nebulae within reach of eyes, binoculars or a small telescope tonight |
 | `night_sky` | the website's own sky maths, Open-Meteo, NOAA SWPC | when it's dark, the planets, the Moon, meteor showers, bright passes, the aurora chance and the clouds |
 | `traffic_cameras` | the agencies' own feeds: TfL (London), NYC DOT, Caltrans, DelDOT, Iowa DOT, MoDOT, Fintraffic, Statens vegvesen, DriveBC, Calgary, Hong Kong, Singapore | the nearest cameras, and the latest picture from the nearest few as images Claude can look at (live-video cameras as a stream link) |
 | `transit_vehicles` | MBTA (Boston), HSL (Helsinki), Entur (Norway), CapMetro (Austin), Metro Transit (Minneapolis-St Paul) | the buses, trams, metros, trains and ferries near a place right now: line, destination, speed, how late (Norway) |
@@ -115,8 +116,8 @@ The same server runs as a Cloudflare Worker ([`mcp-worker/`](../mcp-worker/READM
 stateless Streamable HTTP at `/mcp`, guarded by a secret (`Authorization: Bearer <token>`, or the token as the last part of
 the path for connectors that only take a URL), with CORS for claude.ai and ChatGPT, every feed and every tool answer
 shared through the Workers Cache API, and a rate limit per address. On Cloudflare's free plan (10 ms of CPU and 50
-look-ups a request) it leaves out the eleven heaviest tools (satellite pass searches, the planets' look-ahead, tile
-decoding, vessel-by-vessel AIS); on Workers Paid it lists all of them. Once deployed, add
+look-ups a request) it leaves out the twelve heaviest tools (satellite pass searches, the planets' look-ahead, tile
+decoding, vessel-by-vessel AIS, the light pollution grid); on Workers Paid it lists all of them. Once deployed, add
 `https://open-overwatch-mcp.<account>.workers.dev/mcp/<token>` in claude.ai (Settings → Connectors → Add custom
 connector). It is deployed on the owner's Cloudflare account (ask the owner for a connector URL); the deploy steps are in [mcp-worker/README.md](../mcp-worker/README.md).
 
