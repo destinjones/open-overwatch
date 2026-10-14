@@ -53,13 +53,15 @@ export function ageText(a) {
   return Math.round(s / 86400) + ' days';
 }
 
+/** "data 3 min old", or "data age unknown" when no source gave a time. */
+const ageWords = a => (a == null || !Number.isFinite(a) ? 'data age unknown' : `data ${ageText(a)} old`);
 const names = r => r.sources.map(s => s.name + (s.cached ? ' (copy)' : '')).join(' + ');
 
 /** One line: "USGS + EMSC · 2 of 2 agree · data 3 min old · confirmed". */
 export function provenanceText(r) {
   if (!r || !r.sources.length) return 'no source · unknown';
   const agree = r.of > 1 ? ` · ${r.agree} of ${r.of} agree` : '';
-  return `${names(r)}${agree} · data ${ageText(r.ageMs)} old · ${r.confidence}`;
+  return `${names(r)}${agree} · ${ageWords(r.ageMs)} · ${r.confidence}`;
 }
 
 /** The block a card shows: who, how many agree, how old, the confidence with its rule as a tooltip. */
@@ -70,6 +72,6 @@ export function provenanceHtml(r) {
     return /^https:\/\//.test(s.url || '') ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${n}</a>` : n;
   }).join(' + ');
   const agree = r.of > 1 ? ` · ${r.agree} of ${r.of} agree` : '';
-  return `<div class="prov prov-${esc(r.confidence)}"><span class="prov-src">${src}</span>${agree} · data ${esc(ageText(r.ageMs))} old · ` +
+  return `<div class="prov prov-${esc(r.confidence)}"><span class="prov-src">${src}</span>${agree} · ${esc(ageWords(r.ageMs))} · ` +
     `<abbr class="prov-conf" title="${esc(r.rule)}">${esc(r.confidence)}</abbr></div>`;
 }

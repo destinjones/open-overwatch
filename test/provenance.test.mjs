@@ -28,6 +28,7 @@ test('age is the data time, not the download time; old data is stale', () => {
 
 test('no data time is unknown; ISO strings are accepted', () => {
   assert.equal(provenance([{ id: 'x' }], { now }).confidence, 'unknown');
+  assert.equal(provenanceText(provenance([{ id: 'x', name: 'X' }], { now })), 'X · data age unknown · unknown');
   assert.equal(provenance([{ id: 'x', dataAt: '2026-10-14T11:59:00Z' }], { now }).ageMs, min);
   assert.throws(() => source({ name: 'no id' }));
 });
