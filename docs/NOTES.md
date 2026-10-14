@@ -71,7 +71,7 @@ scheduled build timed out on every CelesTrak group (90 s each, a 36-minute build
 an empty data/tle/, and the live globe fell back to CelesTrak directly for every visitor until the next build.
 build_site.py now keeps the live site's copy of any feed it cannot refresh (last_good / keep_last), stops waiting on
 CelesTrak after the first timeout, and index.json lists the groups it `kept`.
-`Publish Update.bat` bumps OW_VERSION, commits, tags vX and pushes; .github/workflows/release.yml then builds
+`Publish Update.bat` bumps OW_VERSION (src/map/version.js), commits, tags vX and pushes; .github/workflows/release.yml then builds
 `open-overwatch.zip` (the download the lander links to via releases/latest/download). Keep the zip file list in that
 workflow in sync when the app starts needing new files. gh CLI (portable): ~/bin/gh-cli/bin/gh.exe.
 
@@ -90,7 +90,7 @@ legend, Locate, Fun/ISS follow) · brief (Brief, Welcome) · audio · setup (Set
 transit) · hazards (fire hot spots, US perimeters) · measure (draw and measure) · share (links, hand-off to the globe) · weather (forecast
 model layers, the timeline bar) · aviation (aircraft card extras, airports, boards, runways) · main (INIT, OW).
 Modules import only from earlier ones; the five names used before they are defined (Sats, cableHit, Probe, Brief, Keys)
-are read through `late.X`. OW_VERSION stays a classic <script> const in the HTML (Publish Update.bat edits that line).
+are read through `late.X`. OW_VERSION is a classic-script const in src/map/version.js (Publish Update.bat edits that line).
 A hidden tab pauses feeds by design: drive them with OW.Sats.reload() etc. when testing in a background pane.
 
 ## 2D map: adding a layer (the contract the code enforces)
@@ -834,10 +834,13 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   is 'self' plus the exact CDN origins the page loads, plus the sha256 of each inline script; `test/sri.test.mjs`
   fails when an inline script changes without `node brand/tools/sri.mjs --csp` (hashes are of the LF text, as the HTML
   parser sees it, so a CRLF checkout agrees). Exceptions, on purpose:
-  - open-overwatch.html uses `'unsafe-inline'` and no hashes: its popups are HTML strings with `onclick=` attributes
-    (21 of them, all built with num()/idArg()/esc()), and the publish script rewrites the inline OW_VERSION line. A hash
-    anywhere in script-src would make browsers ignore 'unsafe-inline'; the check refuses that mix. Moving those
-    handlers to one delegated listener would let the map drop 'unsafe-inline'.
+  - open-overwatch.html is on hashes like the rest (2026-10-14): its detail-panel HTML never carries `onclick=`; buttons
+    say `data-do="fly" data-lat=… data-lon=… data-z=…` (arguments through num()/idArg()) and one document click listener
+    in src/map/main.js runs a fixed `ACTIONS` table (fly, air-trail, air-follow, sat-track, clear-track, tab, rerender).
+    A new button adds its action there; test/inject.test.mjs fails on any inline handler in src/map, an unknown action,
+    or an unwrapped `${…}` in a data-* argument. OW_VERSION moved out of the page to `src/map/version.js` (a classic
+    script, still a global const) so the publish bump leaves the page's hashes alone. (Before this, the onclicks for
+    Trail/Follow/Ground track/Clear track/← Brief/refresh named module-scoped objects and threw; only flyTo worked.)
   - globe.html adds `'unsafe-eval'`: CesiumJS's Viewer widgets run on Knockout, which reads `(0,eval)("this")` as
     Cesium.js loads (without it the globe never starts: "EvalError … 'unsafe-eval' is not an allowed source") and
     compiles each `data-bind` with `new Function`. It also covers Cesium's WebAssembly (draco, KTX2/basis decoders;

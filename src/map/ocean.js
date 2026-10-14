@@ -14,7 +14,7 @@ import {
   SEA_AIR_IMAGERY, gibsDomainUrl, parseGibsDomain, aqUrl, parseAirQuality, aqiLook, aqGrid, aqRows,
 } from '../core/ocean.js';
 
-const G = 'Sea & sky', center = o => `<div class="actions"><button class="btn small" onclick="flyTo(${num(o.lat)},${num(o.lon)},8)">Center</button></div><hr class="sep">`;
+const G = 'Sea & sky', center = o => `<div class="actions"><button class="btn small" data-do="fly" data-lat="${num(o.lat)}" data-lon="${num(o.lon)}" data-z="8">Center</button></div><hr class="sep">`;
 const foot = t => `<p style="font-size:11.5px;color:var(--ink-faint)">${esc(t)}</p>`;
 let stationsP = null;
 const stations = () => stationsP || (stationsP = Net.text(NDBC_STATIONS, { timeout: 60000 }).then(parseNdbcStations).catch(e => { stationsP = null; throw e; }));

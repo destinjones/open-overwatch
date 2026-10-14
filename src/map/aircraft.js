@@ -141,7 +141,7 @@ Detail.renderers.air = a => {
   if (a.flight) links.push({ text: `FlightAware · ${a.flight}`, url: `https://flightaware.com/live/flight/${encodeURIComponent(a.flight)}` });
   if (a.r) links.push({ text: `Registration ${a.r} on Planespotters`, url: `https://www.planespotters.net/search?q=${encodeURIComponent(a.r)}` });
   return `<div class="det">${Detail.head(a.emerg ? C.emg : a.mil ? C.mil : C.civ, `Aircraft · ADS-B via ${a.src}`, title, sub, flags)}${Photos.html(a.hex)}${Air.more ? Air.more(a) : ''}${Detail.kv(rows)}
-  <div class="actions"><button class="btn small" onclick="flyTo(${num(a.lat)},${num(a.lon)},8)">Center</button><button class="btn small" onclick="Air.trail('${idArg(a.hex)}')">Trail</button><button class="btn small" onclick="Air.follow('${idArg(a.hex)}')">${Air.following === a.hex ? 'Unfollow' : 'Follow'}</button></div>
+  <div class="actions"><button class="btn small" data-do="fly" data-lat="${num(a.lat)}" data-lon="${num(a.lon)}" data-z="8">Center</button><button class="btn small" data-do="air-trail" data-id="${idArg(a.hex)}">Trail</button><button class="btn small" data-do="air-follow" data-id="${idArg(a.hex)}">${Air.following === a.hex ? 'Unfollow' : 'Follow'}</button></div>
   <hr class="sep">${Detail.links(links)}</div>`;
 };
 

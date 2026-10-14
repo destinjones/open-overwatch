@@ -38,7 +38,7 @@ Open an issue and say so.
    after v0.9.2.11 comes v0.9.2.12.
 3. Run `node --test`; CI must be green on the commit.
 4. Run `Publish Update.bat` (Windows; on another system do the same by hand): it writes the version into `OW_VERSION`
-   in `open-overwatch.html`, commits, creates the annotated tag `v<version>` and pushes `main` with its tags. The tag's
+   in `src/map/version.js`, commits, creates the annotated tag `v<version>` and pushes `main` with its tags. The tag's
    message is the release note: write a short paragraph a visitor would understand.
 5. GitHub then rebuilds the site (about a minute, with the new version at the root and under `/v/<tag>/`) and builds the
    release with its two files. Bump the MCP version (`VERSION` in `mcp/feeds.mjs`, `package.json`,

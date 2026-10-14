@@ -3,8 +3,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". This page allows inline script (its popups use onclick= attributes). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: http: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts by sha256 only (node brand/tools/sri.mjs --csp); popup buttons use data-do, never onclick=. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net 'sha256-5H6UXlGmXVotIBnP0qK/nVs2xzlTS5hqO9Buf31xh7s=' 'sha256-P5skaw/CUJLcCGM1kcv/zrG7kvCOWsU/C6sLyGeX7cM='; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: http: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <script type="importmap">{ "integrity": { "https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.light.mjs": "sha384-OQpxx4NyhnwaH6BpRnuHkLoE710dl+R2jDCUYLeXFVi1Msn+cqfvyy9F0Tt0FmXP" } }</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <script>/* iOS ignores user-scalable=no: stop its page pinch-zoom too (the views handle pinch themselves) */ addEventListener('gesturestart', e => e.preventDefault(), { passive: false });</script>
@@ -440,9 +440,7 @@ details.setup[open] > summary::before{transform:rotate(90deg)}
 <div id="toast" role="status"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha384-NElt3Op+9NBMCYaef5HxeJmU4Xeard/Lku8ek6hoPTvYkQPh3zLIrJP7KiRocsxO" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/dist/satellite.min.js" integrity="sha384-e6V1JVpc+kVNTxT0gEOla7yL4c92Romsw7itPoipfzHbEjzUwPhTv6oeVDMHHzqT" crossorigin="anonymous"></script>
-<script>
-const OW_VERSION = '0.9.2.12'; // the publish script bumps this line
-</script>
+<script src="src/map/version.js"></script>
 <script type="module" src="src/map/main.js"></script>
 <script type="module" src="src/app/shell.js"></script>
 </body>

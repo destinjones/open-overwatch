@@ -23,7 +23,7 @@ Detail.renderers.bike = s => {
   return `<div class="det">${Detail.head(color, 'Bike share · ' + n.name, s.name || 'Station', esc([n.company, n.city].filter(Boolean).join(' · ')), [{ t: words, cls: st === 'ok' ? 'good' : st === 'empty' || st === 'full' ? 'warn' : '' }])}
 ${Detail.kv([['Bikes', `${fmt.n(s.bikes)}${s.ebikes ? ` (${fmt.n(s.ebikes)} electric)` : ''}`], ['Free docks', s.docks != null && !s.virtual ? `${fmt.n(s.docks)}${s.total ? ' of ' + fmt.n(s.total) : ''}` : null], ['Address', s.address], ['Checked', s.t ? checkedAgo(Date.now() - s.t, s.t) : null], ['Position', fmt.ll(s.lat, s.lon)]])}
 ${st === 'stale' ? '<p style="font-size:12px;color:var(--ink-dim)">This system\'s feed hasn\'t updated lately: these are its last numbers.</p>' : ''}
-<div class="actions"><button class="btn small" onclick="flyTo(${num(s.lat)},${num(s.lon)},16)">Center</button></div><hr class="sep">
+<div class="actions"><button class="btn small" data-do="fly" data-lat="${num(s.lat)}" data-lon="${num(s.lon)}" data-z="16">Center</button></div><hr class="sep">
 <p style="font-size:11.5px;color:var(--ink-faint)">From the operator's own feed, gathered by CityBikes (citybik.es, open data under each operator's terms).</p></div>`;
 };
 feed(lyBikes, { interval: 180, viewDependent: true, minZoom: 11, fetch: async () => {
@@ -67,7 +67,7 @@ Detail.renderers.transit = v => {
   return `<div class="det">${Detail.head(c, `${m} · ${v.src.name}`, `${i.line || m}${i.dest ? ' → ' + i.dest : ''}`, '')}
 ${Detail.kv(transitRows(v, fleet.age(v)))}
 <p style="font-size:12px;color:var(--ink-dim)">Drawn about ${Math.round(v.delay / 1000)} s behind live, moving between its real reports. ${esc(v.src.credit)}</p>
-<div class="actions"><button class="btn small" onclick="flyTo(${num(v.lat)},${num(v.lon)},15)">Center</button></div></div>`;
+<div class="actions"><button class="btn small" data-do="fly" data-lat="${num(v.lat)}" data-lon="${num(v.lon)}" data-z="15">Center</button></div></div>`;
 };
 function transitView() { const c = map.getCenter(); return { lat: c.lat, lon: wrapLon(c.lng), height: zoomToHeight(map.getZoom(), c.lat) }; }
 function evaluate() {

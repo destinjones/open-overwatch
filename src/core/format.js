@@ -44,10 +44,9 @@ export function lightTime(au) {
 /** An orbital period in days: "88 days", "11.9 years", "248 years". */
 export function period(days) { return days < 1000 ? Math.round(days) + ' days' : (days / 365.25).toFixed(days > 36525 ? 0 : 1) + ' years'; }
 
-/** A number for putting into JavaScript inside an HTML attribute (onclick="flyTo(${num(lat)}, ...)"): anything that is not a finite number becomes 0,
- *  so a feed that sends text where a coordinate should be (a spoofed balloon, a bad upload) cannot close the call and add its own code. */
+/** A number for an HTML attribute the 2D map's click listener reads (data-lat="${num(lat)}"): anything that is not a finite number becomes 0,
+ *  so a feed that sends text where a coordinate should be (a spoofed balloon, a bad upload) cannot break out of the attribute. */
 export const num = v => Number.isFinite(+v) ? +v : 0;
 
-/** An identifier (an ICAO hex, a serial) for a single-quoted JavaScript string inside an HTML attribute: only word characters, dot, tilde and hyphen survive.
- *  (esc() is not enough there: the browser turns &#39; back into a quote before the script runs.) */
+/** An identifier (an ICAO hex, a serial) for an HTML attribute that reaches code (data-id="${idArg(hex)}"): only word characters, dot, tilde and hyphen survive. */
 export const idArg = v => String(v ?? '').replace(/[^\w.~-]/g, '');

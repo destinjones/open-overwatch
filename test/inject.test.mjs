@@ -20,16 +20,22 @@ test('esc does the HTML part', () => {
   assert.equal(esc(null), ''); assert.equal(esc(undefined), ''); assert.equal(esc(0), '0');   // the 2D map's escaper did this; it is the only one now
 });
 
-// The 2D map builds HTML from feed data, and anything an uploader can influence (a SondeHub balloon, an ADS-B hex) must not reach an
-// inline handler unsanitised. Every ${...} inside an onclick="..." in src/map must be wrapped in num(...) or idArg(...).
-test('every inline handler in the 2D map wraps what it interpolates', () => {
-  const dir = new URL('../src/map/', import.meta.url); let seen = 0; const bad = [];
+// The 2D map builds HTML from feed data, and anything an uploader can influence (a SondeHub balloon, an ADS-B hex) must not reach a
+// handler unsanitised. Its HTML carries no inline handlers at all (the page's CSP has no 'unsafe-inline', so they would not run):
+// buttons say data-do="action" with data-* arguments, one listener in main.js runs a fixed list of actions, and every ${...} in
+// those arguments is wrapped in num(...) or idArg(...).
+test('the 2D map: no inline handlers; data-do buttons name known actions and wrap what they interpolate', () => {
+  const dir = new URL('../src/map/', import.meta.url); let seen = 0; const bad = [], acts = new Set();
+  const main = readFileSync(new URL('main.js', dir), 'utf8'), table = main.match(/const ACTIONS = \{([\s\S]*?)\n\};/)[1];
+  const known = new Set([...table.matchAll(/(?:^|[\s,{])'?([\w-]+)'?:\s*(?:\(|d\b)/g)].map(m => m[1]));
   for (const f of readdirSync(dir).filter(f => f.endsWith('.js'))) {
     const text = readFileSync(new URL(f, dir), 'utf8');
-    for (const m of text.matchAll(/on(?:click|input|change|mouse\w+|key\w+)="([^"]*)"/g)) {
-      for (const e of m[1].matchAll(/\$\{([^}]*)\}/g)) { seen++; if (!/^\s*(num|idArg)\(/.test(e[1])) bad.push(`${f}: ${m[0].slice(0, 90)}`); }
+    for (const m of text.matchAll(/\son[a-z]+\s*=\s*["']/gi)) bad.push(`${f}: inline handler ${m[0].trim()}`);
+    for (const m of text.matchAll(/<[a-z]+\b[^<>]*\bdata-do="([^"]*)"[^<>]*>/g)) {
+      acts.add(m[1]); if (!known.has(m[1])) bad.push(`${f}: data-do="${m[1]}" is not in main.js ACTIONS`);
+      for (const a of m[0].matchAll(/\bdata-[\w-]+="([^"]*)"/g)) for (const e of a[1].matchAll(/\$\{([^}]*)\}/g)) { seen++; if (!/^\s*(num|idArg)\(/.test(e[1])) bad.push(`${f}: ${a[0]}`); }
     }
   }
-  assert.ok(seen >= 10, 'expected to find the existing handlers');
+  assert.ok(seen >= 10 && acts.has('fly') && acts.has('air-trail'), 'expected to find the existing buttons');
   assert.deepEqual(bad, []);
 });

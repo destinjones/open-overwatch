@@ -60,7 +60,7 @@ def stamp_worker(root):
     path = os.path.join(root, 'sw.js')
     if not os.path.exists(path):
         return None
-    with open(os.path.join(root, 'open-overwatch.html'), encoding='utf-8') as f:
+    with open(os.path.join(root, 'src', 'map', 'version.js'), encoding='utf-8') as f:
         m = re.search(r"const OW_VERSION = '([0-9A-Za-z.\-]+)'", f.read())
     build = (m.group(1) if m else 'unknown') + '+' + git('rev-parse', '--short=10', 'HEAD')
     with open(path, encoding='utf-8') as f:

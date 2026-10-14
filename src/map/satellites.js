@@ -159,7 +159,7 @@ Detail.renderers.sat = o => {
     { text: 'Heavens-Above', url: `https://www.heavens-above.com/satinfo.aspx?satid=${o.id}` },
   ];
   return `<div class="det">${Detail.head(C.sat, 'Satellite · CelesTrak GP data', o.name, '', flags)}${Detail.kv(rows)}
-  <div class="actions"><button class="btn small" onclick="flyTo(${num(o.lat)},${num(o.lon)},3)">Center</button><button class="btn small" onclick="Sats.drawTrack(Sats.byId.get(${num(o.id)}))">Ground track</button><button class="btn small" onclick="Tracks.clear()">Clear track</button></div>
+  <div class="actions"><button class="btn small" data-do="fly" data-lat="${num(o.lat)}" data-lon="${num(o.lon)}" data-z="3">Center</button><button class="btn small" data-do="sat-track" data-id="${num(o.id)}">Ground track</button><button class="btn small" data-do="clear-track">Clear track</button></div>
   <hr class="sep">${Detail.links(links)}</div>`;
 };
 export const lySats = Layers.add({

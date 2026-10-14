@@ -15,6 +15,7 @@ import { Cities } from './cities.js';
 import { Hazards } from './hazards.js';
 import { Measure } from './measure.js';
 import { Share } from './share.js';
+import { num } from '../core/format.js';
 import './util.js';
 import './mapview.js';
 import './engine.js';
@@ -38,6 +39,15 @@ $('#legend').innerHTML = legendHtml();
 buildSetup(); UI.build(); Presets.build(); applyLayoutMode(); Sound.toggle(Sound.on);
 $('#btnLocate').addEventListener('click', () => Locate.go());
 $('#brief').addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b) Brief.act(b.dataset.act); });
+// buttons in the detail panel's HTML say data-do="…" (never onclick=, so the page's CSP needs no 'unsafe-inline'); only these actions exist,
+// and their arguments come back through num() / the hex and serial the renderers already passed through idArg()
+const ACTIONS = {
+  fly: d => flyTo(num(d.lat), num(d.lon), num(d.z)),
+  'air-trail': d => Air.trail(d.id), 'air-follow': d => Air.follow(d.id),
+  'sat-track': d => Sats.drawTrack(Sats.byId.get(num(d.id))), 'clear-track': () => Tracks.clear(),
+  tab: d => showTab(d.tabTo), rerender: () => Detail.render(),
+};
+document.addEventListener('click', e => { const b = e.target.closest?.('[data-do]'); if (!b || !Object.hasOwn(ACTIONS, b.dataset.do)) return; e.preventDefault(); ACTIONS[b.dataset.do](b.dataset); });
 Feeds.paused = true; // hold the scheduler until we know whether the relay is there
 $('#verTag').textContent = 'v' + OW_VERSION;
 export const Splash = {

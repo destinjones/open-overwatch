@@ -424,7 +424,7 @@ As it is today:
 2. **Versions** are small four-part steps (v0.9.2.8, then v0.9.2.9, …), recorded in the status line of `CLAUDE.md` and
    in `ROADMAP.md`.
 3. **`Publish Update.bat`** (Windows) asks for the version number and a one-line summary, writes the version into
-   `OW_VERSION` in `open-overwatch.html`, commits everything, creates an annotated tag `v<version>` and pushes `main`
+   `OW_VERSION` in `src/map/version.js`, commits everything, creates an annotated tag `v<version>` and pushes `main`
    with its tags.
 4. **The Website workflow** (`.github/workflows/pages.yml` → `.github/build_site.py`) runs on every push to `main`, every
    6 hours, and by hand. It builds the site with the current version at the root and every annotated `v*` tag frozen

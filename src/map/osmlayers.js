@@ -45,7 +45,7 @@ export const lyAlpr = Layers.add({ id: 'alpr', group: 'Ground', name: 'Licence-p
 Points.define('alpr', 'alpr', { minZoom: 3 });
 Detail.renderers.alpr = c => `<div class="det">${Detail.head(ALPR_COL, 'Licence-plate reader · OpenStreetMap', c.brand ? c.brand + ' reader' : 'Plate reader', esc(c.operator || ''))}
 ${Detail.kv([...cameraFacts(c), ['Position', fmt.ll(c.lat, c.lon)]])}
-<div class="actions"><button class="btn small" onclick="flyTo(${num(c.lat)},${num(c.lon)},17)">Center</button></div>
+<div class="actions"><button class="btn small" data-do="fly" data-lat="${num(c.lat)}" data-lon="${num(c.lon)}" data-z="17">Center</button></div>
 <p style="font-size:12px;line-height:1.45;color:var(--ink-dim)">An automatic licence-plate reader (ALPR) volunteers have mapped in OpenStreetMap, mostly through DeFlock. A location, not a feed: no images, no plates; readers nobody has mapped are not shown. © OpenStreetMap contributors (ODbL).</p>
 <hr class="sep">${Detail.links([{ text: `OSM ${c.osmType === 'way' ? 'way' : 'node'} ${c.osmId}`, url: `https://www.openstreetmap.org/${c.osmType === 'way' ? 'way' : 'node'}/${encodeURIComponent(c.osmId)}` }, { text: 'FlockHopper', url: 'https://dontgetflocked.com/' }])}</div>`;
 feed(lyAlpr, { interval: 3600, viewDependent: true, minZoom: 3, fetch: async () => {
@@ -76,7 +76,7 @@ const gMil = lineLayer(lyMil);
 Points.define('milareas', 'milareas', { minZoom: 8 });
 Detail.renderers.milarea = a => `<div class="det">${Detail.head(MIL_COL, 'Military area · OpenStreetMap', a.name || 'Military area', esc(a.near ? `near ${a.near.name}` : ''))}
 ${Detail.kv([['Size', `${a.open ? 'at least ' : ''}${areaWords(a.area)}`], ['Airfields', a.fields.join(', ')], ['Near', a.near ? `${a.near.name} (${a.near.km < 1 ? 'under 1' : Math.round(a.near.km)} km)` : null], ['Position', fmt.ll(a.lat, a.lon)]])}
-<div class="actions"><button class="btn small" onclick="flyTo(${num(a.lat)},${num(a.lon)},13)">Center</button></div>
+<div class="actions"><button class="btn small" data-do="fly" data-lat="${num(a.lat)}" data-lon="${num(a.lon)}" data-z="13">Center</button></div>
 <p style="font-size:12px;line-height:1.45;color:var(--ink-dim)">Land volunteers have mapped as military (landuse=military): bases, ranges, depots, barracks. Outlines are as mapped; the tiles carry no names for military land, so the name is a military airfield inside it when there is one${a.open ? '; it runs on past the view, so its size is a lower bound' : ''}. © OpenMapTiles, © OpenStreetMap contributors (ODbL).</p>
 <hr class="sep">${Detail.links([{ text: "What's here on OpenStreetMap", url: `https://www.openstreetmap.org/query?lat=${a.lat.toFixed(5)}&lon=${a.lon.toFixed(5)}` }])}</div>`;
 feed(lyMil, { interval: 3600, viewDependent: true, minZoom: 8, fetch: async () => {

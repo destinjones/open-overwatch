@@ -18,7 +18,7 @@ export const Detail = {
     if (n) Sel.obj = n; return Sel.obj;
   },
   clear() { Sel.kind = null; Sel.obj = null; Sel.id = null; this.el.innerHTML = '<div class="empty"><b>Nothing selected.</b><br>Tap an aircraft, satellite, ship, camera, quake or event on the map. Tap open ground for a probe: weather, place, sun and an OSM scan of the area.</div>'; requestDraw(); Tracks.clear(); },
-  render() { if (!Sel.kind) return; const r = Detail.renderers[Sel.kind]; if (r) this.el.innerHTML = `<a class="backlink" href="#" onclick="showTab('brief');return false">← Brief</a>` + r(this.live()); },
+  render() { if (!Sel.kind) return; const r = Detail.renderers[Sel.kind]; if (r) this.el.innerHTML = `<a class="backlink" href="#" data-do="tab" data-tab-to="brief">← Brief</a>` + r(this.live()); },
   renderers: {},
   head(color, kicker, title, sub, flags = []) { if (!/^[#\w(),.%\s-]+$/.test(String(color))) color = C.ink_faint; // a plain CSS colour only: it goes into a style attribute
     return `<div class="kicker"><span class="sw" style="background:${color}"></span><span class="label">${esc(kicker)}</span></div><h2>${esc(title)}</h2>${sub ? `<div class="sub">${sub}</div>` : ''}${flags.length ? `<div class="flags">${flags.map(f => `<span class="flag ${f.cls || ''}">${esc(f.t)}</span>`).join('')}</div>` : ''}`; },

@@ -29,7 +29,7 @@ const ago = t => { const m = Math.round((Date.now() - t) / 60e3); return m < 90 
 Detail.renderers.hotspot = f => `<div class="det">${Detail.head(fireLook(f.frp)[1], `Fire detection · NASA VIIRS (${FIRE_SAT_NAME[f.sat] || f.sat})`, f.frp >= 100 ? 'Intense fire' : f.frp >= 20 ? 'Strong fire' : 'Fire detected', esc(`${new Date(f.t).toISOString().slice(0, 16).replace('T', ' ')} UTC · ${ago(f.t)} · ${f.day ? 'day' : 'night'} pass`))}
 ${Detail.kv([['Fire power', `${fmt.n(f.frp)} MW (radiative)`], ['Brightness', f.k ? `${fmt.n(f.k)} K` : null], ['Confidence', f.conf], ['Position', fmt.ll(f.lat, f.lon)]])}
 <p style="font-size:12px;color:var(--ink-dim);line-height:1.45">A hot 375 m pixel seen from orbit: a wildfire, farm or brush burning, a gas flare or a volcano. Clouds, smoke and the satellites' timing hide some fires. NASA FIRMS / LANCE (VIIRS NRT), through NASA GIBS.</p>
-<div class="actions"><button class="btn small" onclick="flyTo(${num(f.lat)},${num(f.lon)},11)">Center</button></div><hr class="sep">${Detail.links([{ text: 'On NASA FIRMS', url: `https://firms.modaps.eosdis.nasa.gov/map/#d:24hrs;@${num(f.lon).toFixed(3)},${num(f.lat).toFixed(3)},11z` }])}</div>`;
+<div class="actions"><button class="btn small" data-do="fly" data-lat="${num(f.lat)}" data-lon="${num(f.lon)}" data-z="11">Center</button></div><hr class="sep">${Detail.links([{ text: 'On NASA FIRMS', url: `https://firms.modaps.eosdis.nasa.gov/map/#d:24hrs;@${num(f.lon).toFixed(3)},${num(f.lat).toFixed(3)},11z` }])}</div>`;
 const hotItem = f => { const [, color, size] = fireLook(f.frp); return { lat: f.lat, lon: f.lon, r: size * .8, color, fillAlpha: .8, stroke: true, kind: 'hotspot', obj: f, tip: `Fire · ${fmt.n(f.frp)} MW · ${ago(f.t)}` }; };
 feed(lyHot, { interval: 30, viewDependent: true, minZoom: 4, fetch: async () => {
   const c = map.getCenter(), z = map.getZoom(), h = zoomToHeight(z, c.lat), lon = ((c.lng + 540) % 360) - 180;
@@ -58,7 +58,7 @@ Detail.renderers.fireperim = f => {
   return `<div class="det">${Detail.head(containColor(f), (f.rx ? 'Prescribed burn' : 'Wildfire') + ' · NIFC (US interagency)', f.name + ' fire', esc([f.where, f.state].filter(Boolean).join(' · ')))}
 ${Detail.kv([['Size', f.acres ? `${fmt.n(f.acres)} acres · ${fmt.n(f.acres * 0.404686)} ha` : null], ['Contained', f.contained != null ? f.contained + '%' : null], ['Cause', f.cause], ['Discovered', d(f.discovered)], ['Perimeter mapped', d(f.updated)]])}
 <p style="font-size:12px;color:var(--ink-dim)">The current perimeter mapped by incident teams (it can lag the fire by a day). National Interagency Fire Center, WFIGS.</p>
-<div class="actions"><button class="btn small" onclick="flyTo(${num(f.lat)},${num(f.lon)},10)">Center</button></div></div>`;
+<div class="actions"><button class="btn small" data-do="fly" data-lat="${num(f.lat)}" data-lon="${num(f.lon)}" data-z="10">Center</button></div></div>`;
 };
 feed(lyPerim, { interval: 900, fetch: async () => {
   const list = firePerimeters(await Net.json(NIFC_PERIMETERS, { timeout: 60000 })); gPerim.clearLayers(); const items = [];
