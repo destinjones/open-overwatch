@@ -11,8 +11,9 @@ import { Sats } from './satellites.js';
 import { fallingSoon, corridor, windowWords, spanText, uncertaintyWords, whereWords, status } from '../core/decay.js';
 import { provBlock } from '../core/liveprov.js';
 
-const lines = scene.primitives.add(new C.PolylineCollection());
-const RED = '#ff5a4f', FAINT = 0.45, BRIGHT = 0.95;
+const lines = scene.primitives.add(new C.PolylineCollection());   // the layer: every object's likeliest orbit
+const picked = scene.primitives.add(new C.PolylineCollection());  // the chosen object's whole corridor
+const RED = '#ff5a4f', FAINT = 0.35, OVERVIEW_MS = 45 * 60e3;   // the layer draws ±45 min (one orbit) round the likeliest time
 const REFRESH_MS = 30 * 60e3;   // the element sets refresh every few hours; the list is recomputed at most this often
 const when = (p, now) => { const s = status(p, now), d = (p.reentryMs - now) / 864e5;
   return s === 'window' ? (d >= 0 ? `window open · likeliest in ${spanText(d)}` : `window open · likeliest ${spanText(-d)} ago`) : `in ${spanText(d)}`; };
@@ -36,22 +37,22 @@ export const Reentry = {
   },
   draw() {
     lines.removeAll();
-    for (const p of this.list || []) {
-      p.lines = (p.corridor?.segments || []).map(seg => lines.add({ positions: seg.map(q => C.Cartesian3.fromDegrees(q.lon, q.lat, 20000)), width: 1.6,
-        material: C.Material.fromType('Color', { color: C.Color.fromCssColorString(RED).withAlpha(FAINT) }), id: { kind: 'reentry', p } }));
+    const mat = C.Material.fromType('Color', { color: C.Color.fromCssColorString(RED).withAlpha(FAINT) });
+    for (const p of this.list || []) for (const seg of p.corridor?.segments || []) {
+      const near = seg.filter(q => Math.abs(q.t - p.reentryMs) <= OVERVIEW_MS);
+      if (near.length > 1) lines.add({ positions: near.map(q => C.Cartesian3.fromDegrees(q.lon, q.lat, 20000)), width: 1.4, material: mat, id: { kind: 'reentry', p } });
     }
     this.drawn = true; this.highlight();
   },
   highlight() {
-    for (const p of this.list || []) for (const l of p.lines || []) {
-      const on = !this.sel || this.sel === p;
-      l.width = this.sel === p ? 3.2 : 1.6;
-      l.material.uniforms.color = C.Color.fromCssColorString(this.sel === p ? '#ffb4ad' : RED).withAlpha(on ? (this.sel ? BRIGHT : FAINT) : 0.12);
-    }
+    picked.removeAll();
+    const p = this.sel; if (!p) return;
+    const mat = C.Material.fromType('Color', { color: C.Color.fromCssColorString('#ffb4ad').withAlpha(0.95) });
+    for (const seg of p.corridor?.segments || []) picked.add({ positions: seg.map(q => C.Cartesian3.fromDegrees(q.lon, q.lat, 20000)), width: 3, material: mat });
   },
   async apply() {
     const on = L.reentry?.on && !state.lookup;
-    lines.show = !!on;
+    lines.show = !!on; picked.show = !state.lookup;
     if (!on) return;
     await this.compute();
     if (!this.drawn) this.draw();
@@ -80,18 +81,17 @@ export const Reentry = {
   },
   /** One prediction's card: the window in plain words, why it is that wide, the orbit, the provenance block. */
   show(p) {
-    this.sel = p;
-    if (!L.reentry.on) { lines.show = true; if (!this.drawn) this.draw(); }
-    this.highlight();
+    this.sel = p; this.highlight();
     const now = Date.now(), c = p.corridor, sat = Sats.byId.get(p.id);
     const card = $('#card');
     card.innerHTML = `<button class="x" aria-label="Close">×</button><div class="k" style="--c:${RED}">Re-entry · ${esc(when(p, now))}</div><h2>${esc(p.name)}</h2>
       <p class="note" style="font-size:13px;color:var(--ink)">Coming down ${esc(whereWords(p, c))}.</p><dl>
       <dt>Likeliest</dt><dd>${new Date(p.reentryMs).toISOString().slice(0, 16).replace('T', ' ')} UTC</dd>
-      <dt>Uncertainty</dt><dd>${esc(uncertaintyWords(p))}</dd>
-      <dt>Orbit now</dt><dd>${Math.round(p.perigeeKm)} × ${Math.round(p.apogeeKm)} km · ${p.incl.toFixed(1)}° · ${p.periodMin.toFixed(1)} min</dd>
-      <dt>Decay from</dt><dd>${p.method === 'n-dot' ? 'its measured slowing (n-dot)' : 'its drag term (B*)'} · ${p.ballistic.toFixed(4)} m²/kg${p.otherDays != null ? ` · the other method says ${esc(spanText(p.otherDays))}` : ''}</dd>
+      <dt>Window</dt><dd>±${Math.round(p.fraction * 100)}% · ${esc(spanText((p.windowMs[1] - p.windowMs[0]) / 864e5))}</dd>
+      <dt>Orbit now</dt><dd>${Math.round(p.perigeeKm)} × ${Math.round(p.apogeeKm)} km · ${p.incl.toFixed(1)}°</dd>
+      <dt>Drag</dt><dd>${p.ballistic.toFixed(4)} m²/kg (${p.method === 'n-dot' ? 'n-dot' : 'B*'})</dd>
       <dt>Catalogue</dt><dd>NORAD ${esc(p.id)}${p.group ? ' · ' + esc(p.group) : ''}</dd></dl>
+      <p class="note">Why so wide: ${esc(uncertaintyWords(p))} Worked out from ${p.method === 'n-dot' ? 'how fast its orbit is shrinking (n-dot)' : 'its drag term (B*)'}${p.otherDays != null ? `; the other drag estimate says ${esc(spanText(p.otherDays))} left` : ''}.</p>
       <p class="note">${p.working ? 'A satellite in service: if it still has fuel, its operator can keep it up or bring it down on purpose, and this prediction would not apply. ' : ''}` +
       `Solar flux assumed F10.7 ${p.solar.f107} sfu, Kp ${p.solar.kp}. Each new element set (every few hours) moves the window; the closer it gets, the narrower it becomes.</p>
       ${provBlock(p, now)}
@@ -109,7 +109,7 @@ export const Reentry = {
     const pts = p.corridor.segments.flat(), mid = pts.reduce((a, b) => (Math.abs(b.t - p.reentryMs) < Math.abs(a.t - p.reentryMs) ? b : a));
     camera.flyTo({ destination: C.Cartesian3.fromDegrees(mid.lon, mid.lat, 9.0e6), duration: 1.6 });
   },
-  unselect() { this.sel = null; this.highlight(); if (!L.reentry?.on) lines.show = false; },
+  unselect() { this.sel = null; this.highlight(); },
   close() { this.unselect(); $('#card').classList.remove('show'); },
 };
 hooks.reentry = id => Reentry.openList(id);
