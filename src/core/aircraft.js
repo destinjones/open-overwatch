@@ -43,3 +43,22 @@ export function openskyState(s) {
     gsMs, gsKt: gsMs != null ? gsMs / KT : null, track: fin(s[10]), rateMs, altFt: altM != null ? altM / FT : null, rateFpm: rateMs != null ? rateMs / FT * 60 : null,
     squawk, emerg: EMERGENCY_SQUAWKS.includes(squawk) };
 }
+
+/** When two feeds' reports are the same aircraft in the same place (provenance agreement): the same hex, data times at most
+ *  maxDtS apart, positions within posM plus the distance it flies in the gap (the faster ground speed, slack × it), and
+ *  barometric altitudes within altFt where both have one. */
+export const AIR_AGREE = Object.freeze({ maxDtS: 30, posM: 1500, slack: 1.25, altFt: 500 });
+
+/** Do reports a and b ({ hex, lat, lon, t (ms), gsKt?, altFt? }) agree within AIR_AGREE? */
+export function sameAircraft(a, b, tol = AIR_AGREE) {
+  if (!a || !b || cleanHex(a.hex) !== cleanHex(b.hex)) return false;
+  const dt = Number.isFinite(a.t) && Number.isFinite(b.t) ? Math.abs(a.t - b.t) / 1000 : 0;
+  if (dt > tol.maxDtS) return false;
+  const r = Math.PI / 180, x = (b.lon - a.lon) * r * Math.cos((a.lat + b.lat) / 2 * r), y = (b.lat - a.lat) * r;
+  const m = Math.hypot(x, y) * 6371008.8, v = Math.max(fin(a.gsKt) || 0, fin(b.gsKt) || 0) * KT;
+  if (m > tol.posM + v * dt * tol.slack) return false;
+  return !(fin(a.altFt) != null && fin(b.altFt) != null && Math.abs(a.altFt - b.altFt) > tol.altFt);
+}
+
+/** A readsb report's data time (ms): the response's `now` (s or ms) less the aircraft's seen_pos. */
+export const readsbTime = (rec, now) => { const n = fin(now); if (n == null) return null; return (n < 1e11 ? n * 1000 : n) - (rec && fin(rec.seenPos) || 0) * 1000; };

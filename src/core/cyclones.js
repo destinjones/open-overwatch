@@ -75,11 +75,50 @@ export function attach(list, name, at, make) {
   return s;
 }
 
+// ---- agreement (provenance): which sources report the same storm in the same place ------------------------------------
+
+/** Two fixes of one storm agree when within km plus kmPerHour × the hours between them (storms move ~10-40 km/h), at most maxKm. */
+export const STORM_AGREE = Object.freeze({ km: 150, kmPerHour: 30, maxKm: 500 });
+/** The agency behind a feed's storm data, so a copy (EONET or GDACS passing on NHC's advisories) isn't counted as a second
+ *  witness: 'noaa', 'jtwc', 'jma', 'imd', 'bom', ... or '' when not said. */
+export function agencyOf(text) {
+  const t = String(text || '').toUpperCase();
+  return /NHC|CPHC|NOAA/.test(t) ? 'noaa' : /JTWC/.test(t) ? 'jtwc' : /JMA/.test(t) ? 'jma' : /IMD/.test(t) ? 'imd' : /BOM/.test(t) ? 'bom' : /MFR|METEO-FRANCE/.test(t) ? 'mfr' : /PAGASA/.test(t) ? 'pagasa' : '';
+}
+/** Do two storm fixes ({ lat, lon, t }) agree within STORM_AGREE? */
+export function sameStorm(a, b, tol = STORM_AGREE) {
+  const h = Number.isFinite(a.t) && Number.isFinite(b.t) ? Math.abs(a.t - b.t) / 3600e3 : 0;
+  return distKm(a, b) <= Math.min(tol.maxKm, tol.km + tol.kmPerHour * h);
+}
+function addReport(s, r) {
+  s.reports = s.reports || [];
+  const old = s.reports.find(x => x.src === r.src);
+  if (!old) s.reports.push(r); else if (r.t != null && (old.t == null || r.t > old.t)) Object.assign(old, r);
+}
+/**
+ * A storm's sources for its provenance: { reports, agreeing } where agreeing are the source ids that place it within
+ * STORM_AGREE of the freshest fix, each agency counted once (EONET's copy of an NHC advisory agrees, but is not a second witness).
+ */
+export function stormAgreement(s) {
+  const reports = (s && s.reports) || [];
+  const freshest = reports.reduce((a, b) => (a == null || (b.t ?? -Infinity) > (a.t ?? -Infinity) ? b : a), null);
+  if (!freshest) return { reports, agreeing: [] };
+  const agreeing = [], agencies = new Set();
+  const order = r => ({ nhc: 0, gdacs: 1, eonet: 2 }[r.src] ?? 3);   // the agency's own feed before the copies of it
+  for (const r of reports.filter(x => x === freshest || sameStorm(freshest, x)).sort((x, y) => order(x) - order(y))) {
+    if (r.agency && agencies.has(r.agency)) continue;
+    if (r.agency) agencies.add(r.agency);
+    agreeing.push(r.src);
+  }
+  return { reports, agreeing };
+}
+
 /** EONET's storm events → storms { kind: 'storm', id, title, src, lat, lon, kt, date, track, links }. */
 export function stormsFromEonet(events) {
   return events.filter(e => e.track.length).map(e => {
     const last = e.track[e.track.length - 1];
     return { kind: 'storm', id: e.id, title: e.title, src: 'NASA EONET', lat: last.lat, lon: last.lon, kt: last.kt, date: last.t ? new Date(last.t).toISOString() : e.date,
+      reports: [{ src: 'eonet', t: last.t || null, lat: last.lat, lon: last.lon, agency: agencyOf(e.sources.map(s => s.id).join(' ')) }],
       track: e.track.map(p => ({ lat: p.lat, lon: p.lon, kt: p.kt, date: p.t ? new Date(p.t).toISOString() : null })),
       links: [e.link ? { text: 'EONET event', url: e.link } : null, ...e.sources.map(s => ({ text: 'Source: ' + s.id, url: s.url }))].filter(Boolean) };
   });
@@ -91,8 +130,9 @@ export function mergeNhc(list, nhc) {
     const at = { lat: st.lat, lon: st.lon }, nm = st.name.toLowerCase();
     const same = (nm.length > 2 && list.find(x => x.title.toLowerCase().includes(nm))) || list.find(x => distKm(x, at) < 300);
     const n = { title: st.title, kt: st.kt, pressure: st.pressure, movement: st.movement, advisory: st.advisory, url: st.url, forecastUrl: st.forecastUrl, advNum: st.advNum };
-    if (same) Object.assign(same, { nhc: n, kt: same.kt || st.kt, lat: st.lat, lon: st.lon });
-    else list.push({ kind: 'storm', id: 'nhc-' + st.id, title: st.title, src: 'NOAA NHC', lat: st.lat, lon: st.lon, kt: st.kt, date: st.advisory, track: [at], nhc: n, links: [] });
+    const r = { src: 'nhc', t: Number.isFinite(Date.parse(st.advisory)) ? Date.parse(st.advisory) : null, lat: st.lat, lon: st.lon, agency: 'noaa' };
+    if (same) { Object.assign(same, { nhc: n, kt: same.kt || st.kt, lat: st.lat, lon: st.lon }); addReport(same, r); }
+    else list.push({ kind: 'storm', id: 'nhc-' + st.id, title: st.title, src: 'NOAA NHC', lat: st.lat, lon: st.lon, kt: st.kt, date: st.advisory, track: [at], nhc: n, links: [], reports: [r] });
   }
   return list;
 }
@@ -102,7 +142,7 @@ export function mergeNoaa(list, forecasts) {
     const now = f.points[0], s = attach(list, f.name || f.id, now, () => ({ kind: 'storm', id: 'fc-' + f.id, title: f.name || f.id.toUpperCase(), src: 'NOAA NHC',
       lat: now ? now.lat : f.cone[0][0][1], lon: now ? now.lon : f.cone[0][0][0], kt: now && now.kt, track: [], links: [] }));
     s.fc = { src: 'NOAA NHC', ...f };
-    if (now) { s.kt = now.kt || s.kt; s.lat = now.lat; s.lon = now.lon; }
+    if (now) { s.kt = now.kt || s.kt; s.lat = now.lat; s.lon = now.lon; addReport(s, { src: 'nhc', t: null, lat: now.lat, lon: now.lon, agency: 'noaa' }); }
   }
   return list;
 }
@@ -117,6 +157,7 @@ export function mergeGdacs(list, gd) {
       warnings: [], winds: [], coherent: true };
     if (!s.kt && kt) s.kt = kt;
     if (g.report) s.links.push({ text: 'GDACS report', url: g.report });
+    if (at) addReport(s, { src: 'gdacs', t: Number.isFinite(f.advisory) ? f.advisory : g.to, lat: at.lat, lon: at.lon, agency: agencyOf(f.source) });
   }
   return list;
 }

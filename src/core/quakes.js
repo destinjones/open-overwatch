@@ -40,3 +40,18 @@ export const largest = list => list.reduce((m, q) => (m == null || (q.mag ?? -9)
 
 /** How a quake reads at a glance: "M6.2 · 34 km SW of Town". */
 export const quakeTitle = q => `M${(q.mag ?? 0).toFixed(1)}${q.place ? ' · ' + q.place : ''}`;
+
+/** When two catalogues' solutions are the same quake (provenance agreement): origin times within dtS, epicentres within km,
+ *  magnitudes within mag (agencies differ by a few tenths, more across magnitude types). */
+export const QUAKE_AGREE = Object.freeze({ dtS: 60, km: 100, mag: 0.6 });
+
+/** Do quakes a and b ({ lat, lon, time (ms), mag }) agree within QUAKE_AGREE? A missing magnitude doesn't disagree. */
+export function sameQuake(a, b, tol = QUAKE_AGREE) {
+  if (!a || !b || !Number.isFinite(a.time) || !Number.isFinite(b.time) || Math.abs(a.time - b.time) > tol.dtS * 1000) return false;
+  const r = Math.PI / 180, h = Math.sin((b.lat - a.lat) * r / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin((b.lon - a.lon) * r / 2) ** 2;
+  if (2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h))) > tol.km) return false;
+  return !(Number.isFinite(a.mag) && Number.isFinite(b.mag) && Math.abs(a.mag - b.mag) > tol.mag);
+}
+
+/** The newest data time of a USGS summary: when it was generated (ms), else its newest solution update. */
+export const usgsDataAt = (doc, quakes = []) => fin(doc && doc.metadata && doc.metadata.generated) ?? (quakes.reduce((m, q) => Math.max(m, q.updated || q.time || 0), 0) || null);
