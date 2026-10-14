@@ -145,7 +145,7 @@ test('mcp: initialize agrees a protocol version and says what the server offers'
 
 test('mcp: every tool is listed read-only with a schema; show_on_globe names the globe panel', async () => {
   const { server } = serve(), { tools } = (await rpc(server, 'tools/list')).result;
-  assert.equal(tools.length, 37);
+  assert.equal(tools.length, 38);
   for (const t of tools) {
     assert.match(t.name, /^[a-z_]+$/); assert.ok(t.description.length > 60, t.name); assert.equal(t.inputSchema.type, 'object');
     assert.equal(t.annotations.readOnlyHint, true); assert.equal(t.annotations.openWorldHint, true);
@@ -386,7 +386,7 @@ test('mcp: the stdio server answers a client and exits when stdin closes', async
   assert.equal(code, 0, err);
   const lines = out.trim().split('\n').map(l => JSON.parse(l)), byId = id => lines.find(l => l.id === id);   // answers may come in any order
   assert.equal(lines.length, 3, out);
-  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 37); assert.equal(byId(null).error.code, -32700);
+  assert.equal(byId(1).result.serverInfo.name, 'open-overwatch'); assert.equal(byId(2).result.tools.length, 38); assert.equal(byId(null).error.code, -32700);
   assert.match(err, /open-overwatch-mcp \d+\.\d+\.\d+ - links to https:\/\/destinjones\.github\.io\/open-overwatch\//);
 });
 
@@ -604,7 +604,7 @@ test('mcp http: one JSON-RPC message per POST, answered as JSON; notifications g
   assert.equal(init.status, 200); assert.match(init.headers.get('content-type'), /application\/json/); assert.equal(init.headers.get('mcp-protocol-version'), '2025-06-18');
   assert.equal((await init.json()).result.serverInfo.name, 'open-overwatch');
   const list = await (await h(post({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, { 'mcp-protocol-version': '2025-06-18' }))).json();
-  assert.equal(list.result.tools.length, 37);
+  assert.equal(list.result.tools.length, 38);
   const q = await (await h(post({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'earthquakes', arguments: {} } }))).json();
   assert.equal(q.result.structuredContent.total, 3);
   const n = await h(post({ jsonrpc: '2.0', method: 'notifications/initialized' })); assert.equal(n.status, 202); assert.equal(await n.text(), '');
@@ -669,7 +669,7 @@ test('mcp http: node mcp/server.mjs --http serves Streamable HTTP until stopped'
     let err = '';
     const url = await new Promise((res, rej) => { p.stderr.on('data', b => { err += b; const m = err.match(/Streamable HTTP at (http:\/\/127\.0\.0\.1:\d+\/mcp)/); if (m) res(m[1]); }); p.on('close', c => rej(new Error('exited ' + c + ': ' + err))); });
     const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
-    assert.equal(r.status, 200); assert.equal((await r.json()).result.tools.length, 37);
+    assert.equal(r.status, 200); assert.equal((await r.json()).result.tools.length, 38);
   } finally { p.kill(); }
   const bad = spawn(process.execPath, [new URL('mcp/server.mjs', root).pathname.replace(/^\/([A-Za-z]:)/, '$1'), '--http', '0', '--host', '0.0.0.0'], { stdio: ['ignore', 'pipe', 'pipe'] });
   let e2 = ''; bad.stderr.on('data', b => { e2 += b; });
@@ -1030,4 +1030,30 @@ test('mcp: sea conditions near a place: the nearest buoys with their readings, t
   const a = ok(await call(server, 'air_quality', { lat: 40.7, lon: -74 })), ad = a.structuredContent;
   assert.match(a.content[0].text, /^Air quality at .*: moderate \(US AQI 86\), from the CAMS model for this hour \(not a measurement\)\./);
   assert.equal(ad.pm2_5_ugm3, 21.9); assert.equal(ad.measured, false); assert.deepEqual(hashOf(ad.url).add, ['airq', 'smoke']);
+});
+
+test('mcp: dark sky: the class and the way to darker skies, tonight, the deep-sky list for the gear, with credits', async () => {
+  const site = [url => url.startsWith(SITE) && /data\/(lightpollution\.bin|deepsky\.json|borders\.json)$/.test(url), url => { const b = readFileSync(new URL(url.slice(SITE.length), root)); return url.endsWith('.bin') ? new Uint8Array(b) : b.toString('utf8'); }];
+  const clear = { timezone: 'America/Denver', hourly: { time: Array.from({ length: 72 }, (_, i) => NOW / 1000 - 6 * 3600 + i * 3600), cloud_cover: Array(72).fill(5), precipitation_probability: Array(72).fill(0) } };
+  const { server } = serve3([site, [/api\.open-meteo\.com\/v1\/forecast\?.*timeformat=unixtime/, clear]]);
+  const r = ok(await call(server, 'dark_sky', { lat: 39.74, lon: -104.99, gear: 'binoculars', limit: 5 })), d = r.structuredContent, t = r.content[0].text;
+  assert.ok(d.sky.bortle >= 6 && d.sky.bortle <= 8, `Denver is a bright suburban to city sky: ${d.sky.bortle}`);
+  assert.ok(d.sky.sqm_mag_arcsec2 > 17.5 && d.sky.sqm_mag_arcsec2 < 19.5);
+  assert.ok(d.nearest_dark.km < 150 && d.nearest_dark.bortle <= 3 && /W/.test(d.nearest_dark.direction), JSON.stringify(d.nearest_dark));
+  assert.deepEqual(hashOf(d.nearest_dark.url).add, ['lightpollution']);
+  assert.match(t, /The nearest dark sky \(Bortle [123]\) is about \d+ km to the /);
+  assert.match(t, /^Tonight: (good|fair|poor|not worth it)\. A Bortle \d sky, .*, clear skies\. Dark from /m);
+  assert.equal(d.tonight.cloud_percent, 5);
+  assert.equal(d.deep_sky.length, 5); assert.equal(d.gear, 'binoculars');
+  for (const o of d.deep_sky) { assert.ok(o.altitude_deg >= 25 && o.mag <= d.limits.max_mag); assert.match(o.highest_local, /MDT|MST|GMT-6|GMT-7/); }
+  assert.match(t, /^- M \d+/m);
+  assert.match(t, /Falchi et al\. 2016.*CC BY-NC 4\.0, non-commercial.*OpenNGC.*CC-BY-SA-4\.0/);
+  assert.deepEqual(hashOf(d.url).add, ['lightpollution']);
+  assert.match(d.provenance, /Falchi et al\. 2016 World Atlas \+ OpenNGC/);
+  const eyes = ok(await call(server, 'dark_sky', { lat: 39.74, lon: -104.99 })).structuredContent;
+  assert.ok(eyes.limits.max_mag < d.limits.max_mag, 'the eye reaches less deep than binoculars');
+  const south = ok(await call(server, 'dark_sky', { lat: -75, lon: 0 }));
+  assert.match(south.content[0].text, /outside the light pollution atlas/); assert.equal(south.structuredContent.sky, undefined);
+  assert.equal((await call(server, 'dark_sky', {})).isError, true, 'a place is needed');
+  assert.equal((await call(server, 'dark_sky', { lat: 40, lon: -105, gear: 'radio telescope' })).isError, true);
 });

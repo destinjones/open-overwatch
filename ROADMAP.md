@@ -381,7 +381,7 @@ Round 2 (2026-10-10, local):
       atmosphere, a window of ±25% of the time left, the corridor ground track; tested on Tiangong-1 and GOCE (real dates
       inside their windows) and by hand against Aerospace CORDS (docs/NOTES.md "Re-entry predictions")
 - [x] Globe "Falling soon" list and cards (window in plain words, uncertainty, provenance), `reentry` corridor layer (off),
-      `go=reentry[&id=]` links; the 2D map's `reentry` layer; MCP `reentries` (37 tools); guide section on the uncertainty
+      `go=reentry[&id=]` links; the 2D map's `reentry` layer; MCP `reentries` (38 tools with `dark_sky`); guide section on the uncertainty
 - [ ] Live F10.7 and Kp for the atmosphere (SWPC `json/f107_cm_flux.json` and the Kp feed the aurora layer reads) instead of
       the documented default
 - [ ] Rocket bodies: a decaying-objects group copied by the site build (needs a source that may be redistributed)

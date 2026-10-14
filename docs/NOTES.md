@@ -959,3 +959,25 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   7.8 h old says "reported".
 - **Not covered:** rocket bodies (not in the public groups the site copies; the full catalogue is Space-Track's),
   controlled de-orbits, F10.7 and Kp from live data (core/spaceweather.js reads neither; DEFAULT_SOLAR is F10.7 140, Kp 2).
+
+## Dark skies: Your sky, Deep sky tonight, the light pollution layer, dark_sky (core/darksky.js, globe/darksky.js, globe/lightmap.js, map/darksky.js, mcp/darksky.mjs) — 2026-10-14
+
+- **Nearest dark sky needs a land test.** The atlas is dark offshore, so without one London's "nearest Bortle 3" is in the
+  North Sea. `nearestDark` collects every qualifying cell (and its four neighbours, so not a gap between towns) within
+  1,000 km, sorts by distance and asks `land(lat, lon)` (borders.js) until one is on land: London → mid-Wales 225 km WNW,
+  Amsterdam → Terschelling 120 km NNE, Denver → the Front Range 65 km WSW. 15-70 ms. Simplified borders can drop a tiny
+  island; the Bortle 4 fallback covers places with no class-3 sky in range.
+- **Bortle 3 is strict on this scale** (SQM ≥ 21.69, artificial ≤ ~33% of natural): much of lowland Europe has none
+  within a few hundred km, which is why the fallback exists.
+- **Gear model:** limiting magnitude = NELM + (−1 eyes, +3.5 binoculars, +5.5 small scope); galaxies and big nebulae
+  must also have a mean surface brightness (galaxies over their inner quarter) within 1.5 / 2.3 / 3.0 mag/arcsec² of the
+  sky. Objects brighter than mag 5 skip that test (bright cores). The sky used is the night's real one: the Moon counts
+  unless it leaves two moonless dark hours (`tonightQuality().sqm`).
+- **Moon brightness** is a rough phase law (full Moon well up ≈ SQM 18.5 on a dark site, ∝ lit³): it ranks nights, it is
+  not a photometric model.
+- Tonight loads the 1.7 MB grid (~80 ms to decode in Node, more on a phone) and deepsky.json when it opens with a place,
+  borders.json only when the spot is brighter than Bortle 3. On the globe, "Find it" opens look-up with the object as a
+  Find target (`LookUp.enter({ name, ra, dec, text })`); tonight.html has no look-up, so the rows have no button there.
+- Layers: globe `lightpollution` (one equirectangular picture, 3600 px wide, 1800 on phones, brightest cell per pixel);
+  2D map `lightpollution` (a GridLayer painting each Web Mercator tile from the grid, native to z9). Both off by default and
+  credited "Falchi et al. 2016, CC BY-NC". MCP `dark_sky` is in the Worker's HEAVY list (decoding the grid is ~80 ms of CPU).

@@ -46,6 +46,7 @@ export const LAYERS = [
   { id: 'photoreal', group: 'Earth', name: 'Photoreal 3D cities (Google, with your free Cesium ion token)', color: '#9fe3ff', on: false },
   { id: 'volcanoes', group: 'Earth', name: 'Volcanoes of the world (Wikidata)', color: '#ff5a36', on: !PHONE },
   { id: 'companies', group: 'Earth', name: 'Big employers as towers (Wikidata)', color: '#ff9f5c', on: !PHONE },
+  { id: 'lightpollution', group: 'Earth', name: 'Light pollution: how bright the night sky is (Falchi et al. 2016, CC BY-NC)', color: '#ffd45c', on: false },
   { id: 'aurora', group: 'Earth', name: 'Aurora forecast (NOAA, live)', color: '#7dffb0', on: !PHONE },
   { id: 'clouds', group: 'Earth', name: 'Clouds (NASA Blue Marble)', color: '#e6edf3', on: true },
   { id: 'night', group: 'Earth', name: 'City lights on the night side', color: '#fff1d0', on: true },

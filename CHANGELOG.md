@@ -15,7 +15,7 @@ them). The annotated tag messages (`git tag -n99`) are the release notes this fi
 - The Zenodo DOI in the README and CITATION.cff.
 - Falling soon: satellites and debris predicted to re-enter in the next 30 days, worked out from the element sets (decay
   from n-dot and drag through a solar-scaled atmosphere), each with a window of ±25% of the time left and its corridor;
-  on the globe (list, cards, a corridor layer), the 2D map and the MCP server (`reentries`, the 37th tool).
+  on the globe (list, cards, a corridor layer), the 2D map and the MCP server (`reentries`).
 
 ### Fixed
 - Browser tests on GitHub's runners: one worker and longer limits on the 2-core machine, one globe per test at a time,

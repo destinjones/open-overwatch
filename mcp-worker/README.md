@@ -43,7 +43,7 @@ To change it, `npx wrangler secret put MCP_TOKEN` again and update the connector
 |---|---|---|
 | Transport | stdio, or Streamable HTTP on loopback | Streamable HTTP at `/mcp` (stateless, JSON answers) |
 | Who may call | your own machine | the token (header or path), or anyone with `PUBLIC = "true"` |
-| Tools | all of them | all on `PLAN = "paid"`; the free plan leaves out the 12 heaviest (`HEAVY` in mcp/worker.mjs) |
+| Tools | all of them | all on `PLAN = "paid"`; the free plan leaves out the 13 heaviest (`HEAVY` in mcp/worker.mjs) |
 | Caching | in memory | the Workers Cache API (each feed for its own lifetime, each tool answer for 1-60 min) plus the isolate's memory |
 | The globe in the chat | Claude Desktop shows it (MCP Apps) | links only, unless the host supports MCP Apps over remote connectors |
 
@@ -51,7 +51,7 @@ To change it, `npx wrangler secret put MCP_TOKEN` again and update the connector
 Measured with the canned feeds, most tools answer in 0.1-4 ms once their data is parsed, but SGP4 pass searches,
 the planets' look-ahead, vector-tile and fire-tile decoding and the vessel-by-vessel AIS look-ups don't fit, so
 `PLAN = "free"` leaves out `satellite_passes`, `night_sky`, `close_approaches`, `reentries`, `where_is_satellite`, `solar_system`,
-`wildfires`, `plate_readers`, `military_areas`, `ships_baltic`, `traffic_cameras` and `transit_vehicles`
+`wildfires`, `plate_readers`, `military_areas`, `ships_baltic`, `traffic_cameras`, `transit_vehicles` and `dark_sky`
 (`TOOLS_ON` puts one back, `TOOLS_OFF` takes more out). A fresh isolate's first call that parses a big data copy
 (eclipses, countries, the small-body list: 15-150 ms) can still overrun; a request that does fails with Cloudflare's
 CPU error and the next one, with the data cached, answers. Every answer that would need more than 45 look-ups says so

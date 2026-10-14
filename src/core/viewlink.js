@@ -70,7 +70,7 @@ export const heightToZoom = (h, lat = 0) => Math.min(19, Math.max(2, Math.round(
 // other view's own layers stay as its visitor has them)
 export const MAP_TO_GLOBE = Object.freeze({ quakes: 'quakes', storms: 'storms', cams: 'cams', transit: 'transit', bikes: 'bikes', aurora: 'aurora', ships_fi: 'ships',
   hotspots: 'fires', fireperims: 'fires', fires: 'fires', terminator: 'sun', air_mil: 'mil', air_local: 'air', air_opensky: 'air', airports: 'airports',
-  buoys: 'buoys', dart: 'dart', tides: 'tides', sst: 'sst', smoke: 'smoke', airq: 'airq' });
+  buoys: 'buoys', dart: 'dart', tides: 'tides', sst: 'sst', smoke: 'smoke', airq: 'airq', lightpollution: 'lightpollution' });
 // the 2D map's forecast layers ↔ the globe's weather mode (its `w=` list): the model's fields have the same names; the
 // globe's clouds and rain sets show the model's cloud and rain on their forecast steps
 export const MAP_TO_WEATHER = Object.freeze({ wx_wind: 'wind', wx_temp: 'temp', wx_pres: 'pres', wx_gust: 'gust', wx_wave: 'wave', wx_cloud: 'ir', wx_rain: 'radar' });
