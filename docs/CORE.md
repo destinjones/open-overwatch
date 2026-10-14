@@ -25,7 +25,7 @@ is also used by its tests in `test/`.
 - [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`
 - [Weather](#weather): `gfs.js`, `wxmodels.js`, `wxload.js`, `model.worker.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpaint.js`
 - [Weather](#weather): `gfs.js`, `wxmodels.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpoint.js`
-- [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `history.js`, `aurora.js`, `ocean.js`, `fireclusters.js`, `fires.worker.js`, `earthnow.js`
+- [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `history.js`, `aurora.js`, `spaceweather.js`, `ocean.js`, `fireclusters.js`, `fires.worker.js`, `earthnow.js`
 - [Aviation](#aviation): `aircraft.js`, `actype.js`, `acinfo.js`, `phase.js`, `airports.js`, `runways.js`, `aloft.js`, `trail.js`
 - [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `transitfeeds.js`, `gtfsrt.js`, `bikes.js`, `cameras.js`, `cables.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
 - [OpenStreetMap](#openstreetmap): `osmtiles.js`, `overpass.js`
@@ -604,6 +604,25 @@ layer. Pictures are RGBA arrays the views put on a canvas. Used by globe, map.
 - `parseOvation`, `ovationAt`: the grid and the chance over a place. `latestKp`: the K-index.
 - `paintEquirect`, `paintMercator`: the grid as a picture for the globe or the map. `auroraColor`, `auroraAlpha`,
   `AURORA_STOPS`.
+
+### `spaceweather.js`
+
+The Sun side of space weather from NOAA SWPC: the solar wind at L1 (speed, density, Bz), GOES X-ray flares and SWPC's
+watches, warnings and alerts in plain words, each part with a provenance record (`provenance.js`) dated by the feed's
+own time tag (Bz, the wind and the X-rays go stale after 15 minutes). Pure: the views fetch. Used by globe (Tonight,
+Earth now, through `src/globe/sunnow.js`), mcp (its `space_weather` tool). Tests: `test/spaceweather.test.mjs` (SWPC's
+answers captured on 2026-10-14, the alerts of a G3 storm day included).
+
+- `SW_URLS` (the json/rtsw/ 1-minute files: products/solar-wind/ is gone), `SW_MAX_AGE`, `CRAFT` (SWPC's source tags to
+  spacecraft names), `swTime`, `swpcTime`.
+- `parseMag`, `parseWind` (the operational spacecraft only, when the feed flags one `active`; the one-minute summaries
+  too), `parseXrays` (the 0.1-0.8 nm channel), `parseFlares` (the week's flare list).
+- `flareClass`, `classFlux`, `rScale` (NOAA's radio blackout scale), `flareWords`, `bzWords` (southward is
+  aurora-friendly), `windWords` (with the minutes from L1 to Earth).
+- `parseAlerts`: cancelled, extended and superseded messages dropped; `active` while a warning is valid, a watch until its
+  last storm day ends, a K-index alert until its 3-hour period ends; CME news flagged. `topAlerts` ranks them.
+- `sunNow`: the "Sun now" summary (any feed may be missing); `sunLine`, one line of it; `bzSpark`, the Bz sparkline as
+  accessible SVG text.
 
 ### `ocean.js`
 

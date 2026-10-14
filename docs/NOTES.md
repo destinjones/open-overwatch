@@ -865,3 +865,19 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   Fonts for their own card pages (local tooling, not the site).
 - **Check before publishing a page change:** `node brand/tools/sri.mjs` (or `node --test`). In a browser, a CSP
   violation shows as a console error "Refused to …"; listen for `securitypolicyviolation` to catch them in a script.
+
+## The Sun now: solar wind, Bz, flares, SWPC alerts (sunnow.js, core/spaceweather.js, mcp/spaceweather.mjs) — 2026-10-14
+
+- **Feeds (checked 2026-10-14 from Node with an Origin header):** every file below answers `Access-Control-Allow-Origin: *`,
+  so the browser fetches SWPC directly; no relay entry, no CSP change (connect-src already allows https:).
+  `products/solar-wind/mag-1-day.json` and `plasma-1-day.json` answer **404**: the replacement is `json/rtsw/rtsw_mag_1m.json`
+  and `rtsw_wind_1m.json` (the last day, 1-minute, newest first, three spacecraft side by side: SOLAR1 = SWFO-L1, ACE,
+  IMAP; the operational one is flagged `active: true`, the others must be dropped or the line zig-zags between them).
+  `products/summary/solar-wind-*.json` are the latest minute only (no density).
+- **Weight:** the two rtsw files are ~160 + ~100 kB gzipped; the browser skips `xrays-1-day.json` (~105 kB) and takes the
+  24 h peak from `xray-flares-7-day.json` (~4 kB) plus the class now from `xray-flares-latest.json`. Fetched only when
+  Tonight or Earth now opens, shared and kept 5 minutes (src/globe/sunnow.js).
+- **Alerts:** each message supersedes by code + serial (`Extension to`, `Cancel`, `Continuation of Serial Number`); a
+  watch supersedes all earlier watches; a watch is in force until its last G1+ day ends (UTC); a K-index alert until its
+  synoptic 3-hour period ends; electron/proton alerts for a day. CME news: a watch comment naming a CME, or a type II/IV
+  radio burst. Provenance: Bz, wind and X-rays stale after 15 min, each alert dated by its issue time.

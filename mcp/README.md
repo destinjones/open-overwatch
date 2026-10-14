@@ -62,6 +62,7 @@ Once it is on npm, `npx -y open-overwatch-mcp` will work anywhere a command is a
 | `bike_share` | CityBikes | the nearest stations with bikes, e-bikes and free docks, worldwide |
 | `weather` | Open-Meteo | now and up to 7 days, metric or imperial, in the place's time zone |
 | `aurora` | NOAA SWPC | Kp now and for 3 days, and the chance of aurora overhead or on the horizon at a place |
+| `space_weather` | NOAA SWPC | the solar wind at L1 (speed, density, Bz: southward is aurora-friendly), X-ray flares now and the 24 h peak, watches, warnings and alerts in force (storms, CMEs), each with its data age |
 | `night_sky` | the website's own sky maths, Open-Meteo, NOAA SWPC | when it's dark, the planets, the Moon, meteor showers, bright passes, the aurora chance and the clouds |
 | `traffic_cameras` | the agencies' own feeds: TfL (London), NYC DOT, Caltrans, DelDOT, Iowa DOT, MoDOT, Fintraffic, Statens vegvesen, DriveBC, Calgary, Hong Kong, Singapore | the nearest cameras, and the latest picture from the nearest few as images Claude can look at (live-video cameras as a stream link) |
 | `transit_vehicles` | MBTA (Boston), HSL (Helsinki), Entur (Norway), CapMetro (Austin), Metro Transit (Minneapolis-St Paul) | the buses, trams, metros, trains and ferries near a place right now: line, destination, speed, how late (Norway) |
