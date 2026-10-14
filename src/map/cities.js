@@ -4,7 +4,7 @@
 // core/transitfeeds.js, core/transit.js); this file only places them on the 2D map's canvas.
 import { C, esc, fmt, Log, Net, toast } from './util.js';
 import { map } from './mapview.js';
-import { Layers, Movers, Points, feed, requestDraw } from './engine.js';
+import { Exports, Layers, Movers, Points, feed, requestDraw } from './engine.js';
 import { Detail } from './detail.js';
 import { parseNetworks, parseStations, networksNear, CITYBIKES_API, BIKE_STATES, bikeLook, checkedAgo, bikeTip } from '../core/bikes.js';
 import { TRANSIT_MODES, TRANSIT_AREAS, transitSources, sourcesAt, startSource, stopSource, createFleet, transitTip, transitRows } from '../core/transitfeeds.js';
@@ -90,3 +90,5 @@ feed(lyTransit, { interval: 5, fetch: async () => {   // status only: the source
 } });
 
 export const Cities = { fleet, sources: SOURCES, bikeNets, stats: () => ({ transit: fleet.stats(), bikes: [...bikeNets.values()].map(e => ({ id: e.net.id, stations: e.stations.length })) }) };
+
+Exports.transit = () => [...vehicles.values()];   // the export buttons: the vehicles drawn now

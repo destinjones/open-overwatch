@@ -4,6 +4,7 @@
 // API. Locations and tags only: no video, no plates. Where a camera's direction is tagged, a small wedge shows where it
 // points. Coverage is whatever volunteers have mapped: patchy, and labelled that way.
 import { C, esc } from './env.js';
+import { stamp, rep } from '../core/liveprov.js';
 import { scene, camera, camAGL } from './viewer.js';
 import { Terrain } from './terrain.js';
 import { L, setCount } from './layers.js';
@@ -26,7 +27,7 @@ function add(el, gh = 0) {
   if (byId.has(el.id) || !Number.isFinite(el.lat)) return;
   const t = el.tags || {}, alpr = /alpr|anpr|plate/i.test(`${t['surveillance:type'] || ''} ${t['camera:type'] || ''} ${t.name || ''}`), col = C.Color.fromCssColorString(alpr ? COL.alpr : COL.cam);
   if (alpr && Alpr.has(el.id)) return;   // the plate-reader layer (alpr.js) draws this one already, from its tiles
-  const o = { kind: 'cctv', id: el.id, lat: el.lat, lon: el.lon, alpr, tags: t };
+  const o = stamp({ kind: 'cctv', id: el.id, lat: el.lat, lon: el.lon, alpr, tags: t }, 'osm', [rep('osm', { name: 'OpenStreetMap (Overpass)', dataAt: el.osmAt ?? null })]);
   o.tip = () => `${alpr ? 'Plate reader (ALPR)' : 'Surveillance camera'}${t.operator ? ' · ' + String(t.operator).slice(0, 40) : ''}`;
   o.cardHtml = () => `<div class="k" style="--c:${alpr ? COL.alpr : COL.cam}">Mapped by OpenStreetMap volunteers</div><h2>${alpr ? 'Plate reader' : 'Camera'}</h2>
     <dl>${tagsHtml(t)}<dt>Position</dt><dd>${o.lat.toFixed(5)}, ${o.lon.toFixed(5)}</dd></dl>

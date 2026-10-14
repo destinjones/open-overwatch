@@ -6,6 +6,7 @@
 // real name (one small query through the shared, polite Overpass queue, only on that click). Shapes are clipped to their tiles and joined
 // across tile edges (core/osmtiles.js); the outline skips the seams. © OpenMapTiles, © OpenStreetMap contributors.
 import { C, esc, PHONE } from './env.js';
+import { rep, provStamp } from '../core/liveprov.js';
 import { viewer, scene, camera, camAGL } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { state } from './state.js';
@@ -42,6 +43,7 @@ function dropPrims(t) { if (t.fill) scene.primitives.remove(t.fill); if (t.line)
 
 const AreaProto = {
   kind: 'milarea',
+  get prov() { return provStamp('osm', [rep('osm', { name: 'OpenStreetMap via OpenFreeMap tiles' })]); },
   tip() { return `${this.name || 'Military area'} · ${this.open ? 'at least ' : ''}${areaWords(this.area)}${this.near ? ' · near ' + this.near.name : ''}`; },
   cardHtml() {
     const at = `${this.lat.toFixed(4)}, ${this.lon.toFixed(4)}`;

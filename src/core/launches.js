@@ -18,7 +18,7 @@ export function fromLL2(r) {
     id: String(r.id || ''), name: String(r.name || ''), mission: String(m.name || r.name || '').slice(0, 140), type: String(m.type || ''),
     desc: String(m.description || '').replace(/\s+/g, ' ').trim().slice(0, 600), orbit: (m.orbit && (m.orbit.name || m.orbit.abbrev)) || '',
     rocket: String(cfg.full_name || cfg.name || (r.name || '').split('|')[0]).trim(), provider: String((r.launch_service_provider && r.launch_service_provider.name) || ''),
-    net: t(r.net), windowStart: t(r.window_start), windowEnd: t(r.window_end),
+    net: t(r.net), windowStart: t(r.window_start), windowEnd: t(r.window_end), updated: Number.isFinite(t(r.last_updated)) ? t(r.last_updated) : null,
     precision: (r.net_precision && (r.net_precision.abbrev || r.net_precision.name)) || '', status: (r.status && r.status.abbrev) || '', statusName: (r.status && r.status.name) || '',
     pad: String(r.pad.name || ''), place: String((r.pad.location && r.pad.location.name) || ''), country: (r.pad.country && r.pad.country.alpha_2_code) || '',
     lat, lon, prob: Number.isFinite(num(r.probability)) ? num(r.probability) : null, live: !!r.webcast_live, webcasts: vids,

@@ -1,9 +1,10 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The canvas renderer for moving objects and point sets, the layer registry + panel, and the feed scheduler.
-import { $, C, FONT_MONO, Log, Store, debounce, esc, fmt, hexA, rad } from './util.js';
+import { $, C, FONT_MONO, Log, Store, debounce, esc, fmt, hexA, rad, toast } from './util.js';
 import { map } from './mapview.js';
 import { shipAt, shipKind, SHIP_KINDS, underway } from '../core/ais.js';
 import { deadReckon } from '../core/geo.js';
+import { exportRow } from '../app/save.js';
 
 /* ============================================================ dynamic objects + static point sets, all drawn on one canvas */
 export const Dyn = { air: new Map(), sats: [], ships: new Map(), balloons: new Map() };
@@ -24,6 +25,17 @@ export const Movers = {
   items(id) { return this.sets[id].items; },
   shown() { for (const id of this.order) { const s = this.sets[id]; if (s.items.size && Layers.on(s.layerId)) return true; } return false; },
 };
+/** What a layer's "Export view" buttons save: layer id → () => its live items (objects with lat/lon, stamped by
+ *  core/liveprov.js). Point layers need no entry (their Points set is read); moving ones register here. */
+export const Exports = {};
+/** A layer's items in the map's view now (the export buttons; app/save.js + core/export.js turn them into a file). */
+export function layerItemsInView(d) {
+  const b = map.getBounds(), inView = o => o && Number.isFinite(o.lat) && Number.isFinite(o.lon) && b.contains([o.lat, ((o.lon - b.getCenter().lng + 540) % 360) - 180 + b.getCenter().lng]);
+  if (Exports[d.id]) return Exports[d.id]().filter(inView);
+  const s = d.points && Points.sets[d.points];
+  if (!s || map.getZoom() < s.minZoom) return [];
+  return s.items.filter(i => i.obj && inView(i)).map(i => i.obj.lat == null ? Object.assign(Object.create(null), i.obj, { lat: i.lat, lon: i.lon }) : i.obj);
+}
 export const Points = { // static point layers: {id -> {layerId, minZoom, items:[{lat,lon,r,color,alpha,shape,kind,obj,tip}]}}
   sets: {}, order: [],
   define(id, layerId, { minZoom = 0 } = {}) { this.sets[id] = { id, layerId, minZoom, items: [] }; this.order.push(id); },
@@ -231,6 +243,9 @@ export const UI = {
         row.querySelector('input').addEventListener('change', e => Layers.set(d.id, e.target.checked));
         det.appendChild(row);
         if (d.sub) { const sr = document.createElement('div'); sr.className = 'subrow'; sr.dataset.sub = d.id; det.appendChild(sr); d.sub(sr); }
+        if (d.live !== false && (Exports[d.id] || (d.points && !/^(airports|landing)$/.test(d.id)))) {   // live layers: save what's in view, with provenance
+          const er = exportRow(() => layerItemsInView(d), d.name, msg => toast(msg)); er.dataset.exp = d.id; er.classList.add('subrow'); det.appendChild(er);
+        }
       }
       root.appendChild(det);
     }
@@ -248,6 +263,7 @@ export const UI = {
     const desc = row.querySelector('.desc'); desc.textContent = (d.on && f && f.status === 'error') ? ('✕ ' + f.err) : (d.desc || '');
     row.title = (f && f.lastOk) ? `Last update ${fmt.ago(f.lastOk)} ago` : '';
     const sub = $(`.subrow[data-sub="${d.id}"]`); if (sub) sub.style.display = d.on ? '' : 'none';
+    const exp = $(`.export-row[data-exp="${d.id}"]`); if (exp) exp.style.display = d.on ? '' : 'none';
     this.refreshGroups();
   },
   pills(container, items, getOn, setOn) {

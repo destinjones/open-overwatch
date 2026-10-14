@@ -7,7 +7,7 @@ import { observer, sunEcef } from '../core/observer.js';
 import { $, C, deg, fmt, haversine, late, Log, Net, rad, Store } from './util.js';
 import { vecRenderer } from './mapview.js';
 import { sunAlt as sunElevation } from '../core/sky.js';
-import { Dyn, Layers, Sel, UI, feed, requestDraw } from './engine.js';
+import { Dyn, Exports, Layers, Sel, UI, feed, requestDraw } from './engine.js';
 import { Detail, Tracks } from './detail.js';
 
 /* ============================================================ SATELLITES (CelesTrak GP data + SGP4 in a worker) */
@@ -177,3 +177,5 @@ feed(lySats, { interval: 7200, errorInterval: 1200, fetch: async () => {
 } });
 
 Object.assign(late, { Sats });
+
+Exports[lySats.id] = () => Dyn.sats.filter(s => s.lat != null);   // the export buttons: the satellites drawn now, at their positions now

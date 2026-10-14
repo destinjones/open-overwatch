@@ -1019,8 +1019,33 @@ hash of every inline script. `test/sri.test.mjs` runs it on every page, `brand/t
 ### `provenance.js`
 
 Where a live item came from, how old its data is (the data, not the download) and how many independent sources agree:
-the one record every live layer and card uses. Not yet wired into the views.
+the one record every live layer and card uses: the stamps in `liveprov.js` make it for each item, every live card on
+the globe and the 2D map shows it, the MCP answers carry its line.
 
 - `source`: one source's report, times to ms. `provenance`: `{ sources, agree, of, dataAt, ageMs, maxAgeMs, confidence, rule }`,
   confidence confirmed, reported, stale or unknown (`CONFIDENCE`, `RULE`).
 - `provenanceText`: one plain line. `provenanceHtml`: the card block, upstream strings escaped. `ageText`.
+
+### `liveprov.js`
+
+The per-layer side of provenance: who each feed is, how old a layer's data may be, and the stamp a layer puts on each
+item when it builds it. The record is made when a card is drawn, so ages stay true while it is open.
+
+- `SOURCES`: the feeds (name, link, terms) by id. `LAYERS`: each live layer's maximum age and what its data time is.
+- `rep`: one source's report from the catalogue plus its times. `stamp`: put `{ layer, sources, agreeing }` on an item;
+  `provStamp` makes the same for a prototype's `get prov()`. `stampReports`: from agreement reports `[{ src, t }]`.
+- `recordOf`: the provenance record of a stamped item now. `provBlock`: its card block (empty for unstamped things).
+  `provLine`: its line (exports, MCP).
+- `agreeingIds`: which reports agree with the freshest one, one vote per source. `metresBetween`.
+- The layers decide what "the same" means, with tolerances in their own modules: `AIR_AGREE` / `sameAircraft` and
+  `noteAircraftReport` in `aircraft.js`, `QUAKE_AGREE` / `sameQuake` / `stampQuake` in `quakes.js`, `STORM_AGREE` /
+  `sameStorm` / `stormAgreement` in `cyclones.js`, `SHIP_AGREE` / `sameShip` in `ais.js`.
+
+### `export.js`
+
+A layer's visible live items as a file, each with its provenance in columns of its own: provenance (the line),
+confidence, sources, agree, of, data_time and data_age_s. The views hand in items; `src/app/save.js` makes the buttons and the download.
+
+- `exportFile`: `{ name, mime, text, count }` for `EXPORT_FORMATS` geojson, csv or kml.
+- `exportRow`, `exportRows`: items to flat rows (plain fields only). `toGeoJSON`, `toCSV`, `toKML`.
+- `csvCell`: quoting, and a leading ' on text that a spreadsheet would run as a formula.

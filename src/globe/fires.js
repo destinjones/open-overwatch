@@ -158,6 +158,8 @@ export const Fires = {
     if (on) { loadPerimeters(); tick(); } else setCount('fires', 0);
   },
   get perimeters() { return perimList; },
+  /** The hot spots drawn now (the export buttons). */
+  get detections() { const out = []; for (const k of active) { const t = tiles.get(k); if (t && t.state === 'ok') out.push(...t.fires); } return out; },
   stats() { let n = 0, loaded = 0; for (const k of active) { const t = tiles.get(k); if (t && t.state === 'ok') { n += t.fires.length; loaded++; } } return { hotSpots: n, tiles: loaded, wanted: active.size, perimeters: perimList.length }; },
 };
 setInterval(() => { if (L.fires.on && !state.lookup) { tick(); loadPerimeters(); } }, 2000);

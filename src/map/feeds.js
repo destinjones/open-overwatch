@@ -5,7 +5,7 @@ import { COUNTRY, COUNTRY_ALIAS } from './countries.js';
 import { $, C, debounce, deg, esc, fmt, haversine, isHttp, late, Log, Net, rad, Relay, safeHost, toast } from './util.js';
 import { map, vecRenderer } from './mapview.js';
 import { nightRing } from '../core/sky.js';
-import { Dyn, Feeds, Layers, Points, UI, feed, requestDraw, runFeed } from './engine.js';
+import { Dyn, Exports, Feeds, Layers, Points, UI, feed, requestDraw, runFeed } from './engine.js';
 import { Detail } from './detail.js';
 import { parseUsgs, usgsUrl, USGS_FEEDS, largest, usgsDataAt, stampQuake, gdacsQuakes } from '../core/quakes.js';
 import { stamp, rep, stampReports } from '../core/liveprov.js';
@@ -414,3 +414,8 @@ export async function scanArea(lat, lon, radius = 30000) {
 }
 
 Object.assign(late, { cableHit });
+
+// the export buttons (engine.js Exports) for the layers kept outside Points
+Exports.ships_fi = () => [...Dyn.ships.values()].filter(s => s.src === 'Digitraffic');
+Exports.ships_ws = () => [...Dyn.ships.values()].filter(s => s.src === 'aisstream.io');
+Exports.balloons = () => [...Dyn.balloons.values()];

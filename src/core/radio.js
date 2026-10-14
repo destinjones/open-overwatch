@@ -39,7 +39,7 @@ export function cleanStations(rows, { max = 3000, hls = true } = {}) {
     if (!url || (!hls && (r.hls == 1 || /\.m3u8(\?|$)/i.test(url)))) continue;
     seen.add(id);
     out.push({
-      id, name: tidyName(r.name), url, lat, lon,
+      id, name: tidyName(r.name), url, lat, lon, checked: Date.parse(String(r.lastcheckoktime_iso8601 || '')) || null,   // the directory's last good check (provenance)
       country: clip(r.country, 40), cc: clip(r.countrycode, 2).toUpperCase(), place: clip(r.state, 40),
       tags: String(r.tags || '').split(',').map(t => t.trim()).filter(Boolean).slice(0, 6).map(t => clip(t, 24)),
       codec: /^unknown$/i.test(String(r.codec || '').trim()) ? '' : clip(r.codec, 12), bitrate: +r.bitrate || 0, votes: +r.votes || 0, clicks: +r.clickcount || 0,

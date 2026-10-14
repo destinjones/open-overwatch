@@ -66,6 +66,7 @@ import { Airports, Aviation } from './aviation.js';
 import { Now } from './now.js';
 import { Events } from './events.js';
 import { TimeTravel } from './timetravel.js';
+import './exportview.js';   // the dock's "Export what's in view" (provenance included)
 
 // things on the ground: from look-up mode's eye height they become huge streaks across the sky, so they hide there
 const GROUND = ['airports', 'companies', 'volcanoes', 'lighthouses', 'launches', 'quakes', 'sun', 'buildings', 'cctv', 'alpr', 'milareas', 'storms', 'events', 'radio', 'cams', 'transit', 'traffic', 'fires', 'ships', 'bikes', 'buoys', 'dart', 'tides', 'airq'];

@@ -75,8 +75,10 @@ export function initDock({ bases, currentBase, onBase, quality, saver }) {
     }
     if (saver) html += `<button class="ly ${saver.on() ? '' : 'off'}" data-saver="1" style="--c:#7dffa6"><i></i><span class="t">Battery saver: fewer frames while nothing moves</span></button>`;
     html += '<div class="sep"></div><button class="ly" data-nerd="1" style="--c:#ffd27a"><i></i><span class="t">Under the hood: speed, data age, accuracy</span></button>';
+    html += '<div class="sep"></div><div id="dockExport"></div>';   // exportview.js: save a live layer's items in view, with provenance
     html += '<p class="note">Drag to orbit, scroll to zoom, right-drag to tilt. Click anything for details.</p>';
     $('#dock').innerHTML = html;
+    hooks.renderExport?.($('#dockExport'));
   }
   render();
   $('#dock').addEventListener('click', e => {

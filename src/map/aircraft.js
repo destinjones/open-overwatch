@@ -3,7 +3,7 @@
 import { num, idArg } from '../core/format.js';
 import { $, C, Log, Net, Store, debounce, destination, esc, fmt, haversine, late, rad, regionOf, toast } from './util.js';
 import { map, vecRenderer } from './mapview.js';
-import { Dyn, Layers, Sel, UI, airAt, feed, requestDraw } from './engine.js';
+import { Dyn, Exports, Layers, Sel, UI, airAt, feed, requestDraw } from './engine.js';
 import { Detail, Tracks } from './detail.js';
 import { readsb, openskyState, noteAircraftReport, readsbTime } from '../core/aircraft.js';
 
@@ -267,3 +267,7 @@ export const Photos = {
     finally { this.pending.delete(hex); if (this.cache.size > 500) this.cache.delete(this.cache.keys().next().value); if (Sel.kind === 'air' && Sel.id === hex) Detail.render(); }
   },
 };
+
+// the export buttons (engine.js Exports): each air layer saves the aircraft it draws
+for (const [id, tag] of Object.entries({ air_local: 'local', air_mil: 'mil', air_emg: 'sqk', air_opensky: 'opensky' }))
+  Exports[id] = () => [...Dyn.air.values()].filter(a => a.lat != null && (a.tags?.has(tag) || (id === 'air_emg' && a.emerg)));

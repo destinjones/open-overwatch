@@ -6,6 +6,7 @@
 // in the world, plate readers still come from the mapped-cameras layer (surveil.js, Overpass, close up). Locations and
 // tags only: no images, no plates. © OpenStreetMap contributors (ODbL).
 import { C, esc, PHONE } from './env.js';
+import { rep, provStamp } from '../core/liveprov.js';
 import { viewer, scene, camera, camAGL } from './viewer.js';
 import { Terrain } from './terrain.js';
 import { L, setCount } from './layers.js';
@@ -27,6 +28,7 @@ Terrain.onChange(() => { for (const c of cams.values()) drop(c); cams.clear(); f
 
 const CamProto = {
   kind: 'alpr',
+  get prov() { return provStamp('osm', [rep('osm', { name: 'OpenStreetMap via FlockHopper tiles' })]); },   // hourly tiles that carry no build time
   tip() { return `Plate reader${this.brand ? ' · ' + this.brand : ''}${this.operator ? ' · ' + this.operator.slice(0, 40) : ''}`; },
   cardHtml() {
     const rows = cameraFacts(this).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');

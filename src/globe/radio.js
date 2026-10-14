@@ -6,6 +6,7 @@
 // streams are listed (an http stream on an https page is blocked as mixed content). Streams belong to their broadcasters.
 // Per frame: nothing. The tuner re-scans only when a camera move ends (camera.moveEnd), and only while it is open.
 import { C, $, esc, fmt, toast, PHONE, bigStore, getJSON } from './env.js';
+import { rep, provStamp } from '../core/liveprov.js';
 import { scene, camera, camHeight } from './viewer.js';
 import { state } from './state.js';
 import { release } from './follow.js';
@@ -30,6 +31,7 @@ const row = (k, v) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`;
 /** A station: the object a dot carries as its id, so ui.js can ask it for its hover tip and card. */
 class Station {
   constructor(s) { Object.assign(this, s); this.kind = 'radio'; }
+  get prov() { return provStamp('radio', [rep('radiobrowser', { dataAt: this.checked ?? null })]); }   // the directory's last good check, where kept
   get where() { return this.place && this.place !== this.country ? `${this.place}, ${this.country || this.cc}` : this.country || this.cc || ''; }
   get stream() { return [this.codec, this.bitrate ? this.bitrate + ' kbps' : ''].filter(Boolean).join(' · '); }
   tip() { return [this.name, this.where, this.stream].filter(Boolean).join(' · '); }   // plain text: ui.js sets textContent

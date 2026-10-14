@@ -4,6 +4,7 @@
 // the band's "Launches" opens the list, and a launch card has the countdown, how sure the time is, the mission, webcasts, a
 // calendar reminder and a flight to the pad.
 import { C, $, esc, toast } from './env.js';
+import { stamp, rep, provBlock } from '../core/liveprov.js';
 import { viewer, scene, camera } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { state, hooks } from './state.js';
@@ -33,6 +34,7 @@ export const Launches = {
       }
       this.list = upcoming((d.results || []).map(fromLL2).filter(Boolean).map(l => ({ ...l, kind: 'launch' })), Date.now());
       this.at = d.t || Date.now(); this.src = src; this.error = ''; this.failedAt = 0;
+      for (const l of this.list) stamp(l, 'launches', [rep('ll2', { dataAt: l.updated ?? (src === 'site copy' ? d.t : null), cached: src === 'site copy' })]);   // the copy's build time when it keeps no update times
       viewer.creditDisplay.addStaticCredit(new C.Credit('Launch data: The Space Devs, Launch Library 2'));
       this.draw(); setCount('launches', this.list.length);
     })().catch(e => { console.warn('launches', e); this.error = "The launch schedule isn't reachable right now."; this.loading = null; this.failedAt = Date.now(); });
@@ -86,7 +88,7 @@ export const Launches = {
       <dl>${row('When', precise(l) ? local(l.net) + (l.windowEnd > l.windowStart ? ` (window ${Math.round((l.windowEnd - l.windowStart) / 60e3)} min)` : '') : when(l))}${row('Rocket', l.rocket)}${row('Launched by', l.provider)}${row('Orbit', l.orbit)}${row('Mission', l.type)}${row('Pad', [l.pad, l.place].filter(Boolean).join(', '))}${l.prob != null ? row('Weather go', l.prob + '%') : ''}</dl>
       ${l.desc ? `<p class="note" style="margin-top:8px">${esc(l.desc)}</p>` : ''}
       <div class="acts" style="flex-wrap:wrap"><button class="chipbtn" id="lcFly" style="color:#ff9f5c">Fly to the pad</button><button class="chipbtn" id="lcAsc" style="color:#ff9f5c" title="A reconstructed climb to orbit from the pad and the target orbit (an estimate, not telemetry)">▶ Replay the ascent</button>${precise(l) && l.net > Date.now() + 10 * 60e3 ? '<button class="chipbtn" id="lcRem">Remind me</button><button class="chipbtn" id="lcCal">Calendar</button>' : ''}${vids}<button class="chipbtn" id="lcAll">All launches</button></div>
-      <div class="note" style="margin-top:6px">Launch Library 2 by The Space Devs. Dates slip often: check again on the day.</div>`;
+      <div class="note" style="margin-top:6px">Launch Library 2 by The Space Devs. Dates slip often: check again on the day.</div>${provBlock(l)}`;
     card.classList.add('show'); card.querySelector('.x').onclick = () => this.close();
     $('#lcAsc').onclick = () => hooks.ascent?.(l);
     $('#lcFly').onclick = () => { release(); camera.flyTo({ destination: C.Cartesian3.fromDegrees(l.lon, l.lat - 0.22, 22000), orientation: { heading: 0, pitch: C.Math.toRadians(-38), roll: 0 }, duration: 3 }); };
