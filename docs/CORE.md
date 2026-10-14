@@ -1004,3 +1004,14 @@ tokens…): `test/a11y.test.mjs` runs it on every page, `brand/tools/a11y_check.
 
 - `checkHtml`: errors and warnings for a page. `parseHtml`, `parseAttrs`, `walk`, `textOf`, `contrast`, `luminance`,
   `rootTokens`.
+
+### `sricheck.js`
+
+The supply-chain check over a page's HTML: CDN tags pinned to exact versions with integrity and crossorigin attributes,
+import-map integrity entries, and a Content-Security-Policy `<meta>` whose script-src names the CDN origins and the
+hash of every inline script. `test/sri.test.mjs` runs it on every page, `brand/tools/sri.mjs` from the command line
+(and rewrites the hashes). Used by tools.
+
+- `checkPage`: problems on one page. `withCspHashes`: the page with script-src's hashes brought up to date.
+- `cdnTags`, `importMaps`, `inlineScripts`, `scripts`, `cspMeta`, `parseCsp`, `cdnUrlsIn`, `scriptText`, `isCdn`,
+  `isExact`, `EXACT`, `CDN_HOSTS`, `EVAL_OK` (the pages allowed 'unsafe-eval': the globe, for Cesium's Knockout).

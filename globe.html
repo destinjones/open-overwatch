@@ -3,6 +3,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one);
+     'unsafe-eval' because Cesium's widgets run on Knockout (eval at load, new Function per data-bind). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-eval' 'sha256-5H6UXlGmXVotIBnP0qK/nVs2xzlTS5hqO9Buf31xh7s=' 'sha256-P5skaw/CUJLcCGM1kcv/zrG7kvCOWsU/C6sLyGeX7cM=' 'sha256-j+uHiFPkO8OJxchEN9a0y0gvpF97+ceq/1EKpvxrVSE=' 'sha256-yCrdYMG9/cGcwFrlJjf+2+T9U0UOLHA110Mwi25YYqQ=' 'sha256-mrjerRp10Etjs0MhXq/ngp49RNU0I523nZn7Qi6nr7U='; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; child-src 'self' blob: https://cdn.jsdelivr.net; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<script type="importmap">{ "integrity": { "https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.light.mjs": "sha384-OQpxx4NyhnwaH6BpRnuHkLoE710dl+R2jDCUYLeXFVi1Msn+cqfvyy9F0Tt0FmXP" } }</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <script>/* iOS ignores user-scalable=no: stop its page pinch-zoom too (the views handle pinch themselves) */ addEventListener('gesturestart', e => e.preventDefault(), { passive: false });</script>
 <meta name="theme-color" content="#04060a">
@@ -15,9 +19,8 @@
 <meta property="og:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Open Overwatch · the 3D Earth, live"><meta name="twitter:description" content="A live 3D Earth: satellites, aircraft, weather, quakes, volcanoes and more, with a seamless zoom out to the Solar System. Free and open source."><meta name="twitter:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png">
 <link rel="icon" href="brand/emblem/favicon.svg">
 <link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="brand/emblem/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Overwatch">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.146.0/Build/Cesium/Widgets/widgets.css">
+<link rel="stylesheet" href="brand/fonts/fonts.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.146.0/Build/Cesium/Widgets/widgets.css" integrity="sha384-ghEeMdcWWzRv/BPeUcX835vcKDGrxvROXisl/Btpv3GeekBUXTSPVcFJpI1Tcrgp" crossorigin="anonymous">
 <link rel="stylesheet" href="src/globe/ops.css">
 <link rel="stylesheet" href="src/globe/radio.css">
 <link rel="stylesheet" href="src/globe/measure.css">
@@ -290,8 +293,8 @@ body.lookup #tt,body.embed #tt{display:none!important}
    exist (iOS before 16.4, some WebKit builds): the globe never got past its boot screen there. A stand-in that hands out
    an ordinary canvas keeps those checks false and any construction working. */
 if (typeof OffscreenCanvas === 'undefined') window.OffscreenCanvas = class OffscreenCanvas { constructor(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; } };</script>
-<script src="https://cdn.jsdelivr.net/npm/cesium@1.146.0/Build/Cesium/Cesium.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/dist/satellite.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cesium@1.146.0/Build/Cesium/Cesium.js" integrity="sha384-1lWK5deN/B+lLaUw4lk6xKp/L19ii/98SZLk6K8YthDskgvc+GbdixLzbCnSS2Wn" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/dist/satellite.min.js" integrity="sha384-e6V1JVpc+kVNTxT0gEOla7yL4c92Romsw7itPoipfzHbEjzUwPhTv6oeVDMHHzqT" crossorigin="anonymous"></script>
 <script>
 // ES modules don't load from file://, so say what to do instead of showing a blank page
 if (location.protocol === 'file:') document.querySelector('#boot div').innerHTML = 'The 3D globe needs the local helper.<br>Run <b>Start Open Overwatch.bat</b>, then open<br><b style="text-transform:none">http://127.0.0.1:8787/globe.html</b>';

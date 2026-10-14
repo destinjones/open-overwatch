@@ -25,7 +25,9 @@ module in [CORE.md](CORE.md), the data in
 
 A static site with no build step. Each page loads ES modules straight from `src/`; third-party libraries come from a
 CDN, pinned to exact versions (CesiumJS 1.146 and satellite.js 5.0.0 as classic scripts in `globe.html`, three.js via an
-import map in `solar.html`, Leaflet in `open-overwatch.html`).
+import map in `solar.html`, Leaflet in `open-overwatch.html`), each with an `integrity` hash, and every page carries a
+Content-Security-Policy `<meta>`: after editing an inline `<script>` run `node brand/tools/sri.mjs --csp` (docs/NOTES.md,
+"Supply chain").
 
 | Path | What |
 |---|---|

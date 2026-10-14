@@ -3,6 +3,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#04060a">
 <title>User guide | Open Overwatch</title>
@@ -32,9 +34,7 @@
  {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Open Overwatch","item":"https://destinjones.github.io/open-overwatch/"},{"@type":"ListItem","position":2,"name":"User guide","item":"https://destinjones.github.io/open-overwatch/guide.html"}]}
 ]}
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;900&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="brand/fonts/fonts.css">
 <style>
 :root{
   --bg:#04060a; --panel:#080c12; --panel-2:#0e141c; --line:#182230; --line-strong:#26343f;
@@ -689,7 +689,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <h2 id="privacy-h">Privacy</h2>
     <ul>
       <li><b>No accounts, ads, cookies or analytics.</b> Your settings (layers, keys, folded sections, a rounded location for Tonight) stay in your browser's own storage.</li>
-      <li><b>Your browser talks to the data providers directly</b> to load the map and the data, and to a code CDN (jsDelivr, cdnjs) and Google Fonts. Those services can see your IP address under their own policies, and the map area you look at is requested from them.</li>
+      <li><b>Your browser talks to the data providers directly</b> to load the map and the data, and to a code CDN (jsDelivr, cdnjs). The fonts are served from this site. Those services can see your IP address under their own policies, and the map area you look at is requested from them.</li>
       <li><b>Your location</b> (Tonight, Look up, Around me) is used on your device. The cloud forecast for Tonight sends it to Open-Meteo rounded to about 10 km.</li>
       <li><b>Searches and spoken places</b> send only the words to Photon (komoot). Directions go to the FOSSGIS routing servers; mapped cameras to the public Overpass API; buildings, military areas and plate readers come as map tiles from OpenFreeMap and FlockHopper.</li>
       <li><b>Aircraft details</b> (type, owner, photo, route) are asked of adsbdb for the plane you open, and cockpit and airport weather of Open-Meteo for the plane's or the field's position. The offline copy lives in your browser's storage only.</li>
