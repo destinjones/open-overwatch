@@ -76,7 +76,8 @@ export const LAYERS = Object.freeze({
   osm: { maxAgeMs: 2 * H, dataAt: 'when the tiles were built (hourly), if they say' },
   traffic: { maxAgeMs: 4 * H, dataAt: 'NYC DOT\'s data_as_of (published 2.5-3 h late)' },
   radio: { maxAgeMs: 7 * D, dataAt: 'the directory\'s last good check of the stream' },
-  aurora: { maxAgeMs: H, dataAt: 'the forecast time of the OVATION run' },
+  aurora: { maxAgeMs: 3 * H, dataAt: 'the newest Kp reading or OVATION forecast time' },
+  weather: { maxAgeMs: 3 * H, dataAt: 'the model time of the current conditions' },
   history: { maxAgeMs: 200 * 365 * D, dataAt: 'the archived record\'s own time (time travel: a record of the past, never stale)' },
 });
 
@@ -140,3 +141,6 @@ export function metresBetween(a, b) {
 export function stampReports(item, layer, reports, agreeing = null, { cached = [] } = {}) {
   return stamp(item, layer, (reports || []).map(r => ({ id: r.src, name: r.name || null, dataAt: r.t ?? null, cached: cached.includes(r.src) })), { agreeing });
 }
+
+/** The provenance line for reports that need no item (an MCP answer): lineFor('ships', [rep('digitraffic', { dataAt })], { now }). */
+export const lineFor = (layer, reports, { agreeing = null, now = Date.now() } = {}) => provLine(stamp({}, layer, reports, { agreeing }), now);

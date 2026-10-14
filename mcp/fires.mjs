@@ -9,6 +9,7 @@ import { fireTilesAround, clusterFires, fireWords, perimeterRows } from '../src/
 import { inverse } from '../src/core/measure.js';
 import { compass } from '../src/core/passes.js';
 import { ToolError } from './feeds.mjs';
+import { rep, lineFor } from '../src/core/liveprov.js';
 import { areaProps, resolveArea, inArea, frameArea, globeUrl, PHOTON } from './place.mjs';
 import { iso, r1, r2, coord, km, ago, plural, areaData, limitProp, take } from './words.mjs';
 
@@ -71,7 +72,7 @@ export function firesTool(ctx) {
       const groups = clusterFires(dets), shown = take(groups, a.limit || 10);
       const names = await Promise.all(shown.slice(0, 6).map(g => placeName(g.lat, g.lon, signal)));
       const rows = shown.map((g, i) => ({ lat: r2(g.lat), lon: r2(g.lon), near: names[i] ? names[i].name : null, from: names[i] ? names[i].text : null, detections: g.count, power_mw: Math.round(g.frp), strongest_pixel_mw: r1(g.max_frp), extent_km: r1(g.km),
-        first_seen: iso(g.first), last_seen: iso(g.last), night_detections: g.night, words: fireWords(g) }));
+        first_seen: iso(g.first), last_seen: iso(g.last), night_detections: g.night, words: fireWords(g), provenance: lineFor('fires', [rep('viirs', { dataAt: g.last })]) }));
       let perims = [];
       const usHit = US.some(([s, w, n, e]) => (area.lat + radius / 111 >= s && area.lat - radius / 111 <= n) && (area.lon >= w - 15 && area.lon <= e + 15));
       if (usHit) {

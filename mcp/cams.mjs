@@ -6,6 +6,7 @@ import { CAMERA_NETS as CAM_NETS, camNetsNear, camsNear, camCoverage, netOf, ima
 import { estimatePose } from '../src/core/campose.js';
 import { compass } from '../src/core/passes.js';
 import { ToolError } from './feeds.mjs';
+import { rep, lineFor } from '../src/core/liveprov.js';
 import { areaProps, resolveArea, frame, globeUrl } from './place.mjs';
 import { iso, r2, km, plural, areaData, limitProp, take, base64 } from './words.mjs';
 
@@ -58,7 +59,7 @@ export function camerasTool(ctx) {
       }
       const rows = shown.map(c => {
         const pose = estimatePose(c), net = netOf(c), pic = pics.find(p => p.cam === c);
-        return { id: c.id, name: String(c.name || 'Camera'), network: net ? net.name : c.net, view: c.view || null, lat: +c.lat.toFixed(5), lon: +c.lon.toFixed(5), distance_km: r2(c.km),
+        return { provenance: lineFor('cameras', [rep('cameras', { name: net ? net.name : String(c.net || 'camera network'), dataAt: c.t || null })]), id: c.id, name: String(c.name || 'Camera'), network: net ? net.name : c.net, view: c.view || null, lat: +c.lat.toFixed(5), lon: +c.lon.toFixed(5), distance_km: r2(c.km),
           facing_guess: pose && pose.source === 'words' ? `${compass(pose.heading)} (from its name)` : null, online: c.online !== false,
           picture: c.image || null, picture_attached: !!pic, video: c.video || null, live_video: /\.m3u8(\?|$)/i.test(c.video || ''), source_page: c.link || null, credit: net ? net.credit : null };
       });

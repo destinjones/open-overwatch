@@ -6,6 +6,7 @@
 import { parseNyc, parseTms } from '../src/core/traffic.js';
 import { compass } from '../src/core/passes.js';
 import { ToolError } from './feeds.mjs';
+import { rep, lineFor } from '../src/core/liveprov.js';
 import { areaProps, resolveArea, distKm, frame, globeUrl } from './place.mjs';
 import { iso, r1, km, ago, plural, areaData, limitProp, take } from './words.mjs';
 
@@ -54,7 +55,7 @@ export function roadsTool(ctx) {
       const url = globeUrl(site, { camera: frame(area.lat, area.lon, Math.max(1, Math.min(radius, 8)), { tilt: 50 }), on: ['traffic'] });
       return { text: [head, ...lines, `Traffic on the globe (roads coloured by these readings): ${url}`].join('\n'),
         data: { feed, total: rows.length, radius_km: radius, readings: shown.map(r => ({ road: r.road || null, borough: r.borough || null, heading: r.heading || null, speed_kmh: r.kmh, speed_mph: r.mph ?? Math.round(r.kmh / 1.609344),
-          vehicles_per_hour: r.vehicles_per_hour ?? null, measured: iso(r.at), distance_km: r1(r.km) })), area: areaData(area), url, source } };
+          vehicles_per_hour: r.vehicles_per_hour ?? null, measured: iso(r.at), distance_km: r1(r.km), provenance: lineFor('traffic', [rep(feed === 'NYC DOT' ? 'nycdot' : 'digitraffic', { name: feed, dataAt: r.at })], { now: t }) })), area: areaData(area), url, source } };
     },
   };
 }

@@ -4,6 +4,7 @@
 // air_quality: the CAMS model's current hour at a place (Open-Meteo): US and European AQI, PM2.5, PM10, ozone, NO2.
 // The parsing and the words are the globe's (src/core/ocean.js).
 import { ToolError } from './feeds.mjs';
+import { rep, lineFor } from '../src/core/liveprov.js';
 import { areaProps, resolveArea, distKm, frame, globeUrl } from './place.mjs';
 import { r1, r2, km, plural, areaData, limitProp, take } from './words.mjs';
 import {
@@ -50,9 +51,9 @@ export function seaTool(ctx) {
         text: [head, ...lines, `Times are UTC. NOAA NDBC and CO-OPS (public domain); the tide times are NOAA's predictions. On the globe: ${url}`].join('\n'),
         data: {
           total: near.length, area: areaData(area), url, source: 'NOAA National Data Buoy Center; NOAA CO-OPS Tides & Currents',
-          stations: shown.map(o => ({ id: o.id, name: o.name || null, type: o.type, lat: r2(o.lat), lon: r2(o.lon), distance_km: r1(o.km), observed: new Date(o.t).toISOString(), wave_height_m: o.waveM,
+          stations: shown.map(o => ({ id: o.id, name: o.name || null, type: o.type, lat: r2(o.lat), lon: r2(o.lon), distance_km: r1(o.km), observed: new Date(o.t).toISOString(), provenance: lineFor('buoys', [rep('ndbc', { dataAt: o.t })]), wave_height_m: o.waveM,
             wave_period_s: o.wavePeriodS, wave_from_deg: o.waveDir, wind_ms: o.windMs, gust_ms: o.gustMs, wind_from_deg: o.windDir, water_temp_c: o.waterC, air_temp_c: o.airC, pressure_hpa: o.pressureHpa, page: ndbcPage(o.id) })),
-          tide_gauge: tide && { id: tide.g.id, name: tide.g.name, distance_km: r1(tide.g.km), datum: coopsDatum(tide.g), level_m: tide.latest?.levelM ?? null, measured: tide.latest?.t ? new Date(tide.latest.t).toISOString() : null,
+          tide_gauge: tide && { id: tide.g.id, name: tide.g.name, distance_km: r1(tide.g.km), datum: coopsDatum(tide.g), level_m: tide.latest?.levelM ?? null, measured: tide.latest?.t ? new Date(tide.latest.t).toISOString() : null, provenance: lineFor('tides', [rep('coops', { dataAt: tide.latest?.t ?? null })]),
             rising: tide.tides?.rising ?? null, next_high: tide.tides?.high ? { time: new Date(tide.tides.high.t).toISOString(), level_m: tide.tides.high.levelM } : null,
             next_low: tide.tides?.low ? { time: new Date(tide.tides.low.t).toISOString(), level_m: tide.tides.low.levelM } : null, page: coopsPage(tide.g.id) },
         },
@@ -77,7 +78,7 @@ export function airTool(ctx) {
         text: [`Air quality at ${area.label}: ${words.toLowerCase()} (US AQI ${q.usAqi == null ? 'n/a' : Math.round(q.usAqi)}), from the CAMS model for this hour (not a measurement).`, line(aqRows(q)),
           `Generated using Copernicus Atmosphere Monitoring Service information, served by Open-Meteo (CC BY 4.0). On the globe: ${url}`].join('\n'),
         data: { area: areaData(area), category: words, us_aqi: q.usAqi, european_aqi: q.euAqi, pm2_5_ugm3: q.pm25, pm10_ugm3: q.pm10, ozone_ugm3: q.o3, no2_ugm3: q.no2, co_ugm3: q.co, dust_ugm3: q.dust,
-          aerosol_optical_depth: q.aod, model_hour: q.t ? new Date(q.t).toISOString() : null, url, source: 'Copernicus Atmosphere Monitoring Service (CAMS) via Open-Meteo, CC BY 4.0', measured: false },
+          aerosol_optical_depth: q.aod, model_hour: q.t ? new Date(q.t).toISOString() : null, provenance: lineFor('airq', [rep('openmeteo', { name: 'CAMS model via Open-Meteo', dataAt: q.t })]), url, source: 'Copernicus Atmosphere Monitoring Service (CAMS) via Open-Meteo, CC BY 4.0', measured: false },
       };
     },
   };

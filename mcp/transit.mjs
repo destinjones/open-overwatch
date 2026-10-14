@@ -7,6 +7,7 @@ import { MBTA_URL, ENTUR_URL, HSL_PB, METRO_TRANSIT_PB, CAPMETRO_VIEW, capmetroF
 import { parseVehiclePositions } from '../src/core/gtfsrt.js';
 import { compass } from '../src/core/passes.js';
 import { ToolError } from './feeds.mjs';
+import { rep, lineFor } from '../src/core/liveprov.js';
 import { areaProps, resolveArea, distKm, frame, globeUrl } from './place.mjs';
 import { iso, r1, km, ago, plural, areaData, limitProp, take } from './words.mjs';
 
@@ -59,7 +60,8 @@ export function transitTool(ctx) {
       const shown = take(near, a.limit || 15);
       const rows = shown.map(f => ({ mode: f.mode, line: f.line || null, line_name: f.lineName && f.lineName !== f.line ? f.lineName : null, destination: f.dest || null, operator: f.operator || NAME[src],
         vehicle: f.vehicle || null, status: f.status || null, speed_kmh: f.spd != null ? Math.round(f.spd * 3.6) : null, heading: f.hdg != null ? compass(f.hdg) : null,
-        delay_min: f.delay != null ? r1(f.delay / 60) : null, lat: +f.lat.toFixed(5), lon: +f.lon.toFixed(5), distance_km: Math.round(f.km * 100) / 100, reported: iso(f.t) }));
+        delay_min: f.delay != null ? r1(f.delay / 60) : null, lat: +f.lat.toFixed(5), lon: +f.lon.toFixed(5), distance_km: Math.round(f.km * 100) / 100, reported: iso(f.t),
+        provenance: lineFor('transit', [rep(src, { name: NAME[src], dataAt: f.t })], { now: t }) }));
       const counts = {}; for (const f of near) counts[f.mode] = (counts[f.mode] || 0) + 1;
       const mix = Object.entries(counts).sort((x, y) => y[1] - x[1]).map(([m, n]) => plural(n, MODE_WORD[m].toLowerCase(), m === 'bus' ? 'buses' : m === 'ferry' ? 'ferries' : MODE_WORD[m].toLowerCase() + 's')).join(', ');
       const late = d => (d == null ? '' : Math.abs(d) < 1 ? ' · on time' : ` · ${Math.round(Math.abs(d))} min ${d > 0 ? 'late' : 'early'}`);

@@ -228,6 +228,7 @@ test('mcp: earthquakes, strongest first, in an area or worldwide, with a link th
   const { server } = serve();
   const all = ok(await call(server, 'earthquakes', {}));
   assert.deepEqual(all.structuredContent.earthquakes.map(q => q.magnitude), [5.1, 3.0, 2.6], 'no quarry blasts');
+  assert.match(all.structuredContent.earthquakes[0].provenance, /^USGS · data .* old · (reported|stale)$/, 'each quake says where it came from and how old the data is');
   assert.match(all.content[0].text, /^3 earthquakes of magnitude 2\.5\+ in the last day worldwide\./); assert.match(all.content[0].text, /M5\.1 · 20 km SE of Tokyo, Japan .* tsunami flag · PAGER green/);
   const v = hashOf(all.structuredContent.url); assert.deepEqual(v.add, ['quakes']); assert.ok(Math.abs(v.lat - 35.6) < 0.01, 'framed on the strongest');
   const tx = ok(await call(server, 'earthquakes', { place: 'Texas', sort: 'time' }));
@@ -276,6 +277,7 @@ test('mcp: tropical cyclones from NOAA and GDACS, merged by name', async () => {
   const { server } = serve(), r = ok(await call(server, 'tropical_storms', {})), s = r.structuredContent.storms;
   assert.deepEqual(s.map(x => x.name), ['Isaias', 'Koguma']);
   assert.equal(s[0].strength, 'Category 3'); assert.equal(s[0].movement, 'toward NW at 10 mph'); assert.equal(s[0].gdacs.alert, 'Orange');
+  assert.equal(s[0].provenance, 'NOAA NHC + GDACS · 2 of 2 agree · data 3.0 h old · reported');   // both place it; GDACS's fix is older than storms' 9 h, so one fresh witness assert.match(s[1].provenance, /^GDACS · /);   // NHC and GDACS both place Isaias
   assert.match(r.content[0].text, /Hurricane Isaias · 25\.50°N 80\.20°W · 105 kt \(Category 3\)/);
   assert.deepEqual(hashOf(r.structuredContent.url).add, ['storms']);
   assert.deepEqual(ok(await call(server, 'tropical_storms', { lat: 25, lon: 145, radius_km: 800 })).structuredContent.storms.map(x => x.name), ['Koguma']);

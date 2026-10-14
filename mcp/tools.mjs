@@ -14,6 +14,7 @@ import { skyWords, weatherSentence, SENSORS } from '../src/core/voicecmd.js';
 import { decodeView } from '../src/core/viewlink.js';
 import { AU_KM } from '../src/core/units.js';
 import { ToolError } from './feeds.mjs';
+import { rep, lineFor } from '../src/core/liveprov.js';
 import { areaProps, resolveArea, inArea, distKm, frame, frameArea, globeUrl, panelUrl, LAYERS, WEATHER } from './place.mjs';
 import { findSats, satState, ecefAt, GROUP_LAYER } from './sats.mjs';
 import { PANEL_URI } from './panel.mjs';
@@ -147,7 +148,7 @@ export function createTools(ctx) {
       const text = [`${s.name} (NORAD ${s.id}) is over ${coord(st.lat, st.lon)}, ${Math.round(st.altKm)} km up, moving ${r2(st.speedKmS)} km/s (${Math.round(st.speedKmS * 3600).toLocaleString('en-US')} km/h).`,
         `One orbit takes ${r1(st.periodMin)} min, inclined ${r1(st.inclination)}°. ${lit == null ? '' : lit ? 'It is in sunlight.' : "It is in Earth's shadow."} Elements from ${utc(st.epochMs)} (${ago(st.epochMs, t)}).`,
         others.length ? `Also matching: ${others.join(', ')}.` : '', `Follow it on the globe: ${url}`].filter(Boolean).join('\n');
-      return { text, data: { satellite: { name: s.name, norad: s.id }, at: iso(t), lat: r2(st.lat), lon: r2(st.lon), altitude_km: Math.round(st.altKm), speed_km_s: r2(st.speedKmS),
+      return { text, data: { provenance: lineFor('satellites', [rep('celestrak', { dataAt: st.epochMs, cached: true })], { now: t }), satellite: { name: s.name, norad: s.id }, at: iso(t), lat: r2(st.lat), lon: r2(st.lon), altitude_km: Math.round(st.altKm), speed_km_s: r2(st.speedKmS),
         period_min: r1(st.periodMin), inclination_deg: r1(st.inclination), sunlit: lit, elements_epoch: iso(st.epochMs), also_matching: found.slice(1).map(o => ({ name: o.name, norad: o.id })), url,
         source: 'CelesTrak element sets via the Open Overwatch website copy; SGP4 (satellite.js)' } };
     },
@@ -214,7 +215,8 @@ export function createTools(ctx) {
       const shown = take(list, a.limit || 10);
       const rows = shown.map(l => ({ id: l.id, name: l.name, mission: l.mission, mission_type: l.type || null, description: l.desc.slice(0, 300) || null, orbit: l.orbit || null, rocket: l.rocket, provider: l.provider,
         net: iso(l.net), when: launchWhen(l), status: l.statusName || l.status, pad: l.pad, place: l.place, country: l.country || null, lat: r2(l.lat), lon: r2(l.lon), weather_go_percent: l.prob,
-        webcast: l.webcasts[0] ? l.webcasts[0].url : null, url: panelUrl(site, 'launches', l.id) }));
+        webcast: l.webcasts[0] ? l.webcasts[0].url : null, url: panelUrl(site, 'launches', l.id),
+        provenance: lineFor('launches', [rep('ll2', { dataAt: l.updated ?? d.t ?? null, cached: true })], { now: t }) }));
       const lines = rows.map((l, i) => `${launchWhen(shown[i])}${Number.isFinite(shown[i].net) && shown[i].net > t ? ` (${ago(shown[i].net, t)})` : ''} · ${l.name} · ${l.provider} · ${l.place} · ${l.status}${l.weather_go_percent != null ? ` · ${l.weather_go_percent}% weather go` : ''}${l.webcast ? ` · webcast ${l.webcast}` : ''}`);
       const head = list.length ? `${plural(list.length, 'launch', 'launches')} in the next ${plural(a.days || 14, 'day')}${q ? ` matching "${a.search}"` : ''}${list.length > shown.length ? ` (the first ${shown.length})` : ''}:` : `No launches in the next ${plural(a.days || 14, 'day')}${q ? ` matching "${a.search}"` : ''}.`;
       const url = rows[0] ? rows[0].url : panelUrl(site, 'launches');
@@ -340,7 +342,7 @@ export function createTools(ctx) {
       const list = rows.map(({ s, v }) => { let eta = etaTime(v.eta, t); if (eta != null && (eta < t - 864e5 || eta > t + 60 * 864e5)) eta = null;   // left over from an old voyage, or a placeholder
         return { name: v.name || null, mmsi: s.mmsi, imo: v.imo || null, callsign: v.callSign || null, type: v.type ? shipTypeName(v.type) : null, kind: shipKind(v.type || 0),
         status: NAV_STATUS[s.navStat] || null, speed_kn: s.sog, course_deg: s.cog, heading_deg: s.heading, destination: v.destination || null, eta: iso(eta), length_m: v.length, beam_m: v.width,
-        draught_m: v.draught, lat: Number(s.lat.toFixed(4)), lon: Number(s.lon.toFixed(4)), distance_km: r2(s.km), reported: iso(s.t) }; });
+        draught_m: v.draught, lat: Number(s.lat.toFixed(4)), lon: Number(s.lon.toFixed(4)), distance_km: r2(s.km), reported: iso(s.t), provenance: lineFor('ships', [rep('digitraffic', { dataAt: s.t })], { now: t }) }; });
       const camera = frame(lat, lon, Math.max(2, Math.min(km, 40)), { tilt: 55 }), url = link({ camera, on: ['ships'] });
       const lines = list.map(s => `${s.name || 'MMSI ' + s.mmsi} · ${s.type || 'type unknown'} · ${s.status || ''}${s.speed_kn != null ? ` · ${s.speed_kn} kn` : ''}${s.course_deg != null && s.speed_kn >= 0.5 ? ` heading ${compass(s.course_deg)}` : ''}${s.destination ? ` · to ${s.destination}` : ''}${s.eta ? ` (ETA ${utc(Date.parse(s.eta))})` : ''}${s.length_m ? ` · ${s.length_m} m` : ''} · ${s.distance_km} km away`);
       const head = near.length ? `${plural(near.length, 'ship')} reported within ${Math.round(km)} km of ${area.label}${rows.length < near.length ? `; ${a.kind || a.name ? 'matching' : 'nearest'} ${rows.length}:` : ':'}` : `No ships reported within ${Math.round(km)} km of ${area.label} in the last 3 hours.`;
@@ -361,7 +363,8 @@ export function createTools(ctx) {
       if (!st.length) throw new ToolError(`${n.name} lists no stations right now`, 'unavailable');
       const sum = k => st.reduce((s, x) => s + (Number.isFinite(x[k]) ? x[k] : 0), 0), big = k => sum(k).toLocaleString('en-US'), t = now();
       const shown = take(st.map(s => ({ ...s, m: distKm(area, s.lat, s.lon) * 1000 })).sort((x, y) => x.m - y.m), a.limit || 8);
-      const list = shown.map(s => ({ name: s.name, bikes: s.bikes, ebikes: s.ebikes, free_docks: s.docks, state: stationState(s), distance_m: Math.round(s.m), lat: Number(s.lat.toFixed(5)), lon: Number(s.lon.toFixed(5)), updated: iso(s.t) }));
+      const list = shown.map(s => ({ name: s.name, bikes: s.bikes, ebikes: s.ebikes, free_docks: s.docks, state: stationState(s), distance_m: Math.round(s.m), lat: Number(s.lat.toFixed(5)), lon: Number(s.lon.toFixed(5)), updated: iso(s.t),
+        provenance: lineFor('bikes', [rep('citybikes', { name: `${n.name} via CityBikes`, dataAt: s.t })], { now: t }) }));
       const camera = frame(lat, lon, 1.2, { tilt: 55 }), url = link({ camera, on: ['bikes'] });
       const lines = list.map(s => `${s.name} · ${plural(s.bikes, 'bike')}${s.ebikes ? ` (${s.ebikes} electric)` : ''}${s.free_docks != null ? ` · ${plural(s.free_docks, 'free dock')}` : ''}${s.state !== 'ok' ? ` · ${s.state}` : ''} · ${s.distance_m < 1000 ? s.distance_m + ' m' : r1(s.distance_m / 1000) + ' km'} away`);
       const age = shown[0] && shown[0].t ? ` (updated ${ago(shown[0].t, t)})` : '';
@@ -394,7 +397,8 @@ export function createTools(ctx) {
       const lines = daysOut.map(x => `${new Date(x.date + 'T12:00:00Z').toUTCString().slice(0, 11)}: ${x.conditions || 'mixed'}, ${T(x.low)} to ${T(x.high)}${x.rain_mm > 0 ? `, ${P(x.rain_mm)} rain` : ''}${x.rain_chance_percent != null ? ` (${x.rain_chance_percent}% chance)` : ''}, wind up to ${W(x.wind_max_ms)} (gusts ${W(x.gusts_max_ms)}), sunrise ${String(x.sunrise).slice(11)}, sunset ${String(x.sunset).slice(11)}`);
       const camera = frame(area.lat, area.lon, 1400), url = link({ camera, weather: ['ir', 'radar', 'wind'] });   // weather mode shows the whole Earth below 3,000 km
       const head = `Now at ${area.label} (${String(c.time).replace('T', ' ')} ${d.timezone_abbreviation || d.timezone || ''}): ${now0}; feels like ${T(c.apparent_temperature)}, humidity ${c.relative_humidity_2m}%, gusts ${W(c.wind_gusts_10m)}${c.precipitation > 0 ? `, ${P(c.precipitation)} of rain in the last 15 min` : ''}.`;
-      return { text: [head, ...lines, `Clouds, radar and wind on the globe: ${url}`].join('\n'), data: { place: areaData(area), timezone: d.timezone || null, units: imp ? 'imperial' : 'metric',
+      const wxAt = Date.parse(String(c.time || '') + 'Z') - (+d.utc_offset_seconds || 0) * 1000;
+      return { text: [head, ...lines, `Clouds, radar and wind on the globe: ${url}`].join('\n'), data: { provenance: lineFor('weather', [rep('openmeteo', { name: 'Open-Meteo (model)', dataAt: Number.isFinite(wxAt) ? wxAt : null })], { now: now() }), place: areaData(area), timezone: d.timezone || null, units: imp ? 'imperial' : 'metric',
         now: { time: c.time, conditions: skyWords({ code: c.weather_code }) || null, temperature_c: c.temperature_2m, feels_like_c: c.apparent_temperature, humidity_percent: c.relative_humidity_2m,
           cloud_percent: c.cloud_cover, wind_ms: c.wind_speed_10m, wind_from_deg: c.wind_direction_10m, gusts_ms: c.wind_gusts_10m, precipitation_mm: c.precipitation }, days: daysOut, url, source: 'Open-Meteo.com (CC BY 4.0)' } };
     },
@@ -429,7 +433,7 @@ export function createTools(ctx) {
       const lines = [`Kp ${r2(kpNow)} (${kpWords(kpNow)}), measured ${ago(at, t)}.`, days.length ? `Forecast: ${days.map(d => `${d.date} up to Kp ${d.max_kp}${d.scale ? ` (${d.scale})` : ''}`).join('; ')}.` : '',
         local ? `At ${area.label}: ${local.verdict}${local.dark ? '' : ' It is not dark there now, so wait for night.'} (chance overhead ${local.overhead_percent}%, on the horizon ${local.horizon_percent}%)` : '',
         `The aurora oval on the globe: ${url}`].filter(Boolean);
-      return { text: lines.join('\n'), data: { kp_now: r2(kpNow), kp_time: iso(at), activity: kpWords(kpNow), forecast: days, local, url, source: 'NOAA Space Weather Prediction Center (Kp, OVATION aurora model)' } };
+      return { text: lines.join('\n'), data: { provenance: lineFor('aurora', [rep('swpc', { dataAt: at })], { now: t }), kp_now: r2(kpNow), kp_time: iso(at), activity: kpWords(kpNow), forecast: days, local, url, source: 'NOAA Space Weather Prediction Center (Kp, OVATION aurora model)' } };
     },
   };
 
