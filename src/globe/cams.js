@@ -21,6 +21,7 @@ import { Photoreal } from './photoreal.js';
 import { overpass } from '../core/overpass.js';
 import { estimatePose, footprint, axes, roadBearings } from '../core/campose.js';
 import { CAMERA_NETS, SG_URL, parseSingapore, netOf, bustUrl, isStream } from '../core/cameras.js';
+import { stamp, rep } from '../core/liveprov.js';
 
 const PINK = '#ff6fb5', MAX_DIST = 300, FADE_FROM = 120;   // metres: the cast picture fades out on the ground between these
 const https = u => (typeof u === 'string' && /^https:\/\//i.test(u) ? u : '');
@@ -149,7 +150,7 @@ function loadNet(id) {
     const net = NETS[id], seen = new Set(all.map(c => c.id));
     try {
       const list = (await net.load()).filter(c => !seen.has(c.id) && seen.add(c.id));   // some feeds list a camera twice
-      for (const c of list) { c.kind = 'cam'; attach(c); all.push(c); }
+      for (const c of list) { c.kind = 'cam'; attach(c); stamp(c, 'cameras', [rep('cameras', { name: net.name || id, dataAt: c.t || null })]); all.push(c); }   // the lists carry no picture time: unknown
       setCount('cams', all.length);
       if (list.length && !credits.has(id)) { credits.add(id); viewer.creditDisplay.addStaticCredit(new C.Credit(net.credit)); }
     } catch (err) { console.warn('cameras', id, err.message); setTimeout(() => loaded.delete(id), 120e3); }

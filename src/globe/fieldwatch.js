@@ -51,7 +51,7 @@ export const FieldWatch = {
     this.busy = true; this.polled.set(due.icao, now);
     try {
       const d = await getJSON(SOURCES[this.src](due.lat, due.lon), { relay: true, timeout: 10000 }), at = Date.now();
-      for (const a of (d && (d.ac || d.aircraft)) || []) { const r = fromAdsb(a, at, !!(a.dbFlags & 1)); if (r) Air.upsert(r); }
+      for (const a of (d && (d.ac || d.aircraft)) || []) { const r = fromAdsb(a, at, !!(a.dbFlags & 1)); if (r) { if (this.src === 1) r.src = 'adsb.fi'; Air.upsert(r); } }
       this.fails = 0;
     } catch (e) {   // the other source next time; both failing in a row: rest for 2 minutes
       this.src = (this.src + 1) % SOURCES.length; this.polled.delete(due.icao);

@@ -81,3 +81,32 @@ test('storms: EONET + NHC agree but NHC is counted once; GDACS from JTWC is a se
   assert.deepEqual(agreeing.sort(), ['eonet', 'gdacs']);
   assert.ok(!sameStorm({ lat: 15, lon: 135, t: now }, { lat: 20, lon: 135, t: now }));
 });
+
+test('noteAircraftReport: a second network confirms, an old report drops out', async () => {
+  const { noteAircraftReport } = await import('../src/core/aircraft.js');
+  const rec = { hex: 'abc' };
+  noteAircraftReport(rec, { src: 'adsb.lol', lat: 50, lon: 8, t: now - 2e3, gsKt: 300 }, { now });
+  assert.equal(recordOf(rec, now).confidence, 'reported');
+  noteAircraftReport(rec, { src: 'OpenSky', lat: 50.002, lon: 8, t: now - 6e3, gsKt: 300 }, { now, cached: true });
+  assert.equal(provLine(rec, now), 'adsb.lol + OpenSky (copy) · 2 of 2 agree · data 2 s old · confirmed');
+  noteAircraftReport(rec, { src: 'adsb.lol', lat: 50.1, lon: 8, t: now + 200e3 }, { now: now + 200e3 });
+  assert.equal(recordOf(rec, now + 200e3).of, 1);
+});
+
+test('stampQuake: GDACS repeating USGS is listed but does not confirm; an independent one does', async () => {
+  const { stampQuake, gdacsQuakes } = await import('../src/core/quakes.js');
+  const q = { lat: 35, lon: 140, time: now - 3600e3, mag: 6.1, updated: now - 600e3 };
+  const g = gdacsQuakes([{ eventtype: 'EQ', eventid: 1, fromdate: new Date(now - 3600e3 + 10e3).toISOString(), lat: 35.1, lon: 140.1, severitydata: { severity: 6.0 }, source: 'NEIC', datemodified: '2026-10-14T11:50:00' }]);
+  assert.equal(provLine(stampQuake({ ...q }, { dataAt: now - 60e3, gdacs: g }), now), 'USGS + GDACS (USGS solution) · 1 of 2 agree · data 60 s old · reported');
+  g[0].usgs = false;
+  assert.equal(recordOf(stampQuake({ ...q }, { dataAt: now - 60e3, gdacs: g }), now).confidence, 'confirmed');
+  assert.equal(recordOf(stampQuake({ ...q }), now).ageMs, 600e3);
+});
+
+test('ships: two receivers of the same MMSI agree within 300 m plus its run', async () => {
+  const { sameShip } = await import('../src/core/ais.js');
+  const a = { id: 230000001, lat: 60, lon: 25, t: now, sog: 10 };
+  assert.ok(sameShip(a, { ...a, t: now - 60e3, lat: 60.004 }));      // 445 m in 60 s at 10 kn (~400 m allowed + 300)
+  assert.ok(!sameShip(a, { ...a, lat: 60.02 }));
+  assert.ok(!sameShip(a, { ...a, id: 230000002 }));
+});

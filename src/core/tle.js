@@ -6,6 +6,7 @@
 // (it firewalls networks that download too often); elsewhere CelesTrak is first and the copy is the fallback.
 
 import { SITE } from './assets.js';
+import { stamp, rep } from './liveprov.js';
 
 export const TLE_MIRROR = SITE + 'data/tle/';
 export const CACHE_MS = 2 * 3600e3;
@@ -72,3 +73,9 @@ export function createTleSource({ fetchText, cache, onSite = false, now = () => 
   }
   return { load, get celestrakDown() { return celestrakDown; } };
 }
+
+/** A TLE's epoch as Unix ms. */
+export const tleEpochMs = l1 => (tleEpochJd(l1) - 2440587.5) * 864e5;
+/** Stamp a satellite with its provenance: CelesTrak's element set at its epoch (the data time), a copy unless it came
+ *  straight from CelesTrak (source: createTleSource's 'cache' | 'celestrak' | 'mirror' | 'stale cache'; 'archive' for time travel). */
+export const stampTle = (o, l1, source = 'celestrak') => stamp(o, 'satellites', [rep('celestrak', { dataAt: l1 && /^1 /.test(l1) ? tleEpochMs(l1) : null, cached: source !== 'celestrak' })]);

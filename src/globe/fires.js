@@ -10,6 +10,7 @@ import { L, setCount } from './layers.js';
 import { state } from './state.js';
 import { Terrain } from './terrain.js';
 import { firePerimeters, FIRE_SAT_NAME as SAT_NAME, fireLook as look, FIRE_FRP as FRP, fireLevel, fireTilesWanted, NIFC_PERIMETERS as PERIM_URL, containColor, keptRings, perimeterCentre } from '../core/hazards.js';
+import { stamp, rep, provStamp } from '../core/liveprov.js';
 
 const MAX_H = 2.5e6, MAX_TILES = PHONE ? 2 : 4, COLOR = '#ff7a2f';
 
@@ -32,6 +33,7 @@ let active = new Set(), inflight = 0, told = false;
 
 const FireProto = {
   kind: 'fire',
+  get prov() { return provStamp('fires', [rep('viirs', { name: `NASA VIIRS ${SAT_NAME[this.sat] || ''}`.trim(), dataAt: this.t })]); },
   tip() { return `🔥 Fire detection · ${fmt(this.frp)} MW · ${ago(this.t)}`; },
   cardHtml() {
     const row = (k, v) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`;
@@ -132,7 +134,7 @@ async function loadPerimeters() {
   try {
     perimList = firePerimeters(await getJSON(PERIM_URL, { timeout: 45000 }));
     for (const f of perimList) {
-      Object.assign(f, { kind: 'fireperim' }, perimeterCentre(f));   // where the card's buttons fly: the largest ring's middle
+      Object.assign(f, { kind: 'fireperim' }, perimeterCentre(f)); stamp(f, 'perimeters', [rep('nifc', { dataAt: f.updated })]);   // where the card's buttons fly: the largest ring's middle
       f.tip = () => `🔥 ${f.name} fire · ${f.acres ? fmt(f.acres) + ' acres' : ''}${f.contained != null ? ` · ${f.contained}% contained` : ''}`;
       f.cardHtml = () => perimCard(f, containColor(f));
     }

@@ -7,16 +7,17 @@ import { map, vecRenderer } from './mapview.js';
 import { nightRing } from '../core/sky.js';
 import { Dyn, Feeds, Layers, Points, UI, feed, requestDraw, runFeed } from './engine.js';
 import { Detail } from './detail.js';
-import { parseUsgs, usgsUrl, USGS_FEEDS, largest } from '../core/quakes.js';
+import { parseUsgs, usgsUrl, USGS_FEEDS, largest, usgsDataAt, stampQuake, gdacsQuakes } from '../core/quakes.js';
+import { stamp, rep, stampReports } from '../core/liveprov.js';
 import { parseEonet, eonetUrl, EONET_COLOR } from '../core/eonet.js';
 import { loadGdacsEvents, GDACS_LEVEL_COLOR } from '../core/gdacs.js';
-import { loadCyclones, category, catName, KIND_KT, NHC_CURRENT, activeLine, shortName, stormSources } from '../core/cyclones.js';
+import { stormAgreement, loadCyclones, category, catName, KIND_KT, NHC_CURRENT, activeLine, shortName, stormSources } from '../core/cyclones.js';
 import { WW } from '../core/hazards.js';
 import { overpass } from '../core/overpass.js';
 import { OVATION_URL, KP_URL, parseOvation, ovationAt, paintMercator, MERCATOR_MAX_LAT, latestKp } from '../core/aurora.js';
 import { CABLE_URLS, LANDING_URLS, parseLandings, nearestCable, cablePage, landingPage, okColor } from '../core/cables.js';
 import { CAMERA_NETS, CAMERA_GROUPS, boxInView, bustUrl, isStream, netOf } from '../core/cameras.js';
-import { parseAisLocations, parseAisVessels, shipKind, shipTypeName, SHIP_KINDS, NAV_STATUS, flagOf, etaTime, DIGITRAFFIC_AIS, DIGITRAFFIC_HEADERS } from '../core/ais.js';
+import { sameShip, parseAisLocations, parseAisVessels, shipKind, shipTypeName, SHIP_KINDS, NAV_STATUS, flagOf, etaTime, DIGITRAFFIC_AIS, DIGITRAFFIC_HEADERS } from '../core/ais.js';
 
 /* ============================================================ POINT + VECTOR LAYERS
    Points go on the shared canvas (Points.set); only polygons and lines stay as Leaflet vectors, non-interactive. */
@@ -35,8 +36,10 @@ Detail.renderers.quake = p => `<div class="det">${Detail.head(C.qk, 'Earthquake 
 ${Detail.kv([['Magnitude', `${(p.mag ?? 0).toFixed(1)} ${p.magType || ''}`], ['Depth', `${fmt.n(p.depth, 1)} km`], ['Position', fmt.ll(p.lat, p.lon)], ['Felt reports', p.felt], ['Status', p.status], ['Age', fmt.ago(p.time) + ' ago']])}
 <div class="actions"><button class="btn small" data-do="fly" data-lat="${num(p.lat)}" data-lon="${num(p.lon)}" data-z="7">Center</button></div><hr class="sep">${Detail.links([{ text: 'USGS event page', url: p.url }])}</div>`;
 feed(lyQuakes, { interval: 300, fetch: async () => {   // parsed by core/quakes.js, like the globe's and the MCP server's
-  const list = parseUsgs(await Net.json(usgsUrl(Layers.opt('quake_feed') || '2.5_day'))), items = []; World.quakes = list;
+  const doc = await Net.json(usgsUrl(Layers.opt('quake_feed') || '2.5_day')), list = parseUsgs(doc), items = []; World.quakes = list;
+  const dataAt = usgsDataAt(doc, list), gd = gdacsQuakes(World.gdacs);   // provenance: the summary's time; GDACS's alerts as a second word
   for (const p of list) {
+    stampQuake(p, { dataAt, gdacs: gd });
     const mag = p.mag ?? 0, age = (Date.now() - p.time) / 3600e3, r = Math.max(2.5, 2 + (mag - 1) * 2.4);
     items.push({ lat: p.lat, lon: p.lon, r, color: C.qk, alpha: Math.max(.35, 1 - age / 48), fillAlpha: Math.max(.08, .45 - age / 60), kind: 'quake', obj: p, tip: `M${mag.toFixed(1)} · ${p.place} · ${fmt.ago(p.time)} ago`, label: mag >= 5.5 ? `M${mag.toFixed(1)}` : null, labelZoom: 2 });
     if (mag >= 6 && Date.now() - p.time < 3600e3 && !lyQuakes.seen?.has(p.id)) { (lyQuakes.seen ||= new Set()).add(p.id); Log.alert(`M${mag.toFixed(1)} earthquake · ${p.place}`, { onclick: () => { flyTo(p.lat, p.lon, 6); Detail.show('quake', p, p.id); } }); }
@@ -54,7 +57,7 @@ ${Detail.kv([['Latest position', fmt.ll(e.lat, e.lon)], ['Latest fix', fmt.date(
 feed(lyEvents, { interval: 900, fetch: async () => {   // core/eonet.js: polygons (some fires, ice) are placed at their middle
   const list = parseEonet(await Net.json(eonetUrl({ days: 20 }))); gEvents.clearLayers(); const items = []; World.events = [];
   for (const ev of list) {
-    const color = EONET_COL[ev.cat] || C.evt, e = { ...ev, color };
+    const color = EONET_COL[ev.cat] || C.evt, e = stamp({ ...ev, color }, 'events', [rep('eonet', { dataAt: ev.date })]);
     World.events.push(e); items.push({ lat: e.lat, lon: e.lon, r: 4.5, color, fillAlpha: .35, kind: 'event', obj: e, tip: e.title });
     if (ev.track.length > 1) L.polyline(ev.track.slice(-12).map(x => [x.lat, x.lon]), { color, weight: 1, opacity: .5, interactive: false, renderer: vecRenderer }).addTo(gEvents);
   }
@@ -70,6 +73,7 @@ ${Detail.kv([['Country', p.country], ['From', p.fromdate ? fmt.date(p.fromdate) 
 <div class="actions"><button class="btn small" data-do="fly" data-lat="${num(p.lat)}" data-lon="${num(p.lon)}" data-z="6">Center</button></div><hr class="sep">${Detail.links([p.url?.report ? { text: 'GDACS report', url: p.url.report } : null, p.url?.details ? { text: 'Details (JSON)', url: p.url.details } : null].filter(Boolean))}</div>`;
 feed(lyGdacs, { interval: 900, fetch: async () => {   // every page of the last 14 days, one marker per event (core/gdacs.js)
   World.gdacs = await loadGdacsEvents(Net.json.bind(Net), { opts: { timeout: 60000, throttle: 'gdacs', gap: 1000 } });
+  for (const p of World.gdacs) stamp(p, 'gdacs', [rep('gdacs', { dataAt: p.datemodified ? (/(Z|[+-]\d\d:?\d\d)$/.test(p.datemodified) ? p.datemodified : p.datemodified + 'Z') : p.todate })]);
   const items = World.gdacs.map(p => ({ lat: p.lat, lon: p.lon, r: p.alertlevel === 'Red' ? 8 : p.alertlevel === 'Orange' ? 6 : 4, color: GDACS_LVL[p.alertlevel] || C.warn, fillAlpha: .2, halo: p.alertlevel === 'Red' ? 14 : 0, kind: 'gdacs', obj: p,
     tip: `${p.eventtype} · ${p.name || ''} (${p.alertlevel})`, label: p.alertlevel !== 'Green' ? (p.eventname || p.eventtype) : null, labelZoom: 3 }));
   Points.set('gdacs', items); lyGdacs.feed.count = items.length;
@@ -107,7 +111,9 @@ feed(lyStorms, { interval: 1200, errorInterval: 1800, fetch: async () => {   // 
   const nhc = Relay.available || !!Relay.wrap(NHC_CURRENT);   // NHC's list: the helper, or the website's public relay
   const list = await loadCyclones({ json: (url, o = {}) => Net.json(url, { timeout: o.timeout || 30000 }), nhc, kept: gdacsKept, warn: (what, e) => Log.warn(`${what}: ${e.message}`) });
   gStorms.clearLayers(); World.storms = list; const items = [];
+  const nhcCopy = Relay.viaCopy(NHC_CURRENT) ? ['nhc'] : [];
   for (const s of list) {
+    const { reports, agreeing } = stormAgreement(s); stampReports(s, 'storms', reports, agreeing, { cached: nhcCopy });   // which agencies place it here (core/cyclones.js)
     const [, cat, col] = category(s.kt);
     if (s.track.length > 1 && !(s.fc && s.fc.past.length)) L.polyline(s.track.map(p => [p.lat, p.lon]), { color: col, weight: 1.5, opacity: .6, dashArray: '6 5', interactive: false, renderer: vecRenderer }).addTo(gStorms);
     if (s.fc) drawForecast(s.fc);
@@ -145,7 +151,9 @@ feed(lyNews, { interval: 900, errorInterval: 900, fetch: async () => {
     const g = by.get(iso) || { iso, name: COUNTRY[iso][2], lat: COUNTRY[iso][0], lon: COUNTRY[iso][1], count: 0, articles: [], image: null, q }; by.set(iso, g);
     g.count++; if (g.articles.length < 15 && isHttp(a.url)) g.articles.push({ text: (a.title || a.url).slice(0, 140), url: a.url, sub: `${a.domain || safeHost(a.url)} · ${a.language || ''} · ${(a.seendate || '').replace(/T(\d\d)(\d\d)\d\dZ/, ' $1:$2Z')}` });
     if (!g.image && isHttp(a.socialimage)) g.image = a.socialimage;
+    const seen = Date.parse(String(a.seendate || '').replace(/^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)Z$/, '$1-$2-$3T$4:$5:$6Z')); if (seen > (g.seenAt || 0)) g.seenAt = seen;
   }
+  for (const g of by.values()) stamp(g, 'news', [rep('gdelt', { dataAt: g.seenAt || null })]);
   World.news = [...by.values()].sort((a, b) => b.count - a.count);
   Points.set('news', World.news.map(p => ({ lat: p.lat, lon: p.lon, r: Math.min(16, 4 + Math.log2(p.count + 1) * 2), color: C.news, fillAlpha: .3, kind: 'news', obj: p, tip: `${p.name} · ${p.count} article${p.count === 1 ? '' : 's'}` })));
   lyNews.feed.count = (d.articles || []).length; Log.info(`GDELT: ${(d.articles || []).length} articles from ${by.size} countries for "${q}"${unknown ? ` (${unknown} with no country)` : ''}`);
@@ -161,7 +169,7 @@ ${Detail.kv([['Areas', p.areaDesc], ['Sender', p.senderName], ['Onset', p.onset 
 feed(lyNws, { interval: 300, fetch: async () => {
   const d = await Net.json('https://api.weather.gov/alerts/active?status=actual&message_type=alert,update&severity=Extreme,Severe', { timeout: 60000 }); gNws.clearLayers(); let n = 0, drawn = 0; World.nws = [];
   for (const f of d.features || []) {
-    const p = f.properties || {}; n++; World.nws.push(p); if (!f.geometry) continue; const isTor = /tornado|hurricane|extreme wind/i.test(p.event || ''); const col = isTor ? C.emg : /flash flood|storm/i.test(p.event || '') ? C.warn : '#ff9a6b';
+    const p = stamp(f.properties || {}, 'alerts', [rep('nws', { dataAt: (f.properties || {}).sent })]); n++; World.nws.push(p); if (!f.geometry) continue; const isTor = /tornado|hurricane|extreme wind/i.test(p.event || ''); const col = isTor ? C.emg : /flash flood|storm/i.test(p.event || '') ? C.warn : '#ff9a6b';
     const g = L.geoJSON(f.geometry, { bubblingMouseEvents: false, style: { color: col, weight: isTor ? 2 : 1.2, fillColor: col, fillOpacity: isTor ? .25 : .12, renderer: vecRenderer } }); g.on('click', () => Detail.show('nws', p, p.id)); gNws.addLayer(g); drawn++;
     if (isTor && !lyNws.seen?.has(p.id)) { (lyNws.seen ||= new Set()).add(p.id); if (/tornado warning/i.test(p.event) && Date.now() - (Date.parse(p.sent) || 0) < 900e3) Log.alert(`${p.event}: ${p.areaDesc}`, { onclick: () => { const c = g.getBounds().getCenter(); flyTo(c.lat, c.lng, 8); Detail.show('nws', p, p.id); } }); }
   }
@@ -282,6 +290,7 @@ async function loadCamNet(id) { // one agency's list (core/cameras.js parses it)
     if (n.relay && !Relay.available && !Relay.wrap(n.url)) throw new Error('needs the helper (no CORS)');
     const d = n.xml ? await Net.text(n.url, { timeout: 60000 }) : await Net.json(n.url, { timeout: 60000 });
     c = camCache[id] = { t: Date.now(), cams: n.parse(d) };
+    for (const cam of c.cams) stamp(cam, 'cameras', [rep('cameras', { name: n.name, url: null, dataAt: cam.t || null, cached: Relay.viaCopy(n.url) })]);   // the lists carry no picture time: unknown
   }
   return c.cams;
 }
@@ -316,6 +325,14 @@ export const lyShipsFi = Layers.add({ id: 'ships_fi', group: 'Sea & sky', name: 
   sub(el) { const b = document.createElement('button'); b.type = 'button'; b.className = 'pill'; b.textContent = 'go to Baltic'; b.addEventListener('click', () => map.flyTo([60.0, 24.5], 7)); el.appendChild(b); },
   disable() { for (const [k, s] of Dyn.ships) if (s.src === 'Digitraffic') Dyn.ships.delete(k); } });
 export let vesselMeta = { t: 0, m: new Map() };
+/** Provenance for a ship: its own receiver network, and the other one's report of the same MMSI where it agrees (core/ais.js). */
+function stampShip(pre, mmsi) {
+  const own = Dyn.ships.get(pre + mmsi), other = Dyn.ships.get((pre === 'fi' ? 'ws' : 'fi') + mmsi); if (!own) return;
+  const r = s => ({ src: s.src === 'Digitraffic' ? 'digitraffic' : 'aisstream', t: s.ts, id: s.id, lat: s.lat, lon: s.lon, sog: s.sog });
+  const reps = other ? [r(own), r(other)] : [r(own)];
+  stampReports(own, 'ships', reps, reps.filter((x, i) => i === 0 || sameShip(reps[0], x)).map(x => x.src));
+  if (other) stampReports(other, 'ships', [reps[1], reps[0]], sameShip(reps[0], reps[1]) ? [reps[1].src, reps[0].src] : [reps[1].src]);
+}
 const aisGet = path => Net.json(DIGITRAFFIC_AIS + path, { timeout: 60000, headers: DIGITRAFFIC_HEADERS });
 feed(lyShipsFi, { interval: 60, fetch: async () => {   // positions and ship details parsed by core/ais.js, like the globe's ships
   if (Date.now() - vesselMeta.t > 1800e3) { try { vesselMeta = { t: Date.now(), m: new Map(parseAisVessels(await aisGet('vessels')).map(v => [v.mmsi, v])) }; } catch (e) { Log.warn('Digitraffic vessel names: ' + e.message); } }
@@ -326,6 +343,7 @@ feed(lyShipsFi, { interval: 60, fetch: async () => {   // positions and ship det
     if (now - r.t > 3600e3) continue; const m = vesselMeta.m.get(r.mmsi) || {};
     Dyn.ships.set('fi' + r.mmsi, { id: r.mmsi, lat: r.lat, lon: r.lon, sog: r.sog, cog: r.cog, heading: r.heading, turn: r.turn, navStat: r.navStat, navText: NAV[r.navStat], name: m.name, callsign: m.callSign, imo: m.imo,
       dest: m.destination, eta: m.eta, type: m.type ?? null, typeName: m.type ? shipTypeName(m.type) : null, flag: flagOf(r.mmsi), draught: m.draught, length: m.length, width: m.width, ts: r.t, src: 'Digitraffic' }); n++;
+      stampShip('fi', r.mmsi);
   }
   lyShipsFi.feed.count = n; requestDraw();
 } });
@@ -337,7 +355,7 @@ export const AisWs = { ws: null, timer: null,
     this.ws.onopen = () => { this.subscribe(); lyShipsWs.feed.status = 'ok'; lyShipsWs.feed.lastOk = Date.now(); UI.refreshLayer(lyShipsWs); Log.info('aisstream.io connected'); };
     this.ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } if (m.error) { lyShipsWs.feed.status = 'error'; lyShipsWs.feed.err = m.error; UI.refreshLayer(lyShipsWs); return; } if (m.MessageType !== 'PositionReport') return; const md = m.MetaData || {}, pr = m.Message?.PositionReport || {}; if (md.latitude == null) return;
       if (!Dyn.ships.has('ws' + md.MMSI)) lyShipsWs.feed.count++; if (!this.drawT) this.drawT = setTimeout(() => { this.drawT = null; requestDraw(); }, 1000); // O(1) per message; redraw at most once a second
-      Dyn.ships.set('ws' + md.MMSI, { id: md.MMSI, lat: md.latitude, lon: md.longitude, sog: pr.Sog, cog: pr.Cog, heading: pr.TrueHeading, navStat: pr.NavigationalStatus, navText: NAV[pr.NavigationalStatus], name: (md.ShipName || '').trim(), ts: Date.now(), src: 'aisstream.io' }); };
+      Dyn.ships.set('ws' + md.MMSI, { id: md.MMSI, lat: md.latitude, lon: md.longitude, sog: pr.Sog, cog: pr.Cog, heading: pr.TrueHeading, navStat: pr.NavigationalStatus, navText: NAV[pr.NavigationalStatus], name: (md.ShipName || '').trim(), ts: Date.parse(String(md.time_utc || '').replace(/^(\S+) (\d\d:\d\d:\d\d)(\.\d{1,3})?\d* \+0000 UTC$/, '$1T$2$3Z')) || Date.now(), src: 'aisstream.io' }); stampShip('ws', md.MMSI); };
     this.ws.onclose = () => { if (lyShipsWs.on) { lyShipsWs.feed.status = 'error'; lyShipsWs.feed.err = 'disconnected — retrying'; UI.refreshLayer(lyShipsWs); this.timer = setTimeout(() => this.connect(), 15000); } };
     this.ws.onerror = () => { };
   },
@@ -357,7 +375,7 @@ ${Detail.kv([['Altitude', `${fmt.n(b.alt)} m`], ['Climb', b.vel_v != null ? `${b
 <div class="actions"><button class="btn small" data-do="fly" data-lat="${num(b.lat)}" data-lon="${num(b.lon)}" data-z="9">Center</button></div><hr class="sep">${Detail.links([{ text: 'Track on SondeHub', url: `https://sondehub.org/${encodeURIComponent(b.id)}` }])}</div>`;
 feed(lyBalloons, { interval: 120, viewDependent: true, fetch: async () => {
   const c = map.getCenter(); const d = await Net.json(`https://api.v2.sondehub.org/sondes?lat=${c.lat.toFixed(2)}&lon=${(((c.lng + 540) % 360) - 180).toFixed(2)}&distance=3000000&last=10800`, { timeout: 40000 }); if (!lyBalloons.on) return; Dyn.balloons.clear(); let n = 0; // off while loading: stay off
-  for (const [serial, t] of Object.entries(d || {})) { if (!t || !Number.isFinite(+t.lat) || !Number.isFinite(+t.lon)) continue; Dyn.balloons.set(serial, { id: serial, lat: t.lat, lon: t.lon, alt: t.alt, vel_h: t.vel_h, vel_v: t.vel_v, heading: t.heading, temp: t.temp, humidity: t.humidity, pressure: t.pressure, frequency: t.frequency, type: t.type, subtype: t.subtype, uploader: t.uploader_callsign, datetime: t.datetime, ts: Date.parse(t.datetime) || Date.now() }); n++; }
+  for (const [serial, t] of Object.entries(d || {})) { if (!t || !Number.isFinite(+t.lat) || !Number.isFinite(+t.lon)) continue; Dyn.balloons.set(serial, { id: serial, lat: t.lat, lon: t.lon, alt: t.alt, vel_h: t.vel_h, vel_v: t.vel_v, heading: t.heading, temp: t.temp, humidity: t.humidity, pressure: t.pressure, frequency: t.frequency, type: t.type, subtype: t.subtype, uploader: t.uploader_callsign, datetime: t.datetime, ts: Date.parse(t.datetime) || Date.now() }); stamp(Dyn.balloons.get(serial), 'balloons', [rep('sondehub', { dataAt: t.datetime })]); n++; }
   lyBalloons.feed.count = n; requestDraw();
 } });
 
@@ -370,7 +388,9 @@ feed(lyFires, { interval: 900, viewDependent: true, minZoom: 5, fetch: async () 
   const key = late.Keys.get('firms'); if (!key) throw new Error('no FIRMS MAP_KEY (Setup tab)'); const b = map.getBounds(); const w = Math.max(-180, b.getWest()), e = Math.min(180, b.getEast());
   const txt = await Net.text(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(key)}/VIIRS_SNPP_NRT/${w.toFixed(2)},${b.getSouth().toFixed(2)},${e.toFixed(2)},${b.getNorth().toFixed(2)}/1`, { timeout: 60000 });
   if (/invalid|error/i.test(txt.slice(0, 200)) && !txt.includes('latitude')) throw new Error(txt.slice(0, 80)); const lines = txt.trim().split('\n'); const head = lines.shift().split(','); const items = [];
-  for (const line of lines) { const cols = line.split(','); const f = {}; head.forEach((h, i) => f[h] = cols[i]); const lat = +f.latitude, lon = +f.longitude; if (!isFinite(lat)) continue; items.push({ lat, lon, r: Math.min(9, 2.5 + Math.sqrt(+f.frp || 1)), color: '#ff6a2a', fillAlpha: .6, kind: 'fire', obj: f, tip: `${f.frp || '?'} MW · ${f.acq_date}` }); }
+  for (const line of lines) { const cols = line.split(','); const f = {}; head.forEach((h, i) => f[h] = cols[i]); const lat = +f.latitude, lon = +f.longitude; if (!isFinite(lat)) continue;
+    const hhmm = String(f.acq_time || '').padStart(4, '0'); stamp(f, 'fires', [rep('firms', { dataAt: `${f.acq_date}T${hhmm.slice(0, 2)}:${hhmm.slice(2, 4)}:00Z`, cached: Relay.viaCopy('https://firms.modaps.eosdis.nasa.gov/') })]);
+    items.push({ lat, lon, r: Math.min(9, 2.5 + Math.sqrt(+f.frp || 1)), color: '#ff6a2a', fillAlpha: .6, kind: 'fire', obj: f, tip: `${f.frp || '?'} MW · ${f.acq_date}` }); }
   Points.set('fires', items); lyFires.feed.count = items.length;
 } });
 
@@ -385,8 +405,9 @@ export async function scanArea(lat, lon, radius = 30000) {
   toast('Scanning OpenStreetMap…'); const d = await overpass(q, { timeout: 60000 }), items = [], seen = new Set();   // core/overpass.js: one request at a time, the quickest mirror that answers (the globe's client) const items = []; const seen = new Set();
   for (const el of d.elements || []) { const t = el.tags || {}; const la = el.lat ?? el.center?.lat, lo = el.lon ?? el.center?.lon; if (la == null) continue; const key = `${la.toFixed(4)},${lo.toFixed(4)}`; if (seen.has(key)) continue; seen.add(key);
     const kind = t.aeroway ? (t['aerodrome:type'] === 'military' || t.military ? 'Military airfield' : 'Airfield') : (t.landuse === 'military' || t.military) ? 'Military · ' + (t.military || 'area') : (t['generator:source'] === 'nuclear' || t['plant:source'] === 'nuclear') ? 'Nuclear plant' : t.man_made === 'radar_station' ? 'Radar station' : t.telecom ? 'Data centre' : 'Harbour';
-    const o = { id: el.id, type: el.type, kind, name: t.name || t['name:en'] || t.icao || t.iata || kind, sub: [t.operator, t.icao, t.iata].filter(Boolean).join(' · '), lat: la, lon: lo, tags: t };
+    const o = { osmAt: d.osm3s && d.osm3s.timestamp_osm_base, id: el.id, type: el.type, kind, name: t.name || t['name:en'] || t.icao || t.iata || kind, sub: [t.operator, t.icao, t.iata].filter(Boolean).join(' · '), lat: la, lon: lo, tags: t };
     const col = /Military/.test(kind) ? C.mil : /Nuclear|Radar/.test(kind) ? C.emg : C.infra;
+    stamp(o, 'osm', [rep('osm', { name: 'OpenStreetMap (Overpass)', dataAt: o.osmAt })]);
     items.push({ lat: la, lon: lo, r: 5, color: col, shape: /Military/.test(kind) ? 'tri' : 'circle', fillAlpha: .3, kind: 'osm', obj: o, tip: `${o.kind}: ${o.name}`, label: o.name, labelZoom: 10 }); }
   lyScan.last = items; if (!lyScan.on) Layers.set('osm_scan', true); Points.set('scan', items); lyScan.feed = lyScan.feed || { status: 'ok', count: 0, lastOk: 0, err: '', nextAt: 1e15, running: false, interval: 1e9, errorInterval: 1e9, layer: lyScan, fetch: async () => { } }; lyScan.feed.count = items.length; lyScan.feed.status = 'ok'; lyScan.feed.lastOk = Date.now(); UI.refreshLayer(lyScan);
   Log.info(`OSM scan: ${items.length} features within ${radius / 1000} km of ${fmt.ll(lat, lon)}`); toast(`${items.length} features found`); return items.length;

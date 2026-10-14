@@ -5,7 +5,7 @@ import { $, C, Log, Net, Store, debounce, destination, esc, fmt, haversine, late
 import { map, vecRenderer } from './mapview.js';
 import { Dyn, Layers, Sel, UI, airAt, feed, requestDraw } from './engine.js';
 import { Detail, Tracks } from './detail.js';
-import { readsb, openskyState } from '../core/aircraft.js';
+import { readsb, openskyState, noteAircraftReport, readsbTime } from '../core/aircraft.js';
 
 /* ============================================================ AIRCRAFT (ADS-B) */
 export const AIR_SRC = { 'adsb.lol': 'https://api.adsb.lol', 'adsb.fi': 'https://opendata.adsb.fi/api', 'airplanes.live': 'https://api.airplanes.live' };
@@ -66,6 +66,7 @@ export const Air = {
         ownOp: x.ownOp, year: x.year, category: x.category, nic: x.nic, nacp: x.nacp, rssi: x.rssi, seen_pos: x.seenPos, seen: x.seen,
         mlat: x.mlat, tisb: x.tisb, dbFlags: x.dbFlags, msgs: x.msgs, ts: now, src, msgType: x.msgType,
       });
+      noteAircraftReport(rec, { src, lat: x.lat, lon: x.lon, t: readsbTime(x, data.now) ?? now - x.seenPos * 1000, gsKt: x.gsKt, altFt: x.altFt }, { now });   // provenance: which feeds agree
       rec.mil = x.mil; rec.interesting = !!(rec.dbFlags & 2); rec.pia = !!(rec.dbFlags & 4); rec.ladd = !!(rec.dbFlags & 8);
       rec.emerg = x.emerg;
       if (rec.emerg && !wasEmerg) this.raiseEmergency(rec);
@@ -237,9 +238,11 @@ feed(lyOpenSky, {
     const d = await Net.json('https://opensky-network.org/api/states/all', { timeout: 45000 }); const now = Date.now(); let n = 0;
     for (const s of (d.states || [])) {
       const x = openskyState(s); if (!x) continue;   // core/aircraft.js, as the globe's snapshot
-      const hex = x.hex, ex = Dyn.air.get(hex); if (ex && ex.src !== 'opensky') continue;
+      const hex = x.hex, ex = Dyn.air.get(hex), t = x.tpos ? x.tpos * 1000 : null;
+      if (ex && ex.src !== 'opensky') { noteAircraftReport(ex, { src: 'opensky', lat: x.lat, lon: x.lon, t, gsKt: x.gsKt, altFt: x.altFt }, { now }); continue; }   // a second network's word on it
       const rec = ex || { hex, first: now, tags: new Set(['opensky']) }; Dyn.air.set(hex, rec); const wasEmerg = !!rec.emerg;
       Object.assign(rec, { lat: x.lat, lon: x.lon, alt: x.altFt, ground: x.ground, gs: x.gsKt, track: x.track, vr: x.rateFpm, squawk: x.squawk, flight: x.flight, country: x.country, ts: now, seen_pos: x.tpos ? Math.max(0, now / 1000 - x.tpos) : 0, src: 'opensky', mil: false, emerg: x.emerg, lowNic: false, dbFlags: 0 });
+      noteAircraftReport(rec, { src: 'opensky', lat: x.lat, lon: x.lon, t, gsKt: x.gsKt, altFt: x.altFt }, { now });
       if (rec.emerg && !wasEmerg) Air.raiseEmergency(rec);
       n++;
     }

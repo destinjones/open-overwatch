@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Satellites: CelesTrak groups, SGP4 in a worker, ground tracks, passes.
 import { num, idArg } from '../core/format.js';
-import { createTleSource } from '../core/tle.js';
+import { createTleSource, stampTle } from '../core/tle.js';
 import { ecfAt, nextPass } from '../core/passes.js';
 import { observer, sunEcef } from '../core/observer.js';
 import { $, C, deg, fmt, haversine, late, Log, Net, rad, Store } from './util.js';
@@ -49,7 +49,7 @@ export const Sats = {
     onSite: location.hostname === 'destinjones.github.io',
   }),
   async loadGroup(g) {
-    const res = await this.tles.load(g);
+    const res = await this.tles.load(g); (this.srcOf ||= {})[g] = res.source;   // provenance: straight from CelesTrak or a copy
     if (res.source === 'stale cache') Log.warn(`${g}: CelesTrak and the site copy failed; using TLEs cached ${fmt.ago(Date.now() - res.ageMs)} ago`);
     return res.txt;
   },
@@ -73,10 +73,10 @@ export const Sats = {
       const objs = new Map(); const groups = this.groupsOn(); const failed = [], quiet = [];
       for (const g of groups) {
         const gd = this.GROUPS.find(x => x.id === g) || {};
-        try { const txt = await this.loadGroup(g); for (const t of this.parse(txt, g)) { const ex = objs.get(t.id); if (ex) { ex.groups.push(g); if (!gd.heavy) ex.dim = false; continue; } objs.set(t.id, { ...t, groups: [g], dim: !!gd.heavy, star: this.STARS.includes(t.name), lat: null, lon: null }); } }
+        try { const txt = await this.loadGroup(g); for (const t of this.parse(txt, g)) { const ex = objs.get(t.id); if (ex) { ex.groups.push(g); if (!gd.heavy) ex.dim = false; continue; } objs.set(t.id, stampTle({ ...t, groups: [g], dim: !!gd.heavy, star: this.STARS.includes(t.name), lat: null, lon: null }, t.l1, this.srcOf?.[g])); } }
         catch (e) { (e.calm ? quiet : failed).push(`${gd.name || g}: ${e.message}`); }
       }
-      for (const t of this.adhoc) if (!objs.has(t.id)) objs.set(t.id, { ...t, groups: ['search'], dim: false, star: true, lat: null, lon: null });
+      for (const t of this.adhoc) if (!objs.has(t.id)) objs.set(t.id, stampTle({ ...t, groups: ['search'], dim: false, star: true, lat: null, lon: null }, t.l1));
       for (const [id, o] of objs) { const old = this.byId.get(id); if (old && old.lat != null) Object.assign(o, { lat: old.lat, lon: old.lon, alt: old.alt, vel: old.vel }); } // no blink while the worker re-propagates
       this.byId = objs; Dyn.sats = [...objs.values()]; this.startWorker(); this.worker.postMessage({ type: 'load', tles: Dyn.sats.map(t => ({ id: t.id, l1: t.l1, l2: t.l2 })) });
       if (Sel.kind === 'sat' && objs.has(Sel.id)) Sel.obj = objs.get(Sel.id); // rebind the open detail panel to the new object, or it freezes

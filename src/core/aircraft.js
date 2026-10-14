@@ -3,6 +3,8 @@
 // knots, ft/min) and OpenSky's state vectors (metres, m/s). One reader each, in the feeds' own units plus SI, so the 2D map
 // (aviation units) and the globe (metres) keep their own maths without parsing twice. Pure (test/aircraft.test.mjs).
 
+import { agreeingIds, stampReports } from './liveprov.js';
+
 export const EMERGENCY_SQUAWKS = Object.freeze(['7500', '7600', '7700']);
 export const FT = 0.3048, KT = 0.514444;
 /** A hex address as it may appear in a link or a handler: its own charset only ("~" marks a non-ICAO address). */
@@ -62,3 +64,20 @@ export function sameAircraft(a, b, tol = AIR_AGREE) {
 
 /** A readsb report's data time (ms): the response's `now` (s or ms) less the aircraft's seen_pos. */
 export const readsbTime = (rec, now) => { const n = fin(now); if (n == null) return null; return (n < 1e11 ? n * 1000 : n) - (rec && fin(rec.seenPos) || 0) * 1000; };
+
+/** The feeds' names as the views keep them → provenance source ids (core/liveprov.js SOURCES). */
+export const AIR_SOURCE_ID = Object.freeze({ 'adsb.lol': 'adsblol', 'adsb.fi': 'adsbfi', 'adsb.one': 'adsbone', 'airplanes.live': 'airplaneslive', opensky: 'opensky', OpenSky: 'opensky' });
+
+/**
+ * One feed's report of an aircraft into its record's provenance: keeps each feed's newest report for keepMs, works out
+ * which agree (sameAircraft) and stamps the record. r: { src (a feed name), lat, lon, t (ms, the position's time), gsKt?,
+ * altFt? }; cached: it came from a copy (a stored snapshot, the public relay). Returns the record.
+ */
+export function noteAircraftReport(rec, r, { now = Date.now(), keepMs = 120e3, cached = false } = {}) {
+  if (!rec || !r) return rec;
+  const src = AIR_SOURCE_ID[r.src] || String(r.src || 'adsb').toLowerCase().replace(/[^a-z0-9]/g, '') || 'adsb';
+  const rep = { src, hex: rec.hex, lat: r.lat, lon: r.lon, t: Number.isFinite(r.t) ? r.t : null, gsKt: fin(r.gsKt), altFt: fin(r.altFt), cached: !!cached };
+  const reps = (rec._reports || []).filter(x => x.src !== src && (x.t == null || now - x.t <= keepMs));
+  reps.push(rep); rec._reports = reps;
+  return stampReports(rec, 'aircraft', reps, agreeingIds(reps, sameAircraft), { cached: reps.filter(x => x.cached).map(x => x.src) });
+}

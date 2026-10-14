@@ -5,6 +5,7 @@
 // current hour (PM2.5, PM10, ozone, NO2, the US and European AQI) from Open-Meteo on a grid over the view (OpenAQ's
 // station measurements need an API key since v3; this needs none). All keyless and sent with CORS.
 import { C, $, esc, toast, getText, getJSON, PHONE } from './env.js';
+import { rep, provStamp } from '../core/liveprov.js';
 import { viewer, scene, camera } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { state, hooks } from './state.js';
@@ -91,6 +92,7 @@ const AQ_TTL = 30 * 60e3, MAX = PHONE ? 30 : 48;
 let aqBusy = false, aqLast = 0, aqTimer = 0;
 const AqProto = {
   kind: 'airq',
+  get prov() { return provStamp('airq', [rep('openmeteo', { name: 'CAMS model via Open-Meteo', dataAt: this.t })]); },
   tip() { return `Air quality (model) · AQI ${this.usAqi == null ? '—' : Math.round(this.usAqi)} ${aqiLook(this.usAqi)[0].toLowerCase()}${this.pm25 != null ? ` · PM2.5 ${this.pm25.toFixed(1)} µg/m³` : ''}`; },
   cardHtml() {
     const [words, color] = aqiLook(this.usAqi);

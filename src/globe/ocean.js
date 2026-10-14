@@ -5,7 +5,8 @@
 // NOAA CO-OPS tide gauges (~300 on US coasts and the Great Lakes; a card reads the level now and the next high and low).
 // NDBC sends no CORS headers, so its files come through the local helper or the website's relay; CO-OPS sends them.
 // Parsing and the card's words are shared (core/ocean.js). All NOAA data, public domain.
-import { C, esc, toast, getText, getJSON, relayed } from './env.js';
+import { C, esc, toast, getText, getJSON, relayed, viaCopy } from './env.js';
+import { rep, provStamp, provBlock } from '../core/liveprov.js';
 import { scene } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { state } from './state.js';
@@ -36,6 +37,7 @@ const stations = () => stationList || (stationList = (async () => {
 // ---------------------------------------------------------------- buoys and coastal stations
 const BuoyProto = {
   kind: 'buoy',
+  get prov() { return provStamp('buoys', [rep('ndbc', { dataAt: this.t, cached: viaCopy(NDBC_LATEST) })]); },
   tip() { const b = [this.name || 'Station ' + this.id]; if (this.waveM != null) b.push(`waves ${this.waveM.toFixed(1)} m`); if (this.waterC != null) b.push(`water ${this.waterC.toFixed(1)} °C`); else if (this.windMs != null) b.push(`wind ${this.windMs.toFixed(0)} m/s`); return '🌊 ' + b.join(' · '); },
   cardHtml() {
     const [words, color] = waveLook(this.waveM);
@@ -72,6 +74,7 @@ export const Buoys = {
 const DART_LOOK = { event: '#ff4d6d', standard: '#ffd45c', late: '#c9a35a', silent: '#8b9bab' };
 const DartProto = {
   kind: 'dart',
+  get prov() { return provStamp('dart', [rep('ndbc', { dataAt: this.readAt ?? null, cached: viaCopy(NDBC_LATEST) })]); },   // the time comes with the card's reading
   tip() { return `DART tsunami buoy ${this.id} · ${this.name}`; },
   cardHtml() {
     return `<div class="k" style="--c:${DART_LOOK.standard}">NOAA DART · tsunami buoy</div><h2>${esc(this.name || this.id)}</h2>`
@@ -87,6 +90,7 @@ const DartProto = {
       const d = parseDart(await getText(via, { timeout: 60000 }), { max: 200 }), s = dartStatus(d);
       if (state.selected !== this || !body.isConnected) return;
       const l = d.latest, k = card.querySelector('.k'); if (k) k.style.setProperty('--c', DART_LOOK[s.state]);
+      this.readAt = l ? l.t : null; const pv = card.querySelector('.prov'); if (pv) pv.outerHTML = provBlock(this);
       body.innerHTML = rows([['Status', s.words], ...(l ? [['Water column', `${l.heightM.toFixed(3)} m above the sensor`], ['Sampling', DART_MODES[l.mode] || 'mode ' + l.mode], ['Last reading', agoWords(l.t, Date.now(), true)]] : []),
         ...(s.rangeM != null ? [['Change, last 6 h', `${s.rangeM.toFixed(3)} m (mostly the tide)`]] : []), ['Station', this.id + (this.owner ? ' · ' + this.owner : '')]]);
     } catch (e) { if (body.isConnected) body.querySelector('.note').textContent = 'NDBC is not answering for this buoy right now (' + e.message + ').'; }
@@ -118,6 +122,7 @@ const TIDE = '#5fd3ff', LAKE = '#9fe3ff';
 const coops = url => getJSON(url, { timeout: 30000 });
 const TideProto = {
   kind: 'tide',
+  get prov() { return provStamp('tides', [rep('coops', { dataAt: this.readAt ?? null })]); },   // the time comes with the card's reading
   tip() { return `Tide gauge · ${this.name}${this.state ? ', ' + this.state : ''}${this.greatLakes ? ' (lake level)' : ''}`; },
   cardHtml() {
     return `<div class="k" style="--c:${this.greatLakes ? LAKE : TIDE}">NOAA CO-OPS · ${this.greatLakes ? 'lake level gauge' : this.tidal ? 'tide gauge' : 'water level gauge'}</div><h2>${esc(this.name)}${this.state ? ', ' + esc(this.state) : ''}</h2>`
@@ -133,6 +138,7 @@ const TideProto = {
       if (alt) { datum = alt[1]; latest = parseCoopsLatest(await coops(coopsUrl(this.id, 'latest', { datum }))); }
       const tides = this.tidal ? nextTides(parseCoopsHilo(await coops(coopsUrl(this.id, 'hilo', { datum })).catch(() => ({})))) : null;
       if (state.selected !== this || !body.isConnected) return;
+      this.readAt = latest.t ?? null; const pv = card.querySelector('.prov'); if (pv) pv.outerHTML = provBlock(this);
       body.innerHTML = rows([...tideRows({ ...this, tidal: datum === 'MLLW', greatLakes: datum === 'IGLD' }, latest, tides), ['Station', this.id]]);
     } catch (e) { if (body.isConnected) body.innerHTML = `<p class="note">NOAA Tides & Currents is not answering right now (${esc(e.message)}).</p>`; }
   },

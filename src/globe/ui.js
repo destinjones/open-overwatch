@@ -13,6 +13,7 @@ import { sunlitView, moonPosition, showPlaceNames } from './earth.js';
 import { Time } from './time.js';
 import { explainSat } from '../core/explain.js';
 import { Crew } from './crew.js';
+import { provBlock } from '../core/liveprov.js';
 
 // ---- stats + altitude band
 export function updateStats() {
@@ -148,7 +149,7 @@ export function select(o) {
   const shareBtn = o.kind === 'air' ? '<button class="chipbtn" id="btnShareAir" title="Copy a link that finds this plane">Share</button>' : '';
   const ll = o.kind === 'air' ? [o.cur?.lat ?? o.lat, o.cur?.lon ?? o.lon] : [o.lat, o.lon];   // hand off to the nearest live camera (cams.js)
   const camBtn = hooks.camHandoff && !['cam', 'country', 'sat', 'launch'].includes(o.kind) && Number.isFinite(ll[0]) && Number.isFinite(ll[1]) ? '<button class="chipbtn" id="btnNearCam" style="color:#ff6fb5" title="The nearest public traffic camera, its picture cast into 3D">📷 Nearest camera</button>' : '';
-  card.innerHTML = `<button class="x" aria-label="Close">×</button>${html}<div class="acts">${following ? '' : '<button class="chipbtn" id="btnFocus">Fly to</button>'}${followBtn}${seeBtn}${shareBtn}${camBtn}</div>`;
+  card.innerHTML = `<button class="x" aria-label="Close">×</button>${html}${provBlock(o)}<div class="acts">${following ? '' : '<button class="chipbtn" id="btnFocus">Fly to</button>'}${followBtn}${seeBtn}${shareBtn}${camBtn}</div>`;
   card.classList.add('show');
   card.querySelector('.x').onclick = closeCard;
   if ($('#btnFocus')) $('#btnFocus').onclick = () => flyToObject(o);

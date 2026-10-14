@@ -12,6 +12,7 @@ import { map, vecRenderer } from './mapview.js';
 import { Layers, Points, feed } from './engine.js';
 import { Detail } from './detail.js';
 import { lineLayer } from './feeds.js';
+import { stamp, rep } from '../core/liveprov.js';
 
 const OFM = 'https://tiles.openfreemap.org/planet', ALPR = ['https://tiles.dontgetflocked.com/cameras-us-hourly.json', 'https://tiles.dontgetflocked.com/cameras-ca-hourly.json'];
 const ALPR_COL = '#ff4d5e', MIL_COL = '#ff6b5e', MAX_TILES = 16, MAX_HEAT = 20000, KEEP = 96;
@@ -59,7 +60,7 @@ feed(lyAlpr, { interval: 3600, viewDependent: true, minZoom: 3, fetch: async () 
   if (detail) {
     for (const l of lists) for (const c of l) {
       if (c.heat || seen.has(c.id)) continue; seen.add(c.id);
-      items.push({ lat: c.lat, lon: c.lon, r: z => z >= 15 ? 5 : 3.5, color: ALPR_COL, fillAlpha: .7, stroke: true, kind: 'alpr', obj: c, tip: `Plate reader${c.brand ? ' · ' + c.brand : ''}${c.operator ? ' · ' + c.operator : ''}` });
+      items.push({ lat: c.lat, lon: c.lon, r: z => z >= 15 ? 5 : 3.5, color: ALPR_COL, fillAlpha: .7, stroke: true, kind: 'alpr', obj: c.prov ? c : stamp(c, 'osm', [rep('osm', { name: 'OpenStreetMap via FlockHopper tiles' })]), tip: `Plate reader${c.brand ? ' · ' + c.brand : ''}${c.operator ? ' · ' + c.operator : ''}` });
     }
   } else {
     const step = Math.max(1, total / MAX_HEAT);
@@ -92,7 +93,7 @@ feed(lyMil, { interval: 3600, viewDependent: true, minZoom: 8, fetch: async () =
       for (const q of p.polys) { const poly = L.polygon([ll(q.outer), ...q.holes.map(ll)], { ...style, stroke: false, fillColor: MIL_COL, fillOpacity: .14 }); poly.on('click', () => Detail.show('milarea', a, a.id)); gMil.addLayer(poly); }
       for (const r of p.runs) gMil.addLayer(L.polyline(ll(r), { ...style, interactive: false, color: MIL_COL, weight: 1.6, opacity: .9 }));
     }
-    pins.push({ lat: a.lat, lon: a.lon, r: 4, color: MIL_COL, shape: 'tri', kind: 'milarea', obj: a, tip: `${a.name || 'Military area'} · ${a.open ? 'at least ' : ''}${areaWords(a.area)}`, label: a.name || null, labelZoom: 10 });
+    pins.push({ lat: a.lat, lon: a.lon, r: 4, color: MIL_COL, shape: 'tri', kind: 'milarea', obj: a.prov ? a : stamp(a, 'osm', [rep('osm', { name: 'OpenStreetMap via OpenFreeMap tiles' })]), tip: `${a.name || 'Military area'} · ${a.open ? 'at least ' : ''}${areaWords(a.area)}`, label: a.name || null, labelZoom: 10 });
   }
   Points.set('milareas', pins);
   lyMil.feed.count = pins.length;

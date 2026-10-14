@@ -8,6 +8,7 @@ import { L, setCount } from './layers.js';
 import { hooks, state } from './state.js';
 import { Time } from './time.js';
 import { parseEonet, eonetUrl, EONET_COLOR } from '../core/eonet.js';
+import { stamp, rep } from '../core/liveprov.js';
 import { isPast, utcDay, eonetAtUrl, eventActiveAt, trackAt } from '../core/history.js';
 
 const pts = scene.primitives.add(new C.PointPrimitiveCollection());
@@ -35,6 +36,7 @@ export const Events = {
     const sel = state.selected && this.list.includes(state.selected) ? state.selected : null;
     pts.removeAll(); this.list = list;
     for (const e of list) {
+      if (!e.prov) stamp(e, this.past ? 'history' : 'events', [rep('eonet', { dataAt: e.date })]);
       e.kind = 'event'; e.tip = () => `${e.title} · ${e.cats[0] || 'event'}`; e.cardHtml = () => card(e);
       const c = C.Color.fromCssColorString(EONET_COLOR[e.cat] || '#e3e3e3');
       e.pt = pts.add({ position: C.Cartesian3.fromDegrees(e.lon, e.lat, 0), pixelSize: 8, color: c.withAlpha(0.85), outlineColor: C.Color.BLACK.withAlpha(0.55), outlineWidth: 1.5, id: e, disableDepthTestDistance: 0 });

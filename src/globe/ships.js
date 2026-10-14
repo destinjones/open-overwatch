@@ -13,6 +13,7 @@ import { state } from './state.js';
 import { courseAxis } from '../core/geo.js';
 import { lagMeter } from '../core/transit.js';
 import { parseAisLocations, parseAisVessels, shipKind, shipTypeName, SHIP_KINDS, NAV_STATUS, flagOf, underway, shipAt, etaTime, DIGITRAFFIC_AIS, DIGITRAFFIC_HEADERS, AIS_AREA } from '../core/ais.js';
+import { rep, provStamp } from '../core/liveprov.js';
 
 const API = DIGITRAFFIC_AIS, HEADERS = DIGITRAFFIC_HEADERS, AREA = AIS_AREA;   // the area: as far as the Finnish network hears
 const MAX_H = 5.0e6, POLL = 20e3, META = 10 * 60e3, KEEP = 2 * 3600e3, DR_MAX = 600, STALE = 15 * 60e3;
@@ -98,6 +99,7 @@ function etaText(parts) {
 }
 const row = (k, v) => v ? `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>` : '';
 const ShipProto = {
+  get prov() { return provStamp('ships', [rep('digitraffic', { dataAt: this.t })]); },
   get m() { return meta.get(this.mmsi) || {}; },
   get label() { return this.m.name || 'MMSI ' + this.mmsi; },
   tip() { return `🚢 ${this.label} · ${shipTypeName(this.m.type).split(' · ')[0]}${underway(this) ? ` · ${(this.sog ?? 0).toFixed(1)} kn` : ' · ' + (NAV_STATUS[this.navStat] || 'stopped')}`; },

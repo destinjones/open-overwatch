@@ -2,6 +2,8 @@
 // Earthquakes from the USGS real-time GeoJSON summaries (public domain, CORS): one parser for the 2D map, the globe and
 // the MCP server. Pure: no DOM, no fetch.
 
+import { stamp, rep } from './liveprov.js';
+
 export const USGS_BASE = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/';
 /** The summaries a visitor can pick on the 2D map (USGS publishes more: {all,1.0,2.5,4.5,significant}_{hour,day,week,month}). */
 export const USGS_FEEDS = Object.freeze([
@@ -55,3 +57,18 @@ export function sameQuake(a, b, tol = QUAKE_AGREE) {
 
 /** The newest data time of a USGS summary: when it was generated (ms), else its newest solution update. */
 export const usgsDataAt = (doc, quakes = []) => fin(doc && doc.metadata && doc.metadata.generated) ?? (quakes.reduce((m, q) => Math.max(m, q.updated || q.time || 0), 0) || null);
+
+/** GDACS's earthquake alerts (core/gdacs.js parseGdacsEvents items) as solutions to compare: { time, lat, lon, mag, usgs }
+ *  where usgs: GDACS took the solution from USGS (NEIC), so it repeats USGS rather than confirming it. */
+export const gdacsQuakes = list => (list || []).filter(p => p && p.eventtype === 'EQ').map(p => ({ id: String(p.eventid ?? ''), time: Date.parse(p.fromdate), lat: +p.lat, lon: +p.lon,
+  mag: fin(p.severitydata && p.severitydata.severity), dataAt: Date.parse(p.datemodified ? (/(Z|[+-]\d\d:?\d\d)$/.test(p.datemodified) ? p.datemodified : p.datemodified + 'Z') : p.todate) || null,
+  usgs: /NEIC|USGS/i.test(String(p.source || '')), url: /^https:\/\//.test(String(p.url && p.url.report || '')) ? p.url.report : null })).filter(g => Number.isFinite(g.time));
+
+/** Stamp a USGS quake with its provenance: USGS at the summary's data time, plus a matching GDACS alert (sameQuake), which
+ *  agrees as a second witness only when its solution is not USGS's own. cached: the summary came from a copy. */
+export function stampQuake(q, { dataAt = null, gdacs = [], cached = false } = {}) {
+  const reports = [rep('usgs', { dataAt: dataAt ?? q.updated ?? q.time, cached })], agreeing = ['usgs'];
+  const g = gdacs.find(x => sameQuake(q, x));
+  if (g) { reports.push(rep('gdacs', { dataAt: g.dataAt, name: g.usgs ? 'GDACS (USGS solution)' : 'GDACS', url: g.url || undefined })); if (!g.usgs) agreeing.push('gdacs'); }
+  return stamp(q, 'quakes', reports, { agreeing });
+}

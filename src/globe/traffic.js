@@ -15,6 +15,7 @@ import { Country } from './country.js';
 import { decodeTile, tileAt } from '../core/mvt.js';
 import { prepareTile, joinTiles } from '../core/roadtiles.js';
 import { buildGraph, densify, Sim, busyness, localTime, matchSpeeds, parseNyc, parseTms, laneOffset, drivesLeft, along, dist } from '../core/traffic.js';
+import { rep, provStamp } from '../core/liveprov.js';
 
 const MAX_H = 6000, Z = 14, CAP = PHONE ? 600 : 2500, MAX_TILES = PHONE ? 4 : 9, KEEP_TILES = 24;
 const NEAR = 1400, FAR = 1100;   // m from the camera: car pictures nearer than NEAR, glowing dots farther than FAR
@@ -102,6 +103,7 @@ const CarProto = {
   },
 };
 const RoadProto = {
+  get prov() { return provStamp('traffic', [rep(this.e.meas.src === 'nyc' ? 'nycdot' : 'digitraffic', { name: SRC[this.e.meas.src]?.[0], dataAt: this.e.meas.t })]); },
   get lat() { return along(this.e, this.e.len / 2).lat; },
   get lon() { return along(this.e, this.e.len / 2).lon; },
   tip() { return `${roadName(this.e)} · ${fmt(this.e.meas.kmh)} km/h measured`; },

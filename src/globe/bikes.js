@@ -9,6 +9,7 @@ import { Terrain } from './terrain.js';
 import { setCount } from './layers.js';
 import { state } from './state.js';
 import { parseNetworks, parseStations, networksNear, CITYBIKES_API, BIKE_STATES, bikeLook, checkedAgo, bikeTip } from '../core/bikes.js';
+import { rep, provStamp } from '../core/liveprov.js';
 
 const API = CITYBIKES_API, MAX_H = 150e3, NEAR_KM = 40, REFRESH = 3 * 60e3, DROP_KM = 250, MAX_NETS = PHONE ? 2 : 4;
 const STATES = BIKE_STATES, look = s => bikeLook(s);   // words and colours shared with the 2D map
@@ -21,6 +22,7 @@ let directory = null, dirLoading = null, pausedUntil = 0, toldLimit = false;
 
 const ago = checkedAgo;
 const StationProto = {
+  get prov() { return provStamp('bikes', [rep('citybikes', { name: `${this.net.name} via CityBikes`, dataAt: this.t })]); },
   tip() { return '🚲 ' + bikeTip(this); },
   cardHtml() {
     const st = look(this), [words, color] = STATES[st], n = this.net;

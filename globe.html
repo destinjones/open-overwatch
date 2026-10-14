@@ -226,6 +226,17 @@ body.lookup #navpad{display:none}
 body.m #tt{left:10px;right:10px;width:auto;transform:none;bottom:calc(86px + env(safe-area-inset-bottom,0px));max-height:52dvh}
 body.tt-open #wx{display:none}
 body.lookup #tt,body.embed #tt{display:none!important}
+/* provenance block on live cards (core/liveprov.js + provenance.js): its own dark backing so it reads on any page or theme;
+   the confidence is a word, an icon and a border style, never colour alone */
+.prov{margin:10px 0 0;padding:6px 9px;border:1px solid rgba(230,237,243,.14);border-left:3px solid var(--pc,#9fb3bf);border-radius:6px;background:rgba(4,6,10,.72);color:#e6edf3;font:500 11.5px/1.5 "IBM Plex Mono",ui-monospace,Consolas,monospace;overflow-wrap:anywhere}
+.prov a{color:#e6edf3;text-decoration:underline;text-underline-offset:2px} .prov .prov-copy{color:#a9b6c3}
+.prov .prov-conf{color:var(--pc,#9fb3bf);font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;border-bottom:1px dotted currentColor;cursor:help}
+.prov-confirmed{--pc:#7dffa6} .prov-confirmed .prov-conf::before{content:"¹4¹4  "}
+.prov-reported{--pc:#7fd8ff} .prov-reported .prov-conf::before{content:"¹4  "}
+.prov-stale{--pc:#ffc46b;border-left-style:dashed} .prov-stale .prov-conf::before{content:"F1  "}
+.prov-unknown{--pc:#c3ced8;border-left-style:dotted} .prov-unknown .prov-conf::before{content:"?  "}
+@media (prefers-color-scheme:light){.prov{border-color:rgba(4,6,10,.3)}}
+.export-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0 0}
 </style>
 </head>
 <body>

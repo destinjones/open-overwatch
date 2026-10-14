@@ -4,6 +4,7 @@
 // Node runs the same code in tests. Parsing and the motion model: core/transit.js and core/gtfsrt.js.
 import { parseMbta, parseEntur, parseHfp, enturQuery, mqtt, fromGtfsRt, lagMeter, inArea, addFix, sample, ease, approach } from './transit.js';
 import { parseVehiclePositions } from './gtfsrt.js';
+import { stamp, rep } from './liveprov.js';
 
 /** Modes: [name, colour]. */
 export const TRANSIT_MODES = Object.freeze({ bus: ['Bus', '#ffcc4d'], tram: ['Tram', '#3ee08f'], lightrail: ['Light rail', '#3ee08f'], metro: ['Metro', '#ff5e7a'], rail: ['Train', '#b18cff'], ferry: ['Ferry', '#4f9dff'] });
@@ -156,7 +157,7 @@ export function createFleet(hooks = {}, vehicles = new Map()) {   // vehicles: t
             at: { t: 0, lat: f.lat, lon: f.lon } };   // drawn position and the feed time it stands for (addFix)
           vehicles.set(f.id, v); hooks.add?.(v);
         }
-        if (addFix(v, f, v.at)) v.info = f;
+        if (addFix(v, f, v.at)) { v.info = f; stamp(v, 'transit', [rep(s.id, { name: s.name, dataAt: f.t })]); }   // provenance: the vehicle's own report time
         seen?.add(f.id);
       }
       if (whole) for (const v of [...vehicles.values()]) if (v.src === s && !seen.has(v.id)) drop(v);

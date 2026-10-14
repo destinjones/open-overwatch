@@ -7,7 +7,7 @@ import { L, LAYERS, setCount } from './layers.js';
 import { state, hooks } from './state.js';
 import { Follow, MODEL_FIX, SOLAR_AXIS } from './follow.js';
 import { sunDirection } from './earth.js';
-import { createTleSource, parseTle, tleEpochJd } from '../core/tle.js';
+import { createTleSource, parseTle, tleEpochJd, stampTle } from '../core/tle.js';
 import { fetchAsset } from '../core/assets.js';
 import { chooseElements, nearestSnapshot, parseHistoryIndex, archiveMap, historyFileUrl, TLE_HISTORY, DAY_MS } from '../core/history.js';
 import { Time } from './time.js';
@@ -63,7 +63,8 @@ export const Sats = {
         for (const t of parseTle(res.txt)) {
           if (seen.has(t.id)) continue; seen.add(t.id);
           const s = { kind: 'sat', ...t, layer: l.id, group: g, idx: elements.length };
-          s.today = { id: t.id, l1: t.l1, l2: t.l2, group: g, jd: tleEpochJd(t.l1) };   // the time-travel archive swaps l1/l2; these stay
+          s.today = { id: t.id, l1: t.l1, l2: t.l2, group: g, jd: tleEpochJd(t.l1), source: res.source };   // the time-travel archive swaps l1/l2; these stay
+          stampTle(s, t.l1, res.source);   // provenance: the element set's epoch, CelesTrak or a copy
           elements.push([t.l1, t.l2]); this.list.push(s); this.byId.set(t.id, s); n++;
         }
       }
@@ -102,7 +103,7 @@ export const Sats = {
       const sets = this.list.map((s, i) => (r ? r.sets[i] : [s.today.l1, s.today.l2]));
       this.list.forEach((s, i) => {
         const set = sets[i]; s.gone = !set;
-        if (set && set[0] !== s.l1) { s.l1 = set[0]; s.l2 = set[1]; s.rec = null; s._k = null; }   // models, cards and orbit lines read l1/l2
+        if (set && set[0] !== s.l1) { s.l1 = set[0]; s.l2 = set[1]; s.rec = null; s._k = null; stampTle(s, s.l1, s.l1 === s.today.l1 ? s.today.source : 'archive'); }   // models, cards and orbit lines read l1/l2
         if (s.gone && s.ent) SatModels.drop(s);
       });
       this.worker.postMessage({ type: 'load', tles: sets });

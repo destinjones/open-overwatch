@@ -39,6 +39,8 @@ export const bigStore = {
 export const RELAY = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) && location.protocol.startsWith('http') ? location.origin + '/proxy?url=' : null;
 /** The relayed URL for a feed: the local helper if there is one, else the website's public relay for the feeds it carries
  *  (src/core/relay.js; not aircraft), else null. */
+/** Whether url reaches the page through the public relay, a copy that may be cached (provenance marks it); the local helper only passes it on. */
+export const viaCopy = url => { const r = relayed(url); return !!r && r.startsWith(PUBLIC_RELAY); };
 export function relayed(url) {
   if (RELAY) return RELAY + encodeURIComponent(url);
   try { if (onPublishedSite(location.hostname) && PUBLIC_RELAY_HOSTS.includes(new URL(url).hostname)) return PUBLIC_RELAY + encodeURIComponent(url); } catch (e) { /* not a URL */ }

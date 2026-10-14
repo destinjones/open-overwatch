@@ -11,6 +11,7 @@ import { lineLayer } from './feeds.js';
 import { fireTilesWanted, fireLevel, fireLook, FIRE_SAT_NAME, NIFC_PERIMETERS, firePerimeters, containColor, keptRings, perimeterCentre } from '../core/hazards.js';
 import { zoomToHeight } from '../core/viewlink.js';
 import { num } from '../core/format.js';
+import { stamp, rep } from '../core/liveprov.js';
 
 /* ---------- hot spots */
 export const lyHot = Layers.add({ id: 'hotspots', group: 'Ground', name: 'Wildfire hot spots', desc: 'NASA VIIRS (NOAA-20, NOAA-21) · last 24 h · keyless, via NASA GIBS · from zoom 4', color: '#ff7a2f', shape: 'round', default: false, points: 'hotspots' });
@@ -30,7 +31,7 @@ Detail.renderers.hotspot = f => `<div class="det">${Detail.head(fireLook(f.frp)[
 ${Detail.kv([['Fire power', `${fmt.n(f.frp)} MW (radiative)`], ['Brightness', f.k ? `${fmt.n(f.k)} K` : null], ['Confidence', f.conf], ['Position', fmt.ll(f.lat, f.lon)]])}
 <p style="font-size:12px;color:var(--ink-dim);line-height:1.45">A hot 375 m pixel seen from orbit: a wildfire, farm or brush burning, a gas flare or a volcano. Clouds, smoke and the satellites' timing hide some fires. NASA FIRMS / LANCE (VIIRS NRT), through NASA GIBS.</p>
 <div class="actions"><button class="btn small" data-do="fly" data-lat="${num(f.lat)}" data-lon="${num(f.lon)}" data-z="11">Center</button></div><hr class="sep">${Detail.links([{ text: 'On NASA FIRMS', url: `https://firms.modaps.eosdis.nasa.gov/map/#d:24hrs;@${num(f.lon).toFixed(3)},${num(f.lat).toFixed(3)},11z` }])}</div>`;
-const hotItem = f => { const [, color, size] = fireLook(f.frp); return { lat: f.lat, lon: f.lon, r: size * .8, color, fillAlpha: .8, stroke: true, kind: 'hotspot', obj: f, tip: `Fire · ${fmt.n(f.frp)} MW · ${ago(f.t)}` }; };
+const hotItem = f => { const [, color, size] = fireLook(f.frp); if (!f.prov) stamp(f, 'fires', [rep('viirs', { name: `NASA VIIRS ${FIRE_SAT_NAME[f.sat] || ''}`.trim(), dataAt: f.t })]); return { lat: f.lat, lon: f.lon, r: size * .8, color, fillAlpha: .8, stroke: true, kind: 'hotspot', obj: f, tip: `Fire · ${fmt.n(f.frp)} MW · ${ago(f.t)}` }; };
 feed(lyHot, { interval: 30, viewDependent: true, minZoom: 4, fetch: async () => {
   const c = map.getCenter(), z = map.getZoom(), h = zoomToHeight(z, c.lat), lon = ((c.lng + 540) % 360) - 180;
   const want = fireTilesWanted(c.lat, lon, Math.min(30, h / 111e3 * 1.3), fireLevel(h / 1000), PHONE.matches ? 2 : 4), since = Date.now() - 864e5;
@@ -63,7 +64,7 @@ ${Detail.kv([['Size', f.acres ? `${fmt.n(f.acres)} acres · ${fmt.n(f.acres * 0.
 feed(lyPerim, { interval: 900, fetch: async () => {
   const list = firePerimeters(await Net.json(NIFC_PERIMETERS, { timeout: 60000 })); gPerim.clearLayers(); const items = [];
   for (const f of list) {
-    Object.assign(f, perimeterCentre(f)); const col = containColor(f);
+    Object.assign(f, perimeterCentre(f)); const col = containColor(f); stamp(f, 'perimeters', [rep('nifc', { dataAt: f.updated })]);
     for (const r of keptRings(f)) L.polygon(r.map(([lon, lat]) => [lat, lon]), { color: col, weight: 1.6, opacity: .95, fillColor: col, fillOpacity: .25, interactive: false, renderer: vecRenderer }).addTo(gPerim);
     items.push({ lat: f.lat, lon: f.lon, r: 3.5, color: col, fillAlpha: .9, kind: 'fireperim', obj: f, tip: `${f.name} fire${f.acres ? ' · ' + fmt.n(f.acres) + ' acres' : ''}${f.contained != null ? ` · ${f.contained}% contained` : ''}`, label: f.acres >= 1000 ? f.name : null, labelZoom: 6 });
   }

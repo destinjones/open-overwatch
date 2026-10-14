@@ -77,6 +77,7 @@ export const LAYERS = Object.freeze({
   traffic: { maxAgeMs: 4 * H, dataAt: 'NYC DOT\'s data_as_of (published 2.5-3 h late)' },
   radio: { maxAgeMs: 7 * D, dataAt: 'the directory\'s last good check of the stream' },
   aurora: { maxAgeMs: H, dataAt: 'the forecast time of the OVATION run' },
+  history: { maxAgeMs: 200 * 365 * D, dataAt: 'the archived record\'s own time (time travel: a record of the past, never stale)' },
 });
 
 /** One source's report for a stamp: the catalogue's name, link and terms plus this report's times. */
@@ -91,9 +92,13 @@ export function rep(id, { dataAt = null, fetchedAt = null, cached = false, name 
  */
 export function stamp(item, layer, reports, { agreeing = null } = {}) {
   if (!item || typeof item !== 'object') return item;
-  const list = (Array.isArray(reports) ? reports : [reports]).filter(r => r && r.id).map(r => rep(r.id, r));
-  item.prov = { layer, sources: list, agreeing: agreeing ? [...agreeing] : null };
+  item.prov = provStamp(layer, reports, agreeing);
   return item;
+}
+/** The stamp itself ({ layer, sources, agreeing }), for objects that work it out in a getter (`get prov()` on a prototype). */
+export function provStamp(layer, reports, agreeing = null) {
+  const list = (Array.isArray(reports) ? reports : [reports]).filter(r => r && r.id).map(r => rep(r.id, r));
+  return { layer, sources: list, agreeing: agreeing ? [...agreeing] : null };
 }
 
 /** The provenance record of a stamped item at `now`, or null without a stamp. */

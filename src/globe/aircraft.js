@@ -10,7 +10,7 @@ import { L, setCount } from './layers.js';
 import { state, hooks } from './state.js';
 import { Follow, MODEL_FIX } from './follow.js';
 import { deadReckonArc, courseAxis } from '../core/geo.js';
-import { readsb, openskyState, EMERGENCY_SQUAWKS as EMERGENCY } from '../core/aircraft.js';
+import { readsb, openskyState, noteAircraftReport, EMERGENCY_SQUAWKS as EMERGENCY } from '../core/aircraft.js';
 import { Terrain } from './terrain.js';
 import { Time } from './time.js';
 import { classify } from '../core/actype.js';
@@ -70,14 +70,15 @@ const layerOf = r => L[r.mil ? 'mil' : 'air'];
 export const airShown = r => layerOf(r).on && !Time.offLive();
 export const Air = {
   map: new Map(),
-  upsert(a) {
+  upsert(a, { cached = false } = {}) {   // cached: from a stored copy (the OpenSky snapshot kept 15 min)
     let r = this.map.get(a.hex);
+    const report = { src: a.src, lat: a.lat, lon: a.lon, t: a.ts, gsKt: a.gs != null ? a.gs / 0.514444 : null, altFt: a.ground ? 0 : a.alt != null ? a.alt / 0.3048 : null };
     if (!r) {
       r = { ...a, kind: 'air' };
       r.pt = airPts.add({ position: C.Cartesian3.ZERO, pixelSize: 2.4, id: r, scaleByDistance: new C.NearFarScalar(2.0e5, 2.2, 2.0e7, 0.7), distanceDisplayCondition: new C.DistanceDisplayCondition(AIR_ICON_RANGE * 0.8, 1e12) });
       r.icon = airIcons.add({ position: C.Cartesian3.ZERO, id: r, alignedAxis: courseAxis(a.lat, a.lon, a.track, new C.Cartesian3()), scaleByDistance: new C.NearFarScalar(2.0e4, 1.5, AIR_ICON_RANGE, 0.6), distanceDisplayCondition: new C.DistanceDisplayCondition(0, AIR_ICON_RANGE) });
       this.map.set(a.hex, r);
-    } else if (r.mil && !a.mil && Date.now() - r.ts < 180e3) return;   // keep fresher military data
+    } else if (r.mil && !a.mil && Date.now() - r.ts < 180e3) { noteAircraftReport(r, report, { cached }); return; }   // keep fresher military data (the other feed's word still counts)
     else {
       const now = Date.now(), before = r.cur && airShown(r) ? displayAt(r, now) : null;   // where we drew it
       const dt = (a.ts - r.ts) / 1000;   // turn rate (deg/s) from consecutive fixes: banks the model, curves the dead reckoning; short gaps only
@@ -91,6 +92,7 @@ export const Air = {
           hdg: before.track != null && after.track != null ? ((before.track - after.track + 540) % 360) - 180 : 0 };
       }
     }
+    noteAircraftReport(r, report, { cached });   // provenance: which feeds agree (core/aircraft.js)
     r.pt.color = C.Color.fromCssColorString(r.emerg ? '#ff4d5e' : r.mil ? '#ffb44d' : '#5fd3ff');
     this.restyle(r);
     const on = airShown(r); r.pt.show = on && !r.ent; r.icon.show = on && !r.ent;
@@ -115,7 +117,7 @@ export const Air = {
     const now = Date.now(), ts = (c && rows === c.rows) ? c.t : now;
     for (const [hex, flight, country, lon, lat, alt, ground, gs, track, squawk, vr, tpos, geo] of rows)   // dead-reckon from when each position was heard, not when we asked (rows: core/aircraft.js openskyState, cached)
       this.upsert({ hex, flight, country, lon, lat, alt: alt || 0, ground: !!ground, gs, track, vr: vr ?? 0, squawk, emerg: EMERGENCY.includes(squawk), mil: false,
-        ts: tpos > 0 && tpos * 1000 <= ts && ts - tpos * 1000 < DR_MAX_S * 1000 ? tpos * 1000 : ts, altG: !ground && geo != null ? geo : null, src: 'OpenSky' });
+        ts: tpos > 0 && tpos * 1000 <= ts && ts - tpos * 1000 < DR_MAX_S * 1000 ? tpos * 1000 : ts, altG: !ground && geo != null ? geo : null, src: 'OpenSky' }, { cached: ts !== now });
     this.snapshotAt = ts; setCount('air', rows.length); hooks.updateStats();
   },
   async military() {

@@ -2,7 +2,8 @@
 // The sea and the air, as on the 3D globe: NOAA NDBC buoys and DART tsunami buoys (NDBC sends no CORS: the helper or
 // the website's relay), NOAA CO-OPS tide gauges, sea-surface temperature and smoke and dust as NASA GIBS tiles, and the
 // CAMS air-quality model from Open-Meteo on a grid over the view. Parsing and the cards' words: core/ocean.js.
-import { esc, Net } from './util.js';
+import { esc, Net, Relay } from './util.js';
+import { stamp, rep } from '../core/liveprov.js';
 import { map } from './mapview.js';
 import { Layers, Points, Sel, feed } from './engine.js';
 import { Detail } from './detail.js';
@@ -27,7 +28,8 @@ Detail.renderers.buoy = o => `<div class="det">${Detail.head(waveLook(o.waveM)[1
 ${Detail.kv(buoyRows(o))}${center(o)}${Detail.links([{ text: 'NDBC station page', url: ndbcPage(o.id) }])}${foot('Each station reports about once an hour; this is its latest report. Significant wave height is the average of the highest third of the waves. NOAA National Data Buoy Center (public domain).')}</div>`;
 feed(lyBuoys, { interval: 600, fetch: async () => {
   const [txt, st] = await Promise.all([Net.text(NDBC_LATEST, { timeout: 60000 }), stations().catch(() => [])]);
-  const items = mergeNdbc(parseNdbcLatest(txt), st).map(o => ({ lat: o.lat, lon: o.lon, r: o.waveM != null ? 4 : 3, color: waveLook(o.waveM)[1], kind: 'buoy', obj: o,
+  const copy = Relay.viaCopy(NDBC_LATEST);
+  const items = mergeNdbc(parseNdbcLatest(txt), st).map(o => stamp(o, 'buoys', [rep('ndbc', { dataAt: o.t, cached: copy })])).map(o => ({ lat: o.lat, lon: o.lon, r: o.waveM != null ? 4 : 3, color: waveLook(o.waveM)[1], kind: 'buoy', obj: o,
     tip: `${o.name || o.id}${o.waveM != null ? ` · waves ${o.waveM.toFixed(1)} m` : ''}${o.waterC != null ? ` · water ${o.waterC.toFixed(1)} °C` : ''}` }));
   Points.set('buoys', items); lyBuoys.feed.count = items.length;
 } });
@@ -37,7 +39,7 @@ export const lyDart = Layers.add({ id: 'dart', group: G, name: 'Tsunami buoys (D
 Points.define('dart', 'dart');
 const DART_LOOK = { event: '#ff4d6d', standard: '#ffd45c', late: '#c9a35a', silent: '#8b9bab' };
 Detail.renderers.dart = o => {
-  if (!o.read) { o.read = Net.text(dartUrl(o.id), { timeout: 60000 }).then(t => { o.d = parseDart(t, { max: 200 }); }, e => { o.err = e.message; }).finally(() => reshow(o)); }
+  if (!o.read) { o.read = Net.text(dartUrl(o.id), { timeout: 60000 }).then(t => { o.d = parseDart(t, { max: 200 }); stamp(o, 'dart', [rep('ndbc', { dataAt: o.d.latest?.t, cached: Relay.viaCopy(NDBC_LATEST) })]); }, e => { o.err = e.message; }).finally(() => reshow(o)); }
   const s = o.d && dartStatus(o.d), l = o.d?.latest;
   const rows = o.d ? [['Status', s.words], ...(l ? [['Water column', `${l.heightM.toFixed(3)} m above the sensor`], ['Sampling', DART_MODES[l.mode] || 'mode ' + l.mode], ['Last reading', agoWords(l.t, Date.now(), true)]] : []), ...(s.rangeM != null ? [['Change, last 6 h', `${s.rangeM.toFixed(3)} m (mostly the tide)`]] : [])]
     : [['Status', o.err ? 'NDBC is not answering: ' + o.err : 'reading the buoy…']];
@@ -45,7 +47,7 @@ Detail.renderers.dart = o => {
 ${foot('A pressure sensor on the sea floor measures the water above it; tides move it by a metre or more. A sudden change, a quake or a test switches it into event mode (15-second and 1-minute readings) for a few hours. NOAA NDBC (public domain).')}</div>`;
 };
 feed(lyDart, { interval: 3600, fetch: async () => {
-  const items = (await stations()).filter(s => s.type === 'dart').map(o => ({ lat: o.lat, lon: o.lon, r: 4.5, color: o.dartData ? DART_LOOK.standard : DART_LOOK.silent, kind: 'dart', obj: o, tip: `DART ${o.id} · ${o.name}` }));
+  const items = (await stations()).filter(s => s.type === 'dart').map(o => (o.prov ? o : stamp(o, 'dart', [rep('ndbc')]))).map(o => ({ lat: o.lat, lon: o.lon, r: 4.5, color: o.dartData ? DART_LOOK.standard : DART_LOOK.silent, kind: 'dart', obj: o, tip: `DART ${o.id} · ${o.name}` }));
   Points.set('dart', items); lyDart.feed.count = items.length;
 } });
 
@@ -56,6 +58,7 @@ async function readTide(o) {
   let datum = coopsDatum(o), latest = parseCoopsLatest(await Net.json(coopsUrl(o.id, 'latest', { datum })));
   const alt = /Datum values are:\s*([A-Z]{3,4})/.exec(latest.error || ''); if (alt) { datum = alt[1]; latest = parseCoopsLatest(await Net.json(coopsUrl(o.id, 'latest', { datum }))); }
   const tides = o.tidal ? nextTides(parseCoopsHilo(await Net.json(coopsUrl(o.id, 'hilo', { datum })).catch(() => ({})))) : null;
+  stamp(o, 'tides', [rep('coops', { dataAt: latest.t })]);
   o.rows = tideRows({ ...o, tidal: datum === 'MLLW', greatLakes: datum === 'IGLD' }, latest, tides);
 }
 Detail.renderers.tide = o => {
@@ -65,7 +68,7 @@ ${Detail.kv(o.rows || [['Water level', o.err ? 'NOAA is not answering: ' + o.err
 ${foot('Measured every 6 minutes (preliminary until checked); highs and lows are NOAA\'s astronomical predictions, so wind and pressure can push the water above or below them. NOAA CO-OPS (public domain).')}</div>`;
 };
 feed(lyTides, { interval: 86400, fetch: async () => {
-  const items = parseCoopsStations(await Net.json(COOPS_STATIONS, { timeout: 60000 })).map(o => ({ lat: o.lat, lon: o.lon, r: 3.5, color: o.greatLakes ? '#9fe3ff' : '#5fd3ff', kind: 'tide', obj: o, tip: `Tide gauge · ${o.name}${o.state ? ', ' + o.state : ''}` }));
+  const items = parseCoopsStations(await Net.json(COOPS_STATIONS, { timeout: 60000 })).map(o => stamp(o, 'tides', [rep('coops')])).map(o => ({ lat: o.lat, lon: o.lon, r: 3.5, color: o.greatLakes ? '#9fe3ff' : '#5fd3ff', kind: 'tide', obj: o, tip: `Tide gauge · ${o.name}${o.state ? ', ' + o.state : ''}` }));
   Points.set('tides', items); lyTides.feed.count = items.length;
 } });
 
@@ -97,7 +100,7 @@ feed(lyAirq, { interval: 1800, viewDependent: true, fetch: async () => {
   const b = map.getBounds(), { points } = aqGrid(Math.max(-180, b.getWest()), Math.max(-80, b.getSouth()), Math.min(180, b.getEast()), Math.min(80, b.getNorth()), 48);
   if (!points.length) { Points.set('airq', []); lyAirq.feed.count = 0; return; }   // no view yet (a hidden map has no size)
   const got = parseAirQuality(await Net.json(aqUrl(points)));
-  const items = got.map((q, i) => ({ ...q, lat: points[i].lat, lon: points[i].lon })).filter(q => q.usAqi != null)
+  const items = got.map((q, i) => stamp({ ...q, lat: points[i].lat, lon: points[i].lon }, 'airq', [rep('openmeteo', { name: 'CAMS model via Open-Meteo', dataAt: q.t })])).filter(q => q.usAqi != null)
     .map(q => ({ lat: q.lat, lon: q.lon, r: 7, fillAlpha: .8, color: aqiLook(q.usAqi)[1], kind: 'airq', obj: q, tip: `AQI ${Math.round(q.usAqi)} ${aqiLook(q.usAqi)[0].toLowerCase()}${q.pm25 != null ? ` · PM2.5 ${q.pm25.toFixed(1)} µg/m³` : ''} (model)` }));
   Points.set('airq', items); lyAirq.feed.count = items.length;
 } });

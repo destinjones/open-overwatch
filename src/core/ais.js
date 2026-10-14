@@ -163,3 +163,16 @@ export function shipAt(s, seconds, out = {}, max = 600) {
   out.lat = p.lat; out.lon = p.lon; out.cog = c1;
   return out;
 }
+
+/** When two AIS receivers' reports are the same ship in the same place (provenance agreement): the same MMSI, report
+ *  times at most maxDtS apart, positions within posM plus the distance at the faster speed over the gap. */
+export const SHIP_AGREE = Object.freeze({ maxDtS: 600, posM: 300, slack: 1.3 });
+/** Do ship reports a and b ({ id (MMSI), lat, lon, t (ms), sog (kn) }) agree within SHIP_AGREE? */
+export function sameShip(a, b, tol = SHIP_AGREE) {
+  if (!a || !b || String(a.id) !== String(b.id)) return false;
+  const dt = Number.isFinite(a.t) && Number.isFinite(b.t) ? Math.abs(a.t - b.t) / 1000 : 0;
+  if (dt > tol.maxDtS) return false;
+  const r = Math.PI / 180, x = (b.lon - a.lon) * r * Math.cos((a.lat + b.lat) / 2 * r), y = (b.lat - a.lat) * r;
+  const v = Math.max(+a.sog || 0, +b.sog || 0) * 0.514444;
+  return Math.hypot(x, y) * 6371008.8 <= tol.posM + v * dt * tol.slack;
+}

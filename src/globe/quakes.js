@@ -7,7 +7,8 @@ import { qkPts } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { hooks, state } from './state.js';
 import { Time } from './time.js';
-import { parseUsgs, usgsUrl } from '../core/quakes.js';
+import { parseUsgs, usgsUrl, usgsDataAt, stampQuake } from '../core/quakes.js';
+import { stamp, rep } from '../core/liveprov.js';
 import { isPast, quakeDays, quakeInWindow, fdsnDayUrl } from '../core/history.js';
 
 const COLOR = C.Color.fromCssColorString('#ff7b4f');
@@ -22,7 +23,8 @@ function day(d) {
 export const Quakes = {
   list: [], live: [], past: false, pastKey: '', all: [], warned: false,
   async load() {
-    this.live = parseUsgs(await getJSON(usgsUrl('2.5_day')));
+    const doc = await getJSON(usgsUrl('2.5_day')), dataAt = usgsDataAt(doc);
+    this.live = parseUsgs(doc).map(q => stampQuake(q, { dataAt }));   // provenance: USGS at the summary's time (no second catalogue on the globe)
     if (!this.past) this.draw(this.live);
   },
   draw(list) {
@@ -30,6 +32,7 @@ export const Quakes = {
     qkPts.removeAll(); this.all = list; this.list = list;
     for (const q of list) {
       q.kind = 'quake'; q.mag = q.mag ?? 0;
+      if (!q.prov) stamp(q, 'history', [rep('usgs', { name: 'USGS catalogue (FDSN)', dataAt: q.updated ?? q.time })]);   // time travel: a catalogue record
       q.pt = qkPts.add({ position: C.Cartesian3.fromDegrees(q.lon, q.lat, 0), pixelSize: 4 + q.mag * 2.2, color: COLOR.withAlpha(0.75), outlineColor: COLOR, outlineWidth: 1, id: q, show: L.quakes.on, disableDepthTestDistance: 0 });
     }
     setCount('quakes', list.length); hooks.updateStats();

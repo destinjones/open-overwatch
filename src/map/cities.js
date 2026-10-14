@@ -10,6 +10,7 @@ import { parseNetworks, parseStations, networksNear, CITYBIKES_API, BIKE_STATES,
 import { TRANSIT_MODES, TRANSIT_AREAS, transitSources, sourcesAt, startSource, stopSource, createFleet, transitTip, transitRows } from '../core/transitfeeds.js';
 import { zoomToHeight } from '../core/viewlink.js';
 import { num } from '../core/format.js';
+import { stamp, rep } from '../core/liveprov.js';
 
 const wrapLon = lon => ((lon + 540) % 360) - 180;
 
@@ -34,7 +35,7 @@ feed(lyBikes, { interval: 180, viewDependent: true, minZoom: 11, fetch: async ()
   for (const net of want) {
     let e = bikeNets.get(net.id);
     if (!e || Date.now() - e.t > 170e3) {
-      try { e = { net, t: Date.now(), stations: parseStations(await Net.json(`${CITYBIKES_API}/${encodeURIComponent(net.id)}?fields=stations`, { timeout: 40000, throttle: 'citybikes', gap: 400 })).map(s => ({ ...s, net, kind: 'bike' })) }; bikeNets.set(net.id, e); }
+      try { e = { net, t: Date.now(), stations: parseStations(await Net.json(`${CITYBIKES_API}/${encodeURIComponent(net.id)}?fields=stations`, { timeout: 40000, throttle: 'citybikes', gap: 400 })).map(s => stamp({ ...s, net, kind: 'bike' }, 'bikes', [rep('citybikes', { name: `${net.name} via CityBikes`, dataAt: s.t })])) }; bikeNets.set(net.id, e); }
       catch (err) { if (/429/.test(err.message)) { bikePause = Date.now() + 10 * 60e3; toast('Bike share: CityBikes asks us to slow down; trying again in 10 minutes'); } if (!e) { Log.warn(`Bike share ${net.name}: ${err.message}`); continue; } }
     }
     for (const s of e.stations) items.push({ lat: s.lat, lon: s.lon, r: z => (z >= 15 ? 5 : z >= 13 ? 4 : 3) + Math.min(2, (s.total || 8) / 16), color: BIKE_STATES[bikeLook(s)][1], fillAlpha: .75, kind: 'bike', obj: s, tip: bikeTip(s) });

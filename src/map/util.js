@@ -119,6 +119,8 @@ export const Relay = {
     return this.available;
   },
   usingCustom() { return !!(this.custom && this.customOk); },
+  /** Whether a request for url reaches the page through a copy (the public relay or a custom one may serve a cached answer); the local helper only passes it on. Provenance marks such sources "(copy)". */
+  viaCopy(url) { if (!this.needs(url)) return false; const b = this.base(); return !b || b !== location.origin + '/proxy?url='; },
   status() {
     if (this.custom && this.customOk !== false) return this.customOk ? 'custom relay answering' : 'custom relay set (not tested yet)';
     return (this.custom ? 'custom relay not answering · ' : '') + (this.available ? 'local helper running' : this.local ? 'helper not answering' : 'no helper — open the page through serve.py / serve.js / the .bat file');

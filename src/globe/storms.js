@@ -6,12 +6,13 @@
 // for every other basin (JTWC and others). Cones and coast lines drape on the terrain or Google's 3D tiles.
 // With the clock in the past (time travel): the storms going on then, from NASA EONET's closed events and GDACS's past
 // cyclones, each track cut at the time shown and the storm where it was then (core/history.js); forecasts aren't archived.
-import { C, esc, fmt, getJSON, relayed } from './env.js';
+import { C, esc, fmt, getJSON, relayed, viaCopy } from './env.js';
+import { stamp, rep, stampReports } from '../core/liveprov.js';
 import { viewer, scene } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { hooks, state } from './state.js';
 import { WW } from '../core/hazards.js';
-import { loadCyclones, category, catName, KIND_KT, NHC_CURRENT, stormSources, stormsFromEonet, gdacsGeometryUrl } from '../core/cyclones.js';
+import { stormAgreement, loadCyclones, category, catName, KIND_KT, NHC_CURRENT, stormSources, stormsFromEonet, gdacsGeometryUrl } from '../core/cyclones.js';
 import { parseEonet } from '../core/eonet.js';
 import { gdacsForecast } from '../core/hazards.js';
 import { isPast, utcDay, eonetAtUrl, gdacsTcAtUrl, gdacsPastCyclones, stormsFromGdacs, stormsAt } from '../core/history.js';
@@ -43,6 +44,8 @@ export const Storms = {
   list: [], live: [], past: false, pastDay: '', pastAt: 0,
   async load() {   // EONET, NHC, NOAA's forecasts and GDACS, merged per storm (core/cyclones.js, shared with the 2D map)
     this.live = await loadCyclones({ json: getJSON, nhc: !!relayed(NHC_CURRENT), kept: gdacsKept, warn: (what, e) => console.warn(what, e.message) });
+    const copy = viaCopy(NHC_CURRENT) ? ['nhc'] : [];
+    for (const s of this.live) { const { reports, agreeing } = stormAgreement(s); stampReports(s, 'storms', reports, agreeing, { cached: copy }); }   // which agencies place it here
     if (!this.past) this.draw(this.live);
   },
   /** Follow the clock: live storms now; in the past the storms of the time shown, redrawn every hour of clock time. */
@@ -68,6 +71,7 @@ export const Storms = {
       const [, , col] = category(s.kt), c = C.Color.fromCssColorString(col);
       s.tip = () => `🌀 ${s.title}${s.kt ? ' · ' + s.kt + ' kt' : ''}${s.fc && s.fc.cone.length ? ' · forecast cone' : ''}`;
       s.cardHtml = () => card(s, col);
+      if (!s.prov) stamp(s, 'history', [rep(/GDACS/.test(s.src) ? 'gdacs' : 'eonet', { dataAt: s.date })]);   // time travel: an archived track
       s.pt = pts.add({ position: C.Cartesian3.fromDegrees(s.lon, s.lat, 3000), pixelSize: 9 + Math.max(0, category(s.kt)[1]) * 2.5, color: c.withAlpha(0.35), outlineColor: c, outlineWidth: 2, id: s, show: L.storms.on });
       if (s.track.length > 1 && !(s.fc && s.fc.past.length)) s.line = lines.add({ positions: s.track.map(p => C.Cartesian3.fromDegrees(p.lon, p.lat, 3000)), width: 2, material: C.Material.fromType('PolylineDash', { color: c.withAlpha(0.8), dashLength: 12 }), show: L.storms.on });
       if (s.fc) drawForecast(s);
