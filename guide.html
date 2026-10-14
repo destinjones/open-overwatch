@@ -188,6 +188,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td><code>GEO belt</code></td><td>Far enough out (160,000 km) to see the ring of geostationary satellites 36,000 km up.</td></tr>
         <tr><td><code>Moon</code></td><td>Flies out to the Moon at its real position and looks at it.</td></tr>
         <tr><td><code>Near misses</code></td><td>Upcoming close approaches between objects in orbit (CelesTrak SOCRATES, under 5 km in the next week). Pick one to watch both objects at the moment of closest approach.</td></tr>
+        <tr><td><code>Falling soon</code></td><td>Satellites and debris predicted to re-enter the atmosphere in the next 30 days, soonest first, each with its window in plain words and its re-entry corridor. Worked out in your browser from the same element sets. See <a href="#reentry">Falling soon</a>.</td></tr>
         <tr><td><code>Tonight</code></td><td>What you can see in your sky tonight. See <a href="#sky">Tonight and look up</a>.</td></tr>
         <tr><td><code>Look up</code></td><td>Your sky right now, from where you stand: point your phone up. See <a href="#sky">Tonight and look up</a>.</td></tr>
         <tr><td><code>Find flight</code></td><td>Type a ticket number (BA 123 becomes BAW123), a callsign, a registration or a hex address and follow that plane. The website searches the aircraft it already has and otherwise opens adsb.lol's own map; the download version asks adsb.lol directly and refreshes every 15 seconds.</td></tr>
@@ -225,6 +226,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td><span class="dot" style="background:#8fb8ff"></span><code>active</code></td><td>Every other active satellite CelesTrak lists.</td><td>CelesTrak</td><td>on (off on phones)</td></tr>
         <tr><td><span class="dot" style="background:#ff6b6b"></span><code>debris</code></td><td>The debris clouds of the 2007 Fengyun-1C anti-satellite test and the 2009 Iridium 33 / Cosmos 2251 collision. The full catalogue with every rocket body and fragment is Space-Track's and may not be redistributed.</td><td>CelesTrak</td><td>on (off on phones)</td></tr>
         <tr><td><span class="dot" style="background:#ff9f5c"></span><code>launches</code></td><td>The next 40 rocket launches as markers on their pads, with countdowns. Pads at one site share one label.</td><td>Launch Library 2 (The Space Devs), copied by the site build every 6 hours</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#ff5a4f"></span><code>reentry</code></td><td>Re-entry corridors: the ground track of every object predicted to come down in the next 30 days, around its likeliest time. See <a href="#reentry">Falling soon</a>.</td><td>Predicted here from CelesTrak element sets</td><td>off</td></tr>
         <tr class="grp"><td colspan="4">Air</td></tr>
         <tr><td><span class="dot" style="background:#5fd3ff"></span><code>air</code></td><td>Civil aircraft, dead-reckoned between reports so they keep moving; the nearest ones become 3D models that bank and climb.</td><td>OpenSky Network snapshot every 15 minutes (download version: the website can't reach it, see <a href="#download">Download version</a>)</td><td>on</td></tr>
         <tr><td><span class="dot" style="background:#ffb44d"></span><code>mil</code></td><td>Military aircraft.</td><td>adsb.lol every 60 seconds (download version)</td><td>on</td></tr>
@@ -345,6 +347,43 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
       </tbody>
     </table></div>
     <p>The charts are drawn in the page: hover a bar (or tap it) for its value; screen readers hear every value. The panel refreshes every five minutes while it is open, and <b>↻</b> refreshes it now. Nothing is downloaded while it is closed.</p>
+  </div>
+</section>
+
+<section id="reentry" aria-labelledby="reentry-h">
+  <div class="wrap">
+    <div class="eyebrow">Re-entries</div>
+    <h2 id="reentry-h">Falling soon</h2>
+    <p><b>Falling soon</b> in the band (or a <code>globe.html#go=reentry</code> link) lists the objects predicted to come back
+      into the atmosphere in the next 30 days: old Starlinks, spent satellites, debris. Each says when, as a window
+      ("between Tue 03:00 and Thu 21:00 UTC") rather than a moment, and where, as a corridor: the stretch of its ground track
+      it could come down on. The <code>reentry</code> layer draws every corridor at once. Nothing is downloaded for this: the
+      globe works it out from the element sets it already has, in about a tenth of a second.</p>
+    <h3>How it is worked out</h3>
+    <p>Each element set says how fast the object's orbit is shrinking (the change in its mean motion, n-dot) and how much drag
+      it feels (B*). From those and a model of the upper atmosphere, the globe flies the object down, step by step, until its
+      lowest point is 100 km up: below that it is minutes from the end. The atmosphere is thicker when the Sun is active, so
+      the model is scaled by the Sun's radio flux (F10.7; 140 is assumed for late 2026). Checked against real re-entries:
+      Tiangong-1 (2 April 2018) and GOCE (11 November 2013) fall inside the windows their last element sets give.</p>
+    <h3>Why the windows are so wide</h3>
+    <p>Re-entry predictions are uncertain by nature, even at the space agencies. The window is <b>±25% of the time the object
+      has left</b>, the usual rule of thumb for objects coming down without control (re-entry analysts quote 10-25%; we take
+      the wide end):</p>
+    <ul>
+      <li><b>The air up there changes.</b> At 200-400 km it is so thin that one solar flare or geomagnetic storm can double
+        its density within a day, and nobody can forecast the Sun weeks ahead.</li>
+      <li><b>We don't know how the object flies.</b> A tumbling panel has several times the drag of the same panel edge-on.</li>
+      <li><b>The elements are a few hours old</b> and are themselves a fit to radar tracking. Every new set (every few hours)
+        moves the window, and it narrows as the day comes closer: weeks ahead it spans days, the last day it spans hours.</li>
+      <li><b>Where follows from when.</b> An object circles the Earth every 90 minutes, so an hour's doubt in time is 40,000 km
+        along its track. Until the window is a few orbits long, it can come down anywhere between the latitudes its orbit
+        reaches; the tracks drawn are the orbits around the likeliest time.</li>
+    </ul>
+    <p>Satellites that still have fuel are a different case: an operator can keep one up, or bring it down on purpose over
+      an empty ocean, and then the prediction does not apply. Their cards say so. Objects whose orbit is clearly being pushed
+      (shrinking faster than drag could manage, or growing) are left off the list. The card's provenance line uses the
+      element set's epoch as its data time and calls a prediction stale once its elements are older than a fifth of the time
+      it had left. Most of what re-enters burns up; for authoritative warnings, follow your space agency.</p>
   </div>
 </section>
 
@@ -585,6 +624,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td><code>airports</code></td><td>The world's large and medium airports (OurAirports), with codes as you zoom in and runways from zoom 11. Click one (or search "LHR", "Heathrow", "Denver") for its board, made from the aircraft on the map: arriving, departing, just landed or took off, on the ground; the weather at the field with a VFR/IFR category, the runway in use and the wind along and across every runway. The aircraft card says what a plane is (adsbdb: type, registration, owner), what it is doing ("On final for 13L") and the route its callsign flies, flagged when the plane is not on it; the weather at its height (wind and what it does to the plane, the temperature against the standard atmosphere, true airspeed and Mach); and its trail coloured by altitude, which you can pin or copy as GeoJSON.</td><td>off</td></tr>
         <tr class="grp"><td colspan="3">Space</td></tr>
         <tr><td><code>sats</code></td><td>Satellites from CelesTrak element sets, propagated live with SGP4; pick groups, and an automatic ground track and footprint for the selected one.</td><td>on</td></tr>
+        <tr><td><code>reentry</code></td><td>Objects predicted to re-enter in the next 30 days: a dot where each is at its likeliest time and its likeliest orbit as a line; the card gives the window in plain words. See <a href="#reentry">Falling soon</a>.</td><td>off</td></tr>
         <tr class="grp"><td colspan="3">Sea &amp; sky</td></tr>
         <tr><td><code>lightpollution</code></td><td>How bright the night sky is, by Bortle class, clear where it is dark (Falchi et al. 2016 atlas, CC BY-NC 4.0, non-commercial; drawn in your browser).</td><td>off</td></tr>
         <tr><td><code>ships_fi</code></td><td>Ships around Finland (Fintraffic Digitraffic AIS); zoom in past level 5 for individual ships.</td><td>off</td></tr>
@@ -698,7 +738,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   <div class="wrap">
     <div class="eyebrow">MCP</div>
     <h2 id="claude-h">Ask Claude about the Earth</h2>
-    <p>Open Overwatch also comes as a small Model Context Protocol server, so Claude (and other AI apps that speak MCP) can answer questions from the same open data, with 37 tools: earthquakes, where a satellite is and when you can see it, launches, who is in space, asteroid flybys and close approaches in orbit, tropical storms, wildfires, natural events, volcanoes, Baltic ships, bike share, live transit, traffic cameras (with their latest pictures), measured road speeds, submarine cables, country briefings, the weather (with pressure, gusts, waves and whether the models agree), what a plane is and where a flight goes, where any spacecraft, comet or asteroid is, the aurora and the solar wind, flares and storm warnings behind it, tonight's sky, how dark the sky is (light pollution, the nearest darker sky) and the galaxies and clusters within reach tonight, the Sun and Moon, the planets, meteor showers, eclipses, distances, licence-plate readers, military areas, airport weather (METAR and TAF in plain words), sea conditions (ocean buoys and tides) and air quality. Every answer carries a link that opens the globe there, and in Claude Desktop the globe appears in the chat. Install it from <code>open-overwatch.mcpb</code> on the <a href="https://github.com/destinjones/open-overwatch/releases/latest">latest release</a>; details in <a href="https://github.com/destinjones/open-overwatch/blob/main/mcp/README.md">mcp/README.md</a>. It runs on your computer (over stdio, or Streamable HTTP on your own machine for clients that need it), needs no key, and stores nothing. A remote version for claude.ai and ChatGPT connectors, on Cloudflare Workers, is ready in <code>mcp-worker/</code> but not deployed yet.</p>
+    <p>Open Overwatch also comes as a small Model Context Protocol server, so Claude (and other AI apps that speak MCP) can answer questions from the same open data, with 38 tools: earthquakes, where a satellite is and when you can see it, launches, who is in space, asteroid flybys, close approaches in orbit and what is about to re-enter, tropical storms, wildfires, natural events, volcanoes, Baltic ships, bike share, live transit, traffic cameras (with their latest pictures), measured road speeds, submarine cables, country briefings, the weather (with pressure, gusts, waves and whether the models agree), what a plane is and where a flight goes, where any spacecraft, comet or asteroid is, the aurora and the solar wind, flares and storm warnings behind it, tonight's sky, how dark the sky is (light pollution, the nearest darker sky) and the galaxies and clusters within reach tonight, the Sun and Moon, the planets, meteor showers, eclipses, distances, licence-plate readers, military areas, airport weather (METAR and TAF in plain words), sea conditions (ocean buoys and tides) and air quality. Every answer carries a link that opens the globe there, and in Claude Desktop the globe appears in the chat. Install it from <code>open-overwatch.mcpb</code> on the <a href="https://github.com/destinjones/open-overwatch/releases/latest">latest release</a>; details in <a href="https://github.com/destinjones/open-overwatch/blob/main/mcp/README.md">mcp/README.md</a>. It runs on your computer (over stdio, or Streamable HTTP on your own machine for clients that need it), needs no key, and stores nothing. A remote version for claude.ai and ChatGPT connectors, on Cloudflare Workers, is ready in <code>mcp-worker/</code> but not deployed yet.</p>
   </div>
 </section>
 

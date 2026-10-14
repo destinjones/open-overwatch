@@ -927,6 +927,39 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   synoptic 3-hour period ends; electron/proton alerts for a day. CME news: a watch comment naming a CME, or a type II/IV
   radio burst. Provenance: Bz, wind and X-rays stale after 15 min, each alert dated by its issue time.
 
+## Re-entry predictions: Falling soon (core/decay.js, globe/reentry.js, map/reentry.js, mcp/reentry.mjs) — 2026-10-14
+
+- **No new feed.** Everything comes from the element sets the views already load (the site's copy of CelesTrak's groups);
+  CORDS (aerospace.org/reentries) is a reference read by hand, never fetched by code. The model, its constants and why:
+  docs/CORE.md `decay.js`. Guide: guide.html#reentry (why the windows are wide).
+- **Validation (test/decay.test.mjs, real element sets from public GitHub copies):** Tiangong-1, epoch 2018-03-31 15:17,
+  predicted 2018-04-02 01:21 (F10.7 140) / 2018-04-01 23:52 (F10.7 70, the real solar minimum), window ±8.5 h; real 00:16
+  UTC. GOCE, epoch 2013-10-23 (two days after its engine stopped), predicted 2013-11-08/09, window ±4 days; real
+  2013-11-11 00:16. By hand against CORDS on 2026-10-14: COSMOS 2572 ours 10-18 14:13 ±24 h vs CORDS 10-18 04:46 ±28 h;
+  Starlink-1810 from an element set 1.75 h before CORDS's time, ours 10-13 17:37 ±1.9 h vs CORDS 15:37 ±6 h.
+  The ISS (2018 and 2026 sets) comes out at 13-15 years without reboosts.
+- **Lessons:**
+  - n-dot lags at the end. It is fitted over about the last day, so it is the decay of half a day ago; calibrating the
+    drag at the current height put Tiangong-1 10 h late and Starlink-1810 7 h late. Calibrating it half a day back up the
+    orbit (`FIT_LAG_DAYS`) fixed both, and barely moves anything weeks out.
+  - Thrusters look like drag. Starlinks lowering themselves at 420-550 km have n-dot like an object at 200 km (ballistic
+    factor 0.3-3 m²/kg against 0.003-0.1 for anything really falling): above `MAX_BALLISTIC` (0.25) they are left out.
+    New satellites raising their orbit have negative n-dot, and their B* alone would say "falling in weeks": negative
+    n-dot under 600 km counts as manoeuvring too. The site's `last-30-days` copy is a 404 (Pages has none), so it can't be
+    used to leave launches out; `fallingSoon({ exclude })` takes ids if it ever comes back.
+  - Station-kept satellites in very low orbits (Starlink's direct-to-cell shells at ~355 km) are predicted to fall in
+    weeks if nothing boosts them, which is true physics but not what will happen: every card for a working satellite says
+    its operator may keep it up. A SATCAT status (`[+]`) would let the list tell them apart; the TLE copies don't carry it.
+  - Speed: ~30,000 objects in ~80-150 ms in Node with the `quickDays` screen (a scale height over today's decay rate, an
+    upper bound on the lifetime); 3 s without it. The globe computes once per 30 min, after `Sats.ready`.
+  - Clutter: 83 objects × 3 orbits was a red blanket on the globe; the layer draws each object's likeliest orbit (±45 min)
+    and the picked one its whole corridor (up to 3 orbits, or the window when shorter).
+- **Provenance:** layer `reentry` in core/liveprov.js; the item's own `prov.maxAgeMs` (a fifth of the time it had left,
+  2 h to 3 days) beats the layer's, so a 47 h prediction from a 21 h old element set says "stale" while a 4-day one from
+  7.8 h old says "reported".
+- **Not covered:** rocket bodies (not in the public groups the site copies; the full catalogue is Space-Track's),
+  controlled de-orbits, F10.7 and Kp from live data (core/spaceweather.js reads neither; DEFAULT_SOLAR is F10.7 140, Kp 2).
+
 ## Dark skies: Your sky, Deep sky tonight, the light pollution layer, dark_sky (core/darksky.js, globe/darksky.js, globe/lightmap.js, map/darksky.js, mcp/darksky.mjs) — 2026-10-14
 
 - **Nearest dark sky needs a land test.** The atlas is dark offshore, so without one London's "nearest Bortle 3" is in the

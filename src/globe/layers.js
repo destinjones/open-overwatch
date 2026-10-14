@@ -16,6 +16,7 @@ export const LAYERS = [
   { id: 'active', group: 'Space', name: 'All other active satellites', color: '#8fb8ff', on: !PHONE, sat: ['active'], size: 2, alpha: 0.75 },
   { id: 'debris', group: 'Space', name: 'Debris (Fengyun-1C, Iridium 33, Cosmos 2251)', color: '#ff6b6b', on: !PHONE, sat: ['fengyun-1c-debris', 'iridium-33-debris', 'cosmos-2251-debris'], size: 1.8, alpha: 0.8 },
   { id: 'launches', group: 'Space', name: 'Rocket launches (next 40, pads)', color: '#ff9f5c', on: true },
+  { id: 'reentry', group: 'Space', name: 'Re-entry corridors: falling in the next 30 days (predicted here)', color: '#ff5a4f', on: false },
   { id: 'air', group: 'Air', name: 'Civil aircraft (OpenSky, every 15 min)', color: '#5fd3ff', on: true },
   { id: 'mil', group: 'Air', name: 'Military aircraft (adsb.lol, every 60 s)', color: '#ffb44d', on: true },
   { id: 'airq', group: 'Air', name: 'Air quality: PM2.5 and AQI, modelled (CAMS via Open-Meteo)', color: '#ffe066', on: false },

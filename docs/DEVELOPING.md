@@ -332,7 +332,7 @@ call. See NOTES.md "Public relay".
 The server is `mcp/`: `server.mjs` (the command line: stdio, or `--http`) → `index.mjs` (assembly) → `protocol.mjs`
 (JSON-RPC by hand: initialize, tools, resources, prompts, cancellation, argument checks) + `tools.mjs` (the first
 tools, and the list of all of them) + one file per newer tool or family (`cams.mjs`, `transit.mjs`, `fires.mjs`,
-`country.mjs`, `cables.mjs`, `solar.mjs`, `eclipses.mjs`, `distance.mjs`, `volcanoes.mjs`, `roads.mjs`, `conj.mjs`,
+`country.mjs`, `cables.mjs`, `solar.mjs`, `eclipses.mjs`, `distance.mjs`, `volcanoes.mjs`, `roads.mjs`, `conj.mjs`, `reentry.mjs`,
 `sun.mjs`, `meteors.mjs`, `osm.mjs`, `wxdetail.mjs`, `aircraft.mjs`, `space.mjs`) + `place.mjs` (Photon places, framing a view, globe links) + `words.mjs` (shared
 wording: `iso`, `km`, `plural`, `areaData`, `limitProp`, `take`…) + `hazards.mjs` (quakes, events, storms through the
 core parsers) + `sats.mjs` (element sets and SGP4) + `feeds.mjs` (fetch with a cache, stale-if-error) + `prompts.mjs`
