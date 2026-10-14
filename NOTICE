@@ -11,3 +11,15 @@ and the LICENSE file, and credit "Open Overwatch by Destin Jones" with a link to
 
 Third-party data and libraries keep their own licences and credits: see docs/DATA_SOURCES.md and the credits on the
 about page.
+
+Third-party data in this repository with its own licence (not MIT):
+
+- data/lightpollution.bin: derived from Falchi, F., Cinzano, P., Duriscoe, D., Kyba, C. C. M., Elvidge, C. D.,
+  Baugh, K., Portnov, B., Rybnikova, N. A., Furgoni, R. (2016): Supplement to: The New World Atlas of Artificial
+  Night Sky Brightness. GFZ Data Services. doi:10.5880/GFZ.1.4.2016.001, and the paper in Science Advances 2(6),
+  e1600377, doi:10.1126/sciadv.1600377. Licence CC BY-NC 4.0: NON-COMMERCIAL USE ONLY. Resampled to 1/15 degree by
+  brand/tools/make_lightpollution.py. Remove it from any commercial fork.
+- data/deepsky.json: CC-BY-SA-4.0, derived from OpenNGC v20260501 (https://github.com/mattiaverga/OpenNGC, Mattia
+  Verga and contributors), selected and reformatted by brand/tools/make_deepsky.py.
+
+The full list of data sources and their terms is in docs/DATA_SOURCES.md.

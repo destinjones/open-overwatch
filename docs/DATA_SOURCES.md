@@ -21,6 +21,8 @@ user enters in the 2D map's Setup tab (stored only in their browser).
 | 1.57M asteroids, 1,867 comets (73 on open orbits near perihelion, 3I/ATLAS among them) | JPL [Small-Body Database](https://ssd.jpl.nasa.gov/tools/sbdb_query.html) | `brand/tools/make_small_bodies.py` → `data/solar/`; comets carry SBDB's total-magnitude parameters M1/K1 (1,634 of them) and their orbit epoch | two-body from each orbit's epoch: main belt ~3×10⁻⁴ AU; poorly observed or old orbits worse (Bennu 0.04 AU); comet magnitudes within 0.1 of Horizons' T-mag where the orbit is fresh, comets with stale orbits (16P: 1.5 AU off) left out of the brightness lists | public domain (NASA) |
 | Spacecraft trajectories (22) | JPL [Horizons](https://ssd.jpl.nasa.gov/horizons/) | `make_spacecraft.py` → 1–5-day samples; Juno also daily osculating elements around Jupiter plus sets every 30 min for 3 h around each of its 109 perijoves; check vectors `make_solar_fixture.py` | cubic between samples: ~1,000 km of Horizons half-way between samples; Juno on its Jupiter-centred orbits within 150 km through a perijove (the samples alone: ~200,000 km) | public domain (NASA) |
 | 109,400 nearby stars | [HYG v4.1](https://github.com/astronexus/HYG-Database) | `make_stars.py` | catalogue parallaxes | CC BY-SA 4.0 |
+| 2,405 deep-sky objects (all Messier but M102, NGC/IC to mag 12.5) | [OpenNGC](https://github.com/mattiaverga/OpenNGC) release `v20260501` (`NGC.csv` SHA-256 `840fe0c9…aa9e`, `addendum.csv` `1d8f0914…1983`) | `brand/tools/make_deepsky.py` pins the tag and fails if either file's SHA-256 changes → `data/deepsky.json` (174 KB; `data/deepsky.md`) | OpenNGC's positions (arcseconds), V magnitudes (B where there is no V); M102 is a duplicate of M101 there | CC BY-SA 4.0: `data/deepsky.json` is derived from OpenNGC and keeps that licence (credit, share alike), not the site's MIT |
+| Light pollution (artificial sky brightness, SQM, Bortle class) | Falchi et al. 2016, [New World Atlas of Artificial Night Sky Brightness](https://doi.org/10.5880/GFZ.1.4.2016.001) (GFZ Data Services; paper [doi:10.1126/sciadv.1600377](https://doi.org/10.1126/sciadv.1600377)) | `brand/tools/make_lightpollution.py` averages the 30″ GeoTIFF to 1/15° (~7 km) and stores it as one byte on a log scale → `data/lightpollution.bin` (1.65 MB; `data/lightpollution.md`) | a model of a clear, moonless 2014-15 night from VIIRS satellite data; a ~7 km cell averages a city centre with its edges, so the brightest streets read a little darker than on the ground; no airglow, Moon, haze or lights added since | **CC BY-NC 4.0: non-commercial use only** (see below) |
 | Star background | NASA SVS [Deep Star Maps 2020](https://svs.gsfc.nasa.gov/4851) | `make_skybox.py` (EXR decoded in Blender) | Hipparcos-2, Tycho-2, Gaia DR2 | NASA; credit NASA/GSFC SVS, ESA/Gaia/DPAC |
 | Milky Way | NASA/JPL-Caltech/R. Hurt (SSC/Caltech) [ssc2008-10a1](https://www.spitzer.caltech.edu/image/ssc2008-10a1-the-milky-way-galaxy) | texture | artist's concept | NASA image use policy |
 | Planet maps | [Solar System Scope](https://www.solarsystemscope.com/textures/) | `make_planet_textures.py` | based on NASA mission data | CC BY 4.0 |
@@ -174,6 +176,21 @@ liveness review.
 | Where in space (where_in_space) | the website's `data/solar/spacecraft.json` (JPL Horizons tracks), `moons.json`, `small_bodies.json` (JPL SBDB elements) and `constellations.json`; one asteroid's elements by seven HTTP byte ranges of `asteroids_a.bin` / `asteroids_b.bin` | from GitHub Pages, kept a day (ranges a week); a server that ignores ranges sends the file and it is sliced | the small-body list (1.3 MB) is only loaded when a name isn't a planet, moon or mission |
 | Remote endpoint (mcp/worker.mjs on Cloudflare Workers, not deployed) | the sources above, asked from Cloudflare's network | every GET answer kept in the Workers Cache API for its ttl, tool answers for 1-60 min (keyed by a SHA-256 of the question) | the ADS-B networks refuse Cloudflare (no tool reads them); nothing logged but the tool name and time (`LOG`) |
 | Streamable HTTP (`--http <port>`) | none: the same tools over HTTP on 127.0.0.1 | stateless, one JSON-RPC message per POST, JSON answers | Host and Origin checked (loopback, or `--allow-origin`); nothing is logged but the tool name and time |
+
+## Data you may not use commercially
+
+Almost everything here may be reused freely, the code under MIT. One dataset may not: **the light pollution grid,
+`data/lightpollution.bin`, comes from the 2015 World Atlas of Artificial Night Sky Brightness (Falchi et al. 2016),
+licensed CC BY-NC 4.0.** Open Overwatch is free and non-commercial, so it can show it. If you fork the project and
+sell it, run ads on it or use it in a paid product, delete that file (and the light pollution feature) or get the
+authors' permission first; the MIT licence on the code does not cover the data. Credit both references:
+doi:10.5880/GFZ.1.4.2016.001 (the data) and doi:10.1126/sciadv.1600377 (the paper). The README in the 2016 download
+is stricter still ("further distribution of these files and commercial use are both generally prohibited", with
+changes announced on the data page); the DOI record at DataCite now gives CC BY-NC 4.0 (checked 2026-10-14), which is
+what this project relies on, and it ships only a resampled grid, never the original files.
+
+The deep-sky catalogue (`data/deepsky.json`) is CC BY-SA 4.0 from OpenNGC: commercial use is fine, but credit OpenNGC
+and share changes to that file under the same licence.
 
 ## Libraries and fonts (the pages themselves)
 | What | From | How it's checked | Licence |

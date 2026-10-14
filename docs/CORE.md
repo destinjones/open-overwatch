@@ -20,7 +20,7 @@ is also used by its tests in `test/`.
 - [Time, units and frames](#time-units-and-frames): `time.js`, `units.js`, `rotation.js`
 - [Orbits and the Solar System](#orbits-and-the-solar-system): `kepler.js`, `planets.js`, `moons.js`, `smallbodies.js`, `comets.js`, `craft.js`, `accuracy.js`
 - [Satellites](#satellites): `tle.js`, `passes.js`, `observer.js`, `socrates.js`, `explain.js`
-- [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `whereis.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `syzygy.js`, `orientation.js`
+- [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `whereis.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `syzygy.js`, `orientation.js`, `deepsky.js`, `lightpollution.js`
 - [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`
 - [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`
 - [Weather](#weather): `gfs.js`, `wxmodels.js`, `wxload.js`, `model.worker.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpaint.js`
@@ -326,6 +326,30 @@ east-north-up components: look-up mode. Used by globe.
 - `deviceVectors`: alpha, beta, gamma and the screen angle → view direction and screen-up.
 - `alphaFromCompass`: iOS's relative alpha plus `webkitCompassHeading` → an absolute alpha.
 - `azEl`: azimuth and elevation of a direction. `guide`: "turn right 32°, up 11°" toward a target.
+
+### `deepsky.js`
+
+Deep-sky objects for "what's up tonight": every Messier object and the NGC/IC objects to about magnitude 12.5 from
+`data/deepsky.json` (2,405 objects, CC-BY-SA-4.0, derived from OpenNGC by `brand/tools/make_deepsky.py`, which pins the
+release and checks each CSV's SHA-256). Positions are J2000 against the mean sidereal time of date, like `sky.js`: a
+degree or so. Read-only. Used by sky (planned), core.
+
+- `loadDeepsky`, `parseDeepsky`: the file's rows as objects (catalogue id, Messier number, type, RA/Dec,
+  magnitude, size, common name, constellation). `TYPES`: OpenNGC's type codes with a label and a group. `label`.
+- `filterDeepsky`: by magnitude, group (galaxy, cluster, nebula, planetary), type code or Messier only.
+- `altAzOf`: altitude and azimuth for an observer. `visibleTonight`: what gets high enough during the dark part of the
+  next 24 hours (the dark window from `sky.js`), with its best moment, brightest first.
+
+### `lightpollution.js`
+
+How dark the sky is at a spot, from the 2015 World Atlas of artificial sky brightness (Falchi et al. 2016, CC BY-NC
+4.0, non-commercial use only) resampled to 1/15° in `data/lightpollution.bin` (1.7 MB, `brand/tools/make_lightpollution.py`;
+format in `data/lightpollution.md`). A modelled clear, moonless sky in 2014-15. Used by sky (planned), core.
+
+- `loadAtlas`, `decodeAtlas`: the grid (decoded with DecompressionStream, so browsers and Node alike).
+- `artificialAt`: the artificial zenith brightness (mcd/m²) at lat/lon, bilinear; null outside 60° S to 85° N.
+- `skyAt`: total brightness, the ratio to the natural sky, an SQM reading (mag/arcsec²) and the Bortle class.
+- `sqmFromMcd`, `mcdFromSqm`, `bortleFromSqm`, `BORTLE`, `NATURAL_MCD`: the conversions on their own.
 
 ## Geometry on the Earth
 

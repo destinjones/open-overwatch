@@ -26,6 +26,8 @@ brand/source/lighthouses/
 brand/source/moons/
 brand/source/2mrs/
 brand/source/constellations/
+# OpenNGC CSVs at the pinned tag (rebuild data/deepsky.json with brand/tools/make_deepsky.py)
+brand/source/openngc/
 
 # perf.mjs measurements (summaries go in docs/PERFORMANCE.md)
 brand/perf/
