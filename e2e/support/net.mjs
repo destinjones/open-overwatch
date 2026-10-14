@@ -42,6 +42,12 @@ export function fixtureFor(href, now = Date.now()) {
   if (h === 'eonet.gsfc.nasa.gov') return F.eonet(now);
   if (h === 'services.swpc.noaa.gov' && /k-index/.test(p)) return F.kp(now);
   if (h === 'services.swpc.noaa.gov' && /ovation/.test(p)) return F.ovation(now);
+  if (h === 'services.swpc.noaa.gov') {   // the Sun now (core/spaceweather.js SW_URLS)
+    const sw = { '/json/rtsw/rtsw_mag_1m.json': F.swMag, '/json/rtsw/rtsw_wind_1m.json': F.swWind, '/json/goes/primary/xray-flares-latest.json': F.swFlare,
+      '/json/goes/primary/xray-flares-7-day.json': F.swFlares, '/json/goes/primary/xrays-1-day.json': F.swXrays, '/products/alerts.json': F.swAlerts,
+      '/products/summary/solar-wind-mag-field.json': F.swMagNow, '/products/summary/solar-wind-speed.json': F.swWindNow }[p];
+    if (sw) return sw(now);
+  }
   if (h === 'api.weather.gov') return F.EMPTY.nws();
   if (h === 'www.nhc.noaa.gov' && /CurrentStorms/.test(p)) return F.EMPTY.nhc();
   if (h === 'www.gdacs.org') return F.EMPTY.gdacs();

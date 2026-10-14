@@ -52,6 +52,56 @@ export function ovation(now = Date.now()) {
   return { 'Observation Time': iso(now - 30 * 60e3), 'Forecast Time': iso(now + 30 * 60e3), 'Data Format': '[Longitude, Latitude, Aurora]', coordinates, type: 'MultiPoint' };
 }
 
+/** NOAA SWPC's real-time solar wind (json/rtsw/, newest first, the operational spacecraft flagged `active`; one ACE row
+ *  that must be ignored): 6 hours of 5-minute rows, Bz swinging to -4.2 nT (southward) now, the wind 520 km/s. */
+const rtsw = (now, row) => {
+  const t0 = Math.floor(now / 300e3) * 300e3 - 300e3, rows = [];
+  for (let i = 0; i < 72; i++) rows.push({ time_tag: iso(t0 - i * 300e3).slice(0, 19), active: true, source: 'SOLAR1', ...row(i) });
+  rows.push({ time_tag: iso(t0).slice(0, 19), active: false, source: 'ACE', ...row(0, true) });
+  return rows;
+};
+export const swMag = (now = Date.now()) => rtsw(now, (i, other) => ({ bt: 7.1, bx_gsm: 1.2, by_gsm: -3.3, bz_gsm: other ? 9 : +(-4.2 + 6 * Math.sin(i / 9)).toFixed(2), overall_quality: 0 }));
+export const swWind = (now = Date.now()) => rtsw(now, (i, other) => ({ proton_speed: other ? 300 : 520 - i * 0.5, proton_density: 5.8, proton_temperature: 120000, overall_quality: 0 }));
+/** GOES flares: the latest (a C3.4 that ended 3 hours ago, B6.1 now) and the week's list (an M1.2 eight hours ago). */
+const flareRow = (now, h, cls, end = true) => ({ time_tag: iso(now - 60e3), satellite: 18, begin_time: iso(now - h * H - 9 * 60e3), begin_class: 'B8.0', max_time: iso(now - h * H), max_class: cls, end_time: end ? iso(now - h * H + 12 * 60e3) : null, end_class: 'B9.0' });
+export const swFlare = (now = Date.now()) => [{ ...flareRow(now, 3, 'C3.4'), current_class: 'B6.1', current_ratio: 0.02 }];
+export const swFlares = (now = Date.now()) => [flareRow(now, 30, 'C1.1'), flareRow(now, 8, 'M1.2'), flareRow(now, 3, 'C3.4')];
+/** GOES X-ray flux, both channels, 5-minute rows over the day (the MCP and the tests read it; the pages don't need it). */
+export const swXrays = (now = Date.now()) => Array.from({ length: 288 }, (_, i) => now - (287 - i) * 300e3).flatMap(t =>
+  [['0.05-0.4nm', 6e-8], ['0.1-0.8nm', 6.1e-7]].map(([energy, flux]) => ({ time_tag: iso(Math.floor(t / 60e3) * 60e3), satellite: 18, flux, energy })));
+/** SWPC's alerts.json: a Kp 5 warning in force (issued an hour ago, valid 6 more hours) and a G1 watch for today. */
+export function swAlerts(now = Date.now()) {
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const sw = ms => { const d = new Date(ms), p = n => String(n).padStart(2, '0'); return `${d.getUTCFullYear()} ${MON[d.getUTCMonth()]} ${p(d.getUTCDate())} ${p(d.getUTCHours())}${p(d.getUTCMinutes())} UTC`; };
+  const day = ms => { const d = new Date(ms); return `${MON[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2, '0')}`; };
+  const at = now - H, w = now - 2 * H;
+  return [
+    { product_id: 'K05W', issue_datetime: iso(at).replace('T', ' ').replace('Z', '.000'), message: `Space Weather Message Code: WARK05
+Serial Number: 9001
+Issue Time: ${sw(at)}
+
+WARNING: Geomagnetic K-index of 5 expected
+Valid From: ${sw(at)}
+Valid To: ${sw(now + 6 * H)}
+Warning Condition: Onset
+NOAA Scale: G1 - Minor
+` },
+    { product_id: 'A20F', issue_datetime: iso(w).replace('T', ' ').replace('Z', '.000'), message: `Space Weather Message Code: WATA20
+Serial Number: 9002
+Issue Time: ${sw(w)}
+
+WATCH: Geomagnetic Storm Category G1 Predicted
+Highest Storm Level Predicted by Day:
+${day(now)}:  G1 (Minor)   ${day(now + 24 * H)}:  None (Below G1)   ${day(now + 48 * H)}:  None (Below G1)
+THIS SUPERSEDES ANY/ALL PRIOR WATCHES IN EFFECT
+Comment: A CME that left the Sun on ${day(now - 72 * H)} is expected to arrive.
+` },
+  ];
+}
+/** The one-minute summaries (products/summary/). */
+export const swMagNow = (now = Date.now()) => [{ bt: 7, bz_gsm: -4, time_tag: iso(Math.floor(now / 60e3) * 60e3 - 300e3) }];
+export const swWindNow = (now = Date.now()) => [{ proton_speed: 520, time_tag: iso(Math.floor(now / 60e3) * 60e3 - 300e3) }];
+
 /** The readsb shape (adsb.lol, adsb.fi, airplanes.live): /v2/mil gets three military aircraft, a point query a few
  *  civil ones around its centre, one of them squawking 7700. */
 export function readsb(url, now = Date.now()) {

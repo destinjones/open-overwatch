@@ -100,3 +100,20 @@ test('e2e links the specs build round-trip through the core', () => {
   const v = decodeView('#' + encodeView({ lon: 1, lat: 50, height: 900000, heading: 0, pitch: -90, drawing: [{ kind: 'line', coords: [[-0.1276, 51.5072], [2.3522, 48.8566]] }] }));
   assert.equal(v.drawing.length, 1); assert.ok(Math.abs(v.drawing[0].coords[1][0] - 2.3522) < 1e-4);
 });
+
+test('e2e feeds: every SWPC file the Sun panel and MCP read has a fixture, and it reads as a fresh "Sun now"', async () => {
+  const { SW_URLS, sunNow } = await import('../src/core/spaceweather.js');
+  const src = (await import('node:fs')).readFileSync(new URL('../src/globe/sunnow.js', import.meta.url), 'utf8');
+  const asked = JSON.parse(src.match(/const parts = (\[[^\]]+\])/)[1].replace(/'/g, '"'));   // the files the page fetches
+  for (const [k, u] of Object.entries(SW_URLS)) assert.notEqual(fixtureFor(u, NOW), undefined, `no e2e fixture for ${k}: ${u}`);
+  const docs = Object.fromEntries(asked.map(k => [k, fixtureFor(SW_URLS[k], NOW)]));
+  const s = sunNow(docs, { now: NOW });
+  assert.equal(s.wind.speed, 520); assert.equal(s.wind.craft, 'SWFO-L1', 'the inactive ACE row is ignored');
+  assert.equal(s.bz.now, -4.2); assert.match(s.bz.text, /southward.*aurora-friendly/); assert.ok(s.bz.series.length >= 60);
+  assert.equal(s.flare.now.cls, 'B6.1'); assert.equal(s.flare.peak.cls, 'M1.2');
+  assert.deepEqual(s.alerts.active.map(e => e.kind).sort(), ['warning', 'watch']);
+  assert.ok(s.alerts.active.find(e => e.kind === 'watch').cme);
+  for (const p of [s.bz, s.wind, s.flare]) assert.equal(p.prov.confidence, 'reported');
+  assert.ok(!/unreachable/.test(JSON.stringify(s)));
+  assert.equal(sunNow({ xrays: fixtureFor(SW_URLS.xrays, NOW) }, { now: NOW }).flare.now.cls, 'B6.1');
+});
