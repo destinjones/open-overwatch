@@ -276,6 +276,21 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
       <li><b>A country</b>: click the ground and its border lights up, with facts (Wikidata, World Bank), what the globe knows about it right now (earthquakes, lighthouses, big employers, the wind) and English-language headlines from its news outlets (GDELT).</li>
       <li><b>Everything else</b> (quakes, storms, fires, ships, buses, cameras, stations, volcanoes, launches, drawings) opens its own card.</li>
     </ul>
+    <h3 id="provenance">How we judge this: where each live item came from</h3>
+    <p>Every live card (aircraft, ships, satellites, quakes, storms, fires, events, transit, cameras, bikes, buoys, tides, air
+      quality and the rest, on the globe and on the 2D map) ends with a line saying <b>which sources reported it</b>, <b>how many
+      of them agree</b>, <b>how old the data is</b> and a confidence word. A contact on the map is a claim by its sources, not
+      proof: two networks placing the same aircraft in the same place, or NOAA and GDACS placing the same storm, count as
+      agreement; a feed that only repeats another agency's data (EONET passing on an NHC advisory) is named as such and not
+      counted twice. Hover the confidence word for the rule:</p>
+    <blockquote class="note"><p>Confirmed: two or more independent sources agree and their data is fresh. Reported: one fresh source. Stale: the newest data is older than this layer expects. Unknown: no source said when its data was made. Age is the age of the data, not of the download.</p></blockquote>
+    <p>"(copy)" after a source means it reached us through a copy: the website's own mirror (satellite element sets, launches),
+      the public relay, or a stored snapshot. Its age is still the age of the data itself. Each layer has its own idea of fresh:
+      two minutes for an aircraft position, fifteen for a ship, nine hours for a storm advisory, three days for a satellite's
+      elements. Time travel shows past records, which are never called stale.</p>
+    <p><b>Export what's in view</b>: the 2D map's layer list and the globe's Layers dock save the live items in view as
+      GeoJSON, CSV or KML, each with these provenance columns. Nothing leaves your browser. The MCP server's answers carry
+      the same line as a <code>provenance</code> field.</p>
     <h3>Follow</h3>
     <p>Double-click a satellite or aircraft (or press <b>Follow in 3D</b> on its card) and the camera rides along with it while you orbit around it. <kbd>Esc</kbd> lets go.</p>
     <h3>Cockpit</h3>

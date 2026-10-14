@@ -115,3 +115,10 @@ test('ships: two receivers of the same MMSI agree within 300 m plus its run', as
   assert.ok(!sameShip(a, { ...a, lat: 60.02 }));
   assert.ok(!sameShip(a, { ...a, id: 230000002 }));
 });
+
+test('the guide quotes the rule the cards show', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { RULE } = await import('../src/core/provenance.js');
+  const guide = readFileSync(new URL('../guide.html', import.meta.url), 'utf8').replace(/\s+/g, ' ');
+  assert.ok(guide.includes(RULE), 'guide.html #provenance quotes RULE word for word');
+});

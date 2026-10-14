@@ -367,6 +367,15 @@ Round 2 (2026-10-10, local):
       coverage`: src/core and mcp, lines 96 / branches 81 / functions 91 against 99.3 / 84.2 / 94.3 measured)
 - [ ] Raise the branch floor as the MCP tools' error paths get tests (airportwx, hazards, ocean are 51-59 % branches)
 
+### Provenance on every live layer (provenance-layers, 2026-10-14, local)
+- [x] Every live card on the globe and the 2D map says who reported it, how many sources agree, how old the data is
+      (core/liveprov.js stamps; docs/NOTES.md "Provenance on every live card")
+- [x] Real agreement where the site merges feeds: aircraft (both views), storms (NHC / GDACS / EONET, one vote per agency),
+      quakes (USGS + GDACS alerts, 2D map), ships (Digitraffic + aisstream, 2D map); tolerances tested
+- [x] Export what's in view as GeoJSON, CSV, KML with provenance (core/export.js); MCP answers carry `provenance`
+- [ ] A second earthquake catalogue (EMSC) so quakes can be confirmed, not only reported (new feed: owner's call)
+- [ ] Ask a second aircraft network once for the plane whose card is open (one request), so the open card can confirm
+
 ## Rules of thumb
 - One clear goal per session; read this file first, tick boxes as they land.
 - Core code is plain ES modules with no DOM/three.js imports, so Node can test it.

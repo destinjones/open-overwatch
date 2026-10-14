@@ -47,6 +47,10 @@ Once it is on npm, `npx -y open-overwatch-mcp` will work anywhere a command is a
 
 ## Tools
 
+Live answers carry a `provenance` line per item (or for the whole answer): which sources reported it, how many agree, how
+old the data is and a confidence word (confirmed, reported, stale, unknown), the same line the globe's cards show
+(src/core/liveprov.js).
+
 | Tool | Answers from | What you get |
 |---|---|---|
 | `show_on_globe` | (the globe itself) | the live 3D globe on a view: a place or point, a tilt, layers on or off, weather, a moment and clock speed, a satellite to follow, a flight to look for, a country's card, a camera look. Pass another answer's `url` to show exactly that |

@@ -865,3 +865,48 @@ OpenSky timeout), so they are not relayed; don't disguise the relay to get past 
   Fonts for their own card pages (local tooling, not the site).
 - **Check before publishing a page change:** `node brand/tools/sri.mjs` (or `node --test`). In a browser, a CSP
   violation shows as a console error "Refused to …"; listen for `securitypolicyviolation` to catch them in a script.
+
+## Provenance on every live card, and export (core/liveprov.js, core/export.js, app/save.js) — 2026-10-14 (branch provenance-layers)
+- The record is core/provenance.js (one shape for every view and the MCP server); core/liveprov.js is the per-layer side:
+  `SOURCES` (who each feed is), `LAYERS` (each layer's max age and what its data time means) and the stamp a layer puts on an
+  item as it builds it (`stamp(item, layer, [rep(id, { dataAt, cached })], { agreeing })`, or `get prov()` on a prototype via
+  `provStamp`). The card asks `provBlock(item)` when drawn, so the age is true at that moment. Unstamped things (static data:
+  volcanoes, lighthouses, airports, countries; the simulated cars) show no block.
+- Hooked in two places only: the globe's `select()` (ui.js) appends `provBlock(o)` to every card, launches add it to their own
+  card; the 2D map's `Detail.render` appends it after the renderer. Everything else is one stamping line per feed.
+- Data times used (never our download time): USGS summary `metadata.generated` (else the solution's `updated`); readsb `now − seen_pos`
+  (the 2D map), `now − seen_pos` on the globe, OpenSky `time_position`; TLE epoch; EONET newest geometry; GDACS `datemodified`;
+  NHC `lastUpdate`, GDACS `polygondate`; VIIRS acquisition; NIFC `poly_DateCurrent`; AIS `timestampExternal`, aisstream
+  `time_utc`; GTFS-rt / MBTA / Entur / HSL report times; CityBikes station time; NDBC observation; DART and CO-OPS readings (set
+  when the card reads them, "unknown" until then); Open-Meteo model hour; SondeHub frame time; NWS `sent`; GDELT `seendate`;
+  Overpass `osm3s.timestamp_osm_base`; radio-browser `lastcheckoktime`; LL2 `last_updated` (the site copy's build time when the copy
+  dropped it). Camera lists and the FlockHopper / OpenFreeMap tiles carry no time: those cards say "unknown", honestly.
+- Copies: `(copy)` when it came through the site mirror (TLEs unless straight from CelesTrak, launches), a stored snapshot (the
+  globe's 15-min OpenSky cache, the TLE localStorage cache) or the public relay (`Relay.viaCopy` on the map, `viaCopy` in
+  globe/env.js); the local helper only passes requests on and is not a copy.
+- Real agreement, with tolerances in the layer's own core module (tested in test/liveprov.test.mjs):
+  - Aircraft (both views): `noteAircraftReport` keeps each feed's newest report 150 s; `sameAircraft` = same hex, ≤ 120 s
+    apart, position reachable at its speed (1.5 km + 1.15 × v·Δt), altitude within 500 ft + 4,000 ft/min. Reports further apart
+    are dropped from the count, not counted as disagreeing (the /mil feed and the sweep are ~60 s apart: at 30 s nothing
+    matched). 2D map, 2026-10-14 evening: 235 of 670 aircraft confirmed by two networks (adsb.lol /mil + adsb.fi sweep, or
+    OpenSky + ADS-B). Caveat: adsb.lol, adsb.fi and airplanes.live share many feeders, so "two networks" is not two receivers.
+    The globe (OpenSky snapshot + /mil, which is off by default) is nearly all single-source.
+  - Storms: the merge in core/cyclones.js keeps a fix per source (`reports`); `stormAgreement` takes the freshest as reference,
+    `sameStorm` = 150 km + 30 km/h × Δt (≤ 500 km), and counts each agency once (`agencyOf`): EONET or GDACS repeating NOAA's data is
+    named "(NOAA's data again)" and not a second witness; GDACS from JTWC/JMA next to NHC is.
+  - Quakes: USGS plus GDACS's earthquake alerts on the 2D map (`stampQuake`, `sameQuake` = 60 s, 100 km, 0.6 magnitude). GDACS
+    takes most solutions from NEIC (USGS), so those are listed "GDACS (USGS solution)" and don't confirm. No EMSC: adding it is
+    a new feed (follow-up). The globe and the MCP server read USGS only.
+  - Ships (2D map): Digitraffic and aisstream records of one MMSI (`sameShip`: ≤ 10 min, 300 m + run). Needs an aisstream key.
+  - Everything else is single-source: "reported" at best.
+- Export: core/export.js turns items into rows (plain fields, plus provenance, confidence, sources, agree, of, data_time,
+  data_age_s; CSV cells that would run as formulas get a leading '), app/save.js the buttons and a Blob download. 2D map:
+  "Export view" under each live layer (engine.js `Exports` for the layers outside Points: aircraft, ships, balloons,
+  satellites, transit). Globe: "Export what's in view" at the end of the Layers dock (globe/exportview.js, items from each
+  module, filtered to the camera's view rectangle).
+- MCP: hazards.mjs, tools.mjs and the tool modules add `provenance` (the plain line) per quake, storm, event, ship, station,
+  launch, vehicle, fire group, buoy, tide gauge, camera and road reading, and per answer for satellites, weather, aurora and air
+  quality (`lineFor`). aircraft_lookup (a registry) and the static-data tools have none.
+- Gotcha found on the way: the agent's Bash tool turns a doubled backslash in a heredoc into a single one, so a Python
+  string meant to write the CSS escape for ✔ (backslash 2714) wrote the octal escape 271 (¹) instead. Write CSS escapes and
+  regex backslashes with the Edit tool or a script file.
