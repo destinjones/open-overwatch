@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Helpers, settings storage, log + toast + sounds, the network layer with the local relay, the clock.
-import { PUBLIC_RELAY, PUBLIC_RELAY_HOSTS, onPublishedSite } from '../core/relay.js';
+import { PUBLIC_RELAY, onPublishedSite, publicRelayable } from '../core/relay.js';
 import { destination as geoDestination, haversine } from '../core/geo.js';
 import { esc } from '../core/format.js';
 
@@ -103,7 +103,7 @@ export const Relay = {
   base() { return (this.custom && this.customOk !== false) ? this.custom : (this.local ? location.origin + '/proxy?url=' : ''); },
   needs(url) { try { return NEEDS_RELAY.includes(new URL(url).hostname); } catch (e) { return false; } },
   wrap(url, b = this.base()) {
-    if (!b) { try { if (onPublishedSite(location.hostname) && PUBLIC_RELAY_HOSTS.includes(new URL(url).hostname)) b = PUBLIC_RELAY; } catch (e) { /* not a URL */ } }   // the website: the public relay, for the feeds it may carry
+    if (!b) { try { if (onPublishedSite(location.hostname) && publicRelayable(url)) b = PUBLIC_RELAY; } catch (e) { /* not a URL */ } }   // the website: the public relay, for the feeds it may carry
     if (!b) return null; return b.includes('{url}') ? b.replace('{url}', encodeURIComponent(url)) : b + encodeURIComponent(url); },
   async check() { // a custom relay is test-fetched with one small file; if it fails, the local helper (if any) takes over
     this.checked = true; this.customOk = null;

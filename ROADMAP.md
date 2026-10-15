@@ -135,6 +135,11 @@ Round 2 (2026-10-10, local):
 - [x] Public relay on the owner's Cloudflare account (relay/, Workers Cache in front): NOAA NHC, NYC cameras and the
       live cable map now work on the website. The ADS-B networks and OpenSky refuse Cloudflare's servers, so live
       aircraft still need the download (see docs/NOTES.md "Public relay"; adsb.lol says feeder API keys are coming)
+- [ ] Live aircraft on the website (2026-10-15, branch claude/wizardly-hamilton-5bcd3f; **needs the owner's OK to redeploy
+      the relay**): adsb.lol through the relay for /mil, emergency squawks and a fixed grid of 250 nm tiles (core/airgrid.js,
+      shared at the edge 45-60 s); the globe asks the 3 tiles nearest the camera, the 2D map 6. OpenSky stays download-only
+      (its terms forbid passing the data on). Then check from the website that adsb.lol answers the Worker (not 429) and
+      watch the Worker's daily request count (free plan: 100,000)
 - [x] Photoreal 3D cities: Google tiles via the visitor's own Cesium ion token; Google's geocoder while on (src/globe/photoreal.js)
 - [x] Tropical cyclones on the globe: NASA EONET tracks + NOAA NHC advisories (src/globe/storms.js)
 - [x] Directions: drive / walk / cycle (FOSSGIS OSRM), turn-by-turn, "fly it", by voice (core/route.js tested)

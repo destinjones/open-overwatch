@@ -38,3 +38,20 @@ test('relay: a fixed Accept upstream, HTML never shared, the byte cap holds on a
   upstream = { body: big, headers: { 'content-type': 'application/octet-stream' } };
   await assert.rejects(async () => { const r = await call('https://kamera.atlas.vegvesen.no/big.jpg'); await r.arrayBuffer(); }, /too large/);
 });
+
+test('relay: adsb.lol only for the shared queries, each shared for its own time; OpenSky and the others never', async () => {
+  const { nearestTiles, AIR_TTL } = await import('../src/core/airgrid.js');
+  const t = nearestTiles(48.9, 2.3, 1)[0], tile = `https://api.adsb.lol/v2/point/${t.lat}/${t.lon}/250`;
+  upstream = { body: '{"ac":[]}', headers: { 'content-type': 'application/json' } };
+  assert.equal((await call('https://api.adsb.lol/v2/mil')).headers.get('cache-control'), `public, max-age=${AIR_TTL.mil}`);
+  assert.equal((await call('https://api.adsb.lol/v2/squawk/7700')).headers.get('cache-control'), `public, max-age=${AIR_TTL.squawk}`);
+  const r = await call(tile);
+  assert.equal(r.status, 200); assert.equal(r.headers.get('cache-control'), `public, max-age=${AIR_TTL.point}`);
+  assert.equal(r.headers.get('access-control-allow-origin'), SITE);
+  for (const bad of ['https://api.adsb.lol/v2/point/48.9/2.3/250', tile + '?nocache=1', 'https://api.adsb.lol/v2/hex/abc123', 'https://api.adsb.lol/v2/squawk/1200',
+    'https://opensky-network.org/api/states/all', 'https://opendata.adsb.fi/api/v2/mil', 'https://api.airplanes.live/v2/mil', 'https://api.adsb.one/v2/mil'])
+    assert.equal((await call(bad)).status, 403, bad);
+  upstream = { status: 429, body: 'slow down', headers: { 'content-type': 'text/plain' } };   // a busy feed: a crowd doesn't retry it all at once
+  assert.equal((await call('https://api.adsb.lol/v2/mil')).headers.get('cache-control'), 'public, max-age=15');
+  assert.equal((await call('https://www.nhc.noaa.gov/CurrentStorms.json')).headers.get('cache-control'), 'no-store');   // other feeds as before
+});

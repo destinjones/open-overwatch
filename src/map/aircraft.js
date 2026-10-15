@@ -1,11 +1,16 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Aircraft: ADS-B sources swept tile by tile, OpenSky, emergencies, photos.
 import { num, idArg } from '../core/format.js';
-import { $, C, Log, Net, Store, debounce, destination, esc, fmt, haversine, late, rad, regionOf, toast } from './util.js';
+import { $, C, Log, Net, Relay, Store, debounce, destination, esc, fmt, haversine, late, regionOf, toast } from './util.js';
 import { map, vecRenderer } from './mapview.js';
 import { Dyn, Exports, Layers, Sel, UI, airAt, feed, requestDraw } from './engine.js';
 import { Detail, Tracks } from './detail.js';
 import { readsb, openskyState, noteAircraftReport, readsbTime } from '../core/aircraft.js';
+import { AIR_TTL, ROW_DEG, TILE_KM, gridRow, tileAt } from '../core/airgrid.js';
+import { onPublishedSite } from '../core/relay.js';
+
+/** The website without a helper or custom relay: adsb.lol only, through the public relay (core/airgrid.js says which queries). */
+export const publicAir = () => !Relay.base() && onPublishedSite(location.hostname);
 
 /* ============================================================ AIRCRAFT (ADS-B) */
 export const AIR_SRC = { 'adsb.lol': 'https://api.adsb.lol', 'adsb.fi': 'https://opendata.adsb.fi/api', 'airplanes.live': 'https://api.airplanes.live' };
@@ -20,7 +25,7 @@ export const Air = {
   paced(src) { return this.gap[src] || 2500; },
   onOk(src) { this.okStreak[src] = (this.okStreak[src] || 0) + 1; if (this.okStreak[src] >= 25) { this.okStreak[src] = 0; this.gap[src] = Math.max(2000, Math.round(this.paced(src) * 0.85)); } },
   on429(src) { this.okStreak[src] = 0; this.gap[src] = Math.min(6000, Math.round(this.paced(src) * 1.5)); this.cooldown[src] = Date.now() + 60000; },
-  order() { const pref = AIR_SRC[Layers.opt('air_src')] ? Layers.opt('air_src') : 'adsb.lol'; return [pref, ...Object.keys(AIR_SRC).filter(s => s !== pref && !AIR_PATHS[s].optIn)]; },
+  order() { if (publicAir()) return ['adsb.lol']; const pref = AIR_SRC[Layers.opt('air_src')] ? Layers.opt('air_src') : 'adsb.lol'; return [pref, ...Object.keys(AIR_SRC).filter(s => s !== pref && !AIR_PATHS[s].optIn)]; },
   path(src, kind, args) { const P = AIR_PATHS[src]; if (kind === 'point') return P.point(...args); if (kind === 'reg') return P.reg(args[0]); if (kind === 'squawk') return P.squawk(args[0]); if (kind === 'mil') return '/v2/mil'; return `/v2/${kind}/${args[0]}`; },
   async getFrom(src, kind, ...args) {
     const now = Date.now(); if ((this.cooldown[src] || 0) > now) throw new Error(`cooling down after rate limit (${Math.ceil((this.cooldown[src] - now) / 1000)} s)`);
@@ -148,21 +153,21 @@ Detail.renderers.air = a => {
 
 /* ---- "All aircraft in view": the public APIs answer at most 250 nm per query, so the visible area is swept
    with a hexagonal grid of 250 nm circles (up to MAX_TILES per pass, nearest the center first), the tiles split
-   across the two aggregators in parallel, and everything is dead-reckoned between passes. */
+   across the two aggregators in parallel, and everything is dead-reckoned between passes. The grid is fixed
+   (core/airgrid.js), so on the website every visitor asks the public relay for the same tiles and shares its copies. */
 export const AirSweep = {
-  R_KM: 463, MAX_TILES: 30, tiles: [], partial: false, key: '', passMs: 0, cover: L.layerGroup(), showCover: Store.get('sweep_cover', false),
+  R_KM: TILE_KM, MAX_TILES: 30, PUBLIC_TILES: 6, tiles: [], partial: false, key: '', passMs: 0, cover: L.layerGroup(), showCover: Store.get('sweep_cover', false),
   plan() {
-    const b = map.getBounds(); const c = map.getCenter();
+    const b = map.getBounds(); const c = map.getCenter(), max = publicAir() ? this.PUBLIC_TILES : this.MAX_TILES;   // the public relay is shared: a few tiles per visitor
     const south = Math.max(-80, b.getSouth()), north = Math.min(80, b.getNorth()); let west = b.getWest(), east = b.getEast(); if (east - west > 360) { west = -180; east = 180; }
-    const R = this.R_KM, rowKm = 1.5 * R, dLat = rowKm / 111, cand = [];
+    const dLat = ROW_DEG, cand = [];
     const row0 = Math.floor((south - dLat) / dLat), row1 = Math.ceil((north + dLat) / dLat);
     for (let r = row0; r <= row1; r++) {
-      const lat = r * dLat; if (lat < -80 || lat > 80) continue;
-      const dLon = (Math.sqrt(3) * R) / (111 * Math.max(.2, Math.cos(rad(lat)))); const off = (r % 2) ? dLon / 2 : 0;
+      const { lat, dLon, off } = gridRow(r); if (lat < -80 || lat > 80) continue;
       const c0 = Math.floor((west - dLon) / dLon), c1 = Math.ceil((east + dLon) / dLon);
-      for (let k = c0; k <= c1; k++) { const lon = k * dLon + off; if (lon < west - dLon * .6 || lon > east + dLon * .6) continue; if (lat < south - dLat * .6 || lat > north + dLat * .6) continue; cand.push({ lat: +lat.toFixed(3), lon: +(((lon + 540) % 360) - 180).toFixed(3), d: haversine(c.lat, c.lng, lat, lon) }); }
+      for (let k = c0; k <= c1; k++) { const lon = k * dLon + off; if (lon < west - dLon * .6 || lon > east + dLon * .6) continue; if (lat < south - dLat * .6 || lat > north + dLat * .6) continue; cand.push({ ...tileAt(lat, lon), d: haversine(c.lat, c.lng, lat, lon) }); }
     }
-    cand.sort((a, b) => a.d - b.d); this.partial = cand.length > this.MAX_TILES; this.tiles = cand.slice(0, this.MAX_TILES);
+    cand.sort((a, b) => a.d - b.d); this.partial = cand.length > max; this.tiles = cand.slice(0, max);
     this.key = this.tiles.map(t => `${t.lat},${t.lon}`).sort().join('|'); this.drawCover(); return this.tiles; // sorted: a pan that only reorders the same tiles keeps the pass going
   },
   drawCover() {
@@ -198,7 +203,7 @@ export const AirSweep = {
   },
 };
 export const lyAirLocal = Layers.add({
-  id: 'air_local', group: 'Air', name: 'All aircraft in view', desc: 'ADS-B · sweeps the visible area in 250 nm tiles, up to 30 per pass (the whole continental US when it fills the screen) · needs the helper', color: C.civ, default: true,
+  id: 'air_local', group: 'Air', name: 'All aircraft in view', desc: 'ADS-B · sweeps the visible area in 250 nm tiles, up to 30 per pass (the whole continental US when it fills the screen) with the helper, the 6 nearest the centre on the website', color: C.civ, default: true,
   sub(el) {
     const srcs = [{ id: 'adsb.lol', name: 'adsb.lol' }, { id: 'adsb.fi', name: 'adsb.fi' }, { id: 'airplanes.live', name: 'airplanes.live', title: 'Only if airplanes.live has given you API permission — otherwise it answers 403' }];
     const render = () => {
@@ -213,16 +218,17 @@ export const lyAirLocal = Layers.add({
   enable() { AirSweep.drawCover(); },
   disable() { AirSweep.cover.clearLayers(); for (const [k, a] of Dyn.air) if (!a.mil && !a.emerg && a.src !== 'opensky') Dyn.air.delete(k); },
 });
-feed(lyAirLocal, { interval: 8, viewDependent: true, minZoom: 3, startDelay: 3, fetch: async () => { await AirSweep.pass(); lyAirLocal.feed.count = Dyn.air.size; } });
+feed(lyAirLocal, { interval: 8, viewDependent: true, minZoom: 3, startDelay: 3, fetch: async () => { lyAirLocal.feed.interval = publicAir() ? AIR_TTL.point : 8; await AirSweep.pass(); lyAirLocal.feed.count = Dyn.air.size; } });
 map.on('moveend', debounce(() => { if (lyAirLocal.on && map.getZoom() >= 3) { AirSweep.plan(); } }, 300));
 
-export const lyAirMil = Layers.add({ id: 'air_mil', group: 'Air', name: 'Military aircraft, worldwide', desc: 'Everything the aggregator flags as military · needs the helper', color: C.mil, default: true, disable() { for (const [k, a] of Dyn.air) if (a.mil && !a.tags.has('local')) Dyn.air.delete(k); } });
-feed(lyAirMil, { interval: 15, fetch: async () => { const d = await Air.get('mil'); lyAirMil.feed.count = Air.ingest(d, 'mil'); } });
+export const lyAirMil = Layers.add({ id: 'air_mil', group: 'Air', name: 'Military aircraft, worldwide', desc: 'Everything the aggregator flags as military', color: C.mil, default: true, disable() { for (const [k, a] of Dyn.air) if (a.mil && !a.tags.has('local')) Dyn.air.delete(k); } });
+feed(lyAirMil, { interval: 15, fetch: async () => { lyAirMil.feed.interval = publicAir() ? AIR_TTL.mil : 15; const d = await Air.get('mil'); lyAirMil.feed.count = Air.ingest(d, 'mil'); } });
 
 export const lyAirEmg = Layers.add({ id: 'air_emg', group: 'Air', name: 'Emergency squawks, worldwide', desc: '7700 emergency · 7600 radio failure · 7500 unlawful interference', color: C.emg, default: true });
 export let emgCycle = 0;
 feed(lyAirEmg, {
   interval: 45, errorInterval: 90, startDelay: 12, fetch: async () => {
+    lyAirEmg.feed.interval = publicAir() ? AIR_TTL.squawk : 45;   // the relay shares each answer this long anyway
     let n = 0; // alerts come from Air.ingest when an aircraft turns emergency, whichever feed sees it first
     const squawks = ['7700', (emgCycle++ % 2) ? '7600' : '7500']; // 7700 every cycle, the rarer two alternate: 2 requests instead of 3
     for (const sq of squawks) {

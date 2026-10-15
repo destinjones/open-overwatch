@@ -399,9 +399,28 @@ host limited to its feed paths (PATHS in worker.js), an Origin header required, 
 Accept (a forwarded one let anyone poison the shared cache with DriveBC's HTML rendering: 2026-10-11 review), HTML never
 cached, a 30 MB cap counted on the stream, `Access-Control-Allow-Origin` fixed to the published site, test/relay.test.mjs
 exercises it with a stand-in upstream. Add the free-plan WAF rate-limiting rule on the route (e.g. 60 req/min per address), Workers Cache in front (works on the free plan: `CF-Cache-Status: HIT`; per-host max-age in TTL).
-The ADS-B networks and OpenSky refuse Cloudflare's servers (adsb.lol 429, airplanes.live / adsb.fi / adsb.one 403,
-OpenSky timeout), so they are not relayed; don't disguise the relay to get past that. adsb.lol's API terms say a key
-(given to feeders) is coming: with the owners' agreement, add the host back to TTL and PUBLIC_RELAY_HOSTS.
+The ADS-B networks and OpenSky refused Cloudflare's servers on 2026-10-10 (adsb.lol 429, airplanes.live / adsb.fi /
+adsb.one 403, OpenSky timeout); don't disguise the relay to get past that. adsb.lol's API terms say a key (given to feeders)
+is coming.
+- 2026-10-15, live aircraft on the website (needs a redeploy): terms checked. OpenSky's (opensky-network.org/about/
+  terms-of-use): non-profit research and education only, 3(iii) no making the data available to others, and "Operational
+  use of the REST API in any live product, service, or automated system also requires a written license": not relayed,
+  not even cached (ask OpenSky for a licence to change that). adsb.fi: "personal, non-commercial use only", 1 req/s;
+  airplanes.live: written permission; adsb.one: 403. adsb.lol: ODbL 1.0, "The API is available to everyone", dynamic
+  rate limits, a feeder key later: relayed, but only queries every visitor asks alike, so the edge cache is shared:
+  `/v2/mil` and squawks 7500/7600/7700 (60 s), and `/v2/point/{lat}/{lon}/250` only on the fixed grid of
+  src/core/airgrid.js (45 s; the Worker refuses any other centre, radius or query string). The worker imports airgrid.js
+  (wrangler bundles it). A 429/5xx from adsb.lol is shared 15 s so a crowd doesn't retry together. None of api.adsb.lol,
+  opendata.adsb.fi, api.airplanes.live, api.adsb.one sends CORS headers (checked 2026-10-15), so the relay is needed.
+  Website behaviour: the globe's civil layer asks the 3 tiles nearest the camera every 45 s, one at a time 1.5 s apart
+  (adsb.lol 429s a burst even from this PC; London from 800 km: 495 planes) (`Air.civil` → `nearby`; the
+  download keeps OpenSky's 15-min snapshot), area fixes pruned after 3 min; the 2D map uses adsb.lol only (`publicAir`),
+  6 tiles per pass every 45 s, mil every 60 s, squawks every 60 s. Not verified from Cloudflare: if adsb.lol still answers
+  the Worker 429, both views show the error and nothing else changes. Workers Cache is per data centre, so "one upstream
+  request per interval" is per Cloudflare location. Budget: the free plan's 100,000 Worker requests a day (cache hits
+  may count) is ~70 a minute; a globe visitor costs ~5 a minute (3 tiles / 45 s + mil), a map visitor ~11 (6 tiles / 45 s
+  + mil + 2 squawks), so ~14 globe or ~6 map visitors on at once, averaged over the whole day, would use it up, and then every relayed feed (NHC, cameras, buoys) fails until midnight UTC. Watch the
+  Worker's request graph after advertising; Workers Paid ($5/month, 10 M requests) if needed.
 
 ## MCP server (mcp/) — 2026-10-11
 - Layout: `server.mjs` (CLI, stdio) → `index.mjs` (assembly) → `protocol.mjs` (JSON-RPC by hand: initialize with version

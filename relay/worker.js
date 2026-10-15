@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
-// Open Overwatch public relay, a Cloudflare Worker. A few feeds the website needs send no CORS headers (the ADS-B
-// aircraft networks, OpenSky, NOAA's hurricane advisories, NYC cameras, some camera lists and stills, the submarine cable map), so a browser page
-// can't read them. This passes those through, and only those, like the download's local helper (serve.js):
+// Open Overwatch public relay, a Cloudflare Worker. A few feeds the website needs send no CORS headers (adsb.lol's
+// aircraft, NOAA's hurricane advisories and buoys, NYC cameras, some camera lists and stills, the submarine cable map), so
+// a browser page can't read them. This passes those through, and only those, like the download's local helper (serve.js):
 //   GET /?url=<encoded https URL>   the feed, with Access-Control-Allow-Origin for the website
 //   GET /?ping=1                    "ok"
 // Rules: an allowlist of hosts and paths, GET only, an Origin header required (browsers always send one cross-origin;
@@ -11,14 +11,19 @@
 // Workers Cache (wrangler.toml [cache]) sits in front: a response is shared for a few seconds (aircraft) to minutes
 // (snapshots, advisories), so a thousand visitors cost the volunteer feeds one request per interval, not a thousand.
 // Cache hits never reach this code, so the allowed origin is one fixed value (the cache doesn't vary by Origin).
+// wrangler bundles the one import below (the adsb.lol rules, shared with the website so both sides agree).
+import { ADSB_LOL_HOST, adsbLolTtl } from '../src/core/airgrid.js';
 
 const SITE = 'https://destinjones.github.io';
 const ORIGINS = new Set([SITE, 'http://localhost:8787', 'http://127.0.0.1:8787']);   // a cache miss from anywhere else is refused
-// host -> seconds a response is shared. Keep in sync with PUBLIC_RELAY_HOSTS (src/core/relay.js).
-// The ADS-B networks (adsb.lol 429, airplanes.live / adsb.fi / adsb.one 403) and OpenSky (timeout) refuse Cloudflare's
-// servers (2026-10-10), so they are not listed: only with their owners' agreement, e.g. an adsb.lol feeder API key
-// ({'api.adsb.lol': 8, 'opensky-network.org': 600}).
+// host -> seconds a response is shared (or path -> seconds). Keep in sync with PUBLIC_RELAY_HOSTS (src/core/relay.js).
+// adsb.lol (ODbL, open to everyone) only for the queries every visitor asks alike, so its cache is shared: /v2/mil and
+// the emergency squawks for 60 s, area queries on the fixed grid of src/core/airgrid.js for 45 s. Not carried: OpenSky
+// (its terms forbid passing the data on, and a live service needs its written licence), adsb.fi (personal use only),
+// airplanes.live and adsb.one (written permission). adsb.lol answered Cloudflare's servers with 429 on 2026-10-10; if it
+// still does, visitors see the error and nothing else changes. Don't disguise the relay to get past that.
 const TTL = {
+  [ADSB_LOL_HOST]: adsbLolTtl,        // aircraft: military, emergencies, the grid's 250 nm tiles
   'www.nhc.noaa.gov': 600,            // hurricane advisories
   'webcams.nyctmc.org': 30,           // NYC traffic camera frames
   'www.submarinecablemap.com': 86400, // cable routes
@@ -32,6 +37,7 @@ const TTL = {
 };
 // what each host may be asked for: API hosts only their feed paths; the camera image hosts any picture path (the feeds name them)
 const PATHS = {
+  [ADSB_LOL_HOST]: [p => adsbLolTtl(p) > 0],
   'www.nhc.noaa.gov': ['/CurrentStorms.json'],
   'webcams.nyctmc.org': ['/api/cameras'],
   'www.submarinecablemap.com': ['/api/v3/'],
@@ -44,7 +50,10 @@ const MAX_BYTES = 30e6;
 const ACCEPT = 'application/json, application/geo+json, image/*;q=0.9, */*;q=0.5';
 const UA = 'OpenOverwatchRelay/1 (+https://destinjones.github.io/open-overwatch/)';
 
-const allowed = u => u.protocol === 'https:' && !u.port && Object.hasOwn(TTL, u.hostname) && !u.username && !u.password && (PATHS[u.hostname] || []).some(p => u.pathname.startsWith(p));
+const ruled = h => typeof TTL[h] === 'function';   // per-path rules: no query string either, one URL per answer (the cache is shared)
+const allowed = u => u.protocol === 'https:' && !u.port && Object.hasOwn(TTL, u.hostname) && !u.username && !u.password && !(ruled(u.hostname) && u.search)
+  && (PATHS[u.hostname] || []).some(p => typeof p === 'function' ? p(u.pathname) : u.pathname.startsWith(p));
+const ttl = u => ruled(u.hostname) ? TTL[u.hostname](u.pathname) : TTL[u.hostname];
 
 function reply(status, body, seconds = 0) {
   return new Response(body, { status, headers: {
@@ -81,7 +90,8 @@ export default {
     for (const k of ['content-type', 'content-length', 'last-modified', 'etag']) { const v = res.headers.get(k); if (v) h.set(k, v); }
     // only good answers are shared; errors (a 429 from a busy feed) are not, so the next visitor tries again. An HTML
     // page where a feed was expected (a login page, an error page, a content-negotiated rendering) is never shared either
-    h.set('cache-control', res.ok && !/text\/html/i.test(type) ? `public, max-age=${TTL[target.hostname]}` : 'no-store');
+    // A busy aircraft feed's 429 or 5xx is shared for 15 s, though: a crowd of visitors must not retry it all at once
+    h.set('cache-control', res.ok && !/text\/html/i.test(type) ? `public, max-age=${ttl(target)}` : ruled(target.hostname) && (res.status === 429 || res.status >= 500) ? 'public, max-age=15' : 'no-store');
     // the byte cap holds without a Content-Length too (chunked or compressed answers): count as it streams
     let seen = 0;
     const capped = res.body && res.body.pipeThrough(new TransformStream({ transform(chunk, ctl) { seen += chunk.byteLength; if (seen > MAX_BYTES) ctl.error(new Error('too large')); else ctl.enqueue(chunk); } }));

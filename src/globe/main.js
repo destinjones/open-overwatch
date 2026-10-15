@@ -9,6 +9,7 @@ import { Follow, MODEL_FIX, SOLAR_AXIS } from './follow.js';
 import { Sats, SatModels, SHADOW_FILL } from './satellites.js';
 import { warmModels, warmAgain, warmSlowly } from './warm.js';
 import { Air, AirModels, airShown } from './aircraft.js';
+import { AIR_TTL } from '../core/airgrid.js';
 import { Time } from './time.js';
 import { Quakes } from './quakes.js';
 import { Lighthouses } from './lighthouses.js';
@@ -196,7 +197,7 @@ Sats.ready = Sats.load().catch(e => toast('Satellites failed: ' + e.message));  
     setTimeout(function warm() { if (PHONE && performance.now() - lastInput < 3000) return setTimeout(warm, 2000); Weather.prewarm(); }, 6000);   // weather's first open would otherwise freeze the globe ~0.6 s
   }, 1000);
 }
-every(15 * 60e3, () => Air.opensky(), 'Civil aircraft');
+every(AIR_TTL.point * 1000, () => Air.civil(), 'Civil aircraft');   // OpenSky every 15 min with the helper, adsb.lol near the camera on the website
 every(60e3, () => Air.military(), 'Military aircraft');
 every(10 * 60e3, () => Quakes.load(), 'Earthquakes');
 every(30 * 60e3, () => Storms.load(), 'Tropical cyclones');
