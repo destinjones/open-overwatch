@@ -19,11 +19,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # all tags, for the version archive
       - name: Keep the daily element-set archive between builds (data/tle/history; the live site is the fallback)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .tle-history
           key: tle-history-${{ github.run_id }}
@@ -32,7 +32,7 @@ jobs:
         run: python3 .github/build_site.py _site
         env:
           OO_TLE_HISTORY: .tle-history
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
   deploy:
@@ -43,4 +43,4 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

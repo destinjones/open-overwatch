@@ -11,7 +11,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build the download zip
         run: |
           D=dist/open-overwatch
@@ -33,7 +33,7 @@ jobs:
           echo "$GITHUB_REF_NAME" > "$D/VERSION.txt"
           (cd dist && zip -qr open-overwatch.zip open-overwatch)
           ls -la dist
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Build the Claude Desktop extension (open-overwatch.mcpb, see mcp/README.md)
@@ -46,7 +46,7 @@ jobs:
           (cd "$B" && node mcp/server.mjs --version)                                             # it starts from the bundle
           (cd "$B" && zip -qr ../open-overwatch.mcpb .)
           ls -la dist
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             dist/open-overwatch.zip

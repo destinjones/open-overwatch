@@ -11,8 +11,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Syntax check every module and tool
@@ -40,21 +40,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Install Playwright (dev dependency) and satellite.js
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Keep the browser between runs
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Headless Chromium and the libraries it needs
         run: npx playwright install --with-deps --only-shell chromium
       - name: Keep the pinned libraries and fonts the pages load (e2e/.cache, filled on the first run)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: e2e/.cache
           key: e2e-cdn-${{ hashFiles('*.html') }}
@@ -63,7 +63,7 @@ jobs:
         run: npx playwright test
       - name: Report, traces and the screenshots of any failure
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-report
           path: |
