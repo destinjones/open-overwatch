@@ -7,15 +7,45 @@ them). The annotated tag messages (`git tag -n99`) are the release notes this fi
 
 ## [Unreleased]
 
+## [0.9.2.13] - 2026-10-14
+
+Checked, and darker skies.
+
 ### Added
+- Provenance on every live layer: each card says which sources reported it, how many agree, how old the data itself is
+  (not the download) and a confidence (confirmed, reported, stale, unknown) by a rule written in the guide; the MCP
+  answers carry the same line. Export what's on a layer as GeoJSON, CSV or KML.
+- The Sun now: solar wind speed and density, Bz, the flare class now and the day's peak, and NOAA's alerts in plain
+  words, beside the aurora on the globe and in Tonight (MCP `space_weather`).
+- Your sky: the Bortle class and sky brightness where you are (2016 World Atlas of artificial sky brightness, CC BY-NC),
+  the nearest darker sky, and a light-pollution layer on the globe and the 2D map.
+- Deep sky tonight: Messier, NGC and IC objects well placed tonight for eyes, binoculars or a small telescope
+  (OpenNGC, CC-BY-SA-4.0) (MCP `dark_sky`).
+- Falling soon: satellites and debris predicted to re-enter in the next 30 days, worked out from the element sets (decay
+  from n-dot and drag through a solar-scaled atmosphere), each with a window of ±25% of the time left and its corridor;
+  on the globe (list, cards, a corridor layer), the 2D map and the MCP server (`reentries`).
+- MCP server 0.4.0: 38 tools.
+
+### Security
+- Integrity hashes on every library from a CDN, a Content-Security-Policy on every page (no inline script allowed on
+  the 2D map either), and the fonts served from the site instead of Google Fonts.
+- Dependabot, CodeQL, `npm audit`, a licence check of the shipped dependencies and a coverage floor in CI; CODEOWNERS,
+  topics and a protected main branch.
+
+## [0.9.2.12] - 2026-10-14
+
+Back in time.
+
+### Added
+- Time travel with real history: rewinding the globe shows the earthquakes from the USGS catalogue, the storms and
+  natural events of that time, and the satellites where they were, from an archive of past orbits.
+- The oceans and the air: NOAA buoys, tsunami buoys, tide gauges, sea-surface temperature, modelled air quality, smoke
+  and dust.
 - A contributor on-ramp: CONTRIBUTING.md (run it, test it, the house rules, how a change gets released, good first
   issues), issue templates for bugs, features and data sources, a pull request template, SECURITY.md with a private
   reporting route, a Code of Conduct (Contributor Covenant 2.1), GOVERNANCE.md (what owning the project involves, how
   releases, the relay and the MCP Worker are run), this changelog, and a dev container for one-click setup.
 - The Zenodo DOI in the README and CITATION.cff.
-- Falling soon: satellites and debris predicted to re-enter in the next 30 days, worked out from the element sets (decay
-  from n-dot and drag through a solar-scaled atmosphere), each with a window of ±25% of the time left and its corridor;
-  on the globe (list, cards, a corridor layer), the 2D map and the MCP server (`reentries`).
 
 ### Fixed
 - Browser tests on GitHub's runners: one worker and longer limits on the 2-core machine, one globe per test at a time,

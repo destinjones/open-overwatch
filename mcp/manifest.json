@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "open-overwatch",
   "display_name": "Open Overwatch",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "The live Earth for Claude: earthquakes, satellites, launches, storms, wildfires, ships, transit, traffic cameras, cables, countries, weather and waves, aircraft, spacecraft and comets, the aurora, the planets and tonight's sky, with the 3D globe in the chat.",
   "long_description": "Ask about the live Earth and get answers from public open data (USGS, NOAA, NASA, Launch Library 2, CelesTrak element sets via the Open Overwatch website, Fintraffic AIS, CityBikes, Open-Meteo, public traffic cameras, transit operators, TeleGeography, Wikidata, the World Bank). Every answer carries a link that opens Open Overwatch's live 3D globe on it, and show_on_globe puts that globe right in the conversation. No account, no API keys, nothing stored.",
   "author": { "name": "Destin Jones", "url": "https://github.com/destinjones" },

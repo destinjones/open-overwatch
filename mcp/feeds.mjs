@@ -4,7 +4,7 @@
 // source that fails falls back to its last answer for a day. It never asks CelesTrak (it firewalls networks that download
 // too often): satellite elements come from the website's own copy, refreshed every 6 h.
 
-export const VERSION = '0.3.1';
+export const VERSION = '0.4.0';
 export const SITE = 'https://destinjones.github.io/open-overwatch/';
 export const USER_AGENT = `open-overwatch-mcp/${VERSION} (+https://github.com/destinjones/open-overwatch)`;
 const STALE_OK_MS = 24 * 3600e3;
