@@ -1,0 +1,58 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
+// The India landing page's logic without the page (india/india.js draws it): which launches are India's and when they
+// are due, the six cities and their next ISS passes, compass words in English and Hindi, and the address with the ad
+// tags taken out. DOM-free (test/india.test.mjs).
+import { findPasses } from './passes.js';
+import { observer, sunEcef } from './observer.js';
+
+export const TZ = 'Asia/Kolkata';
+/** A time in India, in English or Hindi (Intl: hi-IN writes Hindi month and day names with Western digits). */
+export const fmtIST = (ms, lang, o) => new Intl.DateTimeFormat(lang === 'hi' ? 'hi-IN' : 'en-IN', { timeZone: TZ, ...o }).format(ms);
+
+/** The address without utm_* and fbclid (the tags ad links carry) and without the hash; `lang` and the rest stay. */
+export function cleanUrl(href) {
+  const u = new URL(href);
+  for (const k of [...u.searchParams.keys()]) if (/^utm_/i.test(k) || /^fbclid$/i.test(k)) u.searchParams.delete(k);
+  u.hash = '';
+  return u.href;
+}
+
+/** A box around India (the ISS line says "over India" inside it), and one around South Asia (the quake count). */
+export const overIndia = (lat, lon) => lat >= 6 && lat <= 37.5 && lon >= 68 && lon <= 97.5;
+export const inSouthAsia = ([lon, lat]) => lat >= 0 && lat <= 40 && lon >= 60 && lon <= 100;
+
+/** A Launch Library 2 launch from India (Satish Dhawan Space Centre, Sriharikota, or any pad in India). */
+export const fromIndia = r => {
+  const l = r && r.pad && r.pad.location;
+  return !!l && (/\bIndia\b|Sriharikota|Satish Dhawan/i.test(l.name || '') || l.country_code === 'IND' || r.pad.country?.alpha_3_code === 'IND');
+};
+/** India's launches still to come (or under an hour past their time), soonest first. */
+export function indianLaunches(results, now = Date.now()) {
+  return (Array.isArray(results) ? results : []).filter(r => r && typeof r === 'object' && fromIndia(r))
+    .filter(r => { const t = Date.parse(r.net); return !Number.isFinite(t) || t > now - 3600e3; })
+    .sort((a, b) => (Date.parse(a.net) || 9e15) - (Date.parse(b.net) || 9e15));
+}
+/** When a launch is due, only as precisely as Launch Library 2 says (net_precision): a time, a day, a month or a year. */
+export function launchWhen(r, lang) {
+  const t = Date.parse(r && r.net), p = r && r.net_precision && r.net_precision.abbrev, hi = lang === 'hi';
+  if (!Number.isFinite(t)) return hi ? 'तारीख़ तय नहीं' : 'date to be set';
+  if (['SEC', 'MIN', 'HR'].includes(p)) return fmtIST(t, lang, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' IST';
+  if (p === 'D') return fmtIST(t, lang, { day: 'numeric', month: 'short', year: 'numeric' });
+  if (p === 'M' || p === 'W') return (hi ? 'लक्ष्य: ' : 'target: ') + fmtIST(t, lang, { month: 'long', year: 'numeric' });
+  return (hi ? 'लक्ष्य: ' : 'target: ') + fmtIST(t, lang, { year: 'numeric' });
+}
+
+/** The six cities on the page: English name, Hindi name, latitude, longitude (city centres; Delhi is India Gate). */
+export const CITIES = Object.freeze([
+  ['Delhi', 'दिल्ली', 28.6129, 77.2295], ['Mumbai', 'मुंबई', 19.076, 72.8777], ['Bengaluru', 'बेंगलुरु', 12.9716, 77.5946],
+  ['Kolkata', 'कोलकाता', 22.5726, 88.3639], ['Chennai', 'चेन्नई', 13.0827, 80.2707], ['Hyderabad', 'हैदराबाद', 17.385, 78.4867],
+]);
+const DIRS = [['N', 'उत्तर'], ['NE', 'उत्तर-पूर्व'], ['E', 'पूर्व'], ['SE', 'दक्षिण-पूर्व'], ['S', 'दक्षिण'], ['SW', 'दक्षिण-पश्चिम'], ['W', 'पश्चिम'], ['NW', 'उत्तर-पश्चिम']];
+/** An azimuth (deg) as one of eight directions, in English or Hindi. */
+export const dir8 = (az, lang) => DIRS[Math.round(((az % 360) + 360) % 360 / 45) % 8][lang === 'hi' ? 1 : 0];
+
+/** One city's passes in the coming `days`: the first of any kind and the first visible one (dark sky, sunlit station). */
+export function cityPasses(positionAt, lat, lon, now, days = 7) {
+  const all = findPasses(positionAt, observer(lat, lon, 0.2), now, now + days * 864e5, { step: 20e3, minEl: 10, sunAt: sunEcef });
+  return { next: all[0] || null, visible: all.find(p => p.visible) || null };
+}

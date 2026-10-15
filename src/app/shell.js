@@ -11,7 +11,8 @@ import { initPwa, Pwa } from './pwa.js';
 
 /** Which page this is, from its file name (archived /v/<tag>/ copies are the same pages). */
 export function pageOf(pathname) {
-  const f = String(pathname || '').split('/').pop() || 'index.html';
+  const parts = String(pathname || '').split('/'), f = parts.pop() || 'index.html';
+  if (f === 'index.html' && parts.pop() === 'india') return 'india';   // india/ (the India landing page) is a folder's index
   return ({ 'index.html': 'index', 'globe.html': 'globe', 'open-overwatch.html': 'map', 'solar.html': 'solar', 'tonight.html': 'tonight', 'about.html': 'about' })[f] || 'other';
 }
 

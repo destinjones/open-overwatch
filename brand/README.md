@@ -40,6 +40,13 @@ Made with Blender 5.2 (headless, scripted), a little Python, and the app itself.
   `blender ... toolseature_icons.py -- brand\lander\icons`
 - `clips/` — 540x960 phone clips encoded from the capture footage (air_world, mil, space, hazards, ui).
 
+## India page (`india/`, used by india/index.html)
+- `clips/` — 540x960 phone clips over India (india_sats, delhi_dive, airq, lookup) + poster JPGs:
+  `node tools\india_clips.mjs` (records the published website). The ad: `python tools\promo_india.py` →
+  `video/open-overwatch-india-promo.mp4`.
+- `hero-wide`, `hero-tall` stills (India at night from the globe) and `og-india-1200x630.jpg` (from `og-card.html`).
+  Details and the ad links: docs/INDIA.md.
+
 ## Where it's used in the app
 The start screen shows `hero-wide.webp` (`hero-tall.webp` on portrait screens) behind the boot panel, with the horizon
 pinned 245 px below the screen centre so it clears the Enter buttons (`.splash-globe` in open-overwatch.html). The

@@ -1,0 +1,65 @@
+# The India page and its ads
+
+`india/` (<https://destinjones.github.io/open-overwatch/india/>) is a landing page for visitors from India, made for
+Meta ads aimed at India. English by default, हिन्दी with the toggle in the top bar or with `?lang=hi`; the choice is
+kept in the browser (`localStorage` `oo-lang`). The app itself stays in English.
+
+Files: `india/index.html` (the page, both languages in it), `india/india.js` (the page's code), `src/core/india.js`
+(the logic, tested in `test/india.test.mjs`), `brand/india/` (hero stills, the Open Graph card and the phone clips),
+`brand/fonts/noto-sans-devanagari-var-devanagari.woff2` (the Hindi typeface, self-hosted, SIL OFL), `e2e/india.spec.mjs`
+(the browser test, CI only).
+
+## Ad links
+
+Measurement is by UTM tags only: no Meta Pixel, no analytics, no cookies, so the page keeps the site's "no account, no
+tracking" promise. The page never reads the tags; it only takes `utm_*` and `fbclid` out of the address bar once it
+has loaded (and its Share button never carries them), so a link someone copies or shares is clean.
+
+Nothing on the site records the tags either: GitHub Pages keeps no visitor log you can read. The numbers to watch are
+Meta's own (link clicks per ad). The tags only start to count if a privacy-friendly counter is added later, and then
+they are already on every ad.
+
+| Ad | URL |
+|---|---|
+| English | `https://destinjones.github.io/open-overwatch/india/?utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&utm_content=promo_en` |
+| Hindi | `https://destinjones.github.io/open-overwatch/india/?lang=hi&utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&utm_content=promo_hi` |
+| ISS passes | `https://destinjones.github.io/open-overwatch/india/?utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&utm_content=iss#iss` |
+| ISRO launches | `https://destinjones.github.io/open-overwatch/india/?utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&utm_content=isro#launches` |
+| Air quality | `https://destinjones.github.io/open-overwatch/india/?utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&utm_content=aqi#air` |
+| Night sky / Hanle | `https://destinjones.github.io/open-overwatch/india/?utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&utm_content=sky#sky` |
+
+Display link: `destinjones.github.io/open-overwatch/india`. In Ads Manager the tags can go in "URL parameters"
+instead, with Meta's own fields: `utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}`.
+A Hindi ad keeps `lang=hi` in the website URL itself.
+
+## What the page claims, and why it is true
+
+- **No live aircraft on the website**: said in the hero, in "What you won't get", and no link turns `air` or `mil` on
+  (`test/india.test.mjs` checks the links).
+- **Launches from India**: read from the site build's copy of Launch Library 2 (`data/launches.json`, the next 40
+  worldwide); dates are shown only as precisely as announced ("target: October 2026"). If none is on the list, it says so.
+- **More than 50 Indian satellites among 15,000+ active**: the CelesTrak `active` group the site copies had 15,927
+  satellites and 54 Indian ones by name (Cartosat, Oceansat/EOS, NISAR, RISAT, Resourcesat, Astrosat, INSAT, GSAT, CMS,
+  IRNSS/NVS) on 2026-10-15. INSAT, GSAT and NavIC are also in the `geo` group. Follow links: Cartosat-3 (44804), NISAR (65053).
+- **ISS passes over six cities**: worked out in the page from the site's TLE copy (`data/tle/stations.txt`, never
+  CelesTrak) with `core/passes.js`, the same code as Tonight. "Visible" needs a dark sky and a sunlit station; when no
+  visible pass comes within 7 days the next pass of any kind is shown and marked "not visible".
+- **Hanle Bortle 1, India Gate Bortle 8**: the app's light-pollution grid (Falchi et al. 2016, `data/lightpollution.bin`,
+  `core/lightpollution.js` `skyAt`) at 32.78 N 78.96 E and 28.61 N 77.23 E. Mumbai comes out 7, Bengaluru, Kolkata and
+  Hyderabad 8, Chennai 6. A model from 2014 satellite data, said so on the page.
+- **Aditya-L1**: the Solar System view marks the Sun–Earth L1 point, whose card names Aditya-L1; the spacecraft itself
+  is not drawn, and the page says so. No Chandrayaan or other Indian mission is drawn, so none is claimed.
+- **Air quality**: modelled (CAMS via Open-Meteo), not CPCB stations; the page points to CPCB, IMD and NCS for anything
+  that matters.
+
+## Clips, stills and the ad video
+
+- `brand/india/clips/{india_sats,delhi_dive,airq,lookup}.mp4` + `.jpg` (540x960, 4.5–5.5 s): recorded from the
+  published website with `node brand/tools/india_clips.mjs` (headless Edge on the GPU, frame-stepped, 1080x1920 frames,
+  IST time zone, the location fixed at India Gate). `OO_CLIPS=airq` records one; `OO_ENCODE_ONLY=1` re-encodes.
+  Record while it is night in India for the city lights and the Look up sky (the satellite clip sets its own midday).
+- `brand/india/hero-wide.{webp,jpg}`, `hero-tall.webp`: India at night from the published globe (`globe_shot.mjs` with
+  `OO_URL=…globe.html?hints=0#c=…&l=stations,visual,geo,active,night`, the page furniture hidden).
+- `brand/india/og-india-1200x630.jpg`: `brand/india/og-card.html` rendered at 1200x630 (see the comment in it).
+- The ad: `python brand/tools/promo_india.py` → `brand/video/open-overwatch-india-promo.mp4` (gitignored), 1080x1920,
+  30 fps, about 17.6 s, English captions, no audio, ending on a card with the address.

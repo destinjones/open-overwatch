@@ -1,0 +1,130 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
+// The India landing page (india/index.html, src/core/india.js): every deep link decodes into the view it promises, both
+// languages are there for every piece of text, nothing tracks, and the launch, pass and address logic.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, existsSync, statSync } from 'node:fs';
+import { decodeView, decodeExtras } from '../src/core/viewlink.js';
+import { decodeSolarView } from '../src/core/solarlink.js';
+import { LAYERS, WEATHER } from '../mcp/place.mjs';
+import { parseTle } from '../src/core/tle.js';
+import { ecfAt } from '../src/core/passes.js';
+import { cleanUrl, fromIndia, indianLaunches, launchWhen, dir8, CITIES, cityPasses, overIndia, inSouthAsia } from '../src/core/india.js';
+
+const root = new URL('../', import.meta.url);
+const read = p => readFileSync(new URL(p, root), 'utf8');
+const html = read('india/index.html');
+const body = html.slice(html.indexOf('<body'));
+const hrefs = [...body.matchAll(/href="([^"]+)"/g)].map(m => m[1].replace(/&amp;/g, '&'));
+
+test('every globe link opens a view (or a panel) over India with layers the globe has', () => {
+  const globe = hrefs.filter(h => h.startsWith('../globe.html#'));
+  assert.ok(globe.length >= 15, `${globe.length} globe links`);
+  for (const h of globe) {
+    const hash = h.slice(h.indexOf('#'));
+    const v = decodeView(hash);
+    if (!v) { assert.ok(decodeExtras(hash).go, `${h}: neither a view nor a panel`); continue; }
+    assert.ok(v.lon > 60 && v.lon < 100 && v.lat > 5 && v.lat < 40, `${h}: the camera is not over India`);
+    for (const id of [...(v.add || []), ...(v.drop || []), ...(v.layers || [])]) assert.ok(LAYERS.includes(id), `${h}: no layer ${id}`);
+    for (const id of v.weather || []) assert.ok(WEATHER.includes(id), `${h}: no weather source ${id}`);
+    if (v.weather) assert.ok(v.height >= 3e6, `${h}: weather links show the whole Earth`);
+    if (v.sat) assert.match(v.sat, /^(25544|44804|65053)$/, `${h}: a satellite the page names`);
+    assert.ok(!(v.add || []).includes('air') && !(v.add || []).includes('mil'), `${h}: the website has no live aircraft to show`);
+  }
+  // the launch panel links carry Launch Library 2 ids the page fills in (and one plain one)
+  assert.ok(globe.some(h => decodeExtras(h.slice(h.indexOf('#'))).go === 'launches'));
+});
+
+test('the 2D map, Solar System and Tonight links', () => {
+  const map = hrefs.filter(h => h.startsWith('../open-overwatch.html#'));
+  assert.equal(map.length, 1);
+  const v = decodeView(map[0].slice(map[0].indexOf('#')));
+  assert.ok(v && v.lon === 80 && v.lat === 22 && v.add.includes('quakes'));
+  const solar = hrefs.filter(h => h.startsWith('../solar.html#'));
+  assert.deepEqual(solar.map(h => decodeSolarView(h.slice(h.indexOf('#'))).focus), ['lagrange:L1']);
+  assert.match(read('src/solar/spacecraft.js'), /'L1', 'Sun-Earth L1', '[^']*Aditya-L1/, 'the L1 card names Aditya-L1');
+  assert.ok(hrefs.includes('../tonight.html'));
+  for (const h of hrefs.filter(h => h.startsWith('../') && !h.includes('#'))) {
+    const f = h.slice(3) || 'index.html';
+    assert.ok(existsSync(new URL(f.endsWith('/') ? f + 'index.html' : f, root)), h);
+  }
+});
+
+test('both languages for every piece of text, and lang attributes on each', () => {
+  const en = (body.match(/<span lang="en"/g) || []).length, hi = (body.match(/<span lang="hi"/g) || []).length;
+  assert.ok(en > 100, `${en} English pieces`);
+  assert.equal(en, hi, 'every English piece has its Hindi one');
+  for (const m of body.matchAll(/<span lang="hi"[^>]*>([^<]*)/g)) if (m[1].trim()) assert.match(m[1], /[ऀ-ॿ]|^[\w\s.·:/()-]+$/u, `Hindi text without Devanagari: ${m[1]}`);
+  assert.match(html, /<html lang="en" data-lang="en">/, 'English by default');
+  // the head script picks the language before the page paints; the choice is kept with try/catch around storage
+  const head = html.slice(0, html.indexOf('</head>')), inline = head.match(/<script>([\s\S]*?)<\/script>/)[1];
+  assert.match(inline, /localStorage\.getItem\('oo-lang'\)/);
+  assert.equal((inline.match(/try \{/g) || []).length, 3);
+  assert.ok(head.indexOf('<script>') < head.indexOf('<link rel="stylesheet"'), 'the language is set before the styles apply');
+});
+
+test('a self-hosted Devanagari font, with its licence; no Google Fonts', () => {
+  const css = read('brand/fonts/fonts.css');
+  assert.match(css, /font-family: 'Noto Sans Devanagari';[^}]*url\(noto-sans-devanagari-var-devanagari\.woff2\)[^}]*unicode-range: U\+0900-097F/);
+  assert.ok(statSync(new URL('brand/fonts/noto-sans-devanagari-var-devanagari.woff2', root)).size > 50e3);
+  assert.match(read('brand/fonts/OFL-notosansdevanagari.txt'), /SIL Open Font License, Version 1\.1/);
+  assert.match(html, /--deva:"Noto Sans Devanagari"/);
+  assert.doesNotMatch(html, /fonts\.(googleapis|gstatic)\.com/);
+});
+
+test('no tracking: no pixel, no analytics, utm tags only removed', () => {
+  const js = read('india/india.js');
+  for (const t of [html, js]) assert.doesNotMatch(t, /fbq\(|connect\.facebook|facebook\.net|gtag\(|googletagmanager|google-analytics|plausible|clarity\.ms|document\.cookie/i);
+  assert.ok(!/utm_/.test(js.replace(/\/\/.*$/gm, '')), 'india.js never reads utm_ parameters itself (src/core/india.js cleanUrl does the removal)');
+  assert.equal(cleanUrl('https://destinjones.github.io/open-overwatch/india/?utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&fbclid=AbC'), 'https://destinjones.github.io/open-overwatch/india/');
+  assert.equal(cleanUrl('https://destinjones.github.io/open-overwatch/india/?lang=hi&utm_content=v1#iss'), 'https://destinjones.github.io/open-overwatch/india/?lang=hi');
+  assert.match(html, /<meta property="og:image" content="https:\/\/destinjones\.github\.io\/open-overwatch\/brand\/india\/og-india-1200x630\.jpg">/);
+  assert.ok(existsSync(new URL('brand/india/og-india-1200x630.jpg', root)));
+});
+
+test('the site ships the page: service worker, sitemap, guide, the main page footer', () => {
+  assert.match(read('sw.js'), /const PAGES = \[[^\]]*'india\/'/);
+  assert.match(read('sitemap.xml'), /<loc>https:\/\/destinjones\.github\.io\/open-overwatch\/india\/<\/loc>/);
+  assert.match(read('guide.html'), /href="india\/"/);
+  assert.match(read('index.html'), /<footer>[\s\S]*href="india\/"/);
+  for (const c of ['india_sats', 'delhi_dive', 'airq', 'lookup']) {
+    assert.match(body, new RegExp(`data-clip="${c}"`));
+    for (const ext of ['mp4', 'jpg']) assert.ok(statSync(new URL(`brand/india/clips/${c}.${ext}`, root)).size > 10e3, `${c}.${ext}`);
+  }
+});
+
+test('launches from India, and when they are due only as precisely as announced', () => {
+  const pad = (name, cc) => ({ location: { name, country_code: cc } });
+  const now = Date.parse('2026-10-15T12:00:00Z');
+  const list = [
+    { id: 'a', net: '2026-12-31T00:00:00Z', net_precision: { abbrev: 'M' }, pad: pad('Satish Dhawan Space Centre, India') },
+    { id: 'b', net: '2026-10-20T09:30:00Z', net_precision: { abbrev: 'MIN' }, pad: pad('Cape Canaveral SFS, FL, USA', 'USA') },
+    { id: 'c', net: '2026-10-31T00:00:00Z', net_precision: { abbrev: 'M' }, pad: pad('Somewhere', 'IND') },
+    { id: 'd', net: '2026-10-14T09:30:00Z', net_precision: { abbrev: 'SEC' }, pad: pad('Satish Dhawan Space Centre, India') },   // flown
+    null, 'junk',
+  ];
+  assert.deepEqual(indianLaunches(list, now).map(r => r.id), ['c', 'a']);
+  assert.ok(fromIndia(list[0]) && !fromIndia(list[1]) && !fromIndia({}));
+  assert.equal(launchWhen(list[2], 'en'), 'target: October 2026');
+  assert.match(launchWhen(list[2], 'hi'), /^लक्ष्य: अक्[तट]ूबर 2026$/);
+  assert.equal(launchWhen({ net: '2026-10-20T09:30:00Z', net_precision: { abbrev: 'MIN' } }, 'en'), '20 Oct 2026, 3:00 pm IST');
+  assert.equal(launchWhen({ net: '2026-10-20T20:00:00Z', net_precision: { abbrev: 'D' } }, 'en'), '21 Oct 2026', 'the day in India');
+  assert.equal(launchWhen({ net: 'soon' }, 'en'), 'date to be set');
+});
+
+test('the six cities, the ISS passes over them, and the directions in two languages', async () => {
+  assert.equal(CITIES.length, 6);
+  for (const [, hi, lat, lon] of CITIES) { assert.match(hi, /^[ऀ-ॿ]+$/); assert.ok(overIndia(lat, lon)); }
+  assert.ok(!overIndia(51.5, -0.1) && inSouthAsia([84.7, 28.2]) && !inSouthAsia([139.7, 35.7]));
+  assert.equal(dir8(0, 'en'), 'N'); assert.equal(dir8(224, 'hi'), 'दक्षिण-पश्चिम'); assert.equal(dir8(359, 'hi'), 'उत्तर'); assert.equal(dir8(-90, 'en'), 'W');
+  const sl = await import('satellite.js');
+  const iss = parseTle(read('test/fixtures/stations.tle')).find(s => s.id === '25544');
+  const epoch = Date.UTC(2000 + +iss.l1.slice(18, 20), 0, 1) + (+iss.l1.slice(20, 32) - 1) * 864e5;
+  const pos = ecfAt(sl, sl.twoline2satrec(iss.l1, iss.l2));
+  for (const [name, , lat, lon] of CITIES) {
+    const { next, visible } = cityPasses(pos, lat, lon, epoch, 7);
+    assert.ok(next, `${name}: the ISS passes over every one of these cities within a week`);
+    assert.ok(next.rise < next.peak && next.peak < next.set && next.maxEl >= 10 && next.set - next.rise < 15 * 60e3, name);
+    if (visible) assert.ok(visible.visible && visible.rise >= next.rise, name);
+  }
+});

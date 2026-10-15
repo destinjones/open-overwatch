@@ -71,6 +71,10 @@ function serveFile(req, res, pathname) {
   const file = path.resolve(DIR, rel || PAGE);
   if (!file.startsWith(DIR + path.sep)) return reply(res, 403, 'forbidden'); // with the separator, so ../open-overwatch-other/ is outside too
   fs.stat(file, (err, st) => {
+    if (!err && st.isDirectory() && fs.existsSync(path.join(file, 'index.html'))) {   // a folder page such as /india/, as GitHub Pages serves it
+      if (!pathname.endsWith('/')) { const q = req.url.indexOf('?'); res.writeHead(301, { Location: pathname + '/' + (q < 0 ? '' : req.url.slice(q)) }); return res.end(); }
+      return serveFile(req, res, pathname + 'index.html');
+    }
     if (err || !st.isFile()) return reply(res, 404, 'not found');
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'Content-Length': st.size, 'Cache-Control': 'no-store' });
     fs.createReadStream(file).on('error', () => res.destroy()).pipe(res); // e.g. EBUSY while an editor saves the file

@@ -496,6 +496,17 @@ is inferred (China's crews: Tiangong; others: the ISS). Used by globe, mcp.
 - `fromLL2Astronaut`: one astronaut → `{ name, agency, countries, flag, days, since, human, wiki }`.
 - `whoIsUp`: people grouped by station. `crewSentence`: "10 people are in space right now: …". `durationDays`.
 
+### `india.js`
+
+The India landing page's logic without the page (`india/india.js` draws it). Used by the India page.
+
+- `fromIndia`: a Launch Library 2 launch from a pad in India. `indianLaunches`: India's launches still to come, soonest
+  first. `launchWhen`: when one is due in IST, in English or Hindi, only as precisely as announced ("target: October
+  2026").
+- `CITIES`: the six cities (English and Hindi names, latitude, longitude). `cityPasses`: a city's next ISS pass and next
+  visible one in a week (`findPasses` from `passes.js`). `dir8`: an azimuth as one of eight directions in either language.
+- `cleanUrl`: the address without the tags ad links carry (utm_* and fbclid). `fmtIST`, `TZ`, `overIndia`, `inSouthAsia`.
+
 ## Weather
 
 ### `gfs.js`
