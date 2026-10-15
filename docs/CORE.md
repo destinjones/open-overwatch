@@ -1066,7 +1066,19 @@ The public relay for the published website (`relay/worker.js`, a Cloudflare Work
 globe, map.
 
 - `PUBLIC_RELAY`, `PUBLIC_RELAY_HOSTS`: the Worker's address and its allowlist (= the Worker's `TTL` table).
+- `publicRelayable`: whether the relay carries a URL (a listed host, or one of adsb.lol's shared queries in airgrid.js).
 - `onPublishedSite`: true on the published site (the relay answers only that origin).
+
+### `airgrid.js`
+
+The one fixed grid of 250 nm circles the website asks the ADS-B feeds for through the public relay, and which adsb.lol
+queries the relay carries for how long. Every visitor asks for the same URLs, so the relay's edge cache shares them; the
+Worker imports this file, so both sides agree. Used by globe, map, relay.
+
+- `gridRow`, `tileAt`, `ROW_DEG`, `TILE_KM`, `TILE_NM`: the grid (rows 1.5 R apart, a whole number of tiles round each
+  row, so no seam at the antimeridian). `onGrid`: whether a URL's centre is on it. `nearestTiles`: the n nearest.
+- `adsbLolTtl`, `adsbLolRelayable`, `AIR_TTL`, `ADSB_LOL_HOST`: /v2/mil and squawks 7500/7600/7700 (60 s), grid tiles
+  (45 s); nothing else (single-plane lookups differ per visitor).
 
 ### `gpu.js`
 

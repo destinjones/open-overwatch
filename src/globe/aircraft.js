@@ -1,10 +1,11 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
-// Aircraft: the OpenSky global snapshot (every 15 min) and adsb.lol military (every 60 s), dead-reckoned between fixes
+// Aircraft: the OpenSky global snapshot (every 15 min; on the website, which may not pass OpenSky on, adsb.lol around the
+// camera every 45 s through the public relay instead) and adsb.lol military (every 60 s), dead-reckoned between fixes
 // (through the turn a plane was making), each fix stamped with the feed's own time and eased in where it disagrees with
 // where we drew the plane; drawn as Blender-rendered sprites far out (nose along the course from any angle) and as glTF
 // models (pitch from climb rate, bank from turn rate) up close. Heights: geometric altitude where the feed has it, and on
 // the 3D terrain, planes on the ground stand on it and low ones never dip into it.
-import { C, bigStore, getJSON, NO_ENV_MAP } from './env.js';
+import { C, bigStore, getJSON, NO_ENV_MAP, RELAY, viaCopy } from './env.js';
 import { viewer, camera, airPts, airIcons, camHeight } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { state, hooks } from './state.js';
@@ -14,6 +15,7 @@ import { readsb, openskyState, noteAircraftReport, EMERGENCY_SQUAWKS as EMERGENC
 import { Terrain } from './terrain.js';
 import { Time } from './time.js';
 import { classify } from '../core/actype.js';
+import { nearestTiles, TILE_NM } from '../core/airgrid.js';
 
 const DR_MAX_S = 900;              // dead-reckoning horizon: the global snapshot refreshes every 15 min
 export const AIR_ICON_RANGE = 2.5e6; // planes become heading icons below ~2,500 km camera distance
@@ -120,14 +122,38 @@ export const Air = {
         ts: tpos > 0 && tpos * 1000 <= ts && ts - tpos * 1000 < DR_MAX_S * 1000 ? tpos * 1000 : ts, altG: !ground && geo != null ? geo : null, src: 'OpenSky' }, { cached: ts !== now });
     this.snapshotAt = ts; setCount('air', rows.length); hooks.updateStats();
   },
+  /** Civil traffic: OpenSky's global snapshot where the local helper relays it (the download), else adsb.lol near the camera. */
+  civil() {
+    if (!RELAY) return this.nearby();
+    if (Date.now() - (this.snapTry || 0) < 15 * 60e3 - 5e3) return Promise.resolve();
+    this.snapTry = Date.now(); return this.opensky();
+  },
+  /** The website: adsb.lol's planes in the 3 grid tiles nearest the camera (core/airgrid.js; 250 nm each), through the
+   *  public relay, which shares each tile among every visitor for 45 s. Nothing while the civil layer is off. */
+  async nearby() {
+    const cc = camera.positionCartographic; if (!cc || !L.air.on || Time.offLive()) return;
+    const tiles = nearestTiles(C.Math.toDegrees(cc.latitude), C.Math.toDegrees(cc.longitude), 3);
+    let done = 0, err = null;
+    for (const t of tiles) {   // one at a time, a moment apart: adsb.lol answers a burst with 429 (checked 2026-10-15)
+      if (done || err) await new Promise(res => setTimeout(res, 1500));
+      const url = `https://api.adsb.lol/v2/point/${t.lat}/${t.lon}/${TILE_NM}`;
+      try {
+        const d = await getJSON(url, { relay: true, timeout: 30000 }), now = Date.now(), cached = viaCopy(url);
+        for (const a of d.ac || []) { const r = fromAdsb(a, now); if (r && !r.mil) this.upsert(r, { cached }); }
+        done++;
+      } catch (e) { err = err || e; if (/HTTP 429/.test(e.message)) break; }
+    }
+    if (!done && err) throw err;
+    this.areaAt = Date.now(); setCount('air', this.counts().air); hooks.updateStats();
+  },
   async military() {
-    const d = await getJSON('https://api.adsb.lol/v2/mil', { relay: true }), now = Date.now(); let n = 0; this.milAt = now;
-    for (const a of d.ac || []) { const r = fromAdsb(a, now, true); if (!r) continue; n++; this.upsert(r); }
+    const url = 'https://api.adsb.lol/v2/mil', d = await getJSON(url, { relay: true }), now = Date.now(), cached = viaCopy(url); let n = 0; this.milAt = now;
+    for (const a of d.ac || []) { const r = fromAdsb(a, now, true); if (!r) continue; n++; this.upsert(r, { cached }); }
     setCount('mil', n); hooks.updateStats();
   },
   prune() {
     const now = Date.now();
-    for (const [k, r] of this.map) if (now - r.ts > (r.mil ? 5 * 60e3 : 20 * 60e3) && r !== Follow.obj && r !== state.selected) {
+    for (const [k, r] of this.map) if (now - r.ts > (r.mil ? 5 * 60e3 : r.src === 'adsb.lol' ? 3 * 60e3 : 20 * 60e3) && r !== Follow.obj && r !== state.selected) {   // area fixes: the camera may have moved on
       AirModels.drop(r, true); airPts.remove(r.pt); airIcons.remove(r.icon); this.map.delete(k);
     }
   },
