@@ -7,6 +7,20 @@ them). The annotated tag messages (`git tag -n99`) are the release notes this fi
 
 ## [Unreleased]
 
+## [0.9.2.14] - 2026-10-15
+
+India.
+
+### Added
+- An India page at `/india/`, in English and हिन्दी: launches from Sriharikota, India's satellites, the next ISS passes
+  over six Indian cities in IST, dark skies from Hanle to India Gate, the monsoon and cyclones over the Bay of Bengal
+  and the Arabian Sea, Himalayan quakes, modelled air quality over north India and the 2D map over South Asia, each
+  opening the globe already set there; with its own clips and share image. No tracking: campaign tags are removed
+  from the address and share links, never read.
+- The website's aircraft code can read adsb.lol through the relay on a shared grid (the relay side is not live: adsb.lol
+  refuses Cloudflare for now, so the published globe still has no live planes; the download version is unchanged).
+- Tools for vertical promo videos (`brand/tools/tiktok_tour.mjs`, `brand/tools/promo_hyper.py`).
+
 ## [0.9.2.13] - 2026-10-14
 
 Checked, and darker skies.
