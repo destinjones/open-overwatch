@@ -22,7 +22,7 @@
   ],
   "shortcuts": [
     { "name": "Tonight above you", "url": "./tonight.html" },
-    { "name": "Find a flight", "url": "./globe.html#go=flight" },
+    { "name": "Earth now", "url": "./globe.html#go=now" },
     { "name": "Live map (2D)", "url": "./open-overwatch.html" }
   ]
 }
