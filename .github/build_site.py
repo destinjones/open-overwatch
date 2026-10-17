@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
-"""Build the GitHub Pages site: the current main branch at the root, plus a frozen copy of every released version.
+"""Build the GitHub Pages site: the current main branch at the root, plus a frozen copy of the newest released versions
+(older ones point at their release zip).
 
     python .github/build_site.py [out_dir]          (default: _site)
 
@@ -504,7 +505,7 @@ def main():
         })
         print(f'{tag}: {n} entries ({", ".join(paths)})' if live else f'{tag}: retired (its release zip)')
     with open(os.path.join(OUT, 'versions.json'), 'w', encoding='utf-8') as f:
-        json.dump({'latest': versions[0]['tag'] if versions else None, 'online': ARCHIVE_KEEP, 'releases': RELEASES, 'versions': versions}, f, indent=1)
+        json.dump({'latest': versions[0]['tag'] if versions else None, 'online': len(online), 'keep': ARCHIVE_KEEP, 'releases': RELEASES, 'versions': versions}, f, indent=1)
     print(f'versions.json: {len(versions)} versions, {len(online)} online')
     tles = mirror_tles(os.path.join(OUT, 'data', 'tle'))
     try:

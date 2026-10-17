@@ -167,7 +167,7 @@ export const githubRelease = () => ({ tag_name: 'v0.9.2.9', name: 'v0.9.2.9', pu
 
 /** versions.json (the site build writes it): two versions online, the older one without a Solar System view, and one
  *  retired (no longer hosted: only its release zip). */
-export const versions = () => ({ online: 6, versions: [
+export const versions = () => ({ online: 2, keep: 6, versions: [
   { tag: 'v0.9.2.9', date: '2026-10-13', title: 'The growth push', notes: 'Weather 2.0, solar missions and comets, aviation.', online: true, map: 'v/v0.9.2.9/open-overwatch.html', globe: 'v/v0.9.2.9/globe.html', solar: 'v/v0.9.2.9/solar.html' },
   { tag: 'v0.9.1', date: '2026-10-02', title: 'The rebuild', notes: '', online: true, map: 'v/v0.9.1/open-overwatch.html', globe: 'v/v0.9.1/globe.html' },
   { tag: 'v0.5', date: '2026-10-01', title: 'The first public version', notes: '', online: false, map: null, globe: null, solar: null,

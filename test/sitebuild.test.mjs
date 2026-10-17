@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const py = ['python3', 'python'].find(p => spawnSync(p, ['-c', 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)']).status === 0);
+const py = ['python3', 'python'].find(p => spawnSync(p, ['-c', 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)']).status === 0);
 const skip = !py && 'no Python here';
 
 /** Run `body` (Python, with the build script imported as b) and return the JSON it prints last. */
@@ -60,10 +60,11 @@ print(json.dumps({x: b.published(x, b.SKIP_ROOT, b.KEEP_ROOT) for x in n} | {'ke
   const on = names.filter(n => out[n]);
   assert.deepEqual(on, ['test/fixtures/horizons_2026-10-02.json', 'docs/NOTES.md', 'src/solar/nerd.js', 'index.html', 'testing.html', 'brand/clipart.png',
     'mcp/server.mjs', '.devcontainer/README.md']);
-  // every quoted path a page or app script names under a skipped folder must be in KEEP_ROOT (prefix checks like sw.js's
-  // 'brand/clip/' end in a slash and are not loads)
-  const files = [...readdirSync(root).filter(f => f.endsWith('.html')), 'sw.js', 'india/index.html', 'india/india.js',
-    ...readdirSync(join(root, 'src'), { recursive: true }).filter(f => f.endsWith('.js')).map(f => join('src', f))];
+  // every quoted path a published page or script (in any folder) names under a skipped folder must be in KEEP_ROOT
+  // (prefix checks like sw.js's 'brand/clip/' end in a slash and are not loads)
+  const files = readdirSync(root, { recursive: true }).map(f => f.replace(/\\/g, '/'))
+    .filter(f => /\.(html|js)$/.test(f) && !/(^|\/)(node_modules|\.git)\//.test(f) && !out.skip.some(s => f.startsWith(s)));
+  assert.ok(files.includes('india/india.js') && files.includes('src/solar/main.js') && !files.some(f => f.startsWith('test/')));
   const loads = new Set();
   for (const f of files) {
     for (const m of readFileSync(join(root, f), 'utf8').matchAll(/['"`]((?:\.\.\/)*([\w.\-]+\/[^'"`\s]*))['"`]/g)) {
