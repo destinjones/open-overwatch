@@ -45,3 +45,21 @@ test('passes: a satellite whose propagation fails mid-pass (decay) ends the pass
     assert.equal(compass(p[0].azSet), 'N');
   }
 });
+
+test('passes: after a mid-pass failure the set azimuth comes from the last valid instant, not half-way back to the peak', () => {
+  const f = 3 / (180 / Math.PI), c = Math.cos(f), s = Math.sin(f);   // observer 3 deg east of the ground track: the azimuth swings
+  const off = { pos: { x: R * c, y: R * s, z: 0 }, east: { x: -s, y: c, z: 0 }, north: { x: 0, y: 0, z: 1 }, up: { x: c, y: s, z: 0 } };
+  for (let k = 0; k < 20; k++) {                         // the set edge lands on either side of the cut-off
+    const cut = PERIOD / 4 + 90e3 + k * 37, dying = t => (t > cut ? null : sat(t));
+    const p = findPasses(dying, off, 0, PERIOD);
+    assert.equal(p.length, 1);
+    const want = lookAngles(sat(cut), off).az;
+    assert.ok(Math.abs(p[0].azSet - want) < 0.5, `azSet ${p[0].azSet} vs ${want} at the cut-off`);
+  }
+});
+
+test('passes: a pass whose peak cannot be propagated when the azimuths are read is dropped', () => {
+  const seen = new Set();                                  // every instant works once, then fails (the peak is read twice)
+  const flaky = t => { if (seen.has(t)) return null; seen.add(t); return sat(t); };
+  assert.deepEqual(findPasses(flaky, obs, 0, PERIOD, { sunAt: () => ({ x: 0, y: -0.2, z: Math.sqrt(1 - 0.04) }) }), []);
+});

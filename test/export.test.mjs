@@ -31,7 +31,7 @@ test('CSV: quoted where needed, formulas defused, numbers left alone', () => {
   assert.equal(csvCell('=HYPERLINK("x")'), `"'=HYPERLINK(""x"")"`); assert.equal(csvCell('-5'), "'-5"); assert.equal(csvCell(-5), '-5');
   assert.equal(csvCell(null), ''); assert.equal(csvCell('two\nlines'), '"two\nlines"');
   const lines = toCSV(exportRows([quake()], { now })).split('\r\n');
-  assert.match(lines[0], /^﻿id,name,lat,lon,mag,place,time,provenance,confidence,sources,agree,of,data_time,data_age_s$/);
+  assert.match(lines[0], /^\uFEFFid,name,lat,lon,mag,place,time,provenance,confidence,sources,agree,of,data_time,data_age_s$/);
   assert.match(lines[1], /^us7000,"Off ""Coast"", <Japan>",35\.123457,140\.5,5\.2,/);
 });
 
