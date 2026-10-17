@@ -11,7 +11,7 @@ import {
 } from '../src/core/earthnow.js';
 import { parseUsgs } from '../src/core/quakes.js';
 import { parseEonet } from '../src/core/eonet.js';
-import { fromLL2 } from '../src/core/launches.js';
+import { fromLL2, when, preciseLaunch as corePrecise } from '../src/core/launches.js';
 
 const fx = name => JSON.parse(readFileSync(new URL(`./fixtures/earthnow/${name}`, import.meta.url), 'utf8'));
 const USGS = fx('usgs_4.5_week_2026-10-13.json'), KP = fx('swpc_kp_forecast_2026-10-13.json'), EONET = fx('eonet_wildfires_2026-10-13.json');
@@ -216,4 +216,9 @@ test('earthnow: month, quarter and day placeholders get no countdown in the next
   assert.equal(launchesSoon([at('2026-10-31T00:00:00Z', 'M')], { now: Date.parse('2026-10-31T00:30:00Z') }).length, 0, 'no fake T+00:30 after midnight');
   assert.ok(preciseLaunch(at('2026-10-31T00:00:00Z', 'SEC')) && preciseLaunch(at('2026-10-31T00:00:00Z', 'minute')));
   assert.ok(!preciseLaunch(at('2026-10-31T00:00:00Z', 'Y')) && !preciseLaunch({ precision: 'MIN', net: NaN }) && !preciseLaunch(null));
+  assert.equal(preciseLaunch, corePrecise, 'one test, kept beside when() in core/launches.js');
+  // a launch with no precision field at all: a countdown in launchesSoon and the full time from when(), not the year only
+  const bare = { net: Date.parse('2026-10-30T18:00:00Z') };
+  assert.ok(preciseLaunch(bare));
+  assert.equal(when(bare), '2026-10-30 18:00 UTC');
 });

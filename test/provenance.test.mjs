@@ -47,7 +47,7 @@ test('ageText', () => {
   assert.equal(ageText(null), 'unknown age');
 });
 
-test('the confidence rule reaches touch, keyboard and screen-reader users, not only a hover tooltip', () => {
+test('the confidence rule reaches screen readers as hidden text, not only a hover tooltip', () => {
   const r = provenance([{ id: 'usgs', name: 'USGS', dataAt: now - min }], { now });
   const h = provenanceHtml(r);
   assert.match(h, /<abbr class="prov-conf" title="[^"]+">reported<\/abbr>/, 'the abbr stays');

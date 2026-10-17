@@ -5,6 +5,7 @@
 // test every number the panel shows (test/earthnow.test.mjs). The globe's panel is src/globe/now.js.
 import { rowLat } from './fields.js';
 import { esc } from './format.js';
+import { preciseLaunch } from './launches.js';
 
 const DAY = 864e5;
 const fin = v => typeof v === 'number' && Number.isFinite(v);
@@ -175,9 +176,8 @@ export function summarizeWildfires(events, { now = Date.now(), days = 7, top = 5
 /** "Wildfire Buckhorn 2, Cassia, Idaho" → "Idaho"; "Wildfires - Northern Territory, Australia" → "Australia". */
 export const wildfireRegion = title => { const parts = String(title || '').split(',').map(s => s.trim()).filter(Boolean); return parts.length > 1 ? parts[parts.length - 1] : 'Elsewhere'; };
 
-/** A launch timed to the hour or better (LL2's SEC/MIN/HR, or no precision given), so a countdown means something.
- *  LL2 parks "NET October", "Q4" and day-only dates at 00:00Z (the day, or the period's last day): placeholders. */
-export const preciseLaunch = l => !!l && fin(l.net) && ['SEC', 'MIN', 'HR', 'SECOND', 'MINUTE', 'HOUR', ''].includes(String(l.precision ?? '').toUpperCase());
+/** preciseLaunch lives beside when() in core/launches.js, so the countdown and the wording agree; re-exported here. */
+export { preciseLaunch };
 
 /** Launches (core/launches.js fromLL2) timed to the hour or better in the next `hours` hours (and any in flight):
  *  soonest first. Month, quarter and day placeholders are left out (preciseLaunch). */
