@@ -109,7 +109,7 @@ test('release: every icon and screenshot the manifest names is in the zip', () =
 });
 
 test('release: the pages the shipped pages link to are in the zip', () => {
-  const pages = ['open-overwatch.html', 'globe.html', 'solar.html', 'tonight.html', 'offline.html', 'index.html', 'about.html', 'guide.html', 'india/index.html'];
+  const pages = ['open-overwatch.html', 'globe.html', 'solar.html', 'tonight.html', 'offline.html', 'index.html', 'about.html', 'guide.html', 'india/index.html', 'india/hi/index.html'];
   const bad = [];
   for (const page of pages) {
     assert.ok(shipped(page), `${page} is in the zip`);

@@ -50,8 +50,10 @@ opens in Hindi, but it is not the Hindi page's own address.
 - **Hanle Bortle 1, India Gate Bortle 8**: the app's light-pollution grid (Falchi et al. 2016, `data/lightpollution.bin`,
   `core/lightpollution.js` `skyAt`) at 32.78 N 78.96 E and 28.61 N 77.23 E. Mumbai comes out 7, Bengaluru, Kolkata and
   Hyderabad 8, Chennai 6. A model from 2014 satellite data, said so on the page.
-- **Aditya-L1**: the Solar System view marks the Sun–Earth L1 point, whose card names Aditya-L1; the spacecraft itself
-  is not drawn, and the page says so. No Chandrayaan or other Indian mission is drawn, so none is claimed.
+- **ISRO missions**: Chandrayaan-1/-2/-3 (Vikram, propulsion module), Mangalyaan and Aditya-L1 are drawn in the Solar
+  System view from NASA JPL Horizons tracks (`data/solar/spacecraft.json`, `brand/tools/make_spacecraft.py`); the page
+  names where each track ends, and `test/india.test.mjs` warns two weeks before a "now" link (Chandrayaan-2, Aditya-L1)
+  runs past its track.
 - **Air quality**: modelled (CAMS via Open-Meteo), not CPCB stations; the page points to CPCB, IMD and NCS for anything
   that matters.
 
