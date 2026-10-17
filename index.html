@@ -4,14 +4,14 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-locxa/Y5bUMPQnlv+V27r2UziOFSa/OWyuUMPvrNrxE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-THwjsLsA5VP1APunjwL4TfyEjzOP6vOOtmDUdz7mC9Q='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#04060a">
 <title>Open Overwatch · the whole planet, live</title>
 <link rel="canonical" href="https://destinjones.github.io/open-overwatch/">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="author" content="Destin Jones">
-<meta name="description" content="A free live situation map: aircraft, military flights, satellites, ships, storms, quakes and cameras on one dark ops-room screen, straight from open data. No account, no tracking.">
+<meta name="description" content="A free live view of the planet: satellites, weather, earthquakes, storms, ships and cameras on a 3D Earth and a dark ops-room map, plus what is in your own sky tonight, straight from open data. No account, no tracking. Live aircraft come with the free download.">
 <link rel="icon" href="brand/emblem/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="brand/emblem/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -19,24 +19,23 @@
 <meta property="og:site_name" content="Open Overwatch">
 <meta property="og:url" content="https://destinjones.github.io/open-overwatch/">
 <meta property="og:title" content="Open Overwatch · the whole planet, live">
-<meta property="og:description" content="Aircraft, satellites, ships, storms and quakes on one live map. Free, open data, runs in your browser.">
+<meta property="og:description" content="Satellites, weather, quakes, storms and ships on a live 3D Earth, and what is in your sky tonight. Free, open data, runs in your browser. Live aircraft come with the free download.">
 <meta property="og:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Open Overwatch: the Earth with live aircraft and satellites">
+<meta property="og:image:alt" content="Open Overwatch, a live picture from open feeds: the night side of the Earth with satellite orbits arcing over it">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Open Overwatch · the whole planet, live">
-<meta name="twitter:description" content="Aircraft, satellites, weather and quakes on one live map, and a zoom from a street to the Local Group. Free, open source, in your browser.">
+<meta name="twitter:description" content="Satellites, weather, quakes and storms on a live 3D Earth, and a zoom from a street to the Local Group. Free, open source, in your browser. Live aircraft come with the free download.">
 <meta name="twitter:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
- {"@type":"WebSite","@id":"https://destinjones.github.io/open-overwatch/#site","name":"Open Overwatch","url":"https://destinjones.github.io/open-overwatch/","description":"A free, open source live map of the planet: aircraft, satellites, weather, quakes, and a seamless zoom from a street to the Local Group.","inLanguage":"en","publisher":{"@id":"https://destinjones.github.io/open-overwatch/about.html#destin"}},
+ {"@type":"WebSite","@id":"https://destinjones.github.io/open-overwatch/#site","name":"Open Overwatch","url":"https://destinjones.github.io/open-overwatch/","description":"A free, open source live map of the planet: satellites, weather, quakes, storms, tonight's sky, and a seamless zoom from a street to the Local Group. Live aircraft come with the free download.","inLanguage":"en","publisher":{"@id":"https://destinjones.github.io/open-overwatch/about.html#destin"}},
  {"@type":"SoftwareApplication","name":"Open Overwatch","applicationCategory":"EducationalApplication","operatingSystem":"Any (web browser)","url":"https://destinjones.github.io/open-overwatch/","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
-  "description":"Live aircraft, satellites, weather, earthquakes and storms on open data, a 3D Earth, and a Solar System view that zooms out to the cosmic web. Free, no account, no tracking.","codeRepository":"https://github.com/destinjones/open-overwatch","license":"https://opensource.org/licenses/MIT","creator":{"@id":"https://destinjones.github.io/open-overwatch/about.html#destin"}},
+  "description":"Live satellites, weather, earthquakes and storms on open data, a 3D Earth, Tonight above you, and a Solar System view that zooms out to the cosmic web. Free, no account, no tracking. Live aircraft come with the free download.","codeRepository":"https://github.com/destinjones/open-overwatch","license":"https://opensource.org/licenses/MIT","creator":{"@id":"https://destinjones.github.io/open-overwatch/about.html#destin"}},
  {"@type":"Person","@id":"https://destinjones.github.io/open-overwatch/about.html#destin","name":"Destin Jones","url":"https://destinjones.github.io/open-overwatch/about.html","sameAs":["https://github.com/destinjones","https://destinjones.github.io/godot-open-rts/about.html","https://destinjones.github.io/carfinder/about.html"]}
 ]}
 </script>
 <link rel="stylesheet" href="brand/fonts/fonts.css">
-<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@4.0.0/dist/model-viewer.min.js" integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw" crossorigin="anonymous"></script>
 <style>
 :root{
   --bg:#04060a; --panel:#080c12; --panel-2:#0e141c; --line:#182230; --line-strong:#26343f;
@@ -74,7 +73,15 @@ nav .wrap{display:flex;align-items:center;gap:28px;height:68px;max-width:none}
 nav .links{display:flex;gap:26px;margin-left:auto;font:500 13px var(--mono);letter-spacing:.12em;text-transform:uppercase}
 nav .links a{text-decoration:none;color:var(--ink-dim)}
 nav .links a:hover{color:var(--ink)}
-@media (max-width:860px){nav .links{display:none} nav .btn{margin-left:auto}}
+.menu-btn{display:none;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:1px solid var(--line-strong);background:rgba(8,12,18,.7);color:var(--ink);cursor:pointer}
+.menu-btn svg{width:20px;height:20px}
+@media (max-width:860px){
+  nav .links{display:none} nav .btn{margin-left:auto} .menu-btn{display:inline-flex} nav .wrap{gap:12px}
+  /* the menu: the same links, stacked under the bar */
+  nav.open .links{display:flex;flex-direction:column;gap:0;position:absolute;top:100%;left:0;right:0;margin:0;padding:6px var(--gut) 14px;
+    background:rgba(4,6,10,.97);border-bottom:1px solid var(--line)}
+  nav.open .links a{padding:13px 0;border-bottom:1px solid var(--line)} nav.open .links a:last-child{border-bottom:0}
+}
 
 /* ---- buttons */
 .btn{display:inline-flex;align-items:center;gap:10px;padding:15px 24px;border:1px solid var(--line-strong);background:rgba(8,12,18,.7);
@@ -110,9 +117,12 @@ nav .links a:hover{color:var(--ink)}
 .hud i{position:absolute;width:26px;height:26px;border:1px solid rgba(125,255,166,.45)}
 .hud i:nth-child(1){top:0;left:0;border-width:1px 0 0 1px}.hud i:nth-child(2){top:0;right:0;border-width:1px 1px 0 0}
 .hud i:nth-child(3){bottom:0;left:0;border-width:0 0 1px 1px}.hud i:nth-child(4){bottom:0;right:0;border-width:0 1px 1px 0}
-.scan{position:absolute;left:0;right:0;height:120px;top:-120px;z-index:-1;pointer-events:none;
-  background:linear-gradient(180deg,transparent,rgba(125,255,166,.06) 85%,rgba(125,255,166,.22) 100%);animation:scan 7s linear infinite}
-@keyframes scan{to{top:110%}}
+/* the scan line: a hero-sized layer with the 120px band at its foot, moved by transform (no layout per frame); it starts
+   above the hero and ends below it, and stops while the hero is off screen (.hero.off, from the script) */
+.scan{position:absolute;inset:0;z-index:-1;pointer-events:none;transform:translateY(-100%);
+  background:linear-gradient(180deg,transparent calc(100% - 120px),rgba(125,255,166,.06) calc(100% - 18px),rgba(125,255,166,.22) 100%);animation:scan 7s linear infinite}
+@keyframes scan{from{transform:translateY(-100%)}to{transform:translateY(calc(10% + 120px))}}
+.hero.off .scan{animation:none}
 .feed{position:absolute;right:var(--gut);bottom:clamp(40px,9vh,110px);width:340px;border:1px solid var(--line-strong);
   background:rgba(6,9,14,.72);backdrop-filter:blur(10px);font:12.5px/1.5 var(--mono);z-index:2}
 .feed header{display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);color:var(--ink-dim);letter-spacing:.14em;text-transform:uppercase;font-size:11px}
@@ -137,6 +147,8 @@ nav .links a:hover{color:var(--ink)}
   .brand{font-size:17px;gap:9px}
   .brand img{width:28px;height:28px}
 }
+@media (max-width:400px){nav .wrap{gap:8px} nav .btn.small{padding:11px 12px;letter-spacing:.06em} .menu-btn{width:40px;height:40px}}
+@media (max-width:380px){.brand{font-size:15px;gap:7px;letter-spacing:.05em} .brand img{width:24px;height:24px}}   /* 360px phones: the bar fits */
 
 /* ---- proof: the real sweep */
 .proof{padding-bottom:clamp(60px,9vw,110px)}
@@ -355,6 +367,20 @@ footer a{color:var(--ink-dim)}
 .licences td{padding:9px 14px 9px 0;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink-faint)} .licences td:first-child{width:52%} .licences td b{color:var(--ink-dim)} .licences .tiny{font-size:12.5px;margin:0 0 14px}
 @media (max-width:980px){.notices-grid{grid-template-columns:repeat(2,1fr)}.notices .warn{grid-column:span 2}}
 @media (max-width:620px){.notices-grid{grid-template-columns:1fr}.notices .warn{grid-column:auto}.licences td:first-child{width:auto}.licences table,.licences tbody,.licences tr,.licences td,.licences thead,.licences th{display:block}.licences thead{display:none}.licences td{border:0;padding:3px 0}.licences tr{padding:8px 0;border-bottom:1px solid var(--line)}}
+
+/* the phone demo's play button: phones and slow or Save-Data connections start the clips with a tap (the script shows it) */
+.phone .play{position:absolute;inset:0;margin:auto;width:76px;height:76px;border-radius:50%;border:1px solid rgba(125,255,166,.6);background:rgba(4,6,10,.72);
+  color:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3;box-shadow:0 0 40px rgba(125,255,166,.25)}
+.phone .play[hidden]{display:none}
+.phone .play svg{width:28px;height:28px;margin-left:4px}
+/* phones: no grain overlay, no backdrop blurs (solid panels instead) and a steady live dot: they cost frames on low-end Android */
+@media (max-width:760px){
+  body::after{display:none}
+  .dot{animation:none}
+  nav.solid,.feed,.ways article{backdrop-filter:none}
+  nav.solid{background:rgba(4,6,10,.96)}
+  .feed,.ways article{background:rgba(6,9,14,.95)}
+}
 </style>
 </head>
 <body>
@@ -362,11 +388,13 @@ footer a{color:var(--ink-dim)}
 <nav id="nav">
   <div class="wrap">
     <a class="brand" href="#top"><img src="brand/emblem/emblem-256.png" alt="">Open Overwatch</a>
-    <div class="links"><a href="#proof">Proof</a><a href="#live">Live</a><a href="#why">Why</a><a href="#features">Layers</a><a href="#launch">Versions</a><a href="#get">Download</a><a href="about.html">About</a><a class="gh" href="https://github.com/destinjones/open-overwatch">GitHub</a></div>
+    <div class="links" id="navLinks"><a href="#proof">Proof</a><a href="#live">Live</a><a href="#why">Why</a><a href="#features">Layers</a><a href="#launch">Versions</a><a href="#get">Download</a><a href="about.html">About</a><a class="gh" href="https://github.com/destinjones/open-overwatch">GitHub</a></div>
     <a class="btn small primary" href="#launch">Launch map</a>
+    <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="navLinks" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </div>
 </nav>
 
+<main id="main">
 <header class="hero" id="top">
   <div class="hero-media">
     <picture>
@@ -437,6 +465,7 @@ footer a{color:var(--ink-dim)}
     </div>
     <div class="phone rv"><div class="notch"></div><div class="screen">
       <video id="phoneVid" muted playsinline preload="none" poster="brand/lander/clips/air_world.jpg"></video>
+      <button class="play" id="phonePlay" type="button" aria-label="Play the recordings" hidden><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg></button>
     </div></div>
   </div>
   <div class="wrap duo">
@@ -554,6 +583,9 @@ footer a{color:var(--ink-dim)}
         environment-image="neutral" camera-orbit="35deg 72deg auto" loading="lazy" disable-pan><div slot="progress-bar"></div></model-viewer>
       <span class="hint">drag · zoom · release</span>
     </div>
+    <!-- model-viewer (a 3D library with its own copy of three.js) waits here, inert, until this section comes near; the
+         script at the end copies the pinned, hashed tag into the page then (brand/tools/sri.mjs checks it like any other) -->
+    <template id="mvLib"><script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@4.0.0/dist/model-viewer.min.js" integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw" crossorigin="anonymous"></script></template>
     <div class="picker" id="picker"></div>
     <div class="spec" id="spec"></div>
   </div>
@@ -632,6 +664,8 @@ footer a{color:var(--ink-dim)}
   </div>
 </section>
 
+</main>
+
 <footer>
   <div class="wrap">
     <div>
@@ -697,6 +731,17 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 // nav background once scrolled
 const nav = $('#nav');
 addEventListener('scroll', () => nav.classList.toggle('solid', scrollY > 40), { passive: true });
+// the phone menu (under 860px the links fold away behind #menuBtn; opening it moves focus to the first link, as the button
+// comes after them in tab order): a link, Escape or a tap elsewhere closes it
+const menuBtn = $('#menuBtn');
+const setMenu = open => { nav.classList.toggle('open', open); menuBtn.setAttribute('aria-expanded', String(open)); if (open) $('#navLinks a').focus({ preventScroll: true }); };
+menuBtn.addEventListener('click', () => setMenu(!nav.classList.contains('open')));
+$('#navLinks').addEventListener('click', e => { if (e.target.closest('a')) setMenu(false); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && nav.classList.contains('open')) { setMenu(false); menuBtn.focus(); } });
+addEventListener('click', e => { if (nav.classList.contains('open') && !nav.contains(e.target)) setMenu(false); });
+
+// the scan line stops while the hero is off screen
+new IntersectionObserver(([e]) => $('#top').classList.toggle('off', !e.isIntersecting)).observe($('#top'));
 
 // hero clip: wide screens only (phones keep the tall still), plays once and holds the last frame
 const hv = $('#heroVid');
@@ -756,11 +801,16 @@ iss(); quakes(); setInterval(iss, 5000); setInterval(quakes, 120000);
   } catch (e) { /* no launch copy here (local preview): leave the row out */ }
 })();
 
-// phone demo: tabs cycle through the recorded clips
-const pv = $('#phoneVid'), tabs = [...document.querySelectorAll('.tab')];
-let cur = 0, auto = true;
+// phone demo: tabs cycle through the recorded clips. On a phone, or on a slow or Save-Data connection, nothing downloads
+// before a tap: the poster shows with a play button, and the clips cycle from that tap on
+const conn = navigator.connection;
+const slowNet = !!(conn && (conn.saveData || /2g|3g/.test(conn.effectiveType || '')));
+const pv = $('#phoneVid'), tabs = [...document.querySelectorAll('.tab')], playBtn = $('#phonePlay');
+let cur = 0, auto = true, started = !(slowNet || matchMedia('(max-width:760px)').matches);
+playBtn.hidden = started;
+playBtn.addEventListener('click', () => { show(cur); pv.play().catch(() => {}); });
 function show(i) {
-  cur = i;
+  cur = i; started = true; playBtn.hidden = true;
   tabs.forEach((t, j) => { t.setAttribute('aria-selected', j === i); t.querySelector('.bar i').style.width = '0'; });
   const c = tabs[i].dataset.clip;
   pv.poster = 'brand/lander/clips/' + c + '.jpg';
@@ -770,7 +820,7 @@ function show(i) {
 pv.addEventListener('timeupdate', () => { if (pv.duration) tabs[cur].querySelector('.bar i').style.width = (pv.currentTime / pv.duration * 100) + '%'; });
 pv.addEventListener('ended', () => auto ? show((cur + 1) % tabs.length) : (pv.currentTime = 0, pv.play()));
 tabs.forEach((t, i) => t.addEventListener('click', () => { auto = false; show(i); }));
-new IntersectionObserver(([e]) => { if (e.isIntersecting) { if (!pv.src) show(0); else if (!reduce) pv.play().catch(() => {}); } else pv.pause(); },
+new IntersectionObserver(([e]) => { if (e.isIntersecting) { if (!started) return; if (!pv.src) show(0); else if (!reduce) pv.play().catch(() => {}); } else pv.pause(); },
   { threshold: .3 }).observe(pv);
 
 // fleet viewer
@@ -794,7 +844,19 @@ function pick(k) {
   spec.innerHTML = '<span><b>' + f[1] + '</b> · ' + f[2] + '</span><span>size <b>' + f[3] + '</b></span><span>orbit <b>' + f[4] + '</b></span>';
   picker.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === k));
 }
-FLEET.forEach(f => { const b = document.createElement('button'); b.dataset.k = f[0]; b.textContent = f[1]; b.onclick = () => pick(f[0]); picker.append(b); });
+// model-viewer itself loads as the fleet comes within 600px, from the hashed tag in <template id="mvLib">; on Save-Data
+// it waits for a tap on the picker
+let mvLoaded = false;
+function loadMv() {
+  if (mvLoaded) return;
+  mvLoaded = true;
+  const t = $('#mvLib').content.querySelector('script'), s = document.createElement('script');
+  s.type = 'module'; s.crossOrigin = 'anonymous'; s.integrity = t.getAttribute('integrity'); s.src = t.getAttribute('src');
+  document.head.append(s);
+}
+if (conn && conn.saveData) $('.viewer .hint').textContent = 'tap a spacecraft to load it in 3D';
+else { const mvIo = new IntersectionObserver(([e]) => { if (e.isIntersecting) { mvIo.disconnect(); loadMv(); } }, { rootMargin: '600px 0px' }); mvIo.observe($('#fleet')); }
+FLEET.forEach(f => { const b = document.createElement('button'); b.dataset.k = f[0]; b.textContent = f[1]; b.onclick = () => { loadMv(); pick(f[0]); }; picker.append(b); });
 pick('iss');
 // leaving while a model still downloads aborts its fetch: not an error worth logging
 let leaving = false; addEventListener('pagehide', () => { leaving = true; });

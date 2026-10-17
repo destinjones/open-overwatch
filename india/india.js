@@ -26,6 +26,8 @@ function setLang(l, remember = true) {
     el.alt = l === 'hi' ? el.dataset.altHi : el.dataset.altEn;
   }
   $('#langBtn').setAttribute('aria-label', l === 'hi' ? 'Read this page in English' : 'यह पेज हिन्दी में पढ़ें');
+  $('#menuBtn').setAttribute('aria-label', l === 'hi' ? 'मेन्यू' : 'Menu');
+  $('#phonePlay').setAttribute('aria-label', l === 'hi' ? 'रिकॉर्डिंग चलाएँ' : 'Play the recordings');
   if (!remember) return;
   try { localStorage.setItem('oo-lang', l); } catch (e) { /* private mode: the choice lasts this visit */ }
   try {   // an address that says ?lang= follows the toggle, so a reload (or a shared link) keeps what is on screen
@@ -45,6 +47,14 @@ try {
 // ---- nav background once scrolled; reveal on scroll
 const nav = $('#nav');
 addEventListener('scroll', () => nav.classList.toggle('solid', scrollY > 40), { passive: true });
+// the phone menu (under 1020px the section links fold away behind #menuBtn; opening it moves focus to the first link, as
+// the button comes after them in tab order): a link, Escape or a tap elsewhere closes it
+const menuBtn = $('#menuBtn');
+const setMenu = open => { nav.classList.toggle('open', open); menuBtn.setAttribute('aria-expanded', String(open)); if (open) $('#navLinks a').focus({ preventScroll: true }); };
+menuBtn.addEventListener('click', () => setMenu(!nav.classList.contains('open')));
+$('#navLinks').addEventListener('click', e => { if (e.target.closest('a')) setMenu(false); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && nav.classList.contains('open')) { setMenu(false); menuBtn.focus(); } });
+addEventListener('click', e => { if (nav.classList.contains('open') && !nav.contains(e.target)) setMenu(false); });
 const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .12 });
 document.querySelectorAll('.rv').forEach((el, i) => { el.style.transitionDelay = (i % 6) * 60 + 'ms'; io.observe(el); });
 
@@ -120,11 +130,16 @@ async function passes() {
 const passIo = new IntersectionObserver(([e]) => { if (e.isIntersecting) { passIo.disconnect(); passes(); } }, { rootMargin: '600px 0px' });
 passIo.observe($('#passBox'));
 
-// ---- phone demo: the tabs cycle through the India clips
-const pv = $('#phoneVid'), tabs = [...document.querySelectorAll('.tab')];
-let cur = 0, auto = true;
+// ---- phone demo: the tabs cycle through the India clips. On a phone, or on a slow or Save-Data connection, nothing
+// downloads before a tap: the poster shows with a play button, and the clips cycle from that tap on
+const conn = navigator.connection;
+const slowNet = !!(conn && (conn.saveData || /2g|3g/.test(conn.effectiveType || '')));
+const pv = $('#phoneVid'), tabs = [...document.querySelectorAll('.tab')], playBtn = $('#phonePlay');
+let cur = 0, auto = true, started = !(slowNet || matchMedia('(max-width:760px)').matches);
+playBtn.hidden = started;
+playBtn.addEventListener('click', () => { show(cur); pv.play().catch(() => {}); });
 function show(i) {
-  cur = i;
+  cur = i; started = true; playBtn.hidden = true;
   tabs.forEach((t, j) => { t.setAttribute('aria-selected', j === i); t.querySelector('.bar i').style.width = '0'; });
   const c = tabs[i].dataset.clip;
   pv.poster = '../brand/india/clips/' + c + '.jpg';
@@ -134,7 +149,7 @@ function show(i) {
 pv.addEventListener('timeupdate', () => { if (pv.duration) tabs[cur].querySelector('.bar i').style.width = (pv.currentTime / pv.duration * 100) + '%'; });
 pv.addEventListener('ended', () => auto ? show((cur + 1) % tabs.length) : (pv.currentTime = 0, pv.play().catch(() => {})));
 tabs.forEach((t, i) => t.addEventListener('click', () => { auto = false; show(i); }));
-new IntersectionObserver(([e]) => { if (e.isIntersecting) { if (!pv.getAttribute('src')) show(0); else if (!reduce) pv.play().catch(() => {}); } else pv.pause(); }, { threshold: .3 }).observe(pv);
+new IntersectionObserver(([e]) => { if (e.isIntersecting) { if (!started) return; if (!pv.getAttribute('src')) show(0); else if (!reduce) pv.play().catch(() => {}); } else pv.pause(); }, { threshold: .3 }).observe(pv);
 
 // ---- share: the clean address, never the ad's tags
 $('#shareBtn').addEventListener('click', async () => {

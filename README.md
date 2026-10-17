@@ -4,10 +4,10 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23348946.svg)](https://doi.org/10.5281/zenodo.23348946)
 
-**Everything that moves, where it really is, right now.** From the aircraft over your street to every tracked
-satellite, the planets, 1.57 million asteroids, the planets of other stars and 43,480 galaxies, in **one continuous
-zoom**. Positions are checked against NASA JPL. It runs in your browser (phones too), with no install, no account and
-no build step.
+**Everything that moves, where it really is, right now.** From every tracked satellite over your street to the planets,
+1.57 million asteroids, the planets of other stars and 43,480 galaxies, in **one continuous zoom**, with live weather,
+quakes and storms on a 3D Earth and what is in your own sky tonight. Positions are checked against NASA JPL. It runs in
+your browser (phones too), with no install, no account and no build step. Live aircraft come with the free download.
 
 **▶ [Website](https://destinjones.github.io/open-overwatch/) · [3D globe](https://destinjones.github.io/open-overwatch/globe.html) · [Solar System](https://destinjones.github.io/open-overwatch/solar.html) · [2D ops map](https://destinjones.github.io/open-overwatch/open-overwatch.html)** · [the 30 s clip (MP4)](brand/clip/open-overwatch-zoom.mp4)
 
@@ -24,7 +24,8 @@ no build step.
   speeds, positioned from their measured transit times, with the habitable zone drawn in.
 - **Light is slow at this scale.** A "ghost" shows where Earth actually sees Jupiter (49 light-minutes ago), and our
   radio bubble (everything broadcast since 1920) lights up the stars it has reached.
-- **2D ops map:** aircraft, military flights, ships, quakes, storms, radar, cameras and news on one dark map.
+- **2D ops map:** ships, quakes, storms, radar, cameras and news on one dark map. Live aircraft and military flights
+  come with the free download.
 - **Ask Claude about it.** The MCP server in [`mcp/`](mcp/README.md) answers questions about earthquakes, satellites and
   their passes, launches, storms, ships, weather, the aurora and tonight's sky from the same open data, each answer with
   a link into the globe; in Claude Desktop the live globe appears in the chat. No account, no keys.

@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { checkHtml } from '../../src/core/a11ycheck.js';
 
-export const PAGES = ['index.html', 'globe.html', 'open-overwatch.html', 'solar.html', 'tonight.html', 'about.html', 'guide.html', 'offline.html'];
+export const PAGES = ['index.html', 'globe.html', 'open-overwatch.html', 'solar.html', 'tonight.html', 'about.html', 'guide.html', 'offline.html', '404.html', 'india/index.html'];
 export const ZOOM_OK = new Set(['globe.html', 'open-overwatch.html', 'solar.html']);   // they handle pinch themselves
 
 const root = new URL('../../', import.meta.url);

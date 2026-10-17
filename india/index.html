@@ -89,7 +89,16 @@ nav .links{display:flex;gap:22px;margin-left:auto;font:500 13px var(--mono);lett
 nav .links a{text-decoration:none;color:var(--ink-dim)}
 nav .links a:hover{color:var(--ink)}
 nav .tools{display:flex;gap:10px;align-items:center}
-@media (max-width:1020px){nav .links{display:none} nav .tools{margin-left:auto}}
+.menu-btn{display:none;align-items:center;justify-content:center;width:42px;height:42px;padding:0;border:1px solid var(--line-strong);background:rgba(8,12,18,.7);color:var(--ink);cursor:pointer}
+.menu-btn svg{width:20px;height:20px}
+.menu-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (max-width:1020px){
+  nav .links{display:none} nav .tools{margin-left:auto} .menu-btn{display:inline-flex}
+  /* the menu: the same section links, stacked under the bar */
+  nav.open .links{display:flex;flex-direction:column;gap:0;position:absolute;top:100%;left:0;right:0;margin:0;padding:6px var(--gut) 14px;
+    background:rgba(4,6,10,.97);border-bottom:1px solid var(--line)}
+  nav.open .links a{padding:13px 0;border-bottom:1px solid var(--line)} nav.open .links a:last-child{border-bottom:0}
+}
 @media (max-width:520px){.brand .full{display:none} nav .wrap{gap:10px} nav .go{display:none}}
 
 /* ---- buttons */
@@ -228,6 +237,19 @@ footer a{color:var(--ink-dim)}
 .rv{opacity:0;transform:translateY(22px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}
 .rv.in{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none}.dot{animation:none}html{scroll-behavior:auto}}
+
+/* the phone demo's play button: phones and slow or Save-Data connections start the clips with a tap (india.js shows it) */
+.phone .play{position:absolute;inset:0;margin:auto;width:76px;height:76px;border-radius:50%;border:1px solid rgba(255,159,63,.7);background:rgba(4,6,10,.72);
+  color:var(--saffron);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3;box-shadow:0 0 40px rgba(255,159,63,.25)}
+.phone .play[hidden]{display:none}
+.phone .play svg{width:28px;height:28px;margin-left:4px}
+/* phones: no backdrop blurs (solid panels instead) and a steady live dot, they cost frames on low-end Android */
+@media (max-width:760px){
+  nav.solid,.feed{backdrop-filter:none}
+  .dot{animation:none}
+  nav.solid{background:rgba(4,6,10,.96)}
+  .feed{background:rgba(6,9,14,.95)}
+}
 </style>
 </head>
 <body>
@@ -235,7 +257,7 @@ footer a{color:var(--ink-dim)}
 <nav id="nav">
   <div class="wrap">
     <a class="brand" href="#top"><img src="../brand/emblem/emblem-256.png" alt=""><span class="full">Open Overwatch</span><small>India</small></a>
-    <div class="links">
+    <div class="links" id="navLinks">
       <a href="#launches"><span lang="en">Launches</span><span lang="hi">लॉन्च</span></a>
       <a href="#satellites"><span lang="en">Satellites</span><span lang="hi">उपग्रह</span></a>
       <a href="#iss"><span lang="en">ISS passes</span><span lang="hi">ISS कब दिखेगा</span></a>
@@ -248,10 +270,12 @@ footer a{color:var(--ink-dim)}
         <span lang="hi" class="keep to-hi">हिन्दी</span><span lang="en" class="keep to-en">English</span>
       </button>
       <a class="btn small primary go" href="../globe.html#c=79,21,22000000,0,-90&amp;a=stations,visual,geo,launches,quakes,storms"><span lang="en">Open the globe</span><span lang="hi">ग्लोब खोलें</span></a>
+      <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="navLinks" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     </div>
   </div>
 </nav>
 
+<main id="main">
 <header class="hero" id="top">
   <div class="hero-media">
     <picture>
@@ -410,6 +434,7 @@ footer a{color:var(--ink-dim)}
     </div>
     <div class="phone rv"><div class="notch"></div><div class="screen">
       <video id="phoneVid" muted playsinline preload="none" poster="../brand/india/clips/india_sats.jpg" aria-label="A recording of the globe over India"></video>
+      <button class="play" id="phonePlay" type="button" aria-label="Play the recordings" hidden><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg></button>
     </div></div>
   </div>
 </section>
@@ -441,6 +466,8 @@ footer a{color:var(--ink-dim)}
     <p class="share-note" id="shareNote" aria-live="polite"></p>
   </div>
 </section>
+
+</main>
 
 <footer>
   <div class="wrap">
