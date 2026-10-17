@@ -100,6 +100,14 @@ test('release: the light-pollution atlas ships with its CC BY-NC licence note', 
   assert.ok(!shipped('data/deepsky.json') || shipped('data/deepsky.md'), 'deepsky.md credits the catalogue');
 });
 
+test('release: every icon and screenshot the manifest names is in the zip', () => {
+  const app = JSON.parse(read('manifest.webmanifest'));
+  const srcs = [...(app.icons || []), ...(app.screenshots || [])].map(i => i.src.replace(/^\.\//, ''));
+  assert.ok(srcs.length >= 4, `manifest srcs: ${srcs}`);
+  for (const src of srcs) assert.ok(exists(src), `${src} is in the repository`);
+  assert.deepEqual(srcs.filter(src => !shipped(src)), [], 'the manifest names these, release.yml does not ship them');
+});
+
 test('release: the pages the shipped pages link to are in the zip', () => {
   const pages = ['open-overwatch.html', 'globe.html', 'solar.html', 'tonight.html', 'offline.html', 'index.html', 'about.html', 'guide.html', 'india/index.html'];
   const bad = [];
