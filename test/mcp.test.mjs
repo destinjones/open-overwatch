@@ -238,6 +238,32 @@ test('mcp: earthquakes, strongest first, in an area or worldwide, with a link th
   assert.equal((await call(server, 'earthquakes', { period: 'month', min_magnitude: 1 })).isError, true);
 });
 
+// EMSC's answer in its real shape (test/fixtures/emsc-sample.json): its own solution of the Tokyo quake, NEIC's of the Texas one
+const emscEvent = (unid, mag, lat, lon, mins, auth, place) => ({ type: 'Feature', id: unid, geometry: { type: 'Point', coordinates: [lon, lat, -10] },
+  properties: { unid, time: new Date(NOW - mins * 60e3 + 3e3).toISOString(), lastupdate: new Date(NOW - 2 * 60e3).toISOString(), lat, lon, depth: 10, evtype: 'ke', auth, mag, magtype: 'mb', flynn_region: place } });
+const EMSC = { type: 'FeatureCollection', metadata: { count: 2 }, features: [emscEvent('20261001_0000101', 5.0, 35.62, 139.75, 30, 'JMA', 'NEAR EAST COAST OF HONSHU, JAPAN'),
+  emscEvent('20261001_0000102', 3.1, 31.6, -102.0, 90, 'NEIC', 'WESTERN TEXAS')] };
+
+test('mcp: earthquakes checked against EMSC: its own solution confirms, NEIC\'s repeats USGS, and EMSC down leaves USGS alone', async () => {
+  const net = pretendInternet([[/seismicportal\.eu\/fdsnws\/event\/1\/query\?format=json&limit=500&minmag=1\.9&starttime=2026-09-30T18:00:00$/, EMSC], ...ROUTES]), { server } = serve(net);
+  const r = ok(await call(server, 'earthquakes', {}));
+  const [tokyo, texas, alaska] = r.structuredContent.earthquakes;
+  assert.equal(tokyo.provenance, 'USGS + EMSC · 2 of 2 agree · data 2 min old · confirmed');
+  assert.match(texas.provenance, /^USGS \+ EMSC \(USGS solution\) · 1 of 2 agree · /, 'NEIC\'s solution is USGS\'s own');
+  assert.match(alaska.provenance, /^USGS · /, 'nothing in EMSC: USGS alone');
+  assert.match(r.content[0].text, /M5\.1 · 20 km SE of Tokyo, Japan .* · confirmed by EMSC\n/); assert.doesNotMatch(r.content[0].text, /Texas.*confirmed/);
+  assert.match(r.structuredContent.source, /credit EMSC/);
+  await call(server, 'earthquakes', { min_magnitude: 4 });
+  assert.equal(net.asked.filter(u => /seismicportal/.test(u)).length, 1, 'one EMSC request, kept for every question on that summary');
+  // EMSC answering 503, or never: the same quakes, from USGS alone
+  for (const down of [{ status: 503 }, new Error('ECONNRESET')]) {
+    const { server: s2 } = serve(pretendInternet([[/seismicportal\.eu/, down], ...ROUTES]));
+    const d = ok(await call(s2, 'earthquakes', {}));
+    assert.deepEqual(d.structuredContent.earthquakes.map(q => q.magnitude), [5.1, 3.0, 2.6]);
+    assert.ok(d.structuredContent.earthquakes.every(q => /^USGS · /.test(q.provenance)));
+  }
+});
+
 test('mcp: where is the ISS (SGP4 on the website copy of the elements), and a link that follows it', needsSgp4, async () => {
   const { server, net } = serve(), r = ok(await call(server, 'where_is_satellite', {})), d = r.structuredContent;
   assert.equal(d.satellite.norad, '25544'); assert.ok(d.altitude_km > 380 && d.altitude_km < 440, `${d.altitude_km}`); assert.ok(Math.abs(d.speed_km_s - 7.66) < 0.05);

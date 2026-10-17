@@ -7,7 +7,7 @@ import { map, vecRenderer } from './mapview.js';
 import { nightRing } from '../core/sky.js';
 import { Dyn, Exports, Feeds, Layers, Points, UI, feed, requestDraw, runFeed } from './engine.js';
 import { Detail } from './detail.js';
-import { parseUsgs, usgsUrl, USGS_FEEDS, largest, usgsDataAt, stampQuake, gdacsQuakes } from '../core/quakes.js';
+import { parseUsgs, usgsUrl, USGS_FEEDS, largest, usgsDataAt, stampQuake, gdacsQuakes, emscSource, emscAsk } from '../core/quakes.js';
 import { stamp, rep, stampReports } from '../core/liveprov.js';
 import { parseEonet, eonetUrl, EONET_COLOR } from '../core/eonet.js';
 import { loadGdacsEvents, GDACS_LEVEL_COLOR } from '../core/gdacs.js';
@@ -29,17 +29,20 @@ export function rerunFeed(f) { // option changed: refetch now, or as soon as a f
 export const World = { quakes: [], events: [], storms: [], gdacs: [], news: [] }; // latest parsed feed data for the Brief
 
 /* ---------- Earthquakes (USGS) */
-export const lyQuakes = Layers.add({ id: 'quakes', group: 'Ground', name: 'Earthquakes', desc: 'USGS real-time feed', color: C.qk, shape: 'round', default: true, points: 'quakes',
+export const lyQuakes = Layers.add({ id: 'quakes', group: 'Ground', name: 'Earthquakes', desc: 'USGS real-time feed, checked against EMSC', color: C.qk, shape: 'round', default: true, points: 'quakes',
   sub(el) { const r = () => UI.pills(el, USGS_FEEDS, id => Layers.opt('quake_feed') === id, id => { Layers.setOpt('quake_feed', id); r(); if (lyQuakes.on) rerunFeed(lyQuakes.feed); }); r(); } });
 Points.define('quakes', 'quakes');
 Detail.renderers.quake = p => `<div class="det">${Detail.head(C.qk, 'Earthquake · USGS', `M${(p.mag ?? 0).toFixed(1)} ${p.place || ''}`, esc(fmt.date(p.time)), [p.tsunami ? { t: 'Tsunami flag', cls: 'emg' } : null, p.alert ? { t: 'PAGER ' + p.alert, cls: p.alert === 'red' ? 'emg' : 'warn' } : null].filter(Boolean))}
 ${Detail.kv([['Magnitude', `${(p.mag ?? 0).toFixed(1)} ${p.magType || ''}`], ['Depth', `${fmt.n(p.depth, 1)} km`], ['Position', fmt.ll(p.lat, p.lon)], ['Felt reports', p.felt], ['Status', p.status], ['Age', fmt.ago(p.time) + ' ago']])}
 <div class="actions"><button class="btn small" data-do="fly" data-lat="${num(p.lat)}" data-lon="${num(p.lon)}" data-z="7">Center</button></div><hr class="sep">${Detail.links([{ text: 'USGS event page', url: p.url }])}</div>`;
+const emsc = emscSource(url => Net.json(url, { timeout: 30000 }));   // EMSC's catalogue (CORS, no relay): at most one request per 10 min
 feed(lyQuakes, { interval: 300, fetch: async () => {   // parsed by core/quakes.js, like the globe's and the MCP server's
-  const doc = await Net.json(usgsUrl(Layers.opt('quake_feed') || '2.5_day')), list = parseUsgs(doc), items = []; World.quakes = list;
-  const dataAt = usgsDataAt(doc, list), gd = gdacsQuakes(World.gdacs);   // provenance: the summary's time; GDACS's alerts as a second word
+  const fid = Layers.opt('quake_feed') || '2.5_day', em = emsc.load(emscAsk(fid)), had = emsc.list;   // EMSC beside USGS, never waited for
+  const doc = await Net.json(usgsUrl(fid)), list = parseUsgs(doc), items = []; World.quakes = list;
+  const dataAt = usgsDataAt(doc, list), gd = gdacsQuakes(World.gdacs);   // provenance: the summary's time; EMSC's solutions and GDACS's alerts as a second word
+  em.then(e => { if (e !== had && World.quakes === list) for (const p of list) stampQuake(p, { dataAt, gdacs: gd, emsc: e }); });   // EMSC answered later: stamp again
   for (const p of list) {
-    stampQuake(p, { dataAt, gdacs: gd });
+    stampQuake(p, { dataAt, gdacs: gd, emsc: had });
     const mag = p.mag ?? 0, age = (Date.now() - p.time) / 3600e3, r = Math.max(2.5, 2 + (mag - 1) * 2.4);
     items.push({ lat: p.lat, lon: p.lon, r, color: C.qk, alpha: Math.max(.35, 1 - age / 48), fillAlpha: Math.max(.08, .45 - age / 60), kind: 'quake', obj: p, tip: `M${mag.toFixed(1)} · ${p.place} · ${fmt.ago(p.time)} ago`, label: mag >= 5.5 ? `M${mag.toFixed(1)}` : null, labelZoom: 2 });
     if (mag >= 6 && Date.now() - p.time < 3600e3 && !lyQuakes.seen?.has(p.id)) { (lyQuakes.seen ||= new Set()).add(p.id); Log.alert(`M${mag.toFixed(1)} earthquake · ${p.place}`, { onclick: () => { flyTo(p.lat, p.lon, 6); Detail.show('quake', p, p.id); } }); }

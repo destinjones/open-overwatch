@@ -8,7 +8,8 @@ import { deflateSync } from 'node:zlib';
 import { compare, decodePng, downscale, encodePng, tilePng, upscale } from '../e2e/support/png.mjs';
 import * as F from '../e2e/support/feeds.mjs';
 import { fixtureFor } from '../e2e/support/net.mjs';
-import { parseUsgs, largest } from '../src/core/quakes.js';
+import { parseUsgs, largest, parseEmsc, stampQuake, usgsDataAt } from '../src/core/quakes.js';
+import { recordOf } from '../src/core/liveprov.js';
 import { parseEonet } from '../src/core/eonet.js';
 import { readsb, openskyState } from '../src/core/aircraft.js';
 import { latestKp, parseOvation, ovationAt } from '../src/core/aurora.js';
@@ -65,6 +66,8 @@ test('e2e png: stand-in tiles are 256 px PNGs', () => {
 test('e2e fixtures: quakes, events, Kp and the aurora grid parse with the pages\' parsers', () => {
   const q = parseUsgs(F.usgs(NOW));
   assert.equal(q.length, 5); assert.equal(largest(q).place, '112 km E of Hachinohe, Japan'); assert.ok(q.every(x => x.time < NOW && x.time > NOW - 24 * 3600e3));
+  const em = parseEmsc(F.emsc(NOW)), conf = q.map(x => recordOf(stampQuake(x, { dataAt: usgsDataAt(F.usgs(NOW)), emsc: em }), NOW).confidence);
+  assert.deepEqual(conf, ['confirmed', 'reported', 'reported', 'reported', 'reported'], "EMSC confirms the M6.1 off Japan; its Chile solution is NEIC's");
   const ev = parseEonet(F.eonet(NOW));
   assert.deepEqual(ev.map(e => e.cat), ['wildfires', 'volcanoes', 'severeStorms']); assert.equal(ev[2].track.length, 4); assert.equal(ev[2].kt, 85);
   assert.equal(latestKp(F.kp(NOW)).kp, 3.67);
