@@ -21,7 +21,7 @@ test('volcanoes: the file has its columns and a sane row for every volcano', () 
   }
 });
 
-test('volcanoes: every summit is in metres (none above Ojos del Salado, 6,893 m, the highest volcano)', () => {
+test('volcanoes: every summit is in metres (none above 7,000 m: the highest volcano on Earth is under 6,900 m)', () => {
   const tall = doc.rows.filter(r => r[col.elevationM] != null && r[col.elevationM] > 7000);
   assert.deepEqual(tall.map(r => `${r[col.name]} ${r[col.elevationM]}`), []);
   for (const r of doc.rows) if (r[col.elevationM] != null) assert.ok(Number.isInteger(r[col.elevationM]) && r[col.elevationM] > -11000, JSON.stringify(r));

@@ -6,8 +6,9 @@
 Every item on Wikidata that is a volcano (or any kind of volcano) with coordinates: name, position, summit height, country, type
 (stratovolcano, shield volcano...), Wikidata id. "Extinct" is kept as a type so the globe can dim those. Rows are arrays, columns in `cols`.
 Heights are Wikidata's normalised values (psn:, always metres) of the best-rank statements: the plain wdt: value keeps the
-unit it was entered in, and some summits are in feet (Mount Blackburn came out as "16,390 m"). A cache from another query
-is asked again.
+unit it was entered in, and some summits are in feet (Mount Blackburn came out as "16,390 m"). A height entered without a
+unit has no normalised value and stays empty (Gunung Barujari). Of several positions or heights one is chosen by value,
+not by row order, so a re-run on the same answer gives the same file. A cache from another query is asked again.
 """
 import json, re, subprocess, time
 from pathlib import Path
@@ -43,7 +44,9 @@ def main():
         if re.fullmatch(r'Q\d+', name): continue
         m = re.match(r'Point\(([-\d.eE+]+) ([-\d.eE+]+)\)', r['coord']['value'])
         if not m: continue
-        b = best.setdefault(vid, {'name': name, 'lon': round(float(m.group(1)), 3), 'lat': round(float(m.group(2)), 3), 'elev': None, 'country': '', 'types': []})
+        b = best.setdefault(vid, {'name': name, 'lon': None, 'lat': None, 'elev': None, 'country': '', 'types': []})
+        lat, lon = round(float(m.group(2)), 3), round(float(m.group(1)), 3)
+        if b['lat'] is None or (lat, lon) < (b['lat'], b['lon']): b['lat'], b['lon'] = lat, lon   # of several positions the smallest (lat, lon): SPARQL's row order isn't stable
         if r.get('elev'):   # metres; of several best-rank heights the highest, so a re-run gives the same file
             try: b['elev'] = max(b['elev'] or -1e9, round(float(r['elev']['value'])))
             except ValueError: pass

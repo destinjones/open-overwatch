@@ -65,6 +65,9 @@ test('dateline: hot pixels 1 km apart across 180° are one fire, centred on the 
   // weighted to the stronger side, which stays on its side of the line
   const w = clusterFires([F(-16.85, 179.99, 1), F(-16.85, -179.995, 100)]);
   assert.equal(w.length, 1); assert.ok(w[0].lon < -179.9 && w[0].lon >= -180, String(w[0].lon));
+  // a centre exactly on the line comes back as -180, in lonWrap's [-180, 180)
+  assert.equal(clusterFires([F(-16.85, 180)])[0].lon, -180);
+  assert.equal(clusterFires([F(-16.85, 179.5), F(-16.85, -179.5)]).every(x => x.lon >= -180 && x.lon < 180), true);
   // a chain across the line, and far apart still apart
   assert.equal(clusterFires([F(65, 179.98), F(65, 179.995), F(65, -179.99), F(65, -179.97)]).length, 1);
   assert.equal(clusterFires([F(-16.85, 179.9), F(-16.85, -179.9)]).length, 2);

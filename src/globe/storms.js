@@ -22,6 +22,7 @@ const pts = scene.primitives.add(new C.PointPrimitiveCollection());
 const lines = scene.primitives.add(new C.PolylineCollection());
 const fc = new C.CustomDataSource('cyclone-forecasts'); viewer.dataSources.add(fc);
 const gdacsKept = new Map();   // "event/episode" -> parsed geometry (an episode never changes); bounded by pruneKept
+const pastKept = new Map();   // the same for past days, kept apart so a past day never evicts the live storms' geometries
 const retry = retryBackoff();   // a failed past day is asked again after 30 s, doubling to 5 min (sync runs every second)
 
 const pastDays = new Map();   // UTC day -> Promise<storms around it, whole tracks> (past days don't change)
@@ -33,10 +34,10 @@ async function stormsAround(ms) {
     const past = gdacsPastCyclones(await json(gdacsTcAtUrl(ms), { timeout: 30000 })).filter(g => g.from <= ms && g.to + 12 * 3600e3 >= ms && !names.has(g.name.toLowerCase())).slice(0, 4);
     for (const g of past) {
       const key = gdacsKey(g);
-      try { if (!gdacsKept.has(key)) gdacsKept.set(key, gdacsForecast(await json(gdacsGeometryUrl(g.eventid, g.episodeid), { timeout: 45000 }))); g.fc = gdacsKept.get(key); }
+      try { if (!pastKept.has(key)) pastKept.set(key, gdacsForecast(await json(gdacsGeometryUrl(g.eventid, g.episodeid), { timeout: 45000 }))); g.fc = pastKept.get(key); }
       catch (e) { console.warn('GDACS ' + g.name, e.message); }
     }
-    pruneKept(gdacsKept, past);   // the day's geometries stay with its storms (g.fc); the cache keeps at most 24
+    pruneKept(pastKept, past);   // the day's geometries stay with its storms (g.fc); the cache keeps at most 24
     gd = stormsFromGdacs(past, eonet);
   } catch (e) { console.warn('GDACS (past)', e.message); }
   return eonet.concat(gd);

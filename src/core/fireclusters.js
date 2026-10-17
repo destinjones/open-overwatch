@@ -59,7 +59,7 @@ export function clusterFires(fires, linkKm = 2.5) {
       wl += p; wy += f.lat * p; wx += x * p; if (f.t < first) first = f.t; if (f.t > last) last = f.t; if (!f.day) night++;
       if (f.lat < s) s = f.lat; if (f.lat > nn) nn = f.lat; if (x < w) w = x; if (x > e) e = x;
     }
-    const lat = wy / wl, mx = wx / wl, lon = mx > 180 ? mx - 360 : mx < -180 ? mx + 360 : mx;
+    const lat = wy / wl, mx = wx / wl, lon = mx >= 180 ? mx - 360 : mx < -180 ? mx + 360 : mx;   // [-180, 180), as lonWrap
     out.push({ count: list.length, frp, max_frp: max, lat, lon, km: Math.max((nn - s) * KM_DEG, (e - w) * KM_DEG * Math.cos(lat * D2R)) + 0.375, first, last, night });
   }
   return out.sort((a, b) => b.frp - a.frp || b.count - a.count);
