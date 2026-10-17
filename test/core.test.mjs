@@ -65,6 +65,26 @@ test('kepler: geometry and periods', () => {
   assert.ok(Math.abs(periodDays(1) - 365.2569) < 0.01);           // sidereal year
 });
 
+test('kepler: orbitPath re-based on a body 39 AU out keeps metres where float32 absolute loses hundreds of km', () => {
+  const el = { a: 39.48, e: 0.2488, i: 17.16 * DEG, node: 110.3 * DEG, peri: 113.8 * DEG };   // Pluto-like
+  const n = 720, plain = orbitPath(el, n), want = new Float32Array(n * 3), exact = [], p = {};
+  for (let k = 0; k < n; k++) { orbitPoint(el, k / n * 2 * Math.PI, p); exact.push({ ...p }); want[k * 3] = p.x; want[k * 3 + 1] = p.y; want[k * 3 + 2] = p.z; }
+  assert.deepEqual(plain, want);                                   // no origin: every caller gets the same numbers as before
+  assert.deepEqual(orbitPath(el, n, {}), want);
+  const out = new Float32Array(n * 3); assert.equal(orbitPath(el, n, { out }), out); assert.deepEqual(out, want);
+  const M_AU = 1 / (AU_KM * 1000), body = { ...exact[200] }; body.x += 1000 / AU_KM;   // the body, 1,000 km off a vertex
+  const rel = orbitPath(el, n, { origin: body });
+  const off = (arr, k, o) => Math.hypot(arr[k * 3] + o.x - exact[k].x, arr[k * 3 + 1] + o.y - exact[k].y, arr[k * 3 + 2] + o.z - exact[k].z);
+  assert.ok(off(rel, 200, body) < M_AU, `re-based, by the body: ${(off(rel, 200, body) / M_AU).toFixed(4)} m`);
+  let worstAbs = 0;
+  for (let k = 0; k < n; k++) {
+    worstAbs = Math.max(worstAbs, off(plain, k, { x: 0, y: 0, z: 0 }));
+    const d = Math.hypot(exact[k].x - body.x, exact[k].y - body.y, exact[k].z - body.z);
+    assert.ok(off(rel, k, body) <= d * 2 ** -23 + 1e-15, `vertex ${k}: only as far off as its distance from the origin allows`);
+  }
+  assert.ok(worstAbs * AU_KM > 100, `absolute float32 at 39 AU: ${(worstAbs * AU_KM).toFixed(0)} km`);   // what the fix is for
+});
+
 test('planets: within the formulae\'s stated accuracy of JPL Horizons (2026-10-02)', () => {
   const tolArcmin = { mercury: 1, venus: 1, earth: 1, mars: 2, jupiter: 12, saturn: 15, neptune: 2 };
   for (const [k, ref] of Object.entries({ ...H.bodies, earth: H.bodies.emb })) {

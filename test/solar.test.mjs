@@ -143,6 +143,9 @@ test('comets: the ones near the Sun now, and arcs of open orbits', () => {
   assert.equal(arc.length, 192);
   const mid = conicArc(cometFromRow(row('C/2025 N1')), 2460977.99, 2460977.99, 2);
   assert.ok(Math.abs(Math.hypot(mid[0], mid[1], mid[2]) - 1.3564) < 1e-3, '3I/ATLAS at perihelion, q = 1.356 AU');
+  // re-based on a point: the same arc, minus that point (in float64, then float32)
+  const o = { x: mid[0], y: mid[1], z: mid[2] }, rel = conicArc(cometFromRow(row('C/2025 N1')), 2460977.99, 2460977.99, 2, { origin: o });
+  assert.ok(Math.hypot(rel[0], rel[1], rel[2]) < 2e-7 && conicArc(cometFromRow(row('C/2025 N1')), jd - 365, jd + 365, 64, {}).every((v, k) => v === arc[k]));
 });
 
 test('comets: small_bodies.json keeps recent open-orbit comets for the view, elliptic ones for the point cloud', () => {

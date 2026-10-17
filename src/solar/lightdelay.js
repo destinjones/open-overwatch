@@ -35,7 +35,9 @@ export function createLightDelay({ scene, nav }) {
         if (moved > MIN_SHOW * f.radius) {
           Object.assign(state, { body: f, tau, moved });
           ghostMesh.position.copy(at); ghostMesh.scale.setScalar(f.radius * 1.002); ghostMesh.visible = true;
-          const a = lineGeo.attributes.position; a.setXYZ(0, at.x, at.y, at.z); a.setXYZ(1, f.pos.x, f.pos.y, f.pos.z); a.needsUpdate = true;
+          // the line sits at the ghost and holds only the offset to the body: absolute float32 vertices would be ~143 km
+          // coarse at Saturn, more than half of Enceladus (util.js rebasedLine)
+          const a = lineGeo.attributes.position; line.position.copy(at); a.setXYZ(0, 0, 0, 0); a.setXYZ(1, f.pos.x - at.x, f.pos.y - at.y, f.pos.z - at.z); a.needsUpdate = true;
           line.material.dashSize = line.material.gapSize = f.radius * 0.12; line.computeLineDistances(); line.visible = true;
           ghost.pos.copy(at); ghost.radius = f.radius; ghost.name = `${f.name} as seen from Earth · ${lightTime(tau * C_AU_DAY)} ago`; ghost.launched = true;
           return;

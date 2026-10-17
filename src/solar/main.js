@@ -173,7 +173,7 @@ const smallLoad = small.load().then(() => comets.init(small.S.comets, clock.jd, 
 const loads = [moons.load(), smallLoad, craft.load(), eclipses.load()];   // eclipses: 200 KB of Sun and Moon, so links to an event resolve   // stars, galaxies and most textures load as you approach them
 deep.onStars = () => { applyLayers(); ui.renderLayers(); };
 if (!PHONE) setTimeout(() => { deep.needStars(); web.load().catch(e => console.warn(e)).finally(() => applyLayers()); }, 6000);   // desktops: in the background
-document.querySelector('#q').addEventListener('focus', () => deep.needStars(), { once: true });   // searching for a star
+document.querySelector('#q').addEventListener('focus', () => { deep.needStars(); if (!EMBED) small.defer(false); }, { once: true });   // searching for a star, or a named asteroid in the big file
 loads.forEach(settle);
 // a shared link (solar.html#f=craft:Juno&t=...): applied once the bodies it may name exist
 const linked = !EMBED && !!location.hash && location.hash.length > 3;

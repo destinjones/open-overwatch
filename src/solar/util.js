@@ -75,3 +75,31 @@ export function smoothLog(a, b, x) {
 }
 
 export const toVector3 = (o, out = new THREE.Vector3()) => out.set(o.x, o.y, o.z);
+
+/** A 1-pixel texture in one colour (sRGB '#rrggbb'): a globe's stand-in until its map arrives. */
+export function flatTexture(hex) {
+  const n = parseInt(hex.slice(1), 16), t = new THREE.DataTexture(new Uint8Array([n >> 16, n >> 8 & 255, n & 255, 255]), 1, 1);   // sRGB bytes
+  t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true; t.userData.flat = true; return t;
+}
+
+/**
+ * A line (an orbit) drawn relative to its body. Meshes stay steady far out because three.js composes model-view
+ * matrices in float64 on the CPU, but a line's vertices go to the GPU as float32: at 39 AU that is ~570 km (Saturn
+ * 143 km, Eris 1,100 km), so absolute orbit lines jitter and miss their bodies close up. The line sits at an origin
+ * (its Object3D position) and holds path minus origin; fill(out, origin) writes its n points (orbitPath's origin).
+ */
+export function rebasedLine(n, material, fill, Line = THREE.LineLoop) {
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  const line = new Line(g, material); line.userData.fill = fill; line.userData.based = false; return line;
+}
+/** New points for a rebasedLine (the next rebase writes them). */
+export function refill(line, fill) { line.userData.fill = fill; line.userData.based = false; }
+/** Move a rebasedLine's origin to `to` (its body) once the body has gone more than 100 camera distances from it, or
+ *  its points changed: near the body the float32 error then stays under 1e-5 rad, a hundredth of a pixel. */
+export function rebase(line, to, camera) {
+  const u = line.userData;
+  if (u.based && line.position.distanceTo(to) <= 100 * camera.position.distanceTo(to)) return false;
+  const a = line.geometry.attributes.position;
+  u.fill(a.array, to); a.needsUpdate = true; line.position.copy(to); line.geometry.computeBoundingSphere(); u.based = true;
+  return true;
+}

@@ -41,10 +41,21 @@ export function positionAt(el, jd, out = {}) {
   return orbitPoint(el, solveKepler(el.M0 + meanMotion(el.a) * (jd - el.epoch), el.e), out);
 }
 
-/** The whole ellipse as a flat Float32Array of n points (x, y, z, ...), evenly spaced in E. */
-export function orbitPath(el, n = 720) {
-  const pts = new Float32Array(n * 3), p = {};
-  for (let k = 0; k < n; k++) { orbitPoint(el, k / n * TWO_PI, p); pts[k * 3] = p.x; pts[k * 3 + 1] = p.y; pts[k * 3 + 2] = p.z; }
+/**
+ * The whole ellipse as a flat Float32Array of n points (x, y, z, ...), evenly spaced in E. origin {x, y, z} is
+ * subtracted in float64 before the float32 write: a float32 at 39 AU is only good to ~570 km, so a line drawn far from
+ * the Sun keeps its vertices relative to a nearby point (its body) and carries that point in its Object3D position.
+ * out: a Float32Array of n * 3 to fill instead of a new one. The same numbers as orbitPoint, with the rotation hoisted.
+ */
+export function orbitPath(el, n = 720, { origin = null, out = null } = {}) {
+  const pts = out || new Float32Array(n * 3), { a, e, i, node, peri } = el, b = a * Math.sqrt(1 - e * e);
+  const cO = Math.cos(node), sO = Math.sin(node), cw = Math.cos(peri), sw = Math.sin(peri), ci = Math.cos(i), si = Math.sin(i);
+  const xx = cO * cw - sO * sw * ci, xy = -cO * sw - sO * cw * ci, yx = sO * cw + cO * sw * ci, yy = -sO * sw + cO * cw * ci, zx = sw * si, zy = cw * si;
+  const ox = origin ? origin.x : 0, oy = origin ? origin.y : 0, oz = origin ? origin.z : 0;
+  for (let k = 0; k < n; k++) {
+    const E = k / n * TWO_PI, xv = a * (Math.cos(E) - e), yv = b * Math.sin(E);
+    pts[k * 3] = xx * xv + xy * yv - ox; pts[k * 3 + 1] = yx * xv + yy * yv - oy; pts[k * 3 + 2] = zx * xv + zy * yv - oz;
+  }
   return pts;
 }
 
