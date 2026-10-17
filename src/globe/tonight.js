@@ -327,8 +327,8 @@ async function forSat(s, loc) {
 function bindPasses(c) {
   c.querySelectorAll('[data-rem]').forEach(b => { b.onclick = () => { const p = S.passes[+b.dataset.rem], now = Date.now();
     if (p.rise - 60e3 <= now) { toast(p.set > now ? `${p.short} is up now: look ${compass(p.azRise)} to ${compass(p.azSet)}!` : `${p.short} has already passed`, 6000); return; }
-    if (p.rise - 10 * 60e3 <= now) { Alerts.remind({ tag: `pass-${p.id}-${Math.round(p.rise / 60e3)}`, at: p.rise - 60e3, title: `${p.short} in 1 minute`, body: describePass(p.short, p, { time }) }); return; }   // closer than 10 minutes: a minute's warning
-    Alerts.remind({ tag: `pass-${p.id}-${Math.round(p.rise / 60e3)}`, at: p.rise - 10 * 60e3, title: `${p.short} in 10 minutes`, body: describePass(p.short, p, { time }) }); }; });
+    if (p.rise - 10 * 60e3 <= now) { Alerts.remind({ tag: `pass-${p.id}-${Math.round(p.rise / 60e3)}`, at: p.rise - 60e3, until: p.set, title: `${p.short} in 1 minute`, body: describePass(p.short, p, { time }) }); return; }   // closer than 10 minutes: a minute's warning
+    Alerts.remind({ tag: `pass-${p.id}-${Math.round(p.rise / 60e3)}`, at: p.rise - 10 * 60e3, until: p.set, title: `${p.short} in 10 minutes`, body: describePass(p.short, p, { time }) }); }; });
   c.querySelectorAll('[data-cal]').forEach(b => { b.onclick = () => { const p = S.passes[+b.dataset.cal]; Alerts.calendar([{ uid: `oo-${p.id}-${Math.round(p.rise / 60e3)}@open-overwatch`, start: p.rise, end: p.set, title: `${p.short} passes over: look ${compass(p.azRise)}`, details: describePass(p.name, p, { time }) + '\nhttps://destinjones.github.io/open-overwatch/globe.html#go=tonight', alarmMin: 10 }], `${p.short.toLowerCase().replace(/\W+/g, '-')}-pass.ics`); }; });
 }
 

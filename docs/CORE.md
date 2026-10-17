@@ -1058,6 +1058,7 @@ A calendar file (iCalendar, RFC 5545) with a reminder: the one alert that reache
 server. Used by globe.
 
 - `makeIcs`: events → the file's text.
+- `reminderPlan`: the tab reminders due now (once, late ones up to 12 hours), still to come, and the wait to the next.
 
 ### `radio.js`
 

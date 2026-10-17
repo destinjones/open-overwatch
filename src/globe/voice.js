@@ -1,7 +1,8 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Talk to the globe with no key and no AI service: the browser's own speech recognition hears one sentence,
 // core/voicecmd.js turns it into one action, and the answer is spoken back with the browser's speech synthesis (the
-// nicest voice it has in your language). Press V or the mic, or hold Space while you speak. "What's this?" means the
+// nicest English voice it has for your country). Commands are English, or Hindi for a browser set to Hindi (heard in
+// hi-IN, answered in English). Press V or the mic, or hold Space while you speak. "What's this?" means the
 // thing the pointer rests on (or the open card, or the middle of the view); when an answer lists several things, "the
 // second one" opens it. Questions are answered from what the globe already holds: "how many planes over Texas?",
 // "what's the weather in Paris?" (the model at the moment weather mode shows, else Open-Meteo for now).
@@ -32,7 +33,7 @@ import { Ships } from './ships.js';
 import { Transit } from './transit.js';
 import { Cams } from './cams.js';
 import { Quakes } from './quakes.js';
-import { parse, EXAMPLES, weatherSentence } from '../core/voicecmd.js';
+import { parse, EXAMPLES, EXAMPLES_HI, weatherSentence, voiceLangs } from '../core/voicecmd.js';
 import { windFrom } from '../core/gfs.js';
 import { shipTypeName } from '../core/ais.js';
 import { inCountry } from '../core/borders.js';
@@ -67,22 +68,28 @@ function show(heard, reply, listening = false) {
   bubble.classList.add('show'); clearTimeout(hideTimer);
   if (!listening) hideTimer = setTimeout(() => bubble.classList.remove('show'), 5000);
 }
-// the nicest voice the browser has in the page's language: the neural / online ones first, then the well-known good ones
-let voice = null;
-function pickVoice() {
+// the languages to listen and answer in: one parse() reads (English, or Hindi heard in hi-IN with English answers),
+// never a language it can't (a French browser would hear French and match nothing)
+const LANG = voiceLangs(navigator.languages && navigator.languages.length ? [...navigator.languages] : [navigator.language || 'en-US']);
+const DEVANAGARI = /[ऀ-ॿ]/;
+// the nicest voice the browser has in that language: the neural / online ones first, then the well-known good ones
+let voice = null, voiceHi = null;
+function pickVoice(want) {
   if (!window.speechSynthesis) return null;
-  const lang = (navigator.language || 'en-US').toLowerCase(), base = lang.slice(0, 2);
+  const lang = want.toLowerCase(), base = lang.slice(0, 2);
   const rank = v => (/natural|neural|online/i.test(v.name) ? 0 : /google|samantha|daniel|serena|aria|jenny|guy|libby|sonia|karen|moira|alex/i.test(v.name) ? 1 : 2) + (v.lang.toLowerCase() === lang ? 0 : 0.5);
   return speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().replace('_', '-').startsWith(base)).sort((a, b) => rank(a) - rank(b))[0] || null;
 }
-if (window.speechSynthesis) { voice = pickVoice(); speechSynthesis.addEventListener?.('voiceschanged', () => { voice = pickVoice(); }); }
+const pickVoices = () => { voice = pickVoice(LANG.speak); voiceHi = LANG.words === 'hi' ? pickVoice('hi-IN') : null; };
+if (window.speechSynthesis) { pickVoices(); speechSynthesis.addEventListener?.('voiceschanged', pickVoices); }
 function say(text, heard) {
   show(heard, text); chime('done');
   try {
     if (!window.speechSynthesis || store.get('voiceMute', false)) return;
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text.replace(/·/g, ',').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu, '')); u.rate = 1.04; u.pitch = 0.95; u.lang = navigator.language || 'en-US';
-    if (voice) u.voice = voice;
+    const u = new SpeechSynthesisUtterance(text.replace(/·/g, ',').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu, '')); u.rate = 1.04; u.pitch = 0.95;
+    const hi = DEVANAGARI.test(text), v = hi ? voiceHi : voice;   // the Hindi help card is read in Hindi
+    u.lang = hi ? 'hi-IN' : LANG.speak; if (v) u.voice = v;
     speechSynthesis.speak(u);
   } catch (e) { /* speech output is a nicety */ }
 }
@@ -342,8 +349,8 @@ async function run(cmd, heard) {
       return say(`${a.name}: ${m.category ? CAT_WORDS[m.category] + '. ' : ''}${metarWords(m).slice(0, 5).map(w => w.text).join(' ')}`, heard);
     }
     case 'trails': Trails.setOn(cmd.on); return say(cmd.on ? 'Trails on: the plane you follow or open draws where it has been.' : 'Trails off.', heard);
-    case 'help': return say(`Try: ${EXAMPLES.slice(0, 5).join(' · ')}.`, heard);
-    default: return say(`Didn't catch a command. Try "take me to Tokyo" or "night vision".`, heard);
+    case 'help': return say(LANG.words === 'hi' ? `बोलकर देखिए: ${EXAMPLES_HI.slice(0, 5).join(' · ')}.` : `Try: ${EXAMPLES.slice(0, 5).join(' · ')}.`, heard);
+    default: return say(LANG.words === 'hi' ? `समझ नहीं आया। बोलकर देखिए: "${EXAMPLES_HI[0]}" या "${EXAMPLES_HI[1]}"।` : `Didn't catch a command. Try "take me to Tokyo" or "night vision".`, heard);
   }
 }
 
@@ -356,7 +363,7 @@ function listen() {
     toast("Voice uses your browser's own speech service (Chrome and Edge send the audio to Google or Microsoft, Safari to Apple). This site receives nothing.", 7000);
     store.set('voiceNoticed', true);
   }
-  rec = new SR(); rec.lang = navigator.language || 'en-US'; rec.interimResults = true; rec.maxAlternatives = 3; rec.continuous = false;
+  rec = new SR(); rec.lang = LANG.listen; rec.interimResults = true; rec.maxAlternatives = 3; rec.continuous = false;
   let done = false;
   rec.onresult = e => {
     const r = e.results[e.results.length - 1];
