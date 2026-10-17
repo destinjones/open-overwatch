@@ -345,7 +345,7 @@ function decodeTile(data, cod, siz, tx0, ty0, tx1, ty1) {
     for (let y = 0; y < blk.h; y++) for (let x = 0; x < blk.w; x++) B.coef[(blk.y0 - B.y0 + y) * B.w + (blk.x0 - B.x0 + x)] = vals[y * blk.w + x] * B.delta;
   }
   // the inverse wavelet, one resolution at a time
-  let cur = res[0].bands[0].coef, cw = res[0].rx1 - res[0].rx0, ch = res[0].ry1 - res[0].ry0;
+  let cur = res[0].bands[0].coef, cw = res[0].rx1 - res[0].rx0;   // cur is cw wide; its height is never needed (each level reads its own)
   for (let r = 1; r <= NL; r++) {
     const R = res[r], w = R.rx1 - R.rx0, h = R.ry1 - R.ry0, a = new Float64Array(w * h);
     const [HL, LH, HH] = R.bands, lx = Math.ceil(R.rx0 / 2), hx = Math.floor(R.rx0 / 2), ly = Math.ceil(R.ry0 / 2), hy = Math.floor(R.ry0 / 2);
@@ -356,7 +356,7 @@ function decodeTile(data, cod, siz, tx0, ty0, tx1, ty1) {
     const line = new Float64Array(Math.max(w, h) + 8);
     for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) line[x] = a[y * w + x]; synth(line, w, R.rx0, cod.reversible); for (let x = 0; x < w; x++) a[y * w + x] = line[x]; }
     for (let x = 0; x < w; x++) { for (let y = 0; y < h; y++) line[y] = a[y * w + x]; synth(line, h, R.ry0, cod.reversible); for (let y = 0; y < h; y++) a[y * w + x] = line[y]; }
-    cur = a; cw = w; ch = h;
+    cur = a; cw = w;
   }
   if (cod.reversible) for (let i = 0; i < cur.length; i++) cur[i] = Math.round(cur[i]);
   return cur;

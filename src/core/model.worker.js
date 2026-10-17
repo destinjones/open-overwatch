@@ -1,5 +1,4 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
-/// <reference lib="webworker" />
 // Weather model fields off the main thread (for core/wxload.js, so the globe and the 2D map alike): fetch a forecast hour's inventory (NOAA's .idx or ECMWF's .index) or the
 // byte ranges of the fields wanted from the models' files on AWS, keep each in Cache Storage (a run's files never
 // change, so a page reload or a second look costs nothing), decode the GRIB2 (simple and complex packing for GFS,

@@ -39,7 +39,7 @@ installs the dependencies and starts the helper on port 8787 for you.
 ## Test it
 
 ```bash
-npm install          # once: satellite.js (the MCP server's one dependency) and Playwright (dev only)
+npm install          # once: satellite.js (the MCP server's one dependency); dev tools Playwright, TypeScript, ESLint
 node --test          # the unit tests: maths against JPL Horizons, parsers, the MCP server, the docs against the code
 npm run coverage     # the same tests, failing if coverage of src/core and mcp drops below the floor (CI runs this)
 npm run typecheck    # TypeScript reads the JSDoc of src/core and mcp (checks only, emits nothing; CI runs this)
@@ -57,12 +57,13 @@ npm run e2e          # the browser tests: every page in headless Chromium, feeds
   Lint warnings (unused variables) do not fail; errors do.
 - More (frame rates, phone journeys, the Android emulator, WebKit) in [docs/TESTING.md](docs/TESTING.md).
 
-CI (`.github/workflows/ci.yml`) runs a syntax check of every module, a check that every module a page loads exists, the
-accessibility check, `npm audit` (high or critical fails), a licence check (`brand/tools/license_check.mjs`: permissive
-licences only in the production dependencies), `npm run typecheck`, `npm run lint`, `npm run coverage` and, as its own job, the browser tests, on every push
-and pull request. CodeQL scans pull requests to `main`, and Dependabot proposes dependency updates weekly. A new
-dependency must have a permissive licence; new code in `src/core/` or `mcp/` needs tests so coverage stays above the
-floor ([docs/DEVELOPING.md](docs/DEVELOPING.md#3-tests)).
+CI (`.github/workflows/ci.yml`) runs a syntax check of every module, a check that every module a page loads exists,
+the accessibility check, `npm audit` (high or critical fails), a licence check (`brand/tools/license_check.mjs`:
+permissive licences only in the production dependencies), `npm run typecheck`, `npm run lint`, `npm run coverage` and,
+as its own job, the browser tests, on every push and pull request. CodeQL scans pull requests to `main`, and
+Dependabot proposes dependency updates weekly. A new dependency must have a permissive licence; new code in
+`src/core/` or `mcp/` needs tests so coverage stays above the floor
+([docs/DEVELOPING.md](docs/DEVELOPING.md#3-tests)).
 
 ## The few rules that matter
 

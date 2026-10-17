@@ -1,0 +1,9 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
+// The two core workers, checked on their own (npm run typecheck runs both configs): a lib applies to the whole program,
+// so giving the WebWorker names (self, postMessage, importScripts) only here keeps the rest of src/core from seeing them.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "lib": ["ES2022", "WebWorker"], "types": [] },
+  "include": ["src/core/*.worker.js"],
+  "exclude": []
+}

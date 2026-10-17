@@ -11,7 +11,7 @@ file was built from.
 ### Added
 - A type check and a bug-finding linter, as dev dependencies only (the site still has no build step): `npm run
   typecheck` runs TypeScript 6.0 over the JSDoc of `src/core/`, `mcp/` and the test helpers (`tsconfig.json`, no
-  output); `npm run lint` runs ESLint 10 with bug rules only (`eslint.config.mjs`). Both run in CI's test job.
+  output; the two core workers get the WebWorker names in `tsconfig.workers.json` alone); `npm run lint` runs ESLint 10 with bug rules only (`eslint.config.mjs`). Both run in CI's test job.
 
 ### Changed
 - JSDoc types where the checker could not infer them (option objects, tables of pairs), so it passes

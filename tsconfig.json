@@ -19,6 +19,8 @@
     "types": ["node"],
     "skipLibCheck": true
   },
-  // the two workers add the WebWorker names with /// <reference lib="webworker" />
-  "include": ["src/core/**/*.js", "mcp/**/*.mjs", "test/helpers/**/*.mjs"]
+  // A lib applies to the whole program, so the two workers (which need the WebWorker names) are checked on their own by
+  // tsconfig.workers.json; types/page.d.ts declares the one browser name the rest of the core uses (wxload.js's Worker).
+  "include": ["src/core/**/*.js", "mcp/**/*.mjs", "test/helpers/**/*.mjs", "types/page.d.ts"],
+  "exclude": ["src/core/*.worker.js"]
 }

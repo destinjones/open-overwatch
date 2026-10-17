@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // ESLint for bugs only: undefined names (with each folder's real globals), unused variables (a warning), duplicate keys,
 // unreachable code, constant conditions, self-assignment and switch fall-through. No style rules: the code's layout is
-// its own. Run with `npm run lint` (a dev dependency; nothing here reaches the site or the .mcpb).
+// its own. Run with `npm run lint` (a dev dependency; it never runs on the site or ships in the zip or the .mcpb).
 import globals from 'globals';
 
 const rules = {
