@@ -90,6 +90,10 @@ export function parseWind(tok) {
   return { dir: sp === 0 ? null : dir, vrb: m[1] === 'VRB', speedKt: sp, gustKt: g, calm: sp === 0, unit: m[4] };
 }
 
+/** A report's wind when the runway-by-wind guess can use it (a direction, or variable, or calm, with a speed), else null:
+ *  "///15KT" (no direction) and "/////KT" (nothing) are not, and the cards fall back to the model's wind. */
+export const usableWind = w => (w && w.speedKt != null && (w.dir != null || w.vrb || w.calm) ? w : null);
+
 /** "1/2", "3/4", "1 1/2" (two tokens joined), "10" -> a number of statute miles. */
 function miles(s) {
   const parts = s.trim().split(/\s+/); let v = 0;
