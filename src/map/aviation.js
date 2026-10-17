@@ -139,23 +139,27 @@ function boardRow(e, ap) {
   const r = e.r, fin = e.status === 'arriving' ? Airports.runways.final(ap, e.p) : null;
   const { where, right, sub } = boardRowWords({ ...e, r: { ...r, vr: e.p.vr } }, ap, { fin, kind: classify(e.p).name, fmt: fmt.n });   // the same words as the globe's boards
   const type = r.t || (r.info && r.info.aircraft && r.info.aircraft.icaoType) || '';
-  return `<button type="button" class="ab-row${r.emerg ? ' emg' : ''}" data-hex="${esc(r.hex)}"><span><b>${esc(r.flight || r.r || r.hex)}</b>${r.emerg ? ` <em>SQUAWK ${esc(r.squawk)}</em>` : ''} ${esc(type)}${where ? ' · ' + esc(where) : ''}${e.sure ? ' ✓' : ''}</span><small>${esc(sub)} · ${esc(right)}</small></button>`;
+  return `<button type="button" class="ab-row${r.emerg ? ' emg' : ''}" data-hex="${esc(r.hex)}"><span><b>${esc(r.flight || r.r || r.hex)}</b>${r.emerg ? ` <em>${/^7[567]00$/.test(r.squawk || '') ? 'SQUAWK ' + esc(r.squawk) : 'EMERGENCY'}</em>` : ''} ${esc(type)}${where ? ' · ' + esc(where) : ''}${e.sure ? ' ✓' : ''}</span><small>${esc(sub)} · ${esc(right)}</small></button>`;
 }
-function runwaysHtml(a, wx, use) {
+function runwaysHtml(a, wx, use, modelNote = false) {
   const rws = Airports.runways.of(a); if (!rws) return '';
   const table = wx && wx.windKt != null && wx.windDir != null ? Airports.runways.wind(a, wx.windDir, wx.windKt) : [];
   const byEnd = new Map(table.map(t => [t.end, t]));
   const rows = rws.map(rw => `<tr><td><b>${esc(rw.ends.map(e => e.ident).join('/'))}</b></td><td>${rw.lengthFt ? fmt.n(rw.lengthFt) + ' ft' : ''}${rw.surface ? ' · ' + esc(rw.surface) : ''}</td></tr>`
     + rw.ends.map(e => { const t = byEnd.get(e); return t ? `<tr class="ap-end${use && use.end === e ? ' on' : ''}"><td>${esc(e.ident)}</td><td>${esc(windWords(t))}${Math.abs(t.cross) >= 15 ? ' <em>strong crosswind</em>' : t.head < -5 ? ' <em>tailwind</em>' : ''}</td></tr>` : ''; }).join('')).join('');
-  return `<h4>Runways${table.length ? ': the wind on each end' : ''}</h4><table class="ap-rw">${rows}</table>`;
+  return `<h4>Runways${table.length ? `: the wind on each end${modelNote ? ' <small>(Open-Meteo model: the report gives no usable wind)</small>' : ''}` : ''}</h4><table class="ap-rw">${rows}</table>`;
 }
 Detail.renderers.airport = a => {
-  Airports.open = a; const rep = fieldReports(a), metar = rep && rep.m, wx = metar ? null : fieldWeather(a), b = Dyn.air.size ? Airports.board(a) : null;
+  Airports.open = a; const rep = fieldReports(a), metar = rep && rep.m, b = Dyn.air.size ? Airports.board(a) : null;
+  // the METAR's wind where it has one (a direction, or variable, or calm); else the model's, also under a METAR with
+  // "///15KT" (no direction) or no wind group, so the runway-by-wind guess and the wind table still have one
+  const mw = metar && metar.wind, metarWind = mw && mw.speedKt != null && (mw.dir != null || mw.vrb || mw.calm) ? mw : null;
+  const wx = metarWind ? null : fieldWeather(a);
   if (b && !Airports.asked.has(a.icao)) {   // ask adsbdb where the first few come from or go (queued, cached a day)
     Airports.asked.add(a.icao);
     for (const r of [...b.arriving, ...b.departing].map(e => e.r).filter(r => r.info === undefined).slice(0, LOOKUPS_PER_BOARD)) AcInfo.get(r).then(v => { if (v && Sel.kind === 'airport' && Sel.obj === a) Detail.render(); });
   }
-  const wind = metar && metar.wind && metar.wind.speedKt != null ? { dir: metar.wind.dir, speed: metar.wind.speedKt } : wx && { dir: wx.windDir, speed: wx.windKt };   // the METAR's wind first
+  const wind = metarWind ? { dir: metarWind.dir, speed: metarWind.speedKt } : wx && { dir: wx.windDir, speed: wx.windKt };   // the METAR's wind first
   const use = b ? Airports.runways.inUse(a, b.arriving.map(e => e.p), wind) : null;
   const onIt = use && wind && wind.speed != null && wind.dir != null ? Airports.runways.wind(a, wind.dir, wind.speed).find(t => t.end === use.end) : null;
   a.use = use; Runways2D.draw();
@@ -168,7 +172,7 @@ Detail.renderers.airport = a => {
   return `<div class="det ap">${Detail.head(AP_COLOR, a.size === 2 ? 'Large airport · OurAirports' : 'Airport · OurAirports', a.name, esc(apHead(a)))}${wxLine}`
     + (use ? `<p class="ap-use">Runway in use: <b>${esc(use.end.ident)}</b> ${use.how === 'arrivals' ? `(${use.n} lined up)` : '(into the wind; a guess)'}${onIt ? ` · wind on it ${esc(windWords(onIt))}` : ''}</p>` : '')
     + (next ? `<div class="actions"><button type="button" class="btn small" data-follow="${esc(next.r.hex)}">Follow the next arrival · ${esc(next.r.flight || next.r.hex)}</button></div>` : '')
-    + `<div class="ap-board">${board}</div>${runwaysHtml(a, wind && { windDir: wind.dir, windKt: wind.speed }, use)}`
+    + `<div class="ap-board">${board}</div>${runwaysHtml(a, wind && { windDir: wind.dir, windKt: wind.speed }, use, !!metar && !metarWind)}`
     + `<p class="note">From the live aircraft on the map: arriving means low and descending towards ${esc(code)}, departing means climbing away from it (within ${BOARD.radiusKm} km); ✓ the route on file agrees. Not a timetable: times are estimates from distance, ground speed and descent, with the range they could fall in. Airports and runways: ${esc(Airports.credit)}.</p>`
     + `<div class="actions"><button type="button" class="btn small" data-center="${esc(a.icao)}">Center</button></div></div>`;
 };

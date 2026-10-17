@@ -36,7 +36,7 @@ function boardRow(e, ap) {
   const r = e.r, fin = e.status === 'arriving' ? Runways.final(ap, { ...r, lat: r.cur?.lat ?? r.lat, lon: r.cur?.lon ?? r.lon }) : null;
   // core/airports.js: the same words as the 2D map's boards (estimates as ranges, "final 27L", departed-ago)
   const { where, right, sub } = boardRowWords(e, ap, { fin, kind: airClass(r).name, fmt });
-  const sq = r.emerg ? ` <em class="ab-emg">SQUAWK ${esc(r.squawk)}</em>` : '';
+  const sq = r.emerg ? ` <em class="ab-emg">${/^7[567]00$/.test(r.squawk || '') ? 'SQUAWK ' + esc(r.squawk) : 'EMERGENCY'}</em>` : '';   // a declared emergency can come with any squawk
   return `<button class="cj ab-row${r.emerg ? ' emg' : ''}" data-hex="${esc(r.hex)}"><span><b>${esc(r.flight || r.hex)}</b>${sq} ${esc(r.type || (r.info && r.info.aircraft && r.info.aircraft.icaoType) || '')}${where ? ' · ' + esc(where) : ''}${e.sure ? ' ✓' : ''}</span>`
     + `<small>${esc(sub)} · ${esc(right)}</small></button>`;
 }

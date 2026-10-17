@@ -176,9 +176,10 @@ const BLOCKS = [
   [0x896000, 0x1000, 'United Arab Emirates'], [0x8a0000, 0x8000, 'Indonesia'], [0xa00000, 0x100000, 'United States'],
   [0xc00000, 0x40000, 'Canada'], [0xc80000, 0x8000, 'New Zealand'], [0xe00000, 0x40000, 'Argentina'], [0xe40000, 0x40000, 'Brazil'],
 ];
-/** The state an ICAO address was allocated to, or '' (unknown block, or not a hex address). */
+/** The state an ICAO address was allocated to, or '' (unknown block, or not an ICAO address: readsb's "~" marks a
+ *  non-ICAO one, whose digits say nothing about where it is registered). */
 export function hexCountry(hex) {
-  const h = String(hex || '').replace(/^~/, '');
+  const h = String(hex || '');
   if (!/^[0-9a-fA-F]{6}$/.test(h)) return '';
   const v = parseInt(h, 16);
   for (const [start, size, name] of BLOCKS) if (v >= start && v < start + size) return name;

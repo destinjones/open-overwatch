@@ -16,7 +16,8 @@ function net(answer) {
 const memStore = () => { const m = {}; return { m, get: (k, d) => k in m ? m[k] : d, set: (k, v) => { m[k] = v; } }; };
 
 test('acinfo: keys and the 429 wait', () => {
-  assert.equal(acKey('~4CA87C', 'RYR4WZ'), '4ca87c|RYR4WZ');
+  assert.equal(acKey('4CA87C', 'RYR4WZ'), '4ca87c|RYR4WZ');
+  assert.equal(acKey('~4CA87C', 'RYR4WZ'), '~4ca87c|RYR4WZ', 'a non-ICAO track keeps its own entry');
   assert.equal(retryAfter({ response: 'rate limited for 37 seconds' }), 37);
   assert.equal(retryAfter(null), 120);
 });
@@ -66,6 +67,17 @@ test('acinfo: rate limited means silence until adsbdb says; bad hexes are never 
   assert.equal(await ai.get({ hex: '4ca87d', flight: '' }), null); assert.equal(n.seen.length, 1, 'nothing asked while blocked');
   now += 31e3; assert.ok(!ai.limited);
   assert.equal(await ai.get({ hex: '~zz0001', flight: '' }), null); assert.equal(n.seen.length, 1, 'not an ICAO hex');
+});
+
+test('acinfo: a non-ICAO "~" address is never looked up, nor answered from the entry of the real airframe', async () => {
+  const n = net(() => reply(200, FIX));
+  const ai = createAcInfo({ fetch: n.fetch, sleep: async () => {} });
+  const real = await ai.get({ hex: '4ca87c', flight: 'RYR4WZ' }); assert.equal(real.aircraft.reg, 'EI-EJG'); assert.equal(n.seen.length, 1);
+  const tisb = { hex: '~4ca87c', flight: 'RYR4WZ' };
+  assert.equal(ai.peek(tisb), undefined, 'not the cached answer for 4ca87c');
+  assert.equal(await ai.get(tisb), null); assert.equal(tisb.info, undefined);
+  assert.equal(await ai.get({ hex: '~a1b2c3', flight: 'N12345' }), null);
+  assert.equal(n.seen.length, 1, 'adsbdb never asked about the six digits');
 });
 
 test('acinfo: one request at a time, at least 1.1 s apart', async () => {

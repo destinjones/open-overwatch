@@ -73,8 +73,19 @@ test('metar: the plain words on the card', () => {
   assert.match(metarWords(metar('LEMD')).map(x => x.text).join(' '), /Ceiling and visibility OK/);
   assert.equal(windText(parseWind('00000KT')), 'Calm');
   assert.equal(windText(parseWind('VRB12KT')), 'Wind variable in direction at 12 knots');
+  // a missing direction is not "variable", and a missing gust keeps the wind
+  assert.equal(windText(parseWind('///15KT')), 'Wind direction not reported, 15 knots');
+  assert.equal(windText(parseWind('///03KT')), 'Wind direction not reported, 3 knots');
+  assert.deepEqual(parseWind('27015G//KT'), { dir: 270, vrb: false, speedKt: 15, gustKt: null, calm: false, unit: 'KT' });
+  const noGust = parseMetar('KXYZ 012353Z 27015G//KT 2 1/2SM BR OVC009 20/10 A3010', { now: Date.UTC(2026, 10, 2) });
+  assert.equal(noGust.wind.speedKt, 15); assert.deepEqual(noGust.unparsed, []);
+  assert.equal(windText(noGust.wind), 'Wind from the west (270°) at 15 knots');
   assert.equal(visText({ visSM: 0.75, visUnit: 'SM' }), '3/4 of a mile'); assert.equal(visText({ visSM: 1.5, visUnit: 'SM' }), '1 1/2 miles');
   assert.equal(visText({ visSM: 6, visUnit: 'SM', visPlus: true }), '6 miles or more');
+  // the US sixteenths and 7/8, not "0.1 miles"
+  const sm = v => visText(parseMetar(`KSFO 010056Z 00000KT ${v}SM FG VV001 12/12 A3001`, { now: Date.UTC(2026, 10, 1, 2) }));
+  assert.equal(sm('1/16'), '1/16 of a mile'); assert.equal(sm('3/16'), '3/16 of a mile'); assert.equal(sm('5/16'), '5/16 of a mile');
+  assert.equal(sm('7/16'), '7/16 of a mile'); assert.equal(sm('7/8'), '7/8 of a mile'); assert.equal(sm('1 7/8'), '1 7/8 miles'); assert.equal(sm('1 3/8'), '1 3/8 miles');
   assert.equal(visText({ visSM: 800 / 1609.344, visM: 800, visUnit: 'M' }), '800 metres');
   assert.equal(cloudText({ clouds: [], clear: 'CLR' }), 'No cloud below 12,000 feet');
   assert.equal(cloudText({ clouds: [parseCloud('SCT024TCU')], clear: '' }), 'Scattered cloud at 2,400 feet (towering cumulus)');
@@ -140,7 +151,7 @@ test('taf: the forecast at a time, the worst ahead, and the words', () => {
   assert.equal(words[0].text, 'Now until 17Z: wind 050° 10 kt, 5 miles, mist, overcast at 300 ft'); assert.equal(words[0].category, 'LIFR');
   assert.equal(words[1].text, '15Z–17Z, at times: 2 miles, light drizzle, mist');
   assert.ok(words.some(w => /^From 19Z until 21Z: wind 060° 10 kt, 6 miles or more, scattered cloud at 1,600 ft, broken cloud at 2,800 ft$/.test(w.text)));
-  assert.ok(words.some(w => /^00Z–06Z, 30% chance: light rain showers/.test(w.text)));
+  assert.ok(words.some(w => /^Tomorrow 00Z–06Z, 30% chance: light rain showers/.test(w.text)), 'the hours of the 14th say so');
   assert.ok(tafWords(t, { now: at(22) }).every(w => w.to > at(22)), 'periods that ended are left out');
   // BECMG changes only what it names: EGLL 27020G30KT 9999 FEW040 BECMG 1315/1318 26009KT
   const egll = taf('EGLL').t, m = tafAt(egll, Date.UTC(2026, 9, 13, 19)).main;
@@ -152,6 +163,24 @@ test('taf: the forecast at a time, the worst ahead, and the words', () => {
   // Australia's INTER is a short TEMPO
   assert.ok(taf('YSSY').t.periods.some(p => p.kind === 'TEMPO' && p.inter));
   assert.equal(conditionText({ wind: parseWind('VRB03KT'), cavok: false, visSM: null, weather: [], clouds: [], clear: 'SKC' }), 'wind variable 3 kt, sky clear');
+  assert.equal(conditionText({ wind: parseWind('///15KT'), cavok: false, visSM: null, weather: [], clouds: [], clear: 'SKC' }), 'wind direction not reported, 15 kt, sky clear');
+});
+
+test('taf: a time on another UTC day than now says which day', () => {
+  // valid 1 Nov 14Z to 2 Nov 18Z, read at 1 Nov 15Z: the base runs to tomorrow's 18Z, the fog comes today at 18Z
+  const now = Date.UTC(2026, 10, 1, 15);
+  const t = parseTaf('TAF EDDF 011400Z 0114/0218 VRB03KT CAVOK BECMG 0118/0120 0300 FG VV001 BECMG 0208/0210 9999 NSW SCT015', { now });
+  assert.deepEqual(tafWords(t, { now }).map(w => w.text.split(':')[0]), ['Now until tomorrow 18Z', '18Z–20Z, becoming', 'Tomorrow 08Z–10Z, becoming']);
+  // FM groups read at 18Z: "From 18Z" tomorrow is not right now
+  const at = Date.UTC(2026, 10, 1, 18);
+  const fm = parseTaf('TAF KXYZ 011720Z 0118/0224 27010KT P6SM SKC FM020200 30015KT P6SM BKN020 FM021800 32010KT P6SM SCT050', { now: at });
+  assert.deepEqual(tafWords(fm, { now: at }).map(w => w.text.split(':')[0]), ['Now until tomorrow 02Z', 'From tomorrow 02Z until 18Z', 'From tomorrow 18Z until 03/00Z']);
+  // a TEMPO still running from yesterday, and one that ends after midnight
+  const late = Date.UTC(2026, 10, 2, 1);
+  const tp = parseTaf('TAF KXYZ 012320Z 0200/0306 27010KT P6SM SKC TEMPO 0123/0203 3SM BR TEMPO 0222/0302 2SM RA', { now: late });
+  const lines = tafWords(tp, { now: late }).map(w => w.text.split(':')[0]);
+  assert.ok(lines.includes('Yesterday 23Z–03Z, at times'), lines.join(' | '));
+  assert.ok(lines.includes('22Z–tomorrow 02Z, at times'), lines.join(' | '));
 });
 
 test('awc: reading the API answers, the URLs and batches', () => {

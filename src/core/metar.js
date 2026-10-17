@@ -78,13 +78,13 @@ export function parseCloud(tok) {
   return { cover: m[1], baseFt: m[2] === '///' ? null : +m[2] * 100, type: m[3] && m[3] !== '///' ? m[3] : '' };
 }
 
-/** A wind group ("27022G30KT", "VRB03KT", "36003MPS", "00000KT") -> { dir (° true, null when variable), vrb, speedKt,
- *  gustKt, calm } or null. Speeds are converted to knots. */
+/** A wind group ("27022G30KT", "VRB03KT", "36003MPS", "00000KT") -> { dir (° true, null when variable or not reported:
+ *  "///15KT"), vrb, speedKt, gustKt (null when none or not reported: "27015G//KT"), calm } or null. Speeds in knots. */
 export function parseWind(tok) {
-  const m = /^(\d{3}|VRB|\/\/\/)(\d{2,3}|\/\/)(?:G(\d{2,3}))?(KT|MPS|KMH)$/.exec(tok);
+  const m = /^(\d{3}|VRB|\/\/\/)(\d{2,3}|\/\/)(?:G(\d{2,3}|\/\/))?(KT|MPS|KMH)$/.exec(tok);
   if (!m) return null;
   const k = m[4] === 'MPS' ? KT_PER_MPS : m[4] === 'KMH' ? KT_PER_KMH : 1;
-  const sp = m[2] === '//' ? null : Math.round(+m[2] * k), g = m[3] ? Math.round(+m[3] * k) : null;
+  const sp = m[2] === '//' ? null : Math.round(+m[2] * k), g = m[3] && m[3] !== '//' ? Math.round(+m[3] * k) : null;
   const dir = /^\d{3}$/.test(m[1]) ? +m[1] : null;   // 360 stays 360 (north), as written
   if (dir > 360) return null;   // "97802KT" is no wind: a garbled group, kept in unparsed
   return { dir: sp === 0 ? null : dir, vrb: m[1] === 'VRB', speedKt: sp, gustKt: g, calm: sp === 0, unit: m[4] };
@@ -214,11 +214,13 @@ const COMPASS = ['north', 'north-north-east', 'north-east', 'east-north-east', '
 /** "the west" for 270°: the 16-point compass name of a direction. */
 export const compass = deg => COMPASS[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
 
-/** Wind in words: "Calm", "Wind from the west (270°) at 22 knots, gusting 30", "Light and variable wind (3 knots)". */
+/** Wind in words: "Calm", "Wind from the west (270°) at 22 knots, gusting 30", "Light and variable wind (3 knots)",
+ *  "Wind direction not reported, 15 knots" (a "///15KT" group: the direction is missing, which is not "variable"). */
 export function windText(w, varRange = null) {
   if (!w || w.speedKt == null) return '';
   if (w.calm) return 'Calm';
   const g = w.gustKt ? `, gusting ${w.gustKt}` : '';
+  if (w.dir == null && !w.vrb) return `Wind direction not reported, ${w.speedKt} knot${w.speedKt === 1 ? '' : 's'}${g}`;
   if (w.dir == null) return w.speedKt <= 6 ? `Light and variable wind (${w.speedKt} knots${g})` : `Wind variable in direction at ${w.speedKt} knots${g}`;
   const v = varRange ? `, swinging between ${String(varRange[0]).padStart(3, '0')}° and ${String(varRange[1]).padStart(3, '0')}°` : '';
   return `Wind from the ${compass(w.dir)} (${String(w.dir).padStart(3, '0')}°) at ${w.speedKt} knot${w.speedKt === 1 ? '' : 's'}${g}${v}`;
@@ -229,8 +231,9 @@ export function visText(r) {
   if (r.visSM == null) return '';
   if (r.visUnit !== 'SM' && r.visPlus && r.visM >= 10000) return '10 km or more';
   if (r.visUnit === 'SM') {
-    const s = r.visSM, frac = { 0.125: '1/8', 0.25: '1/4', 0.375: '3/8', 0.5: '1/2', 0.625: '5/8', 0.75: '3/4' };
-    const whole = Math.floor(s), rest = Math.round((s - whole) * 1000) / 1000;
+    const s = r.visSM, frac = { 0.0625: '1/16', 0.125: '1/8', 0.1875: '3/16', 0.25: '1/4', 0.3125: '5/16', 0.375: '3/8', 0.4375: '7/16', 0.5: '1/2',
+      0.625: '5/8', 0.75: '3/4', 0.875: '7/8' };   // the US reportable values (FMH-1: sixteenths in fog at manual stations)
+    const whole = Math.floor(s), rest = Math.round((s - whole) * 10000) / 10000;
     const words = rest && frac[rest] ? (whole ? `${whole} ${frac[rest]} miles` : `${frac[rest]} of a mile`) : `${Math.round(s * 10) / 10} mile${s === 1 ? '' : 's'}`;
     return (r.visMinus ? 'less than ' : '') + words + (r.visPlus ? ' or more' : '');
   }
@@ -380,7 +383,7 @@ export function tafAt(taf, t) {
 /** Plain words for one forecast period's conditions: "wind 050° 10 kt, 5 miles in mist, overcast at 300 ft". */
 export function conditionText(p) {
   const bits = [];
-  if (p.wind) bits.push(p.wind.calm ? 'calm' : `wind ${p.wind.dir == null ? 'variable' : String(p.wind.dir).padStart(3, '0') + '°'} ${p.wind.speedKt} kt${p.wind.gustKt ? ` gusting ${p.wind.gustKt}` : ''}`);
+  if (p.wind) bits.push(p.wind.calm ? 'calm' : `wind ${p.wind.dir == null ? (p.wind.vrb ? 'variable' : 'direction not reported,') : String(p.wind.dir).padStart(3, '0') + '°'} ${p.wind.speedKt} kt${p.wind.gustKt ? ` gusting ${p.wind.gustKt}` : ''}`);
   if (p.cavok) bits.push('CAVOK (all clear)');
   else if (p.visSM != null) bits.push(visText(p));
   if (p.weather.length) bits.push(p.weather.map(w => w.text).join(', '));
@@ -394,10 +397,20 @@ export function conditionText(p) {
 }
 
 const hhmm = t => { const d = new Date(t); return `${String(d.getUTCHours()).padStart(2, '0')}${d.getUTCMinutes() ? ':' + String(d.getUTCMinutes()).padStart(2, '0') : ''}Z`; };
+const utcDay = t => Math.floor(t / 86400e3);
+/** A time as "18Z", or with its UTC day when that is not the day of `now`: "tomorrow 18Z", "yesterday 22Z", "03/06Z". */
+const dayHhmm = (t, now) => {
+  const k = utcDay(t) - utcDay(now);
+  return (k === 0 ? '' : k === 1 ? 'tomorrow ' : k === -1 ? 'yesterday ' : String(new Date(t).getUTCDate()).padStart(2, '0') + '/') + hhmm(t);
+};
+/** The end of a span: just "20Z" when it falls on the same UTC day as the start the reader already has, else with its day. */
+const endHhmm = (to, start, now) => (utcDay(to) === utcDay(start) ? hhmm(to) : dayHhmm(to, now));
+const cap = s => s[0].toUpperCase() + s.slice(1);
 /**
  * A TAF as lines of plain words for the card, from `now` for `hours` (periods that ended are left out): [{ kind, from,
- * to, category, text }], e.g. "Until 17Z: wind 050° 10 kt, 5 miles, mist, overcast at 300 ft" and "From 17Z to 19Z, at
- * times: 2 miles, light drizzle, mist".
+ * to, category, text }], e.g. "Now until 17Z: wind 050° 10 kt, 5 miles, mist, overcast at 300 ft" and "17Z–19Z, at times:
+ * 2 miles, light drizzle, mist". A time on another UTC day than `now` says so ("Now until tomorrow 18Z", "Tomorrow
+ * 08Z–10Z, becoming: ..."), since a TAF runs 24-30 h and "18Z" alone would read as today's.
  */
 export function tafWords(taf, { now = Date.now(), hours = 30 } = {}) {
   if (!taf) return [];
@@ -408,8 +421,8 @@ export function tafWords(taf, { now = Date.now(), hours = 30 } = {}) {
     if (to != null && to <= now) continue;
     if (from != null && from > end) continue;
     const when = p.kind === 'BASE' || p.kind === 'FM'
-      ? (from != null && from > now ? `From ${hhmm(from)}` : 'Now') + (to != null ? ` until ${hhmm(to)}` : '')
-      : `${hhmm(from)}–${hhmm(to)}, ${p.kind === 'TEMPO' ? 'at times' : p.kind === 'BECMG' ? 'becoming' : `${p.prob}% chance${p.tempo ? ' at times' : ''}`}`;
+      ? (from != null && from > now ? `From ${dayHhmm(from, now)}` : 'Now') + (to != null ? ` until ${endHhmm(to, from != null && from > now ? from : now, now)}` : '')
+      : `${cap(dayHhmm(from, now))}–${endHhmm(to, from, now)}, ${p.kind === 'TEMPO' ? 'at times' : p.kind === 'BECMG' ? 'becoming' : `${p.prob}% chance${p.tempo ? ' at times' : ''}`}`;
     const text = conditionText(p);
     if (!text) continue;
     out.push({ kind: p.kind, from, to, category: p.kind === 'BECMG' ? null : p.category, text: `${when}: ${text}` });
