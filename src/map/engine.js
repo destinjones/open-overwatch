@@ -214,7 +214,7 @@ export const Layers = {
     if (on && d.guard && !this.acked(d)) {   // not before the warning has been read; presets and saved states never skip it
       UI.refreshLayer(d); if (!opts.silent) UI.guard(d).then(ok => { if (ok) { this.ack(d); this.set(id, true); } else UI.refreshLayer(d); }); return;
     }
-    d.on = on; this.state[id] = on; Store.set('layers', this.state); if (on) { d.enable && d.enable(); if (d.feed) { d.feed.nextAt = 0; d.feed.fails = 0; } } else { d.disable && d.disable(); if (d.points) Points.clear(d.points); if (d.feed) { d.feed.status = 'idle'; d.feed.count = 0; } } UI.refreshLayer(d); glyphs.draw(); },
+    d.on = on; this.state[id] = on; Store.set('layers', this.state); if (on) { d.enable && d.enable(); if (d.feed) { d.feed.nextAt = 0; d.feed.fails = 0; d.feed.notCarried = false; } } else { d.disable && d.disable(); if (d.points) Points.clear(d.points); if (d.feed) { d.feed.status = 'idle'; d.feed.count = 0; } } UI.refreshLayer(d); glyphs.draw(); },
   apply(onIds) { for (const d of this.defs) this.set(d.id, onIds.includes(d.id), { silent: true }); },
 };
 export const UI = {
@@ -291,11 +291,13 @@ export async function runFeed(f, force = false) {
   if (map.getZoom() < f.minZoom) { f.status = 'idle'; f.err = ''; UI.refreshLayer(d); f.nextAt = Date.now() + 5000; return; }
   f.running = true; f.status = 'loading'; UI.refreshLayer(d);
   f.nextAt = Infinity; // a reschedule made during the fetch (pan nudge, re-enable, the fetch itself) lowers this and is kept below
-  try { await f.fetch(force); f.status = 'ok'; f.lastOk = Date.now(); f.err = ''; f.fails = 0; f.nextAt = Math.min(f.nextAt, Date.now() + f.interval * 1000); }
+  try { await f.fetch(force); f.status = 'ok'; f.lastOk = Date.now(); f.err = ''; f.fails = 0; f.notCarried = false; f.nextAt = Math.min(f.nextAt, Date.now() + f.interval * 1000); }
   catch (e) {
     const msg = e.message || String(e); f.status = 'error'; f.fails++;
-    // the website's relay refused this feed's host (util.js Net.fetch): retrying can't help, so it waits for a re-enable
-    if (e.notCarried) { f.notCarried = true; f.nextAt = Infinity; if (msg !== f.err) Log.warn(`${d.name}: ${msg}`); f.err = msg; return; }
+    // the website's relay refused this feed's host (util.js Net.fetch): retrying can't help, so it waits for a re-enable or a
+    // custom relay (setup.js); nextAt stays at the Infinity set above unless something rescheduled it during the fetch
+    if (e.notCarried) { if (/^air_/.test(f.id) && !Feeds.airNotCarried) { Feeds.airNotCarried = true; Log.info('No live aircraft on the website: they need the free download'); }   // once, whatever the boot log said earlier
+      f.notCarried = true; if (msg !== f.err) Log.warn(`${d.name}: ${msg}`); f.err = msg; return; }
     f.retry = Math.min(f.errorInterval * 2 ** (f.fails - 1), Math.max(f.errorInterval, Math.min(Math.max(f.interval, 300), 1800)));
     f.nextAt = Math.min(f.nextAt, Date.now() + f.retry * 1000); if (msg !== f.err) Log.error(`${d.name}: ${msg}`); f.err = msg;
   }
