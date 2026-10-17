@@ -67,8 +67,14 @@ test("the globe's satellite worker: one tick gives each satellite's Earth-fixed 
   sats.forEach((s, i) => {
     const rec = w.satellite.twoline2satrec(s.l1, s.l2), pv = w.satellite.propagate(rec, new D(t)), g = w.satellite.gstime(new D(t));
     const p = w.satellite.eciToEcf(pv.position, g), v = eciVelToEcf(p, pv.velocity, g);
+    // the worker sends the velocity half a second on (0.5 s of central gravity added): the chord over the 1 s tick
+    const r3 = Math.hypot(p.x, p.y, p.z) ** 3, gk = 0.5 * 398600.4418 / r3, vm = { x: v.x - gk * p.x, y: v.y - gk * p.y, z: v.z - gk * p.z };
     const got = [...buf.slice(i * 6, i * 6 + 6)];
-    [p.x, p.y, p.z, v.x, v.y, v.z].forEach((x, k) => assert.ok(Math.abs(got[k] - x) < (k < 3 ? 1e-2 : 1e-5), `${s.name} [${k}] ${got[k]} vs ${x}`));
+    [p.x, p.y, p.z, vm.x, vm.y, vm.z].forEach((x, k) => assert.ok(Math.abs(got[k] - x) < (k < 3 ? 1e-2 : 1e-5), `${s.name} [${k}] ${got[k]} vs ${x}`));
+    // drawn straight along it, the dot one second later is within ~1 m of SGP4 (along v(t) alone it would be ~4 m off)
+    const pv1 = w.satellite.propagate(rec, new D(t + 1000)), p1 = w.satellite.eciToEcf(pv1.position, w.satellite.gstime(new D(t + 1000)));
+    const miss = Math.hypot(p.x + got[3] - p1.x, p.y + got[4] - p1.y, p.z + got[5] - p1.z) * 1000;
+    assert.ok(miss < 1.5, `${s.name}: ${miss.toFixed(2)} m off after 1 s`);
   });
   assert.ok(Number.isNaN(buf[sats.length * 6]), 'no elements: hidden');
 });

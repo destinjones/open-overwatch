@@ -36,6 +36,11 @@ onmessage = e => {
         const a = satellite.propagate(r, t0);
         if (a.position && a.velocity && !isNaN(a.position.x)) {
           const p = satellite.eciToEcf(a.position, g0); eciVelToEcf(p, a.velocity, g0, v);
+          // the velocity half a second on (plus 0.5 s of central gravity): the page draws straight along it, and over the
+          // 1 s between ticks that chord is ~1 m off the orbit where v(t) itself is ~4 m off. Gravity is along r, so the
+          // orbit normal r x v the page turns about past 3 s is unchanged
+          const r2 = p.x * p.x + p.y * p.y + p.z * p.z, gk = 0.5 * 398600.4418 / (r2 * Math.sqrt(r2));
+          v.x -= gk * p.x; v.y -= gk * p.y; v.z -= gk * p.z;
           const k = i * 6; out[k] = p.x; out[k + 1] = p.y; out[k + 2] = p.z; out[k + 3] = v.x; out[k + 4] = v.y; out[k + 5] = v.z; ok = true;
         }
       }
@@ -180,7 +185,7 @@ const SCRATCH = { Z: new C.Cartesian3(), V: new C.Cartesian3(), X: new C.Cartesi
 
 /* Satellites near the camera swap their point for a glTF model at real size, flying nose-first (+X along velocity, +Z
    to zenith), with solar arrays (nodes solar_*) turned toward the real sun about the model's Y axis. Modelled
-   satellites get exact SGP4 every frame (the worker's 1 s linear extrapolation drifts ~4 m, visible up close). */
+   satellites get exact SGP4 every frame (the worker's 1 s linear extrapolation is ~1 m off, more past a missed tick, visible up close). */
 export const SatModels = {
   dir: 'brand/models/', max: 40, range: 4.0e6, pool: new Map(), nodes: {}, stations: null,
   // follow-camera scale (m): the camera starts at (-r, -r, 0.55r) east/north/up of the satellite, r = the model's size

@@ -231,6 +231,13 @@ test('the install crawl finds every module a page reaches, and nothing outside t
   assert.ok(!got.includes(SCOPE + 'sw.js'), 'the worker never caches itself');
 });
 
+test('the install crawl of the real site stays under MAX_PRECACHE (a file past it would come from a newer publish)', async () => {
+  const { oo } = worker(), root = new URL('../', import.meta.url);
+  const got = await oo.crawl(async href => readFileSync(new URL(href.slice(SCOPE.length).replace(/\/$/, '/index.html') || 'index.html', root), 'utf8'));
+  assert.ok(got.includes(SCOPE + 'src/vendor/satellite.min.js'), 'the crawl reaches the site, not just the pages');
+  assert.ok(got.length < oo.MAX_PRECACHE * 0.8, got.length + ' files of ' + oo.MAX_PRECACHE + ': raise MAX_PRECACHE');
+});
+
 test('install saves the app; a new version waits, then deletes the old one\'s pages and keeps the data', async () => {
   const net = {
     [SCOPE]: '<script type="module" src="src/app/shell.js"></script>', [SCOPE + 'offline.html']: '<p>offline</p>',

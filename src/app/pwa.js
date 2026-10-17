@@ -80,9 +80,9 @@ async function removeOwnWorker() {
 
 async function register() {
   const reg = Pwa.reg = await sw.register(SW_URL.href, { scope: ROOT, updateViaCache: 'none' });
-  const hadController = !!sw.controller;
+  let controlled = !!sw.controller;   // changes: the first worker claims a first visit, and a takeover after that asks
   // a worker already waiting (published while this tab was closed): offer it now
-  if (reg.waiting && hadController) offerUpdate(reg.waiting);
+  if (reg.waiting && controlled) offerUpdate(reg.waiting);
   reg.addEventListener('updatefound', () => {
     const w = reg.installing; if (!w) return;
     w.addEventListener('statechange', () => { if (w.state === 'installed' && sw.controller) offerUpdate(w); });
@@ -91,8 +91,9 @@ async function register() {
   // worker serves only the new version's modules, and a module this page imports later must not be one of those)
   sw.addEventListener('controllerchange', () => {
     if (Pwa.reloading) location.reload();
-    else if (hadController) showBar('update', 'Open Overwatch was updated in another tab. Reload to finish.', { buttons: [
+    else if (controlled) showBar('update', 'Open Overwatch was updated in another tab. Reload to finish.', { buttons: [
       { label: 'Reload', main: true, run: () => location.reload() }, { label: 'Later', run: () => hideBar('update') }] });
+    controlled = true;
   });
   ask(sw.controller, { type: 'build' }).then(r => { if (r) Pwa.build = r.build; });
   // phones keep tabs for days: look for a new version when the tab comes back, at most every 15 minutes

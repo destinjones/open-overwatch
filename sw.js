@@ -4,8 +4,9 @@
 //
 // What it does with each request (classify() below; test/sw.test.mjs runs this file in a fake worker):
 //   pages + code (html, src/, css, manifest)  a published build: this version's own copy first (saved together at
-//                                             install), the network only for a file it lacks, so a page and the modules
-//                                             it imports always come from one version. 'dev' (git, the local helper):
+//                                             install), so a page and every module the install crawl found come from one
+//                                             version; a file the crawl missed (a URL built at run time) comes from the
+//                                             network, which may be newer. 'dev' (git, the local helper):
 //                                             network first, the saved copy when offline or after 4 s with no answer.
 //                                             Every page is kept, so the app opens with no connection at all
 //   data/ copies of live feeds (TLEs, wind,   network first: never served as if fresh. Offline, the last copy comes
@@ -198,7 +199,8 @@ async function cacheFirst(event, kind, key, maxAge) {
 }
 
 /** This version's copy of a page or module if it has one (whatever the page asked: a reload must not pull one file of a
- *  newer version under the rest), else the network as networkFirst does it. */
+ *  newer version under the rest), else the network as networkFirst does it (that copy may be from a newer publish:
+ *  test/sw.test.mjs checks the crawl of the real site stays under MAX_PRECACHE, so only a run-time URL lands here). */
 async function versionFirst(event, kind, key, fallback) {
   const old = await saved(kind, key);
   return old || networkFirst(event, kind, key, NET_TIMEOUT, fallback);
@@ -327,4 +329,4 @@ async function status() {
 }
 
 // for test/sw.test.mjs (harmless in a browser)
-self.__oo = { BUILD, SHELL, CACHES, ONE_VERSION, classify, isTile, keyOf, ageOf, references, crawl, trim, markOffline, handle };
+self.__oo = { BUILD, SHELL, CACHES, ONE_VERSION, MAX_PRECACHE, classify, isTile, keyOf, ageOf, references, crawl, trim, markOffline, handle };
