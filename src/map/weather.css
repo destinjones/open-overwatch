@@ -31,6 +31,15 @@
   .wx-lg { flex-basis: 120px; }
   body.wx-on #hud { display: none; }
 }
+/* phones and touch screens: no blur over the moving map (redone on every frame), finger-sized buttons, 12 px text at least */
+@media (max-width: 900px), (pointer: coarse) {
+  .wxbar { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--panel-solid, #080c12); }
+  .wx-btn { width: 44px; height: 44px; }
+  .wx-model { min-height: 44px; font-size: 12px; }
+  .wx-when, .wx-lg, .wx-src, .wx-read { font-size: 12px; }
+  .wx-lg small { height: 14px; }
+  .wx-lg em { font-size: 12px; line-height: 14px; }
+}
 @media (prefers-reduced-motion: reduce) { .wx-streaks { opacity: .85; } }
 /* the divider between two models side by side */
 .wx-cmp.on { border-color: var(--accent, #7dffa6); color: var(--accent, #7dffa6); }

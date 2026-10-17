@@ -76,7 +76,7 @@ export const Glyphs = L.Layer.extend({
       const s = Points.sets[id]; if (!s.items.length || !Layers.on(s.layerId) || z < s.minZoom) continue;
       for (const it of s.items) {
         for (const p of toPt(it.lat, it.lon)) {
-          const sel = !it.noSel && (Sel.obj === it.obj || (Sel.id != null && it.kind === Sel.kind && it.obj != null && (it.obj.id ?? it.obj.hex) === Sel.id)); // by id too: feeds rebuild their objects each poll; noSel: part of something else (a runway end)
+          const sel = !it.noSel && ((Sel.obj != null && Sel.obj === it.obj) || (Sel.id != null && it.kind === Sel.kind && it.obj != null && (it.obj.id ?? it.obj.hex) === Sel.id)); // by id too: feeds rebuild their objects each poll; noSel: part of something else (a runway end)
           const r = typeof it.r === 'function' ? it.r(z) : it.r;
           ctx.globalAlpha = it.alpha ?? .85;
           if (it.shape === 'tri') { ctx.beginPath(); ctx.moveTo(p.x, p.y - r - 1); ctx.lineTo(p.x + r, p.y + r * .7); ctx.lineTo(p.x - r, p.y + r * .7); ctx.closePath(); ctx.fillStyle = hexA(it.color, .5); ctx.fill(); ctx.strokeStyle = it.color; ctx.lineWidth = 1.2; ctx.stroke(); }
@@ -86,7 +86,7 @@ export const Glyphs = L.Layer.extend({
           ctx.globalAlpha = 1;
           if (sel) ring(p.x, p.y, r + 6);
           if (it.label && (sel || z >= (it.labelZoom ?? 6))) label(p.x, p.y, it.label, sel ? C.accent : hexA(it.color, .95));
-          hits.push({ x: p.x, y: p.y, r: Math.max(r, 3), kind: it.kind, obj: it.obj, tip: it.tip });
+          if (it.kind && it.obj != null) hits.push({ x: p.x, y: p.y, r: Math.max(r, 3), kind: it.kind, obj: it.obj, tip: it.tip });   // a dot with no card (the plate-reader cloud) is not a target
         }
       }
     }
