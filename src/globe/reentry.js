@@ -68,7 +68,7 @@ export const Reentry = {
     const now = Date.now();
     const rows = list.slice(0, 80).map((p, i) => `<button class="cj" data-i="${i}" style="--c:${RED}"><b>${esc(when(p, now).replace(/^in /, ''))}</b><span>${esc(p.name)}${p.working ? '' : ' · debris'}</span><small>${esc(windowWords(p))} · ±${Math.round(p.fraction * 100)}%</small></button>`).join('');
     card.innerHTML = head + `<p class="note">Predicted here from each object's public orbit (CelesTrak element sets) and the drag it is feeling now. ` +
-      `Each window is usually ±${Math.round(WINDOW_FRACTION * 100)}% of the time it has left, wider when the two drag estimates disagree: the upper air swells and shrinks with the Sun. Satellites with fuel can still change course. ` +
+      `Each window is usually ±${Math.round(WINDOW_FRACTION * 100)}% of the time it has left (the upper air swells and shrinks with the Sun), wider when the two drag estimates disagree. Satellites with fuel can still change course. ` +
       `${Sats.list.length ? `${list.length} of ${Sats.list.length.toLocaleString('en-US')} loaded objects.` : ''}</p>` +
       `<div class="acts"><button class="chipbtn" id="reLayer">${L.reentry.on ? 'Hide' : 'Show'} all corridors</button></div>` +
       `<div class="cjl">${rows || '<p class="note">Nothing in the loaded groups is predicted to come down in the next 30 days.</p>'}</div>`;

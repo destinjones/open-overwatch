@@ -58,7 +58,7 @@ export const Conj = {
     const lead = a || b;
     Follow.start(lead, t => { const st = SatModels.state(lead, t); return st.ok ? st.pos : null; }, 25000, this.marks[0], 0);
     clearInterval(this.hud); this.hud = setInterval(() => this.updateHud(), 100); this.updateHud(true);
-    hooks.onCardClosed?.('data-cj', () => this.stop(true));   // closed any other way (Esc, a click on the globe, another card): back to live
+    hooks.onCardClosed?.('data-cj', () => this.stop(!$('#card').classList.contains('show')));   // closed any other way (Esc, a click on the globe): back to live; another card took it: its clock is theirs (as eclipses.js)
   },
   orbit(s, col) {
     const rec = s.rec || (s.rec = satellite.twoline2satrec(s.l1, s.l2)), t0 = Time.nowMs(), g = satellite.gstime(new Date(t0)), per = 2 * Math.PI / rec.no, pts = [];
@@ -72,8 +72,9 @@ export const Conj = {
     const x = this.active; if (!x) return;
     const t = viewer.clock.currentTime, sa = x.a && SatModels.state(x.a, t), sb = x.b && SatModels.state(x.b, t);
     const card = $('#card');
-    // as eclipses.js: a card closed by Esc or a globe click, or taken by another one, ends the HUD (it never redraws a hidden card or someone else's)
-    if (!first && (!card.classList.contains('show') || !card.querySelector('[data-cj]'))) { this.stop(true); return; }
+    // as eclipses.js: a card closed by Esc or a globe click, or taken by another one, ends the HUD (it never redraws a hidden card or someone else's);
+    // only a hidden card goes back to live: a module that took the card may have just set the clock itself (a share link's time, an eclipse)
+    if (!first && (!card.classList.contains('show') || !card.querySelector('[data-cj]'))) { this.stop(!card.classList.contains('show')); return; }
     const range = sa?.ok && sb?.ok ? C.Cartesian3.distance(sa.pos, sb.pos) / 1000 : null, dt = x.r.tca - Time.nowMs();
     const html = `<button class="x" aria-label="Close">×</button><div class="k" data-cj style="--c:#ff6b6b">Close approach · ${dt > 0 ? 'in ' + ago(dt) : ago(dt) + ' ago'}</div>
       <h2>${km(x.r.rangeKm)}</h2><dl>

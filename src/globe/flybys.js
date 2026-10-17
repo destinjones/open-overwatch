@@ -59,11 +59,13 @@ export const Flybys = {
   },
   removeRings() { rings.removeAll(); clearInterval(this.hold); this.hold = 0; },
   /** The rings go now; the Solar System hand-off comes back once the camera is inside the hand-off distance again
-      (closing the card out at the scale view would otherwise jump straight to the Solar System). */
+      (closing the card out at the scale view would otherwise jump straight to the Solar System), or as soon as the
+      user zooms in at all from the highest point since closing: zooming out after that is meant, so it hands off. */
   clearRings() {
     this.removeRings();
     if (!state.noHandoff) return;
-    const free = () => { if (camHeight() > HOLD_M) return; state.noHandoff = false; clearInterval(this.hold); this.hold = 0; };
+    let peak = 0;   // the highest the camera has been since closing (it may still be flying out to the scale view)
+    const free = () => { const h = camHeight(); peak = Math.max(peak, h); if (h > HOLD_M && h > peak * 0.9) return; state.noHandoff = false; clearInterval(this.hold); this.hold = 0; };
     free(); if (state.noHandoff) this.hold = setInterval(free, 500);
   },
   /** Everything a flyby card started: its countdown and the scale view. */

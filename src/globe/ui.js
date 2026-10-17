@@ -187,7 +187,7 @@ hooks.reselect = select;
 hooks.closeCard = () => closeCard();
 /** Another module is taking the card: drop the selected object and its orbit line / country outline, keep the card. */
 hooks.clearSelection = () => { state.selected = null; orbitLines.removeAll(); Country.clear(); };
-export function closeCard() { hooks.clearSelection(); $('#card').classList.remove('show'); }
+export function closeCard() { hooks.clearSelection(); $('#card').classList.remove('show'); syncCard(); }
 /* Close means stop. Modules that write #card themselves and start something with it (the near-miss HUD, a flyby's
    rings, a launch replay, a re-entry corridor) call hooks.onCardClosed(marker, stop) with the attribute their card
    carries: stop runs once that card is closed by any route (×, Esc, a click on empty globe, the phone's Layers button,
@@ -196,7 +196,10 @@ export function closeCard() { hooks.clearSelection(); $('#card').classList.remov
 const owners = cardOwners(), cardEl = $('#card');
 let cardOpen = cardEl.classList.contains('show'), opener = null;
 hooks.onCardClosed = (marker, stop) => owners.own(marker, stop);
-new MutationObserver(() => {
+/** Focus and owners after the card changed. closeCard() runs it at once, so code that closes the card and then reads
+    state in the same task (Look up saving the camera lock) sees the owners already stopped; the observer below is the
+    backstop for modules that only remove .show or write the card themselves. */
+function syncCard() {
   const shown = cardEl.classList.contains('show'), a = document.activeElement;
   if (shown && !cardOpen) opener = a && a !== document.body && !cardEl.contains(a) ? a : null;
   if (!shown && cardOpen) {
@@ -206,7 +209,8 @@ new MutationObserver(() => {
   }
   cardOpen = shown;
   owners.check(shown, m => !!cardEl.querySelector(`[${m}]`));
-}).observe(cardEl, { attributes: true, attributeFilter: ['class'], childList: true });
+}
+new MutationObserver(syncCard).observe(cardEl, { attributes: true, attributeFilter: ['class'], childList: true });
 export function flyToObject(o) {
   release();
   if (o.kind === 'sat') { const st = SatModels.state(o), p = st.ok ? st.pos : o.pt.position, h = C.Cartesian3.magnitude(p) - 6371000; camera.flyToBoundingSphere(new C.BoundingSphere(p, 1), { offset: new C.HeadingPitchRange(0, -0.6, Math.max(2.5e6, h * 0.6)), duration: 2.5 }); }

@@ -94,14 +94,18 @@ test('ui.js: the card is watched, owners are stopped on any close or replacement
   assert.match(ui, /opener = a && a !== document\.body && !cardEl\.contains\(a\) \? a : null/, 'the opener is recorded when the card opens');
   assert.match(ui, /if \(a && cardEl\.contains\(a\)\) back\?\.focus\(/, 'focus goes back only when the card held it');
   assert.match(ui, /: \$\('#globe'\);/, 'the globe when the opener is gone');
+  assert.match(ui, /export function closeCard\(\) \{[^\n]*classList\.remove\('show'\); syncCard\(\); \}/, 'closeCard stops the owners at once (Look up reads the camera lock right after)');
+  assert.match(ui, /new MutationObserver\(syncCard\)\.observe\(cardEl/, 'the observer stays as the backstop');
+  assert.doesNotMatch(read('globe.html'), /<section id="card"[^>]*aria-live/, 'the card ticks every 100 ms (near-miss HUD, launch replay): a11y.js says each selection once instead');
 });
 
 test('near-miss HUD: marked, guarded like eclipses.js, and stopped when its card goes', () => {
   const cj = src('conjunctions');
   assert.match(cj, /<div class="k" data-cj /);
-  assert.match(cj, /if \(!first && \(!card\.classList\.contains\('show'\) \|\| !card\.querySelector\('\[data-cj\]'\)\)\) \{ this\.stop\(true\); return; \}/);
+  assert.match(cj, /if \(!first && \(!card\.classList\.contains\('show'\) \|\| !card\.querySelector\('\[data-cj\]'\)\)\) \{ this\.stop\(!card\.classList\.contains\('show'\)\); return; \}/, 'replaced: the new card keeps its clock; hidden: back to live');
   assert.ok(cj.indexOf("querySelector('[data-cj]')") < cj.indexOf('card.innerHTML = html'), 'the guard runs before the HUD writes the card');
-  assert.match(cj, /hooks\.onCardClosed\?\.\('data-cj', \(\) => this\.stop\(true\)\)/);
+  assert.match(cj, /hooks\.onCardClosed\?\.\('data-cj', \(\) => this\.stop\(!\$\('#card'\)\.classList\.contains\('show'\)\)\)/, 'the owner goes live only on a hidden card');
+  assert.doesNotMatch(cj, /this\.stop\(true\); return;/);
 });
 
 test('flyby scale view: rings, countdown and the hand-off hold end with the card', () => {
@@ -111,7 +115,7 @@ test('flyby scale view: rings, countdown and the hand-off hold end with the card
   assert.match(fb, /if \(!card\.classList\.contains\('show'\) \|\| !card\.querySelector\('\[data-fb\]'\)\) \{ this\.end\(\); return; \}/);
   assert.match(fb, /end\(\) \{ clearInterval\(this\.tick\); this\.tick = 0; this\.clearRings\(\); \}/);
   assert.match(fb, /state\.noHandoff = false/, 'noHandoff is released, not left on for the session');
-  assert.match(fb, /camHeight\(\) > HOLD_M/, '...once the camera is back inside the hand-off distance');
+  assert.match(fb, /h > HOLD_M && h > peak \* 0\.9/, '...once the camera is back inside the hand-off distance, or the user zooms in at all');
   assert.match(fb, /scale\(r\) \{[^\n]*\n\s+this\.removeRings\(\)/, 'a new scale view clears the old hold without releasing the hand-off');
 });
 
@@ -154,6 +158,7 @@ test('re-entry copy: usually ±25%, wider when the two drag estimates disagree (
     assert.doesNotMatch(s, /(windows|window is) ±25%/, f);
     assert.match(s, /usually ±\$\{Math\.round\(WINDOW_FRACTION \* 100\)\}%[^`]*wider when the two drag estimates disagree/, f);
   }
+  assert.match(src('reentry'), /of the time it has left \(the upper air swells and shrinks with the Sun\), wider when the two drag estimates disagree\./, 'the Sun explains the window, not the disagreement');
 });
 
 test('the phone time bar keeps its zone; the fold button looks like its heading', () => {
