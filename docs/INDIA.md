@@ -33,7 +33,23 @@ they are already on every ad.
 Display link: `destinjones.github.io/open-overwatch/india`. In Ads Manager the tags can go in "URL parameters"
 instead, with Meta's own fields: `utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}`.
 A Hindi ad points at `india/hi/` (its share card and search entry are in Hindi); the older `india/?lang=hi` still
-opens in Hindi, but it is not the Hindi page's own address.
+opens in Hindi, but it is not the Hindi page's own address. A topic ad in Hindi is the English one with `india/hi/` in
+place of `india/` (and `_hi` on its `utm_content`): the Hindi page has the same anchors (`#iss`, `#launches`, `#air`,
+`#sky`, `#sun`).
+
+## What a Hindi reader gets
+
+- **The page in हिन्दी at its own address.** `india/hi/` always opens in Hindi (`?lang=en` switches it), with a Hindi
+  `<title>`, description, Open Graph and Twitter text and image alt, `og:locale` `hi_IN`, and the Devanagari typeface
+  served by the site. `india/` opens in English unless the visitor chose Hindi before (`oo-lang`). The hreflang pair
+  points each page at the other.
+- **The same facts as the English page**: every line is in the page in both languages, the dynamic text too (the live
+  strip, the next launches, the pass table), and `test/india.test.mjs` fails if `india/hi/` falls behind `india/`.
+- **Links into an English app.** The globe, the Solar System view and Tonight are in English. On the globe, voice
+  commands understand Hindi when the browser lists Hindi before English (`core/voicecmd.js` `voiceLangs`): going to a
+  place ("मुझे टोक्यो ले चलो"), following a satellite, zooming, switching satellites, planes, ships, quakes or storms
+  on and off, the weather, Tonight and Look up. Answers are spoken in English with an Indian English voice; help and a
+  sentence it didn't catch get Hindi phrases, read in Hindi.
 
 ## What the page claims, and why it is true
 
@@ -51,9 +67,12 @@ opens in Hindi, but it is not the Hindi page's own address.
   `core/lightpollution.js` `skyAt`) at 32.78 N 78.96 E and 28.61 N 77.23 E. Mumbai comes out 7, Bengaluru, Kolkata and
   Hyderabad 8, Chennai 6. A model from 2014 satellite data, said so on the page.
 - **ISRO missions**: Chandrayaan-1/-2/-3 (Vikram, propulsion module), Mangalyaan and Aditya-L1 are drawn in the Solar
-  System view from NASA JPL Horizons tracks (`data/solar/spacecraft.json`, `brand/tools/make_spacecraft.py`); the page
-  names where each track ends, and `test/india.test.mjs` warns two weeks before a "now" link (Chandrayaan-2, Aditya-L1)
-  runs past its track.
+  System view from NASA JPL Horizons tracks (`data/solar/spacecraft.json`, `brand/tools/make_spacecraft.py`); the
+  Moon and Mars orbiters fly Moon- or Mars-centred orbits. The page names where each track ends, and
+  `test/india.test.mjs` warns two weeks before a "now" link (Chandrayaan-2, Aditya-L1) runs past its track. Chandrayaan-2's
+  track ends 2026-11-08 and Aditya-L1's 2027-01-19: before 2026-11-01, rerun
+  `python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"` (a few Horizons requests) and republish.
+  Past the end, the missions list says "past the published track (JPL Horizons)" rather than "mission over".
 - **Air quality**: modelled (CAMS via Open-Meteo), not CPCB stations; the page points to CPCB, IMD and NCS for anything
   that matters.
 

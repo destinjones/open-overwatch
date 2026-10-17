@@ -51,6 +51,15 @@ Live answers carry a `provenance` line per item (or for the whole answer): which
 old the data is and a confidence word (confirmed, reported, stale, unknown), the same line the globe's cards show
 (src/core/liveprov.js).
 
+The 38 tools below are what a local server lists. `earthquakes` asks a second catalogue, EMSC's (www.seismicportal.eu),
+next to each USGS feed: a quake both list within 60 s, 100 km and 0.6 of a magnitude reads "confirmed" when EMSC's entry is
+its own solution and both are fresh; an EMSC entry that republishes USGS's solution is listed as "EMSC (USGS solution)"
+and does not count. EMSC's answer is
+kept for 10 minutes; if EMSC fails or takes over 10 s, that feed's last EMSC list is used, else the answer is USGS's
+alone. EMSC is asked for at most 500 events for a window of a day or less at M2.5 and up, and 1,000 for a longer window or a
+lower floor. A busy window (a week or a month, or M1 and up over a day) can hold more than that; then only the newest
+part comes back, and older quakes can read "reported" for want of an EMSC solution.
+
 | Tool | Answers from | What you get |
 |---|---|---|
 | `show_on_globe` | (the globe itself) | the live 3D globe on a view: a place or point, a tilt, layers on or off, weather, a moment and clock speed, a satellite to follow, a flight to look for, a country's card, a camera look. Pass another answer's `url` to show exactly that |
@@ -87,7 +96,7 @@ old the data is and a confidence word (confirmed, reported, stale, unknown), the
 | `military_areas` | OpenStreetMap via OpenFreeMap's tiles | land mapped as military near a place (up to 150 km), worldwide: size, airfields inside, the nearest town, an OpenStreetMap link each |
 | `weather_details` | Open-Meteo forecast, marine and multi-model APIs (ECMWF IFS, NOAA GFS, DWD ICON) | at a point: sea-level pressure and its three-hour tendency, Beaufort force and gusts, thunderstorm energy (CAPE), fog, freezing level, UV, cloud at three heights; the lowest pressure and strongest gust ahead and when; at sea the waves (Douglas scale), swell, period, sea temperature and current; and whether the models agree on the coming days. The link opens the globe with isobars, gusts and waves |
 | `aircraft_lookup` | adsbdb | by registration or ICAO hex: type and type code, maker, class, registered owner, the country the address belongs to, a photo link; by callsign: the airline and the route on file, with both airports and the distance (the link draws it and looks for the flight) |
-| `where_in_space` | JPL Horizons tracks and JPL small-body elements (the website's copies), the site's planet and moon maths | where a planet, the Moon, a major moon, a mission (Voyager, JWST, Parker, Juno…), any comet or any of 26,000 named asteroids is now or at a time: distance from the Sun and Earth, light time, speed, RA/Dec and constellation, evening or morning sky, brightness, the mission's next event or the comet's next return; from a place, how high it is. Without a name, every mission nearest first (signal time, next event) or the comets best placed now. The link opens the 3D Solar System on it |
+| `where_in_space` | JPL Horizons tracks and JPL small-body elements (the website's copies), the site's planet and moon maths | where a planet, the Moon, a major moon, a mission (Voyager, JWST, Parker, Juno, ISRO's Chandrayaan-2 and Aditya-L1…), any comet or any of 26,000 named asteroids is now or at a time: distance from the Sun and Earth, light time, speed, RA/Dec and constellation, evening or morning sky, brightness, the mission's next event or the comet's next return; from a place, how high it is. Without a name, every mission nearest first (signal time, next event) or the comets best placed now. The link opens the 3D Solar System on it |
 | `airport_weather` | Aviation Weather Center (NOAA/NWS) data API; OurAirports runways (the website's copy) | an airport's METAR and TAF decoded into plain words, its flight category, the forecast period by period and the runway the wind favours |
 | `sea_conditions` | NOAA NDBC (latest observations, station list), NOAA CO-OPS (stations, water level, tide predictions) | the buoys and coastal stations nearest a place with their latest waves, wind and water temperature, and the nearest US tide gauge with the level now and the next high and low |
 | `air_quality` | Open-Meteo air-quality API (Copernicus CAMS model) | the US and European AQI, PM2.5, PM10, ozone, NO2, dust and aerosol depth at a place for this hour; a model, not a station measurement (OpenAQ needs a key) |
@@ -120,7 +129,10 @@ shared through the Workers Cache API, and a rate limit per address. On Cloudflar
 look-ups a request) it leaves out the thirteen heaviest tools (satellite pass searches, re-entry predictions, the planets' look-ahead, tile
 decoding, vessel-by-vessel AIS, the light pollution grid); on Workers Paid it lists all of them. Once deployed, add
 `https://open-overwatch-mcp.<account>.workers.dev/mcp/<token>` in claude.ai (Settings → Connectors → Add custom
-connector). It is deployed on the owner's Cloudflare account (ask the owner for a connector URL); the deploy steps are in [mcp-worker/README.md](../mcp-worker/README.md).
+connector). It was deployed on the owner's Cloudflare account on 2026-10-13 and has not been redeployed since, so it
+runs an older version of this server: it lacks later changes such as EMSC in `earthquakes`. The connector URL holds the
+token, so it is kept off the repository (ask the owner for one). A redeploy is a production deploy and needs the owner's
+OK; the steps are in [mcp-worker/README.md](../mcp-worker/README.md).
 
 ## Privacy
 
@@ -129,10 +141,10 @@ directly. What each one sees is your IP address and what the question needs: pla
 Open-Meteo (weather, marine and model forecasts, time zones), adsbdb (the registration or callsign you ask about), Fintraffic (ships), CityBikes (stations near a point), Entur (vehicles in a box around
 the place), NIFC (fires in a box around a US place) Photon again (the place nearest a fire), the map tiles around a place
 to OpenFreeMap and FlockHopper (military areas, plate readers), and the other tools fetch
-whole public feeds (USGS, NOAA, NASA, transit operators, camera agencies and their pictures, TeleGeography, the website's
+whole public feeds (USGS, EMSC, NOAA, NASA, transit operators, camera agencies and their pictures, TeleGeography, the website's
 data copies on GitHub Pages) without anything about you. The globe in
 the chat is the public website, loaded by your Claude app, under the same privacy notice as the website. Each source's
-own policy and licence applies; see [docs/DATA_SOURCES.md](../docs/DATA_SOURCES.md). The remote Worker, once deployed,
+own policy and licence applies; see [docs/DATA_SOURCES.md](../docs/DATA_SOURCES.md). The remote Worker
 asks the same sources from Cloudflare's network instead of your computer, keeps shared copies of their answers and of
 tool answers (keyed by a hash of the question) for a minute to a day, and logs nothing about you (with `LOG` on, only the
 tool's name and time).
@@ -143,7 +155,7 @@ tool's name and time).
 - `node --test` runs `test/mcp.test.mjs` with every source canned, a stdio round trip and the HTTP transport.
 - `node mcp/server.mjs --http 8793` serves Streamable HTTP (`mcp/http.mjs` is the transport on web Request/Response only,
   so it could run on a Worker; `mcp/http-node.mjs` serves it from Node). Tools may return images (MCP image content).
-- `mcp/worker.mjs` is the same server as a Cloudflare Worker (deployed from `mcp-worker/`, not yet): a server per
+- `mcp/worker.mjs` is the same server as a Cloudflare Worker (deployed from `mcp-worker/`, last on 2026-10-13): a server per
   request over a shared in-isolate memory, the Cache API in front of the network (`createFeeds({ shared })`) and of tool
   answers, a subrequest budget, and the free plan's tool list (`HEAVY`). `test/mcpworker.test.mjs` runs it in Node with
   canned feeds and a stand-in Cache API, and checks that nothing it imports needs Node (stdio lives in `mcp/stdio.mjs`).
