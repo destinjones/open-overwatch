@@ -129,9 +129,11 @@ still arrive): drive them with OW.Sats.reload() or `runFeed` when testing in a b
    the `Detail.head` sub-argument go into innerHTML raw. Check link schemes with `isHttp()`.
 5. CORS-blocked source: add the host to `NEEDS_RELAY` (src/map/util.js) AND `ALLOWED_HOSTS` in serve.js AND serve.py
    (the download's helpers). For the website too, if the feed's terms allow relaying: `TTL` and `PATHS` in
-   relay/worker.js AND `PUBLIC_RELAY_HOSTS` in src/core/relay.js, then a Worker redeploy (the owner's OK). Four lists in
-   all; test/relayhosts.test.mjs checks PUBLIC_RELAY_HOSTS = the Worker's TTL and PATHS hosts, PUBLIC_RELAY_HOSTS ⊆
-   NEEDS_RELAY ⊆ both helpers, serve.js = serve.py, and that every NEEDS_RELAY host is one something in src/ fetches.
+   relay/worker.js AND `PUBLIC_RELAY_HOSTS` in src/core/relay.js, then a Worker redeploy (the owner's OK). Six lists in
+   five files; test/relayhosts.test.mjs checks PUBLIC_RELAY_HOSTS = the Worker's TTL and PATHS hosts,
+   PUBLIC_RELAY_HOSTS ⊆ NEEDS_RELAY ⊆ both helpers, serve.js = serve.py, and that every NEEDS_RELAY host is one
+   something in src/ fetches, except the four camera-still hosts (the feeds name them) and its `planned` list of hosts
+   relayed ahead of their loader (now www.tsunami.gov).
    PATHS must cover every URL the client sends for a carried host: a path outside it gets a 403 'path not on the relay
    allowlist', which the client treats as an ordinary error (only 'host not on…' stops the host).
 6. A feed the website can't get (Net.fetch throws an error with `notCarried`: no relay carries the host, or the deployed
@@ -480,9 +482,9 @@ is coming.
   whether the inner cache works: ask the same NDBC or camera target twice with different t; a fast second answer (or a
   cf-cache-status header) means it does.
 - Budget: the free plan's 100,000 Worker requests a day (cache hits may count) is ~70 a minute across every relayed feed
-  (NHC, cameras, buoys, tsunami messages, cables); when it runs out they all fail until midnight UTC. Workers Cache is per
-  data centre, so "one upstream request per interval" is per Cloudflare location. Watch the Worker's request graph after
-  advertising; Workers Paid ($5/month, 10 M requests) if needed.
+  (NHC, cameras, NDBC buoys/DART, cables; www.tsunami.gov is allowed but nothing asks for it yet); when it runs out
+  they all fail until midnight UTC. Workers Cache is per data centre, so "one upstream request per interval" is per
+  Cloudflare location. Watch the Worker's request graph after advertising; Workers Paid ($5/month, 10 M requests) if needed.
 
 ## MCP server (mcp/) — 2026-10-11
 - Layout: `server.mjs` (CLI, stdio) → `index.mjs` (assembly) → `protocol.mjs` (JSON-RPC by hand: initialize with version
@@ -1146,7 +1148,8 @@ is coming.
   a 720-point line otherwise passes 56,000 km from Pluto. A line is refilled once its body has moved `reach` camera
   distances (0.1; 0.02 for open comet arcs). Planet orbits are refilled from the elements at the current jd.
 - **asteroids_b.bin** (19 MB): a standalone desktop holds it back until the camera first passes 1.5 AU from the Sun
-  (LEAVE_EARTH) or the search box gets focus; inside the globe it waits until the view is entered; phones never load it.
+  (LEAVE_EARTH) or the search box gets focus; inside the globe it waits until the view is entered. It never loads on
+  Low (no `allAsteroids`), which phones and software renderers start on; picking Balanced or High there loads it.
   A search or link hit on an asteroid in that file starts the load and flies there when it lands, if the focus hasn't
   changed (`onNamed`); a `#q=` link waits for the file only when it names such an asteroid exactly.
 - **Loading and picking:** the galaxy catalogue (cosmic.js) loads once, but a failed fetch clears the latch (unless the
@@ -1174,8 +1177,9 @@ is coming.
 - Matching (`matchEmsc`, `sameQuake`): within 60 s, 100 km and 0.6 magnitude (a missing magnitude doesn't disagree),
   the closest in time when several match. EMSC repeating USGS (agency NEIC/USGS, or the network in the USGS id's first two
   letters) is listed "EMSC (USGS solution)" and doesn't confirm; any other agreeing solution makes the quake "confirmed".
-  The globe's late restamp uses the magnitude USGS gave, not draw()'s default of 0. The render and profiling scripts in
-  brand/tools block seismicportal.eu like the other live hosts.
+  The globe's late restamp uses the magnitude USGS gave, not draw()'s default of 0. globe_shot, perf, zoomtest,
+  zoom_capture, mobile_journey and android_* in brand/tools block seismicportal.eu with the other live hosts;
+  gesture_check and webkit_journey block earthquake.usgs.gov but not seismicportal.eu.
 
 ## Landing pages, India and Tonight links (index.html, india/, tonight.html, 404.html) — 2026-10-17
 - Copy rule (test/landing.test.mjs): a description, blurb or README lead that names aircraft carries the exact sentence
