@@ -15,13 +15,14 @@ export function createLists({ craft, comets, clock, find, eclipses }) {
   let open = null, timer = 0;
   const short = au => distance(au).replace(/ · .*/, '');
   // statuses are today's: at an earlier clock time an "Ended 2017" mission was still flying
+  const MISSION_OVER = /^(Ended|Silent since)|\blanded\b/i;   // past its track because the mission is over, not because the data ends
   const statusAt = st => { const m = /^(Ended|Silent since) (\d{4})/.exec(st || ''); return m && 2000 + (clock.jd - 2451545) / 365.25 < +m[2] ? 'In flight' : st; };
 
   function missionsHtml() {
-    const E = byKey.earth.pos, rows = missionsNow(craft.craft.map(c => c.s), clock.jd, E);
+    const E = byKey.earth.pos, rows = missionsNow(craft.craft.map(c => c.s), clock.jd, E, craft.centerAt);   // Moon orbiters around the Moon on screen
     return `<div class="k">Deep-space missions · ${esc(clock.live ? 'now' : 'at the clock\'s time')}</div><h3>Nearest first · signal time is one way</h3>
       <table><tr><th>Mission</th><th>From Earth</th><th>Signal</th></tr>${rows.map(m => `<tr data-key="${esc('craft:' + m.name)}" class="${m.au == null ? 'off' : ''}">
-        <td>${esc(m.name)}<small>${esc(m.au == null ? (m.phase === 'before launch' ? 'not launched yet' : 'no position (mission over)') : statusAt(m.status))}${m.next ? ' · next: ' + esc(m.next[1]) + ' ' + esc(relativeTime(m.next[0] - clock.jd)) : ''}</small></td>
+        <td>${esc(m.name)}<small>${esc(m.au == null ? (m.phase === 'before launch' ? 'not launched yet' : MISSION_OVER.test(m.status || '') ? 'no position (mission over)' : 'past the published track (JPL Horizons)') : statusAt(m.status))}${m.next ? ' · next: ' + esc(m.next[1]) + ' ' + esc(relativeTime(m.next[0] - clock.jd)) : ''}</small></td>
         <td>${m.au == null ? '—' : esc(short(m.au))}</td><td>${m.light == null ? '—' : esc(lightTime(m.au))}</td></tr>`).join('')}</table>
       <p class="note">Trajectories: JPL Horizons. Past the published track a craft leaving the Sun coasts on in a straight line; the others stop.</p>`;
   }

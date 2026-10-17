@@ -72,3 +72,69 @@ test('whereis: the IAU names cover every constellation figure, and Pluto by its 
   const r = Math.hypot(...Object.values(positionAt(el, 2461315.25, {})).slice(0, 3));
   assert.ok(r > 35 && r < 36.5, `Pluto in late 2026 is ~35.7 AU from the Sun: ${r}`);
 });
+
+// ---------------------------------------------------------------- ISRO's missions (JPL Horizons, brand/tools/make_spacecraft.py)
+import { trackPosition, localPosition, inLocal, missionPhase, missionsNow, trackSpeed, moonCenterAt, lagrangeL1L2 } from '../src/core/craft.js';
+import { AU_KM } from '../src/core/units.js';
+import { moonGeocentric } from '../src/core/planets.js';
+import { jdFromMs } from '../src/core/time.js';
+const ORBITS = json('test/fixtures/horizons_isro_orbits.json');
+
+test('whereis: ISRO missions are found by name, alias and agency', () => {
+  const short = indexCatalogue(catalogue({ craft })), key = q => findBody(short, q)[0]?.key;
+  assert.equal(key('Chandrayaan-2'), 'craft:Chandrayaan-2'); assert.equal(key('chandrayaan 2'), 'craft:Chandrayaan-2');
+  assert.equal(key('Chandrayaan'), 'craft:Chandrayaan-2', 'the one still flying');
+  assert.equal(key('Chandrayaan-1'), 'craft:Chandrayaan-1'); assert.equal(key('Chandrayaan-3'), 'craft:Chandrayaan-3 propulsion module');
+  assert.equal(key('Vikram'), 'craft:Vikram lander (Chandrayaan-3)'); assert.equal(key('Aditya'), 'craft:Aditya-L1'); assert.equal(key('aditya l1'), 'craft:Aditya-L1');
+  assert.equal(key('Mangalyaan'), 'craft:Mars Orbiter Mission'); assert.equal(key('ISRO Aditya-L1'), 'craft:Aditya-L1');
+  const isro = craft.filter(c => c.agency === 'ISRO').map(c => c.name);
+  assert.deepEqual(isro, ['Chandrayaan-2', 'Chandrayaan-3 propulsion module', 'Vikram lander (Chandrayaan-3)', 'Aditya-L1', 'Mars Orbiter Mission', 'Chandrayaan-1']);
+});
+
+test('whereis: the Moon and Mars orbiters fly within a few hundred km of Horizons around their body, and Chandrayaan-2 around the Moon', () => {
+  const by = Object.fromEntries(craft.map(c => [c.name, c]));
+  const tol = { 'Chandrayaan-2': 150, 'Mars Orbiter Mission': 350, 'Chandrayaan-3 propulsion module': 40 };
+  for (const [name, { center, rows }] of Object.entries(ORBITS.craft)) {
+    const c = by[name]; assert.equal(c.local.center, center, name); assert.ok(rows.length > 20);
+    let worst = 0; for (const [t, x, y, z] of rows) { const p = localPosition(c, t); worst = Math.max(worst, Math.hypot(p.x * AU_KM - x, p.y * AU_KM - y, p.z * AU_KM - z)); }
+    assert.ok(worst < tol[name], `${name}: ${worst.toFixed(0)} km off Horizons`);
+    assert.deepEqual(c.local.pj, [], 'no perijove sets: only Juno has them');
+  }
+  // Chandrayaan-2 on 2026-10-12: about 100 km over the Moon, the Moon's distance from Earth, with the Moon's centre the MCP uses
+  const ch2 = by['Chandrayaan-2'], jd = jdFromMs(Date.UTC(2026, 9, 12)), E = earthPosition(jd), m = moonGeocentric(jd);
+  const l = localPosition(ch2, jd), alt = Math.hypot(l.x, l.y, l.z) * AU_KM - PHYSICAL.moon.radiusKm;
+  assert.ok(inLocal(ch2, jd) && alt > 40 && alt < 200, `${alt.toFixed(0)} km up`);
+  const s = stateAt(j => trackPosition(ch2, j, {}, moonCenterAt), j => earthPosition(j), jd), moonKm = Math.hypot(m.x, m.y, m.z) * AU_KM;
+  assert.ok(Math.abs(s.earth_km - moonKm) < 2000, `${Math.round(s.earth_km)} km vs the Moon's ${Math.round(moonKm)}`);
+  const p = trackPosition(ch2, jd, {}, moonCenterAt), q = moonCenterAt('moon', jd);
+  assert.ok(Math.abs(Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z) * AU_KM - Math.hypot(l.x, l.y, l.z) * AU_KM) < 1e-3, 'on its orbit around that Moon');
+  assert.equal(moonCenterAt('mars', jd), null, 'planet-centred tracks keep their samples');
+  // the MCP list: Chandrayaan-2 is the nearest mission, at the Moon's distance
+  const list = missionsNow(craft, jd, E, moonCenterAt);
+  assert.equal(list[0].name, 'Chandrayaan-2'); assert.ok(Math.abs(list[0].au * AU_KM - moonKm) < 2000);
+});
+
+test('whereis: Aditya-L1 rides near Sun-Earth L1; the ended missions have honest edges', () => {
+  const by = Object.fromEntries(craft.map(c => [c.name, c])), jd = jdFromMs(Date.UTC(2026, 9, 12)), E = earthPosition(jd), { L1 } = lagrangeL1L2(E);
+  const a = trackPosition(by['Aditya-L1'], jd), d = Math.hypot(a.x - E.x, a.y - E.y, a.z - E.z) * AU_KM;
+  assert.ok(d > 1.1e6 && d < 1.9e6, `${Math.round(d)} km from Earth`); assert.ok(Math.hypot(a.x - L1.x, a.y - L1.y, a.z - L1.z) * AU_KM < 9e5, 'within its halo orbit of L1');
+  assert.ok(Math.hypot(a.x, a.y, a.z) < Math.hypot(E.x, E.y, E.z), 'sunward of Earth');
+  const ch1 = by['Chandrayaan-1'];
+  assert.equal(trackPosition(ch1, jdFromMs(Date.UTC(2012, 0, 1))), null, 'no track between the 2009 silence and the 2016 radar find');
+  assert.equal(missionPhase(ch1, jd), 'beyond the data'); assert.match(ch1.status, /^Silent since 2009/);
+  assert.equal(by['Mars Orbiter Mission'].status, 'Ended 2022'); assert.equal(trackPosition(by['Mars Orbiter Mission'], jd), null);
+  const vik = by['Vikram lander (Chandrayaan-3)'], landed = jdFromMs(Date.UTC(2023, 7, 23, 12, 32));
+  assert.ok(vik.end_jd < landed && trackPosition(vik, landed, {}, moonCenterAt) === null, 'never drawn flying after it landed');
+  assert.ok(vik.events.some(e => Math.abs(e[0] - landed) < 1e-3 && /Shiv Shakti/.test(e[1])));
+  // the Moon-centred stretch stops where the track does: no orbit drawn while the card says 'beyond the data'
+  for (const c of [vik, by['Chandrayaan-2']]) {
+    const after = c.end_jd + 0.1;
+    assert.equal(missionPhase(c, after), 'beyond the data'); assert.equal(inLocal(c, after), false, c.name);
+    assert.equal(trackPosition(c, after, {}, moonCenterAt), null, c.name);
+  }
+  // speed on the orbit the dot rides: Chandrayaan-2's ~1.6 km/s around the Moon shows (the 2-day samples smooth it out)
+  const ch2 = by['Chandrayaan-2'], vm = trackSpeed(ch2, jd, moonCenterAt), vs = trackSpeed(ch2, jd);
+  assert.ok(vm != null && Math.abs(vm - vs) > 0.3 && Math.abs(vm - vs) < 2, `${vm.toFixed(2)} vs ${vs.toFixed(2)} km/s`);
+  for (const c of craft.filter(x => x.agency === 'ISRO')) assert.doesNotMatch(c.status, /^(Back in|Landed)/, `${c.name}: a status that holds while it is drawn`);
+  for (const c of craft.filter(x => x.agency === 'ISRO')) assert.ok(c.launch_jd < c.t0_jd && c.events[0][1] === 'Launch', c.name);
+});

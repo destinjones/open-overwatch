@@ -10,12 +10,18 @@
 // one set a day ({ center, gm km^3/s^2, t0_jd, step_days, el: [[q km, e, i, node, peri (deg), tp], ...] }); the
 // position is the planet (as the view draws it) plus a two-body orbit from the nearest set, so the perijove passes
 // are exact to a few km and the craft sits on its orbit around the Jupiter on screen, not 100,000 km beside it.
+// ISRO's Moon orbiters (Chandrayaan) and Mars Orbiter Mission carry the same around 'moon' and 'mars', a set every
+// 3 days (6 hours for Chandrayaan-3's short stay) and no perijove sets: within ~300 km of Horizons, ~20 km for
+// Chandrayaan-3 (test/fixtures/horizons_isro_orbits.json), in quiet orbit. While an orbit is being raised or lowered
+// (Chandrayaan-2 in late August 2019, Chandrayaan-3 in August and October 2023) a set carried across a burn is off by
+// up to ~5,000 km, and the drawn orbit jumps there at the next set.
 // Past the last sample a craft that is leaving the Sun for good (above escape speed) coasts on in a straight line,
 // which is how Voyager and Pioneer really fly; any other craft has no published position there (null).
 
 import { AU_KM, C_KM_S } from './units.js';
 import { GM_SUN, cometPosition } from './comets.js';
 import { DEG } from './units.js';
+import { earthPosition, moonGeocentric } from './planets.js';
 
 /** Signal (light) time over au, in seconds. */
 export const lightSeconds = au => au * AU_KM / C_KM_S;
@@ -45,7 +51,8 @@ export function escaping(c) {
 // ---- orbits around a planet (track.local)
 const KM3S2_TO_AU3D2 = 86400 * 86400 / (AU_KM * AU_KM * AU_KM);
 /** Is jd inside the craft's planet-centred stretch? */
-export const inLocal = (c, jd) => !!c.local && jd >= c.local.t0_jd - c.local.step_days / 2 && jd <= c.local.t0_jd + (c.local.el.length - 0.5) * c.local.step_days;
+export const inLocal = (c, jd) => !!c.local && jd >= c.local.t0_jd - c.local.step_days / 2
+  && jd <= Math.min(c.local.t0_jd + (c.local.el.length - 0.5) * c.local.step_days, c.end_jd ?? Infinity);   // never past the track
 /**
  * The osculating orbit in force at jd as conic elements in AU, radians and days: { q, e, i, node, peri, tp, mu }.
  * Within 3 hours of a perijove: the nearest of the sets taken every 30 minutes around it (local.pj); elsewhere the
@@ -77,6 +84,19 @@ function nearestPj(L, jd) {   // binary search in the perijoves (sorted by time)
 }
 /** Planet-centred position (AU, ecliptic J2000) at jd, or null outside the local stretch. */
 export function localPosition(c, jd, out = {}) { return inLocal(c, jd) ? cometPosition(localOrbit(c, jd), jd, out) : null; }
+
+const MG = {};
+/**
+ * A centre for callers without a view of their own (the MCP, the tests): the Moon as the Solar System view draws it
+ * by default (Earth plus core/planets.js's lunar series), so a Moon orbiter (Chandrayaan) sits on its orbit around that
+ * Moon and its distance from that Earth is the Moon's plus the orbit, not the ~2,000 km scatter of its 2-day samples.
+ * Any other centre gives null: Juno and Mars Orbiter Mission keep their Horizons samples, which beat the approximate planets.
+ */
+export function moonCenterAt(key, jd, out = {}) {
+  if (key !== 'moon') return null;
+  earthPosition(jd, out); moonGeocentric(jd, MG);
+  out.x += MG.x; out.y += MG.y; out.z += MG.z; return out;
+}
 
 /** Periapsis passages (Juno's perijoves) inside the local stretch: [jd], in time order. */
 export const periapses = c => (c.local?.pj || []).map(p => p.tp);
@@ -116,11 +136,12 @@ export function trackPosition(c, jd, out = {}, centerAt = null) {
 }
 
 const A = {}, B = {};
-/** Speed relative to the Sun in km/s at jd (central difference over 0.02 day), or null where there is no position. */
-export function trackSpeed(c, jd) {
+/** Speed relative to the Sun in km/s at jd (central difference over 0.02 day), or null where there is no position.
+ *  centerAt as for trackPosition: a craft in orbit around a planet or the Moon then moves on that orbit. */
+export function trackSpeed(c, jd, centerAt = null) {
   const h = 0.01;
-  if (!trackPosition(c, jd - h, A) || !trackPosition(c, jd + h, B)) {
-    if (!trackPosition(c, jd, A) || !trackPosition(c, jd + 2 * h, B)) return null;
+  if (!trackPosition(c, jd - h, A, centerAt) || !trackPosition(c, jd + h, B, centerAt)) {
+    if (!trackPosition(c, jd, A, centerAt) || !trackPosition(c, jd + 2 * h, B, centerAt)) return null;
     return Math.hypot(B.x - A.x, B.y - A.y, B.z - A.z) / (2 * h) * AU_KM / 86400;
   }
   return Math.hypot(B.x - A.x, B.y - A.y, B.z - A.z) / (2 * h) * AU_KM / 86400;
@@ -175,11 +196,12 @@ export function lagrangeL1L2(earth, mu = EARTH_MOON_MU) {
   return { L1: { x: earth.x * (1 - k), y: earth.y * (1 - k), z: earth.z * (1 - k) }, L2: { x: earth.x * (1 + k), y: earth.y * (1 + k), z: earth.z * (1 + k) } };
 }
 
-/** One line per mission for a list: { name, phase, au (from Earth) | null, light (s) | null, next: [jd, text] | null }, nearest first. */
-export function missionsNow(tracks, jd, earth) {
+/** One line per mission for a list: { name, phase, au (from Earth) | null, light (s) | null, next: [jd, text] | null }, nearest first.
+ *  centerAt as for trackPosition (the view's own planets and Moon, or moonCenterAt). */
+export function missionsNow(tracks, jd, earth, centerAt = null) {
   const p = {};
   return tracks.map(c => {
-    const at = trackPosition(c, jd, p), au = at && jd >= c.launch_jd ? Math.hypot(p.x - earth.x, p.y - earth.y, p.z - earth.z) : null;
+    const at = trackPosition(c, jd, p, centerAt), au = at && jd >= c.launch_jd ? Math.hypot(p.x - earth.x, p.y - earth.y, p.z - earth.z) : null;
     return { name: c.name, status: c.status, phase: missionPhase(c, jd), au, light: au == null ? null : lightSeconds(au), next: eventsAround(c, jd).next };
   }).sort((a, b) => (a.au ?? Infinity) - (b.au ?? Infinity));
 }

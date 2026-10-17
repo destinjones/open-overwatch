@@ -71,6 +71,16 @@ test('a link opens that body at that moment, paused, and Share copies it back', 
   expect(await page.evaluate(() => OOSS.clock.live)).toBe(true);
 });
 
+test('Chandrayaan-2 circles the Moon on screen, and its card says how high', async ({ page }) => {
+  await openSolar(page, '#f=craft%3AChandrayaan-2&t=2026-10-12T06:00&r=0');
+  await expect.poll(() => focus(page), { timeout: 30000 }).toBe('craft:Chandrayaan-2');
+  await expect(page.locator('#card')).toContainText('ISRO');
+  await expect(page.locator('#card')).toContainText(/Above the Moon\s*\d{2,3} km/);
+  // on its orbit around the Moon the view draws (~1,840 km from its centre), not on the 2-day samples
+  const km = await page.evaluate(() => OOSS.byKey['craft:Chandrayaan-2'].pos.distanceTo(OOSS.byKey.moon.pos) * 149597870.7);
+  expect(km).toBeGreaterThan(1737); expect(km).toBeLessThan(2000);
+});
+
 test('a hand-written search link (#q=) finds its body', async ({ page }) => {
   await openSolar(page, '#q=saturn');
   await expect.poll(() => focus(page), { timeout: 30000 }).toBe('saturn');

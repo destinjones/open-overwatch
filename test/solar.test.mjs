@@ -245,7 +245,8 @@ test('spacecraft: Sun-Earth L1 and L2, and the missions list', () => {
   assert.ok(Math.hypot(j.x - L2.x, j.y - L2.y, j.z - L2.z) * AU_KM < 1e6);
   const list = missionsNow(CRAFT, F.comets_jd, E);
   assert.equal(list.length, CRAFT.length);
-  assert.equal(list[0].name, 'James Webb Space Telescope');                     // the nearest, at L2
+  assert.equal(list[0].name, 'Chandrayaan-2');                                  // the nearest, at the Moon
+  assert.equal(list[1].name, 'James Webb Space Telescope');                     // then JWST at L2
   const v1 = list.find(m => m.name === 'Voyager 1'); assert.ok(v1.light > 23 * 3600);
   for (let k = 1; k < list.length; k++) assert.ok((list[k].au ?? Infinity) >= (list[k - 1].au ?? Infinity));
   assert.equal(list.find(m => m.name === 'Cassini').au, null);                   // no position after 2017

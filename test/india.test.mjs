@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { decodeView, decodeExtras } from '../src/core/viewlink.js';
 import { decodeSolarView } from '../src/core/solarlink.js';
+import { trackPosition, moonCenterAt } from '../src/core/craft.js';
+import { jdFromMs } from '../src/core/time.js';
 import { LAYERS, WEATHER } from '../mcp/place.mjs';
 import { parseTle } from '../src/core/tle.js';
 import { ecfAt } from '../src/core/passes.js';
@@ -41,8 +43,28 @@ test('the 2D map, Solar System and Tonight links', () => {
   const v = decodeView(map[0].slice(map[0].indexOf('#')));
   assert.ok(v && v.lon === 80 && v.lat === 22 && v.add.includes('quakes'));
   const solar = hrefs.filter(h => h.startsWith('../solar.html#'));
-  assert.deepEqual(solar.map(h => decodeSolarView(h.slice(h.indexOf('#'))).focus), ['lagrange:L1']);
+  // ISRO's missions: every link focuses a craft in the Solar System view's data, at a time it has a position
+  const craft = JSON.parse(read('data/solar/spacecraft.json')), views = solar.map(h => decodeSolarView(h.slice(h.indexOf('#'))));
+  assert.deepEqual([...new Set(views.map(v => v.focus))], ['craft:Chandrayaan-2', 'craft:Aditya-L1', 'craft:Vikram lander (Chandrayaan-3)', 'craft:Mars Orbiter Mission', 'craft:Chandrayaan-1']);
+  for (const v of views) {
+    const c = craft.find(x => 'craft:' + x.name === v.focus);
+    assert.ok(c && c.agency === 'ISRO', v.focus);
+    const jd = v.jd ?? jdFromMs(Date.UTC(2026, 9, 17));
+    assert.ok(trackPosition(c, jd, {}, moonCenterAt), `${v.focus}: a position at ${v.jd ?? 'today'}`);
+    // a "now" link (no &t=) breaks when the published track runs out (Chandrayaan-2 2026-11-08, Aditya-L1 2027-01-19):
+    // fail two weeks ahead, on the real date, so the data gets refreshed before the page's main button opens an empty card
+    if (v.jd == null) assert.ok(trackPosition(c, jdFromMs(Date.now()) + 14, {}, moonCenterAt),
+      `${v.focus}: its track ends ${new Date((c.end_jd - 2440587.5) * 864e5).toISOString().slice(0, 10)}; rerun python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"`);
+  }
+  // the Hindi page (/india/hi/, one folder deeper) carries the same missions and none of the old "not drawn" copy
+  if (existsSync(new URL('india/hi/index.html', root))) {
+    const hi = read('india/hi/index.html');
+    assert.doesNotMatch(hi, /not drawn|ख़ुद नहीं/, 'india/hi/: the missions are drawn now');
+    const hiFocus = new Set([...hi.matchAll(/href="\.\.\/\.\.\/solar\.html(#[^"]*)"/g)].map(m => decodeSolarView(m[1].replace(/&amp;/g, '&')).focus));
+    for (const f of new Set(views.map(v => v.focus))) assert.ok(hiFocus.has(f), `india/hi/: links ${f} (as ../../solar.html#…)`);
+  }
   assert.match(read('src/solar/spacecraft.js'), /'L1', 'Sun-Earth L1', '[^']*Aditya-L1/, 'the L1 card names Aditya-L1');
+  assert.doesNotMatch(body, /not drawn|ख़ुद नहीं/, 'the page no longer says the missions are missing');
   assert.ok(hrefs.includes('../tonight.html'));
   for (const h of hrefs.filter(h => h.startsWith('../') && !h.includes('#'))) {
     const f = h.slice(3) || 'index.html';

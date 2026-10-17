@@ -1,15 +1,15 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // where_in_space: "where is it now?" for anything in the Solar System the website's 3D view knows by name: the planets,
-// the Moon, the major moons, deep-space missions (Voyager, JWST, Parker, Juno, Europa Clipper…), every comet and the
-// 26,000 named asteroids and dwarf planets. How far it is from the Sun and from us, how long its light (or its radio
-// signal) takes, how fast it moves, which way to look (RA/Dec, constellation, evening or morning sky, how bright), and,
-// for a place, how high it is there now. The site's own data copies (JPL Horizons tracks, SBDB elements) and core
+// the Moon, the major moons, deep-space missions (Voyager, JWST, Parker, Juno, Europa Clipper, ISRO's Chandrayaan and
+// Aditya-L1…), every comet and the 26,000 named asteroids and dwarf planets. How far it is from the Sun and from us,
+// how long its light (or its radio signal) takes, how fast it moves, which way to look (RA/Dec, constellation, evening
+// or morning sky, how bright), and, for a place, how high it is there now. The site's own data copies (JPL Horizons tracks, SBDB elements) and core
 // maths; an asteroid's elements come out of the packed files by byte range. Links open the Solar System view on it.
 import { catalogue, indexCatalogue, findBody, quickIndex, findQuick, recordRanges, elementsFromBytes, fileRecords, hgMagnitude, stateAt, lightWords, distanceWords, IAU_NAMES, seeingWords, CLASS_WORDS } from '../src/core/whereis.js';
 import { planetPosition, earthPosition, moonGeocentric, PHYSICAL } from '../src/core/planets.js';
 import { SKY_PLANETS, planetFromEarth } from '../src/core/solarsys.js';
 import { moonOffset, moonPeriod } from '../src/core/moons.js';
-import { trackPosition, missionPhase, eventsAround, relativeTime, missionDays, missionsNow } from '../src/core/craft.js';
+import { trackPosition, missionPhase, eventsAround, relativeTime, missionDays, missionsNow, moonCenterAt } from '../src/core/craft.js';
 import { cometFromRow, cometPosition, cometPeriodYears, cometClass, cometNames, cometsNearNow, COMET_FACTS } from '../src/core/comets.js';
 import { positionAt } from '../src/core/kepler.js';
 import { nearestConstellation, formatRaDec, skyPhrase } from '../src/core/skyplace.js';
@@ -50,7 +50,7 @@ export function spaceTool(ctx) {
   async function listing(kind, t, jd, signal) {
     const E = earthPosition(jd), when = iso(t), solarAt = key => `${site}solar.html#${encodeSolarView({ focus: key })}`;
     if (kind === 'missions') {
-      const craft = await json('data/solar/spacecraft.json', signal), rows = missionsNow(craft, jd, E);
+      const craft = await json('data/solar/spacecraft.json', signal), rows = missionsNow(craft, jd, E, moonCenterAt);
       const flying = rows.filter(m => m.au != null), done = rows.filter(m => m.au == null);
       const lines = flying.map(m => `${m.name}: ${distanceWords(m.au)} away, signal ${lightWords(m.light)}${m.status ? ` · ${m.status}` : ''}${m.next ? ` · next: ${m.next[1]} (${relativeTime(m.next[0] - jd)})` : ''}`);
       const url = `${site}solar.html`;
@@ -71,7 +71,7 @@ export function spaceTool(ctx) {
   return {
     name: 'where_in_space',
     title: 'Where is it in the Solar System now',
-    description: "Where something in the Solar System is right now (or at a given time): a planet, the Moon, a major moon (Titan, Europa…), a deep-space mission (Voyager 1, JWST, Parker Solar Probe, Juno, Europa Clipper, New Horizons…), any comet (Halley, 67P, 12P…) or any of 26,000 named asteroids and dwarf planets (Ceres, Pluto, Apophis, Bennu…). Its distance from the Sun and from Earth, how long light or a radio signal takes, its speed, which way to look (RA/Dec, constellation, evening or morning sky), how bright, the mission's phase and next event or the comet's next perihelion; with a place, how high it stands there now. From JPL Horizons tracks and JPL small-body elements (the website's copies). Without a name it lists every mission (nearest first, signal time, next event) or the comets best placed now. The link opens the 3D Solar System on it.",
+    description: "Where something in the Solar System is right now (or at a given time): a planet, the Moon, a major moon (Titan, Europa…), a deep-space mission (Voyager 1, JWST, Parker Solar Probe, Juno, Europa Clipper, New Horizons, Chandrayaan-2, Aditya-L1, Mangalyaan…), any comet (Halley, 67P, 12P…) or any of 26,000 named asteroids and dwarf planets (Ceres, Pluto, Apophis, Bennu…). Its distance from the Sun and from Earth, how long light or a radio signal takes, its speed, which way to look (RA/Dec, constellation, evening or morning sky), how bright, the mission's phase and next event or the comet's next perihelion; with a place, how high it stands there now. From JPL Horizons tracks and JPL small-body elements (the website's copies). Without a name it lists every mission (nearest first, signal time, next event) or the comets best placed now. The link opens the 3D Solar System on it.",
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -124,7 +124,7 @@ export function spaceTool(ctx) {
         words.push(`It circles ${ref.moonOf[0].toUpperCase() + ref.moonOf.slice(1)} every ${r2(moonPeriod(ref.m))} days.`);
       } else if (ref.craft) {
         const c = ref.craft, ph = missionPhase(c, jd), ev = eventsAround(c, jd), days = missionDays(c, jd);
-        at = j => trackPosition(c, j, {});
+        at = j => trackPosition(c, j, {}, moonCenterAt);   // a Moon orbiter on its orbit around the Moon
         extra = { status: c.status || null, agency: c.agency || null, phase: ph, launched: iso(msFromJd(c.launch_jd ?? c.t0_jd)), mission_days: Math.floor(days),
           last_event: ev.last ? { date: iso(msFromJd(ev.last[0])), what: ev.last[1] } : null, next_event: ev.next ? { date: iso(msFromJd(ev.next[0])), what: ev.next[1] } : null, about: c.desc || null };
         words.push(`${c.status ? c.status + '. ' : ''}${days >= 0 ? `Launched ${relativeTime(-days)} (${Math.floor(days).toLocaleString('en-US')} days).` : `Launches ${relativeTime(-days)}.`}${ev.last ? ` Last: ${ev.last[1]} (${relativeTime(ev.last[0] - jd)}).` : ''}${ev.next ? ` Next: ${ev.next[1]} (${relativeTime(ev.next[0] - jd)}).` : ''}`);
