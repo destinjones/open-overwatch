@@ -7,9 +7,10 @@ Source: NASA Exoplanet Archive, Planetary Systems Composite Parameters table (ps
 archive's best value for each parameter). Public domain (NASA); the archive asks to be acknowledged.
 
 Per system: host name, ecliptic J2000 position in light-years (same frame as stars.bin), effective temperature, radius
-(Suns), luminosity (log10 L/Lsun), conservative habitable zone (Kopparapu et al. 2014: runaway greenhouse for 1 Earth
-mass to maximum greenhouse, effective fluxes as a polynomial in Teff for 2600-7200 K; distance = sqrt(L / S_eff)), and
-its planets:
+(Suns), luminosity (log10 L/Lsun), conservative habitable zone `hz` (Kopparapu et al. 2014: runaway greenhouse for 1
+Earth mass to maximum greenhouse, effective fluxes as a polynomial in Teff for 2600-7200 K; distance = sqrt(L / S_eff)),
+the optimistic one `hz_opt` (recent Venus to early Mars; src/core/habitable.js computes it from teff and lum when a file
+has none), and its planets:
 [name suffix, a (AU), period (days), e, i (deg), radius (Earth radii), mass (Earth masses), equilibrium T (K),
  transit mid-time (JD, or 0), discovery year, method, in-habitable-zone flag].
 Missing a is derived from the period and the stellar mass (Kepler's third law) when possible.
@@ -36,12 +37,18 @@ rows = list(csv.DictReader(io.StringIO(CACHE.read_text(encoding='utf-8'))))
 num = lambda v: float(v) if v not in ('', None) else None
 
 
-def habitable_zone(log_l, teff):
-    """Kopparapu et al. 2014 conservative habitable zone (AU): runaway greenhouse (1 Earth mass) to maximum greenhouse."""
+def habitable_zone(log_l, teff, optimistic=False):
+    """Kopparapu et al. 2014 habitable zone (AU). Conservative: runaway greenhouse (1 Earth mass) to maximum greenhouse.
+    Optimistic: recent Venus to early Mars. Same coefficients as src/core/habitable.js (the view computes the
+    optimistic zone itself from teff and lum, so files from before it was written here still work)."""
     t = max(2600, min(7200, teff or 5780)) - 5780
     seff = lambda s0, a, b, c, d: s0 + a * t + b * t ** 2 + c * t ** 3 + d * t ** 4
-    s_in = seff(1.107, 1.332e-4, 1.580e-8, -8.308e-12, -1.931e-15)
-    s_out = seff(0.356, 6.171e-5, 1.698e-9, -3.198e-12, -5.575e-16)
+    if optimistic:
+        s_in = seff(1.776, 2.136e-4, 2.533e-8, -1.332e-11, -3.097e-15)
+        s_out = seff(0.320, 5.547e-5, 1.526e-9, -2.874e-12, -5.011e-16)
+    else:
+        s_in = seff(1.107, 1.332e-4, 1.580e-8, -8.308e-12, -1.931e-15)
+        s_out = seff(0.356, 6.171e-5, 1.698e-9, -3.198e-12, -5.575e-16)
     L = 10 ** log_l
     return [round(math.sqrt(L / s_in), 5), round(math.sqrt(L / s_out), 5)]
 
@@ -60,8 +67,9 @@ for r in rows:
         if lum is None and num(r['st_rad']) and num(r['st_teff']):
             lum = math.log10(num(r['st_rad']) ** 2 * (num(r['st_teff']) / 5772) ** 4)
         hz = habitable_zone(lum, num(r['st_teff'])) if lum is not None else None
+        hz_opt = habitable_zone(lum, num(r['st_teff']), optimistic=True) if lum is not None else None
         systems[h] = {'host': h, 'p': [round(ex * ly, 4), round(ey * ly, 4), round(ez * ly, 4)], 'ly': round(ly, 3), 'teff': num(r['st_teff']),
-                      'rs': num(r['st_rad']), 'lum': round(lum, 3) if lum is not None else None, 'hz': hz, 'pl': []}
+                      'rs': num(r['st_rad']), 'lum': round(lum, 3) if lum is not None else None, 'hz': hz, 'hz_opt': hz_opt, 'pl': []}
     s = systems[h]
     a, P, ms = num(r['pl_orbsmax']), num(r['pl_orbper']), num(r['st_mass'])
     if a is None and P and ms:
@@ -82,7 +90,9 @@ dst = ROOT / 'data' / 'solar' / 'exoplanets.json'
 dst.write_text(json.dumps({'source': 'NASA Exoplanet Archive, pscomppars (https://exoplanetarchive.ipac.caltech.edu)', 'licence': 'public domain (NASA); acknowledge the NASA Exoplanet Archive',
                            'frame': 'ecliptic J2000, light-years from the Sun', 'planet_fields': ['suffix', 'a_AU', 'P_days', 'e', 'i_deg', 'R_earth', 'M_earth', 'Teq_K', 'transit_JD', 'year', 'method', 'in_HZ'],
                            'systems': len(out), 'planets': n_pl, 'list': out}, separators=(',', ':')))
-print(f'{len(rows)} rows -> {len(out)} systems, {n_pl} planets, {sum(p[11] for s in out for p in s["pl"])} in the habitable zone; {dst.stat().st_size // 1024} KB')
+n_opt = sum(1 for s in out for p in s['pl'] if not p[11] and s['hz_opt'] and s['hz_opt'][0] <= p[1] <= s['hz_opt'][1])
+print(f'{len(rows)} rows -> {len(out)} systems, {n_pl} planets, {sum(p[11] for s in out for p in s["pl"])} in the habitable zone '
+      f'(+{n_opt} in the optimistic one); {dst.stat().st_size // 1024} KB')
 for name in ('TRAPPIST-1', 'Proxima Cen', 'Kepler-452', 'TOI-700', '51 Peg'):
     s = next((x for x in out if x['host'] == name), None)
     if s: print(name, s['ly'], 'ly', [(p[0], p[1], p[11]) for p in s['pl']])

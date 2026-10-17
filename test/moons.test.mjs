@@ -25,6 +25,7 @@ for (const [name, ref] of Object.entries(H.moons)) {
 test('accuracy report (the panel shows these live): every body measured, all within the tested bounds', async () => {
   const { measureAgainstHorizons } = await import('../src/core/accuracy.js');
   const rows = measureAgainstHorizons(H, M);
-  assert.equal(rows.length, 6 + 1 + 1 + Object.keys(H.moons).length);
+  assert.equal(rows.length, 7 + 1 + 1 + Object.keys(H.moons).length);   // the seven other planets, Earth, the Moon, the moons
+  assert.ok(rows.some(r => r.name === 'Uranus'), 'Uranus measured too');
   for (const r of rows) assert.ok(r.deg < (r.what === 'geocentric' ? 0.5 : 1), `${r.name}: ${r.deg.toFixed(3)} deg`);
 });

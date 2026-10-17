@@ -494,3 +494,93 @@ test('solar view: the per-frame UI does no forced layout', () => {
   assert.ok(start > 0 && body.length > 200);
   assert.doesNotMatch(body, /getBoundingClientRect/);
 });
+
+// ---------------------------------------------------------------- what the view says agrees with what it draws
+
+import { trailRanges, statusAt, endedJd } from '../src/core/craft.js';
+import { PHYSICAL } from '../src/core/planets.js';
+import { findAlignment, alignmentCaption, drawnWords, countWords, ALIGN_END_JD } from '../src/core/storytext.js';
+
+test('comets: the "near now" lists leave out comets whose orbits are too old to trust (16P/Brooks 2, 406P/Gibbs)', () => {
+  const jd = jdFromMs(Date.UTC(2026, 9, 17)), E = earthPosition(jd);
+  for (const [maxR, limit] of [[4, 10], [3, 15], [2.5, 8]]) {   // the MCP list, the Solar view's table, the bodies it adds
+    const near = cometsNearNow(SB.comets, jd, E, { maxR, limit }), names = near.map(n => n.row[0]);
+    assert.equal(near.length, limit, `${maxR} AU: still a full list`);
+    for (const n of near) assert.ok(orbitFresh(n.c, jd), n.row[0]);
+    assert.ok(!names.some(x => /^(16P|406P)\//.test(x)), names.join(', '));
+  }
+  const all = cometsNearNow(SB.comets, jd, E, { maxR: 4, limit: 50, fresh: false }).map(n => n.row[0]);
+  assert.ok(all.some(x => x.startsWith('16P/')) && all.some(x => x.startsWith('406P/')), 'fresh: false still lists them');
+});
+
+test('spacecraft: a craft past its published track draws no trail (Hera, Chandrayaan-2, Hayabusa2, Aditya-L1, BepiColombo)', () => {
+  const by = Object.fromEntries(CRAFT.map(c => [c.name, c]));
+  const at = (n, y, m, d) => [by[n], jdFromMs(Date.UTC(y, m - 1, d))];
+  for (const [c, jd] of [at('Hera', 2027, 3, 1), at('Chandrayaan-2', 2027, 3, 1), at('Hayabusa2', 2027, 3, 1), at('Aditya-L1', 2027, 3, 1), at('BepiColombo', 2027, 10, 1)]) {
+    assert.equal(missionPhase(c, jd), 'beyond the data', c.name);
+    const r = trailRanges(c, jd);
+    assert.equal(r.flown[1], 0, `${c.name}: ${r.flown[1]} trail samples`); assert.ok(r.ahead[1] <= 1 && r.over, c.name);
+    assert.ok(trailRanges(c, jd, true).flown[1] > 10, `${c.name} focused: its whole path`);
+  }
+  // still flying: the last year flown and the next half year; leaving the Sun: the whole way out, even past the data
+  const hera = by.Hera, live = trailRanges(hera, jdFromMs(Date.UTC(2026, 9, 17)));
+  assert.ok(!live.over && live.flown[1] > 60 && live.flown[1] < 80 && live.ahead[1] > 1, JSON.stringify(live));
+  const v1 = by['Voyager 1'], far = trailRanges(v1, v1.end_jd + 3652.5);
+  assert.ok(!far.over && far.flown[0] === 0 && far.flown[1] === v1.n, 'Voyager 1 coasting keeps its path');
+  // ended missions: a year after the end, no lines (unfocused)
+  assert.ok(Math.abs(endedJd(by.Cassini) - jdFromMs(Date.UTC(2017, 0, 1))) < 1); assert.equal(endedJd(hera), null);
+  assert.ok(trailRanges(by.Galileo, 2453000).over && !trailRanges(by.Galileo, 2453000, true).over);
+  assert.deepEqual(trailRanges(hera, hera.t0_jd - 5).flown, [0, 0], 'before the track: nothing flown');
+});
+
+test('spacecraft: BepiColombo in orbit around Mercury from its capture, never inside the planet', () => {
+  const b = CRAFT.find(c => c.name === 'BepiColombo'), L = b.local, cap = b.events.find(e => /^Captured/.test(e[1])), moi = b.events.find(e => /orbit insertion/.test(e[1]));
+  assert.equal(L.center, 'mercury'); assert.deepEqual(L.pj, []);
+  assert.ok(cap && cap[0] > jdFromMs(Date.UTC(2026, 10, 10)) && cap[0] < jdFromMs(Date.UTC(2026, 10, 20)), 'captured loosely in mid-November 2026');
+  assert.ok(moi && moi[0] > cap[0] && moi[0] < jdFromMs(Date.UTC(2026, 10, 25)), 'then braked into orbit at its first close pass');
+  assert.equal(cap[0], L.t0_jd, 'the capture is the first set of its Mercury-centred stretch');
+  assert.equal(eventsAround(b, jdFromMs(Date.UTC(2027, 0, 15))).next[1], 'End of the published trajectory');
+  assert.equal(eventsAround(b, jdFromMs(Date.UTC(2026, 10, 1))).next[1], cap[1], 'the card\'s "Next" before arrival');
+  assert.equal(statusAt(b, cap[0] - 1), 'Cruise to Mercury'); assert.equal(statusAt(b, cap[0] + 1), 'In orbit around Mercury');
+  assert.equal(statusAt(CRAFT.find(c => c.name === 'Juno'), 2460000), 'Orbiting Jupiter', 'no phases: the status');
+  const atMercury = (k, jd, out) => planetPosition(k, jd, out), R = PHYSICAL.mercury.radiusKm;
+  let n = 0, min = Infinity;
+  for (let jd = L.t0_jd; jd <= b.end_jd; jd += 0.1) {   // from the capture (the audit sampled 2026-12-02 on: 53 instants inside)
+    const p = trackPosition(b, jd, {}, atMercury), m = planetPosition('mercury', jd);
+    min = Math.min(min, Math.hypot(p.x - m.x, p.y - m.y, p.z - m.z) * AU_KM); n++;
+  }
+  assert.ok(n > 1200 && min > R + 300, `closest ${Math.round(min)} km from Mercury's centre (radius ${R})`);
+  // the missions list reads the status in force
+  const list = missionsNow(CRAFT, cap[0] + 30, earthPosition(cap[0] + 30));
+  assert.equal(list.find(m => m.name === 'BepiColombo').status, 'In orbit around Mercury');
+});
+
+test('alignment: the caption names the years it searched, and past 2100 it does not jump', () => {
+  const today = findAlignment(jdFromMs(Date.UTC(2026, 9, 17)));
+  assert.ok(Math.abs(today.jd - 2464703.5) < 10 && today.spread < 130, `${today.jd} ${today.spread}`);   // 2036-01-11
+  assert.equal(today.to, ALIGN_END_JD);
+  assert.match(alignmentCaption(today)[1], /the tightest grouping between 2026 and 2100 \(/);
+  const old = findAlignment(jdFromMs(Date.UTC(1850, 0, 1)));
+  assert.ok(old.jd > old.from && old.jd < old.to && old.to < jdFromMs(Date.UTC(1950, 2, 1)));
+  assert.match(alignmentCaption(old)[1], /between 1850 and 1950/);
+  for (const y of [2099, 2150, 2199]) {   // within 30 days of 2100 or past it: nothing to search
+    const r = findAlignment(jdFromMs(Date.UTC(y, 11, 15)));
+    assert.equal(r.beyond, true, String(y)); assert.match(alignmentCaption(r)[1], /stop at 2100/);
+  }
+  const story = src('src/solar/story.js');
+  assert.doesNotMatch(story, /before 2100 \(planets/); assert.match(story, /if \(r\.beyond\) \{ caption\(title, text, '', 9000, true\); return; \}/);
+});
+
+test('captions: the counts named are the ones drawn (phones draw the brightest 15,000 galaxies and 300,000 asteroids)', () => {
+  assert.equal(drawnWords(15000, 43480), 'the brightest 15,000 of 43,480');
+  assert.equal(drawnWords(43480, 43480, ' of them'), '43,480 of them');
+  assert.equal(drawnWords(0, 43480), '43,480', 'not loaded yet: the catalogue');
+  assert.equal(drawnWords(300000, 1569434), 'the brightest 300,000 of 1.57 million');
+  assert.equal(countWords(1569434), '1.57 million');
+  const story = src('src/solar/story.js'), cosmic = src('src/solar/cosmic.js');
+  assert.equal(+story.match(/export const ASTEROIDS_CATALOGUED = (\d+);/)[1], SB.files.reduce((n, f) => n + f.count, 0));
+  assert.equal(+cosmic.match(/export const GALAXIES = \{ total: (\d+),/)[1], read('data/solar/galaxies.json').count);
+  assert.match(cosmic, /GALAXIES\.total = meta\.count; GALAXIES\.drawn = N;/);
+  for (const fixed of ['43,480 of them', '43,480 real galaxies', '1.5 million of them']) assert.ok(!story.includes(fixed), fixed);
+  assert.match(story, /typeof p === 'function' \? p\(\) : p/, 'the tour builds its text when the step starts');
+});

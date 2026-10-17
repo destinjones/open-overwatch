@@ -3,10 +3,12 @@
 
     python brand/tools/make_spacecraft.py
     python brand/tools/make_spacecraft.py --only "Aditya-L1,Chandrayaan-2"   # rebuild those, keep the rest of the file
+    python brand/tools/make_spacecraft.py --apophis          # data/solar/apophis.json (+ its test fixture)
+    python brand/tools/make_spacecraft.py --uranus-fixture   # Uranus into test/fixtures/horizons_2026-10-02.json
 
 Frame: heliocentric (Sun centre, 500@10) ECLIPTIC J2000, AU, TDB.
 Raw Horizons responses are cached in brand/source/horizons/ (or $OO_HORIZONS_CACHE; delete a file to refetch it).
-Requests are sequential and at least 1 s apart. --only fetches just the named craft (and the bodies their events need)
+Requests are sequential and at least 2 s apart. --only fetches just the named craft (and the bodies their events need)
 and merges them into the existing file in CRAFT order, so adding a mission costs a few requests, not a full rebuild.
 
 Output data/solar/spacecraft.json:
@@ -23,6 +25,12 @@ Output data/solar/spacecraft.json:
   (test/fixtures/horizons_isro_orbits.json, written here too). Moon orbiters centre on 500@301 ('moon').
   Craft that spend their first weeks raising their orbit around Earth (the ISRO missions) start their tracks at the burn
   that sent them away (`since`): samples a day or more apart cannot follow an orbit that takes a day or two.
+  `phases` ([[jd, status], ...], optional): the status from that time on (BepiColombo once captured by Mercury).
+
+--apophis: asteroid 99942 Apophis, 2026-2035, in the same track format (src/core/craft.js trackPosition places it),
+  with `local` around Earth (500@399, an element set every hour) for its 13 April 2029 flyby, 38,000 km from Earth's
+  centre: data/solar/apophis.json, and 30-minute Horizons vectors around the flyby -> test/fixtures/horizons_apophis_2029.json.
+--uranus-fixture: Uranus (799) at the accuracy fixture's instant, added to test/fixtures/horizons_2026-10-02.json.
 """
 import datetime as dt, hashlib, json, math, os, re, sys, time, urllib.parse, urllib.request
 
@@ -35,6 +43,7 @@ GRID0 = 2440000.5            # sample times are GRID0 + k*step (0h TDB), so 5-da
 LIMIT_JD = None              # set in main(): 2035-01-01 00:00 TDB
 CHECK_DATE = '2026-10-02'
 MAX_POINTS = 7000
+PAUSE = 2.0                  # seconds between Horizons requests (sequential, never in parallel)
 
 # status: shown on the card at any clock time the craft is drawn, so it must hold then too ('Ended 2017' and
 # 'Silent since 2009' read 'In flight' in the missions list before that year)
@@ -120,7 +129,12 @@ CRAFT = [
          desc="The largest space telescope, in a halo orbit around the Sun-Earth L2 point about 1.5 million km beyond Earth.",
          events=[('2022-01-24', 'Arrived at Sun-Earth L2', None),
                  ('2022-07-12', 'First full-colour science images released', None)]),
-    dict(name='BepiColombo', id=-121, launch='2018-10-20 01:45', step=2, agency='ESA / JAXA', status='Arriving at Mercury',
+    # in orbit around Mercury from its capture in late 2026: element sets every 6 hours around Mercury (500@199), from
+    # the first one bound to Mercury (`bound`: e < 1 and apoapsis inside Mercury's Hill sphere); its status turns at the
+    # capture (`phases`), which is also its 'capture' event
+    dict(name='BepiColombo', id=-121, launch='2018-10-20 01:45', step=2, agency='ESA / JAXA', status='Cruise to Mercury',
+         phases=[('capture', 'In orbit around Mercury')],
+         local=dict(center='199', key='mercury', since='2026-11-10 00:00', step=0.25, bound=True),
          desc="Two orbiters riding together to Mercury on ion engines, after one Earth, two Venus and six Mercury flybys.",
          events=[('auto', 'Earth flyby', '399', ('2020-03-20', '2020-04-30')),
                  ('auto', 'Venus flyby 1', '299', ('2020-09-20', '2020-11-10')),
@@ -131,6 +145,8 @@ CRAFT = [
                  ('auto', 'Mercury flyby 4', '199', ('2024-08-20', '2024-09-20')),
                  ('auto', 'Mercury flyby 5', '199', ('2024-11-16', '2024-12-16')),
                  ('auto', 'Mercury flyby 6', '199', ('2024-12-24', '2025-01-23')),
+                 ('capture', "Captured by Mercury's gravity into a loose orbit", None),
+                 ('insertion', 'Mercury orbit insertion: braked at its first close pass', None),
                  ('end', 'End of the published trajectory', None)]),
     dict(name='Solar Orbiter', id=-144, launch='2020-02-10 04:03', step=5, agency='ESA / NASA', status='Orbiting the Sun',
          desc="Takes the closest pictures of the Sun and, with Venus flybys tilting its orbit, the first views of its poles.",
@@ -295,7 +311,7 @@ def horizons(command, start, stop, step):
     if os.path.exists(path):
         with open(path, encoding='utf-8') as f:
             return json.load(f)
-    wait = 1.0 - (time.time() - _last[0])
+    wait = PAUSE - (time.time() - _last[0])
     if wait > 0:
         time.sleep(wait)
     print(f'  horizons {command} {start} .. {stop} step {step}')
@@ -375,7 +391,7 @@ def horizons_q(params, key):
     if os.path.exists(path):
         with open(path, encoding='utf-8') as f:
             return json.load(f)
-    wait = 1.0 - (time.time() - _last[0])
+    wait = PAUSE - (time.time() - _last[0])
     if wait > 0:
         time.sleep(wait)
     print(f'  horizons {key}')
@@ -387,6 +403,19 @@ def horizons_q(params, key):
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f)
     return data
+
+
+HILL_KM = {'mercury': 2.0e5}   # Mercury's Hill sphere is ~220,000 km: an apoapsis inside it is a capture
+
+
+def insertion_jd(local):
+    """The orbit insertion burn of a captured craft: the periapsis of the first set whose apoapsis is under half the one
+    before (BepiColombo: captured loosely on 12 November 2026, braked at its first close pass of Mercury on the 21st)."""
+    Q = [q * (1 + e) / (1 - e) for q, e, *_ in local['el']]
+    k = next((k for k in range(1, len(Q)) if Q[k] < 0.5 * Q[k - 1]), None)
+    if k is None:
+        sys.exit('no orbit insertion in the local stretch')
+    return round(local['el'][k][5], 4)
 
 
 def fetch_local(craft, end_jd):
@@ -413,6 +442,12 @@ def fetch_local(craft, end_jd):
         else:   # sets 3 days apart are good to ~300 km (checked against Horizons vectors): coarser is plenty
             el.append([round(qr), round(ec, 6), round(inc, 4), round(om % 360, 4), round(w % 360, 4), round(tp, 5)])
         assert abs(jd - (t0 + (len(el) - 1) * step)) < 1e-6, (craft['name'], jd)
+    if L.get('bound'):   # from the first set bound to the body: e < 1 and apoapsis inside its Hill sphere
+        hill = HILL_KM[L['key']]
+        k = next((k for k, e in enumerate(el) if e[1] < 1 and e[0] * (1 + e[1]) / (1 - e[1]) < hill), None)
+        if k is None:
+            sys.exit(f"{craft['name']}: never bound to {L['key']} in Horizons' elements")
+        el, t0 = el[k:], t0 + k * step
     if not L.get('pj'):
         return dict(center=L['key'], gm=gm, t0_jd=t0, step_days=step, el=el, pj=[])
     # each perijove once (the daily sets name it from either side: take it from the set nearest to it), then element
@@ -446,15 +481,21 @@ def fetch_local(craft, end_jd):
 # Horizons vectors around the centre body for a few days of each kind of ISRO orbit -> test/fixtures/horizons_isro_orbits.json
 # (the orbits drawn from the sets every 3 days, or 6 hours, are checked against them: test/whereis.test.mjs)
 LOCAL_CHECKS = [('Chandrayaan-2', '2026-10-01', '2026-10-05', '20 m', 6), ('Mars Orbiter Mission', '2018-03-01', '2018-03-08', '30 m', 6),
+                ('BepiColombo', '2027-02-01', '2027-02-03', '20 m', 6),
                 ('Chandrayaan-3 propulsion module', '2023-08-25', '2023-08-27', '20 m', 6)]
 
 
 def local_fixture(crafts):
     by = {c['name']: c for c in crafts}
-    if not all(n in by for n, *_ in LOCAL_CHECKS):
+    checks = [x for x in LOCAL_CHECKS if x[0] in by]
+    if not checks:
         return
-    out = {'source': 'JPL Horizons vectors around the centre body (500@301 Moon, 500@499 Mars), ecliptic J2000, km, JD TDB', 'craft': {}}
-    for name, a, b, step, every in LOCAL_CHECKS:
+    path = os.path.join(ROOT, 'test', 'fixtures', 'horizons_isro_orbits.json')
+    out = {'source': 'JPL Horizons vectors around the centre body (500@301 Moon, 500@499 Mars, 500@199 Mercury), ecliptic J2000, km, JD TDB', 'craft': {}}
+    if os.path.exists(path):   # an --only run refreshes its own craft and keeps the rest
+        with open(path, encoding='utf-8') as f:
+            out['craft'] = json.load(f)['craft']
+    for name, a, b, step, every in checks:
         c = by[name]
         data = horizons_q(dict(format='json', COMMAND=f"'{c['id']}'", OBJ_DATA="'NO'", MAKE_EPHEM="'YES'", EPHEM_TYPE="'VECTORS'",
                                CENTER=f"'500@{c['local']['center']}'", REF_PLANE="'ECLIPTIC'", REF_SYSTEM="'ICRF'", VEC_TABLE="'1'",
@@ -462,10 +503,10 @@ def local_fixture(crafts):
                          f"chk_{c['id']}_{a}")
         rows = parse_vectors(data)[::every]
         out['craft'][name] = {'center': c['local']['key'], 'rows': [[r[0], round(r[1], 1), round(r[2], 1), round(r[3], 1)] for r in rows]}
-    path = os.path.join(ROOT, 'test', 'fixtures', 'horizons_isro_orbits.json')
+    out['craft'] = {n: out['craft'][n] for n, *_ in LOCAL_CHECKS if n in out['craft']}
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(out, f, separators=(',', ':'))
-    print(f"  fixture {os.path.basename(path)}: {', '.join(n for n, *_ in LOCAL_CHECKS)}")
+    print(f"  fixture {os.path.basename(path)}: {', '.join(n for n, *_ in checks)}")
 
 
 def perijove_fixture(craft, local, n=3):
@@ -517,9 +558,92 @@ def closest(rows, body_rows, lo, hi):
     return rows[i][0] + off * (rows[1][0] - rows[0][0]), math.sqrt(max(ymin, 0.0))
 
 
+def horizons_rows(params, key):
+    """Rows of a cached Horizons call that answered with vectors or elements (between $$SOE and $$EOE), split on commas."""
+    res = horizons_q(params, key).get('result') or ''
+    if '$$SOE' not in res:
+        sys.exit(f'{key}: Horizons answered without data:\n{res[:800]}')
+    return [[x.strip() for x in line.split(',')] for line in res.split('$$SOE', 1)[1].split('$$EOE', 1)[0].strip().splitlines()], res
+
+
+APOPHIS_OUT = os.path.join(ROOT, 'data', 'solar', 'apophis.json')
+APOPHIS_FIXTURE = os.path.join(ROOT, 'test', 'fixtures', 'horizons_apophis_2029.json')
+
+
+def apophis():
+    """99942 Apophis 2026-2035 from Horizons (its own orbit solution, which models the 2029 flyby) -> data/solar/apophis.json."""
+    step = 2
+    t0 = GRID0 + math.ceil((jd_of('2026-01-01') - GRID0) / step) * step
+    stop = GRID0 + math.floor((jd_of('2036-01-01') - GRID0) / step) * step
+    base = dict(format='json', COMMAND="'99942;'", OBJ_DATA="'NO'", MAKE_EPHEM="'YES'", REF_PLANE="'ECLIPTIC'", REF_SYSTEM="'ICRF'", CSV_FORMAT="'YES'")
+    rows, _ = horizons_rows(dict(base, EPHEM_TYPE="'VECTORS'", CENTER="'500@10'", VEC_TABLE="'1'", OUT_UNITS="'AU-D'", VEC_LABELS="'NO'",
+                                 START_TIME=f"'JD{t0:.1f}'", STOP_TIME=f"'JD{stop:.1f}'", STEP_SIZE=f"'{step} d'"), f'apophis_helio_{t0}_{stop}')
+    xyz = []
+    for k, r in enumerate(rows):
+        assert abs(float(r[0]) - (t0 + k * step)) < 1e-6, r[0]
+        xyz.extend(round(float(v), 6) for v in r[2:5])   # 1e-6 AU (150 km): it passes 38,000 km from Earth
+    # around Earth: hourly osculating elements for 2.5 days either side of the flyby
+    a, b = jd_of('2029-04-11 10:00'), jd_of('2029-04-16 10:00')
+    el_rows, res = horizons_rows(dict(base, EPHEM_TYPE="'ELEMENTS'", CENTER="'500@399'", OUT_UNITS="'KM-S'",
+                                      START_TIME=f"'JD{a:.6f}'", STOP_TIME=f"'JD{b:.6f}'", STEP_SIZE="'1 h'"), f'apophis_geo_el_{a:.4f}')
+    gm = float(re.search(r'Keplerian GM\s*:\s*([0-9.Ee+-]+)', res).group(1))
+    el = [[round(float(c[3])), round(float(c[2]), 7), round(float(c[4]), 5), round(float(c[5]) % 360, 5), round(float(c[6]) % 360, 5), round(float(c[7]), 6)] for c in el_rows]
+    # the closest approach from 10-minute geocentric vectors (a parabola through the three around the least distance)
+    c0, c1 = jd_of('2029-04-13 15:00'), jd_of('2029-04-14 04:00')
+    vec, _ = horizons_rows(dict(base, EPHEM_TYPE="'VECTORS'", CENTER="'500@399'", VEC_TABLE="'1'", OUT_UNITS="'KM-S'", VEC_LABELS="'NO'",
+                                START_TIME=f"'JD{c0:.6f}'", STOP_TIME=f"'JD{c1:.6f}'", STEP_SIZE="'10 m'"), f'apophis_geo_vec_{c0:.4f}')
+    v = [(float(r[0]), float(r[2]), float(r[3]), float(r[4])) for r in vec]
+    d2 = [x * x + y * y + z * z for _, x, y, z in v]
+    i = min(range(1, len(v) - 1), key=lambda k: d2[k])
+    den = d2[i - 1] - 2 * d2[i] + d2[i + 1]
+    off = 0.5 * (d2[i - 1] - d2[i + 1]) / den
+    ca_jd = v[i][0] + off * (v[1][0] - v[0][0])
+    ca_km = math.sqrt(d2[i] - 0.25 * (d2[i - 1] - d2[i + 1]) * off)
+    print(f'  Apophis: {len(rows)} samples every {step} d, {len(el)} hourly sets around Earth; closest {date_of(ca_jd)} TDB, {ca_km:,.0f} km')
+    out = dict(name='99942 Apophis', key='ast:99942 Apophis', source='JPL Horizons (99942, its own orbit solution); public domain',
+               frame='heliocentric ecliptic J2000, AU, JD TDB; local: geocentric (500@399), km and degrees',
+               t0_jd=t0, step_days=step, n=len(rows), end_jd=t0 + (len(rows) - 1) * step,
+               closest=dict(jd=round(ca_jd, 5), km=round(ca_km)),
+               events=[[round(ca_jd, 5), f'Closest to Earth: {round(ca_km, -2):,.0f} km from its centre, closer than the geostationary satellites']],
+               xyz=xyz, local=dict(center='earth', gm=gm, t0_jd=round(a, 6), step_days=1 / 24, el=el, pj=[]))
+    with open(APOPHIS_OUT, 'w', encoding='utf-8') as f:
+        json.dump(out, f, separators=(',', ':'))
+    with open(APOPHIS_FIXTURE, 'w', encoding='utf-8') as f:
+        json.dump({'source': 'JPL Horizons, 99942 Apophis around Earth (500@399), ecliptic J2000, km, JD TDB (every 30 minutes)',
+                   'closest': {'jd': round(ca_jd, 6), 'km': round(ca_km, 1)},
+                   'rows': [[r[0], round(r[1], 1), round(r[2], 1), round(r[3], 1)] for r in v[::3]]}, f, separators=(',', ':'))
+    print(f'  {os.path.relpath(APOPHIS_OUT, ROOT)} {os.path.getsize(APOPHIS_OUT):,} B; {os.path.relpath(APOPHIS_FIXTURE, ROOT)}')
+
+
+def uranus_fixture():
+    """Add Uranus (799, heliocentric ecliptic J2000, AU) at the accuracy fixture's instant (its jd_tt, TDB)."""
+    path = os.path.join(ROOT, 'test', 'fixtures', 'horizons_2026-10-02.json')
+    with open(path, encoding='utf-8') as f:
+        fx = json.load(f)
+    jd = fx['jd_tt']
+    rows = parse_vectors(horizons('799', f'JD{jd:.1f}', f'JD{jd + 1:.1f}', '1 d'))
+    assert rows and abs(rows[0][0] - jd) < 1e-6, rows and rows[0]
+    bodies = {}
+    for k, v in fx['bodies'].items():
+        if k == 'neptune':
+            bodies['uranus'] = list(rows[0][1:])
+        if k != 'uranus':
+            bodies[k] = v
+    fx['bodies'] = bodies
+    with open(path, 'w', encoding='utf-8', newline='\n') as f:
+        json.dump(fx, f, indent=1)
+    print(f'  Uranus at JD {jd}: {bodies["uranus"]}')
+
+
 def main():
     global LIMIT_JD
     LIMIT_JD = jd_of('2035-01-01')
+    if '--apophis' in sys.argv or '--uranus-fixture' in sys.argv:
+        if '--apophis' in sys.argv:
+            apophis()
+        if '--uranus-fixture' in sys.argv:
+            uranus_fixture()
+        return
     if '--only' in sys.argv and sys.argv.index('--only') + 1 >= len(sys.argv):
         sys.exit('--only needs a comma-separated list of craft names')
     only = set(sys.argv[sys.argv.index('--only') + 1].split(',')) if '--only' in sys.argv else None
@@ -546,13 +670,19 @@ def main():
     print('\nEvents (curated date vs closest approach on the sampled track):')
     for c in crafts:
         start, rows = tracks[c['name']]
+        local = None
+        if c.get('local'):
+            local = fetch_local(c, rows[-1][0])
+            print(f"  {c['name']}: {len(local['el'])} element sets every {local['step_days']} d around {local['center']} from {date_of(local['t0_jd'])}, GM {local['gm']}")
+            if local['pj']:
+                perijove_fixture(c, local)
+        when = lambda d: (rows[-1][0] if d == 'end' else rows[0][0] if d == 'start' else local['t0_jd'] if d == 'capture'
+                          else insertion_jd(local) if d == 'insertion' else jd_of(d))
         events = [[round(jd_of(c['launch']), 4), 'Launch']]
         for e in c['events']:
             date, text, body = e[0], e[1], e[2]
-            if date == 'end':
-                jd = rows[-1][0]
-            elif date == 'start':
-                jd = rows[0][0]
+            if date in ('end', 'start', 'capture', 'insertion'):
+                jd = when(date)
             elif date == 'auto':
                 lo, hi = jd_of(e[3][0]), jd_of(e[3][1])
                 ca = closest(rows, body_rows[body], lo, hi)
@@ -574,16 +704,12 @@ def main():
         xyz = []
         for r in rows:
             xyz.extend(round(v, 5) for v in r[1:])
-        if c.get('local'):
-            local = fetch_local(c, rows[-1][0])
-            print(f"  {c['name']}: {len(local['el'])} element sets every {local['step_days']} d around {local['center']}, GM {local['gm']}")
-            if local['pj']:
-                perijove_fixture(c, local)
         out.append(dict(name=c['name'], id=c['id'], launch_jd=round(jd_of(c['launch']), 4), desc=c['desc'],
                         events=events, t0_jd=rows[0][0], step_days=step, n=len(rows), end_jd=rows[-1][0],
                         coverage_start_jd=round(start, 4), agency=c.get('agency') or STATUS[c['name']][0],
                         status=c.get('status') or STATUS[c['name']][1], alias=c.get('alias', []), xyz=xyz,
-                        **({'local': local} if c.get('local') else {})))
+                        **({'phases': [[round(when(d), 4), t] for d, t in c['phases']]} if c.get('phases') else {}),
+                        **({'local': local} if local else {})))
 
     local_fixture(crafts)
     if only:   # merge into the file as it is, in CRAFT order

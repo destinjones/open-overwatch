@@ -8,7 +8,7 @@ import { AU_KM, DEG } from './units.js';
 const len = v => Math.hypot(v.x, v.y, v.z), vec = a => ({ x: a[0], y: a[1], z: a[2] });
 const angle = (a, b) => Math.acos(Math.max(-1, Math.min(1, (a.x * b.x + a.y * b.y + a.z * b.z) / (len(a) * len(b))))) / DEG;
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-const NAMES = { mercury: 'Mercury', venus: 'Venus', mars: 'Mars', jupiter: 'Jupiter', saturn: 'Saturn', neptune: 'Neptune' };
+const NAMES = { mercury: 'Mercury', venus: 'Venus', mars: 'Mars', jupiter: 'Jupiter', saturn: 'Saturn', uranus: 'Uranus', neptune: 'Neptune' };
 
 /**
  * H: test/fixtures/horizons_*.json; moons: data/solar/moons.json's list. Returns rows

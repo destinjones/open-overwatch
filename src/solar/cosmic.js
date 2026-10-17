@@ -23,6 +23,11 @@ const CLUSTERS = [
   ['Shapley Supercluster', 202.00, -31.50, 205, 'The largest concentration of galaxies within about a billion light-years.'],
 ];
 
+// galaxies in the catalogue and drawn here (phones draw the brightest 15,000): the story's captions name these, so
+// they are right before the file has loaded (the tour's caption comes up as the camera starts flying out) and exact after
+const PHONE_GALAXIES = 15000;
+export const GALAXIES = { total: 43480, drawn: Math.min(43480, PHONE ? PHONE_GALAXIES : Infinity) };
+
 export function createCosmicWeb({ scene, renderer }) {
   const uniforms = { uFade: { value: 0 }, uPR: { value: renderer.getPixelRatio() } };
   let points = null, loading = null, failedAt = -Infinity;
@@ -30,7 +35,8 @@ export function createCosmicWeb({ scene, renderer }) {
 
   async function load() {
     const meta = await fetchAsset('data/solar/galaxies.json', 'json'), F = new Float32Array(await fetchAsset('data/solar/galaxies.bin'));
-    const N = Math.min(meta.count, F.length / 4, PHONE ? 15000 : Infinity);   // brightest first
+    const N = Math.min(meta.count, F.length / 4, PHONE ? PHONE_GALAXIES : Infinity);   // brightest first
+    GALAXIES.total = meta.count; GALAXIES.drawn = N;
     const pos = new Float32Array(N * 3), mag = new Float32Array(N), e = {};
     for (let k = 0; k < N; k++) {
       eqToEcl(F[4 * k], F[4 * k + 1], F[4 * k + 2], e);

@@ -106,7 +106,8 @@ test('kepler: orbitPath through its body puts a vertex on it, where a fixed grid
 });
 
 test('planets: within the formulae\'s stated accuracy of JPL Horizons (2026-10-02)', () => {
-  const tolArcmin = { mercury: 1, venus: 1, earth: 1, mars: 2, jupiter: 12, saturn: 15, neptune: 2 };
+  const tolArcmin = { mercury: 1, venus: 1, earth: 1, mars: 2, jupiter: 12, saturn: 15, uranus: 2, neptune: 2 };
+  assert.ok(H.bodies.uranus, 'Uranus is in the fixture (make_spacecraft.py --uranus-fixture)');
   for (const [k, ref] of Object.entries({ ...H.bodies, earth: H.bodies.emb })) {
     if (k === 'emb' || k === 'earth_center') continue;
     const p = planetPosition(k, H.jd_tt), r = vec(ref);

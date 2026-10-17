@@ -18,7 +18,7 @@ is also used by its tests in `test/`.
 ## Contents
 
 - [Time, units and frames](#time-units-and-frames): `time.js`, `units.js`, `rotation.js`
-- [Orbits and the Solar System](#orbits-and-the-solar-system): `kepler.js`, `planets.js`, `moons.js`, `smallbodies.js`, `comets.js`, `craft.js`, `accuracy.js`
+- [Orbits and the Solar System](#orbits-and-the-solar-system): `kepler.js`, `planets.js`, `moons.js`, `smallbodies.js`, `comets.js`, `craft.js`, `accuracy.js`, `habitable.js`, `storytext.js`
 - [Satellites](#satellites): `tle.js`, `passes.js`, `observer.js`, `ecfvel.js`, `socrates.js`, `decay.js`, `explain.js`
 - [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `whereis.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `syzygy.js`, `orientation.js`, `deepsky.js`, `lightpollution.js`, `darksky.js`
 - [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`
@@ -128,7 +128,8 @@ their two tails: the ion tail along the solar wind and the curved dust tail. Use
   `cometPeriodYears`.
 - `ionTail`, `dustTail`, `dustDays`, `activity`: the tails, longer nearer the Sun (illustrative lengths, true
   directions).
-- `cometsNearNow`: the comets best placed near the Sun and Earth. `perihelionPassages`: perihelion dates in a span.
+- `cometsNearNow`: the comets best placed near the Sun and Earth, only those whose orbit can be trusted then
+  (`orbitFresh`; `{ fresh: false }` lists them all). `perihelionPassages`: perihelion dates in a span.
   `conicArc`: a drawable stretch of an open orbit; `conicArc(c, jd0, jd1, n, { origin, out, at })` takes `origin` and
   `out` as `orbitPath` does, and `at` gives that jd (the comet's now) a sample of its own. `GM_SUN`,
   `SOLAR_WIND_AU_DAY`.
@@ -159,16 +160,43 @@ the samples), how fast, what its mission does next, and how long its signal take
 - ISRO's Moon orbiters (Chandrayaan-1, Chandrayaan-2, the Chandrayaan-3 propulsion module, Vikram) carry the same around
   'moon', and Mars Orbiter Mission around 'mars': a set every 3 days (6 hours for Chandrayaan-3's short stay), within
   ~300 km of Horizons in quiet orbit (~20 km for Chandrayaan-3), but off by up to ~5,000 km across an orbit burn.
-  `moonCenterAt`: a centre for callers with no view of their own (the MCP): the Moon from `planets.js`, null for any
-  other key. Chandrayaan-2's published track ends 2026-11-08 and Aditya-L1's 2027-01-19 (their `end_jd` fields); a
+  `moonCenterAt`: a centre for callers with no view of their own (the MCP): the Moon from `planets.js`, Earth's centre
+  for 'earth' (Apophis's flyby), null for any other key. Chandrayaan-2's published track ends 2026-11-08 and Aditya-L1's 2027-01-19 (their `end_jd` fields); a
   working craft past its track reads "past the published track (JPL Horizons)" in the Solar view's list.
+- BepiColombo carries one around 'mercury' from its capture (12 November 2026), a set every 6 hours, within ~10 km of
+  Horizons. `statusAt`: the status in force at a time (a track's phases, [[jd, status], ...]: BepiColombo "In
+  orbit around Mercury" once captured). `trailRanges`: the samples the Solar view draws flown and ahead; none for a
+  craft past its published track or a year past the end of its mission (`endedJd`, from 'Ended 2017' / 'Silent
+  since 2009'), unless focused.
 
 ### `accuracy.js`
 
 Errors against JPL Horizons, measured with the same code the views run. Used by solar (the "Under the hood" panel loads
 the reference file and measures live in the browser) and by the tests (the thresholds).
 
-- `measureAgainstHorizons`: `{ name, what, deg, km }` for the planets, Earth's centre, the Moon and more.
+- `measureAgainstHorizons`: `{ name, what, deg, km }` for the planets (Uranus too), Earth's centre, the Moon and more.
+
+### `habitable.js`
+
+Habitable zones (Kopparapu et al. 2014) for the exoplanet systems in the Solar System view: the conservative zone
+(runaway to maximum greenhouse; `data/solar/exoplanets.json` stores it as hz and flags planets inside as in_HZ) and
+the optimistic one (recent Venus to early Mars; K2-18 b and both Teegarden planets are in it). Used by solar.
+
+- `habitableZone(logL, teff, kind)`: [inner, outer] AU, kind 'conservative' or 'optimistic'. `seff`, `KOPPARAPU`:
+  the effective-flux fits.
+- `systemZones`: a catalogue system's two zones (the stored hz, and hz_opt or one computed from teff and lum).
+  `zoneOf`: 'habitable', 'optimistic' or '' for a planet's orbit. `zoneCounts`, `zoneWords`: the card's
+  "3 (1 in the habitable zone, 1 more in the optimistic zone)".
+
+### `storytext.js`
+
+Words for the Solar System view's captions that depend on what is drawn, and the planetary-alignment search. Used by
+solar (story.js).
+
+- `drawnWords`: "43,480" when all of a catalogue is drawn, "the brightest 15,000 of 43,480" on a phone. `countWords`:
+  "1.57 million".
+- `findAlignment`: the tightest grouping of the eight planets in the century after the clock, stopping at 2100
+  (`ALIGN_END_JD`); `{ beyond: true }` past it. `alignmentCaption`: the caption, naming the years searched.
 
 ## Satellites
 
@@ -324,6 +352,9 @@ byte range, and the state that answers the question. Used by mcp (its `where_in_
 - `stateAt`: distance from the Sun and Earth, light time, speed, range rate, RA/Dec, elongation, phase angle.
 - `hgMagnitude`: an asteroid's brightness (IAU H-G). `seeingWords`: what it takes to see a magnitude. `lightWords`,
   `distanceWords`, `IAU_NAMES` (the 88 constellations by abbreviation), `CLASS_WORDS`.
+- `TRACKS`: named small bodies with a Horizons track of their own (Apophis, `data/solar/apophis.json`, 2026-2035, round
+  Earth through its 13 April 2029 pass 38,000 km from Earth's centre). `trackedAt`: a position function from that
+  track, or from the elements outside it.
 
 ### `meteors.js`
 

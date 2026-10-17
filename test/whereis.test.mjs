@@ -93,7 +93,8 @@ test('whereis: ISRO missions are found by name, alias and agency', () => {
 
 test('whereis: the Moon and Mars orbiters fly within a few hundred km of Horizons around their body, and Chandrayaan-2 around the Moon', () => {
   const by = Object.fromEntries(craft.map(c => [c.name, c]));
-  const tol = { 'Chandrayaan-2': 150, 'Mars Orbiter Mission': 350, 'Chandrayaan-3 propulsion module': 40 };
+  const tol = { 'Chandrayaan-2': 150, 'Mars Orbiter Mission': 350, 'Chandrayaan-3 propulsion module': 40, BepiColombo: 50 };
+  assert.ok(ORBITS.craft.BepiColombo, 'BepiColombo around Mercury is checked too');
   for (const [name, { center, rows }] of Object.entries(ORBITS.craft)) {
     const c = by[name]; assert.equal(c.local.center, center, name); assert.ok(rows.length > 20);
     let worst = 0; for (const [t, x, y, z] of rows) { const p = localPosition(c, t); worst = Math.max(worst, Math.hypot(p.x * AU_KM - x, p.y * AU_KM - y, p.z * AU_KM - z)); }
@@ -137,4 +138,30 @@ test('whereis: Aditya-L1 rides near Sun-Earth L1; the ended missions have honest
   assert.ok(vm != null && Math.abs(vm - vs) > 0.3 && Math.abs(vm - vs) < 2, `${vm.toFixed(2)} vs ${vs.toFixed(2)} km/s`);
   for (const c of craft.filter(x => x.agency === 'ISRO')) assert.doesNotMatch(c.status, /^(Back in|Landed)/, `${c.name}: a status that holds while it is drawn`);
   for (const c of craft.filter(x => x.agency === 'ISRO')) assert.ok(c.launch_jd < c.t0_jd && c.events[0][1] === 'Launch', c.name);
+});
+
+// ---------------------------------------------------------------- Apophis: a Horizons track through its 2029 flyby
+import { TRACKS, trackedAt } from '../src/core/whereis.js';
+const APOPHIS = json('data/solar/apophis.json'), FLYBY = json('test/fixtures/horizons_apophis_2029.json');
+
+test('whereis: Apophis passes 38,000 km from Earth\'s centre on 13 April 2029, as Horizons has it', () => {
+  assert.equal(TRACKS[APOPHIS.name], 'data/solar/apophis.json'); assert.equal(APOPHIS.local.center, 'earth');
+  assert.ok(small.named.some(n => n[2] === APOPHIS.name), 'the named asteroid it belongs to');
+  assert.equal(APOPHIS.xyz.length, APOPHIS.n * 3); assert.ok(Math.abs(APOPHIS.t0_jd + (APOPHIS.n - 1) * APOPHIS.step_days - APOPHIS.end_jd) < 1e-6);
+  assert.ok(APOPHIS.t0_jd <= jdFromMs(Date.UTC(2026, 0, 2)) && APOPHIS.end_jd >= jdFromMs(Date.UTC(2035, 11, 30)), '2026-2035');
+  const el = { a: 1, e: 0, i: 0, node: 0, peri: 0, M0: 0, epoch: 2451545 }, at = trackedAt(APOPHIS, el);
+  // on its geocentric sets it follows Horizons to a few km through the pass
+  let worst = 0;
+  for (const [t, x, y, z] of FLYBY.rows) { const p = at(t), E = earthPosition(t); worst = Math.max(worst, Math.hypot((p.x - E.x) * AU_KM - x, (p.y - E.y) * AU_KM - y, (p.z - E.z) * AU_KM - z)); }
+  assert.ok(FLYBY.rows.length > 20 && worst < 10, `${worst.toFixed(1)} km off Horizons`);
+  // the closest approach, minute by minute
+  let best = { km: Infinity, jd: 0 };
+  for (let t = FLYBY.closest.jd - 0.1; t < FLYBY.closest.jd + 0.1; t += 1 / 1440) { const p = at(t), E = earthPosition(t), km = Math.hypot(p.x - E.x, p.y - E.y, p.z - E.z) * AU_KM; if (km < best.km) best = { km, jd: t }; }
+  assert.ok(Math.abs(best.km - 38011) < 100 && Math.abs(best.jd - FLYBY.closest.jd) < 2 / 1440, `${Math.round(best.km)} km at ${best.jd}`);
+  assert.ok(Math.abs(FLYBY.closest.jd - jdFromMs(Date.UTC(2029, 3, 13, 21, 47))) < 5 / 1440, '21:46 TDB (21:45 UTC)');
+  assert.equal(APOPHIS.closest.km, Math.round(FLYBY.closest.km)); assert.match(APOPHIS.events[0][1], /^Closest to Earth: 38,000 km/);
+  // outside the track: its elements (two-body)
+  const before = jdFromMs(Date.UTC(2020, 0, 1)), p = at(before), q = positionAt(el, before, {});
+  assert.deepEqual([p.x, p.y, p.z], [q.x, q.y, q.z]);
+  assert.equal(trackedAt(null, el)(before).x, q.x, 'no track: the elements');
 });

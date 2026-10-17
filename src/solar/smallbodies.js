@@ -8,6 +8,9 @@ import { CLASSES, viewSmallBodies, decodeElements, cometElements, packSmallBodie
 import { fetchAsset } from '../core/assets.js';
 import { distance, period } from '../core/format.js';
 import { decodeSolarView } from '../core/solarlink.js';
+import { TRACKS } from '../core/whereis.js';
+import { trackPosition } from '../core/craft.js';
+import { formatUtc } from '../core/time.js';
 import { LOGDEPTH_V, LOGDEPTH_F, PHONE, rebasedLine, refill, rebase } from './util.js';
 import { addBody, removeBody, byKey, bodies, layer, layerOn, onLayers } from './world.js';
 
@@ -118,6 +121,7 @@ export function createSmallBodies({ scene, renderer, focus: focusOf = () => null
           ['Radius', rkm < 10 ? rkm + ' km' : Math.round(rkm).toLocaleString('en-US') + ' km'], ['Orbit', 'a ' + el.a.toFixed(2) + ' AU · e ' + el.e.toFixed(3)]] });
     }
   }
+  const earthAt = (k, jd, out) => (k === 'earth' && byKey.earth ? byKey.earth.posAt(jd, out) : null);
   const fillOrbit = (el, n) => (out, origin) => orbitPath(el, n, { origin, out, through: true });
   function orbitLine(el, color, opacity, n = 720) {   // drawn relative to its body (util.js rebase), re-based in frame()
     const l = rebasedLine(n, new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false }), fillOrbit(el, n));
@@ -143,9 +147,12 @@ export function createSmallBodies({ scene, renderer, focus: focusOf = () => null
     const group = new THREE.Group(); scene.add(group);
     const kind = cls === 0 ? 'main-belt asteroid' : (CLASSES[cls] || 'asteroid').replace(/s$/, '').replace(/ & beyond$/, ' object').toLowerCase();
     const b = addBody({ key, name: label, kind, color: '#e6d6b8', radius: (diam || 1) / 2 * KM_AU, pos: positionAt(el, uniforms.uDays.value + S.epoch, new THREE.Vector3()), group, el, small: true, transient: true, layer: 'asteroids',
-      update(jd) { positionAt(el, jd, b.pos); },
+      // Apophis: its own Horizons track (core/whereis.js TRACKS) round the Earth on screen through the 2029 flyby
+      update(jd) { if (!(b.track && trackPosition(b.track, jd, b.pos, earthAt))) positionAt(el, jd, b.pos); },
       info: () => [['Distance from Sun', distance(b.pos.length())], ['From Earth', distance(b.pos.distanceTo(byKey.earth.pos))], ['Year', period(periodDays(el.a))],
-        ['Size', diam ? diam + ' km across' : 'unknown (H ' + H + ')'], ['Orbit', 'a ' + el.a.toFixed(2) + ' AU · e ' + el.e.toFixed(3) + ' · i ' + (el.i / DEG).toFixed(1) + '°']] });
+        ['Size', diam ? diam + ' km across' : 'unknown (H ' + H + ')'], ['Orbit', 'a ' + el.a.toFixed(2) + ' AU · e ' + el.e.toFixed(3) + ' · i ' + (el.i / DEG).toFixed(1) + '°'],
+        ...(b.track?.closest ? [['Closest to Earth', formatUtc(b.track.closest.jd).slice(0, 10) + ' · ' + Math.round(b.track.closest.km).toLocaleString('en-US') + ' km from its centre']] : [])] });
+    if (TRACKS[label]) fetchAsset(TRACKS[label], 'json').then(t => { b.track = t; }, e => console.warn(label, e));
     refill(picked, fillOrbit(el, 720)); picked.userData.body = key; picked.visible = true;
     return b;
   }
