@@ -64,7 +64,7 @@ try {
   const p = await b.newPage();
   await p.send('Page.enable'); await p.send('Runtime.enable'); await p.send('Network.enable'); await p.send('Performance.enable'); await p.send('Log.enable');
   await p.send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('oo-hints', '{"globe":1,"map":1}') } catch (e) {}` });   // the first-run touch hints (src/app/gestures.js) would take the first tap: these runs are about the views
-  await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*opensky-network.org*', '*adsb.lol*', '*adsb.fi*', '*airplanes.live*', '*earthquake.usgs.gov*', '*wheretheiss.at*', '*api.open-meteo.com*'] });
+  await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*opensky-network.org*', '*adsb.lol*', '*adsb.fi*', '*airplanes.live*', '*earthquake.usgs.gov*', '*seismicportal.eu*', '*wheretheiss.at*', '*api.open-meteo.com*'] });
   // the wind grid: a fixed made-up one in place of data/wind.json (Open-Meteo itself is blocked above: its hourly quota)
   await p.send('Fetch.enable', { patterns: [{ urlPattern: '*data/wind.json*' }] });
   p.on('Fetch.requestPaused', e => p.send('Fetch.fulfillRequest', { requestId: e.requestId, responseCode: 200, responseHeaders: [{ name: 'Content-Type', value: 'application/json' }, { name: 'Access-Control-Allow-Origin', value: '*' }], body: Buffer.from(JSON.stringify(windFixture())).toString('base64') }).catch(() => {}));

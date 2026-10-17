@@ -13,7 +13,7 @@ const b = await launch({ windowSize: [P.width, P.height], args: ['--enable-gpu',
 try {
   const p = await b.newPage();
   await p.send('Page.enable'); await p.send('Runtime.enable'); await p.send('Network.enable');
-  await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*opensky-network.org*', '*adsb.lol*', '*adsb.fi*', '*airplanes.live*', '*earthquake.usgs.gov*', '*wheretheiss.at*'] });
+  await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*opensky-network.org*', '*adsb.lol*', '*adsb.fi*', '*airplanes.live*', '*earthquake.usgs.gov*', '*seismicportal.eu*', '*wheretheiss.at*'] });
   await p.send('Network.setCacheDisabled', { cacheDisabled: true });
   await p.send('Emulation.setDeviceMetricsOverride', { width: P.width, height: P.height, deviceScaleFactor: P.dpr, mobile: P.mobile });
   await p.send('Emulation.setCPUThrottlingRate', { rate: P.cpu });

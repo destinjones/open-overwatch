@@ -8,6 +8,7 @@ import { spawn } from 'node:child_process';
 import { createOverwatchServer, SITE } from '../mcp/index.mjs';
 import { checkArgs, PROTOCOL_VERSIONS } from '../mcp/protocol.mjs';
 import { createFeeds } from '../mcp/feeds.mjs';
+import { loadQuakes } from '../mcp/hazards.mjs';
 import { frame, inArea, globeUrl, LAYERS, WEATHER } from '../mcp/place.mjs';
 import { decodeView } from '../src/core/viewlink.js';
 import { haversine } from '../src/core/geo.js';
@@ -262,6 +263,19 @@ test('mcp: earthquakes checked against EMSC: its own solution confirms, NEIC\'s 
     assert.deepEqual(d.structuredContent.earthquakes.map(q => q.magnitude), [5.1, 3.0, 2.6]);
     assert.ok(d.structuredContent.earthquakes.every(q => /^USGS · /.test(q.provenance)));
   }
+});
+
+test("mcp: an EMSC outage falls back to that summary's last EMSC answer; FDSN's empty 204 is no events", async () => {
+  let em = JSON.stringify(EMSC); const asked = [];
+  const feeds = { json: async () => QUAKES, text: async url => { asked.push(url); if (em instanceof Error) throw em; return em; } };
+  const first = await loadQuakes(feeds, { emsc: true, now: NOW });
+  assert.match(first[0].provenance, /confirmed$/);
+  em = new Error('HTTP 503');
+  const later = await loadQuakes(feeds, { emsc: true, now: NOW + 11 * 60e3 });
+  assert.equal(asked.length, 2); assert.match(later[0].provenance, /^USGS \+ EMSC · 2 of 2 agree · /, 'the last EMSC answer still votes');
+  assert.match((await loadQuakes({ ...feeds }, { emsc: true, now: NOW }))[0].provenance, /^USGS · /, 'another server (its own feeds) has no last answer');
+  em = '';
+  assert.match((await loadQuakes(feeds, { emsc: true, now: NOW + 22 * 60e3 }))[0].provenance, /^USGS · /, 'an empty answer is no EMSC solutions');
 });
 
 test('mcp: where is the ISS (SGP4 on the website copy of the elements), and a link that follows it', needsSgp4, async () => {

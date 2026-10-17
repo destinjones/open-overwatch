@@ -27,7 +27,7 @@ let n = 0;
 try {
   const p = await b.newPage();
   for (const d of ['Page', 'Runtime', 'Network']) await p.send(d + '.enable');
-  await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*earthquake.usgs.gov*', '*wheretheiss.at*', '*airplanes.live*'] });
+  await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*earthquake.usgs.gov*', '*seismicportal.eu*', '*wheretheiss.at*', '*airplanes.live*'] });
   p.on('Runtime.exceptionThrown', e => console.log('EXCEPTION', (e.exceptionDetails.exception?.description || e.exceptionDetails.text).slice(0, 300)));
   await p.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 2, mobile: false });
   const loaded = p.waitFor('Page.loadEventFired', { timeoutMs: 120000 });

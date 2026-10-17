@@ -26,7 +26,7 @@ async function open(url) {
   for (const d of ['Page', 'Runtime', 'Network', 'Fetch']) await p.send(d + '.enable');
   await p.send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('oo-hints', '{"globe":1,"map":1}') } catch (e) {}` });   // the first-run touch hints (src/app/gestures.js) would take the first tap: these runs are about the views
   p.on('Runtime.exceptionThrown', e => errs.push(String(e.exceptionDetails.exception?.description || e.exceptionDetails.text).slice(0, 200)));
-  await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*opensky-network.org*', '*adsb.lol*', '*adsb.fi*', '*airplanes.live*', '*earthquake.usgs.gov*', '*wheretheiss.at*', '*api.open-meteo.com*', '*gdeltproject*'] });
+  await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*opensky-network.org*', '*adsb.lol*', '*adsb.fi*', '*airplanes.live*', '*earthquake.usgs.gov*', '*seismicportal.eu*', '*wheretheiss.at*', '*api.open-meteo.com*', '*gdeltproject*'] });
   await p.send('Fetch.enable', { patterns: [{ urlPattern: '*data/wind.json*' }] });
   p.on('Fetch.requestPaused', e => p.send('Fetch.fulfillRequest', { requestId: e.requestId, responseCode: 200, responseHeaders: [{ name: 'Content-Type', value: 'application/json' }, { name: 'Access-Control-Allow-Origin', value: '*' }], body: Buffer.from(JSON.stringify(windFixture())).toString('base64') }).catch(() => {}));
   const loaded = p.waitFor('Page.loadEventFired', { timeoutMs: 120000 });

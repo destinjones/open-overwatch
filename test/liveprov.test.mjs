@@ -127,6 +127,8 @@ test('parseEmsc: the FDSN GeoJSON answer as solutions (ISO times, depth down, ag
     { id: 'x"><img>', geometry: { coordinates: [20, 40, -12] }, properties: { time: '2026-10-17T01:00:00.5', mag: '3.1', evtype: 'ke' } }] });
   assert.equal(odd.length, 1); assert.equal(odd[0].time, Date.parse('2026-10-17T01:00:00.5Z')); assert.equal(odd[0].depth, 12); assert.equal(odd[0].mag, 3.1); assert.equal(odd[0].url, '');
   assert.deepEqual(parseEmsc(null), []); assert.deepEqual(parseEmsc({ features: 'x' }), []);
+  assert.deepEqual(parseEmsc(''), [], "FDSN's empty 204 (nothing matched): no solutions"); assert.equal(parseEmsc(JSON.stringify(EMSC_DOC)).length, 4, 'the body as text');
+  assert.throws(() => parseEmsc('<html>'), SyntaxError);
 });
 
 test('emscUrl / emscAsk: the start floored to 10 minutes (one address, one cache entry), the magnitude floor less the agreement margin', () => {
@@ -134,6 +136,8 @@ test('emscUrl / emscAsk: the start floored to 10 minutes (one address, one cache
   assert.equal(emscUrl({ now: t }), 'https://www.seismicportal.eu/fdsnws/event/1/query?format=json&limit=500&minmag=1.9&starttime=2026-10-16T15:40:00');
   assert.equal(emscUrl({ now: t + 2 * min }), emscUrl({ now: t }), 'the same address within a 10-minute step'); assert.notEqual(emscUrl({ now: t + 3 * min }), emscUrl({ now: t }));
   assert.equal(emscUrl({ min: 0, hours: 1, now: t, limit: 5000 }), 'https://www.seismicportal.eu/fdsnws/event/1/query?format=json&limit=1000&starttime=2026-10-17T14:40:00');
+  assert.match(emscUrl({ min: 4.5, hours: 168, now: t }), /&limit=1000&/, 'a week or a month: the most EMSC is asked for');
+  assert.match(emscUrl({ min: 1, hours: 24, now: t }), /&limit=1000&/, 'M1+ in a day'); assert.match(emscUrl({ min: 4.5, hours: 1, now: t }), /&limit=500&/);
   assert.deepEqual(emscAsk('2.5_day'), { min: 2.5, hours: 24 }); assert.deepEqual(emscAsk('4.5_week'), { min: 4.5, hours: 168 });
   assert.deepEqual(emscAsk('all_hour'), { min: 0, hours: 1 }); assert.deepEqual(emscAsk('significant_month'), { min: 4.5, hours: 720 }); assert.deepEqual(emscAsk('nonsense'), { min: 2.5, hours: 24 });
 });
@@ -173,10 +177,25 @@ test('emscSource: one request per question per 10 minutes, shared while in fligh
   assert.equal(asked.length, 2); assert.equal(kept.length, 4, 'a failure keeps the last list');
   await src.load({ min: 2.5, hours: 24 }); assert.equal(asked.length, 2, 'and waits the 10 minutes before asking again');
   await src.load({ min: 1, hours: 24 }); assert.equal(asked.length, 3, 'a different question (another USGS summary) asks at once');
+  t += 9.6 * min; await src.load({ min: 1, hours: 24 }); assert.equal(asked.length, 4, 'a reload a moment before 10 minutes still asks');
   const bare = emscSource(async () => { throw new Error('offline'); }, { now: () => t });
   assert.deepEqual(await bare.load(), [], 'never answered: no EMSC votes, no error');
   const broken = emscSource(() => { throw new Error('sync throw'); }, { now: () => t });
   assert.deepEqual(await broken.load(), []);
+  assert.deepEqual(await emscSource(async () => '<html>busy</html>', { now: () => t }).load(), [], 'a body that is not JSON is a failure too');
+});
+
+test("emscSource: a new question while another is in flight gets its own answer, never the other's list", async () => {
+  const tick = () => new Promise(r => setImmediate(r));
+  const t = Date.parse('2026-10-17T15:00:00Z'), asked = [], wait = [];
+  const one = { features: [EMSC_DOC.features[0]] };
+  const src = emscSource(url => { asked.push(url); return new Promise(res => wait.push(res)); }, { now: () => t });
+  const a = src.load({ min: 2.5, hours: 24 }), b = src.load({ min: 4.5, hours: 168 });
+  assert.notEqual(a, b, 'the new question asks at once'); await tick(); assert.equal(asked.length, 2); assert.match(asked[1], /minmag=3\.9/);
+  wait[1](one); assert.equal((await b).length, 1); assert.equal(src.list.length, 1);
+  wait[0](EMSC_DOC); assert.equal((await a).length, 4); assert.equal(src.list.length, 1, "the older question's late answer doesn't replace the newer one's");
+  src.load({ min: 2.5, hours: 24 }); await tick(); assert.equal(asked.length, 3, 'switching back asks again'); assert.equal(src.list.length, 4, "while showing that question's own last list");
+  wait[2](EMSC_DOC);
 });
 
 test('ships: two receivers of the same MMSI agree within 300 m plus its run', async () => {

@@ -54,7 +54,7 @@ old the data is and a confidence word (confirmed, reported, stale, unknown), the
 | Tool | Answers from | What you get |
 |---|---|---|
 | `show_on_globe` | (the globe itself) | the live 3D globe on a view: a place or point, a tilt, layers on or off, weather, a moment and clock speed, a satellite to follow, a flight to look for, a country's card, a camera look. Pass another answer's `url` to show exactly that |
-| `earthquakes` | USGS | the last hour, day, week or month, worldwide or in an area, strongest or latest first, with tsunami flags and PAGER alerts |
+| `earthquakes` | USGS, checked against EMSC | the last hour, day, week or month, worldwide or in an area, strongest or latest first, with tsunami flags and PAGER alerts |
 | `where_is_satellite` | CelesTrak element sets (the website's copy), SGP4 | where a satellite is now: the point below it, height, speed, orbit, sunlit or not. Its link follows it |
 | `satellite_passes` | the same | when it passes over a place in the next days, in that place's time zone, and which passes you can see |
 | `launches` | Launch Library 2 (the website's copy) | upcoming launches, with how sure the time is, status, weather odds and webcasts |

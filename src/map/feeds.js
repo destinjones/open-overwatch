@@ -35,7 +35,7 @@ Points.define('quakes', 'quakes');
 Detail.renderers.quake = p => `<div class="det">${Detail.head(C.qk, 'Earthquake · USGS', `M${(p.mag ?? 0).toFixed(1)} ${p.place || ''}`, esc(fmt.date(p.time)), [p.tsunami ? { t: 'Tsunami flag', cls: 'emg' } : null, p.alert ? { t: 'PAGER ' + p.alert, cls: p.alert === 'red' ? 'emg' : 'warn' } : null].filter(Boolean))}
 ${Detail.kv([['Magnitude', `${(p.mag ?? 0).toFixed(1)} ${p.magType || ''}`], ['Depth', `${fmt.n(p.depth, 1)} km`], ['Position', fmt.ll(p.lat, p.lon)], ['Felt reports', p.felt], ['Status', p.status], ['Age', fmt.ago(p.time) + ' ago']])}
 <div class="actions"><button class="btn small" data-do="fly" data-lat="${num(p.lat)}" data-lon="${num(p.lon)}" data-z="7">Center</button></div><hr class="sep">${Detail.links([{ text: 'USGS event page', url: p.url }])}</div>`;
-const emsc = emscSource(url => Net.json(url, { timeout: 30000 }));   // EMSC's catalogue (CORS, no relay): at most one request per 10 min
+const emsc = emscSource(url => Net.text(url, { timeout: 30000 }));   // EMSC's catalogue (CORS, no relay): at most one request per 10 min (text: FDSN's empty 204)
 feed(lyQuakes, { interval: 300, fetch: async () => {   // parsed by core/quakes.js, like the globe's and the MCP server's
   const fid = Layers.opt('quake_feed') || '2.5_day', em = emsc.load(emscAsk(fid)), had = emsc.list;   // EMSC beside USGS, never waited for
   const doc = await Net.json(usgsUrl(fid)), list = parseUsgs(doc), items = []; World.quakes = list;

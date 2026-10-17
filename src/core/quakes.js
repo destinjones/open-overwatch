@@ -70,9 +70,11 @@ export const gdacsQuakes = list => (list || []).filter(p => p && p.eventtype ===
 export const EMSC_BASE = 'https://www.seismicportal.eu/fdsnws/event/1/query';
 const EMSC_STEP = 10 * 60e3;
 /** EMSC's events in the `hours` before `now` at magnitude `min` less QUAKE_AGREE.mag or more (so every solution that could
- *  agree with a USGS quake of `min` is in it), newest first, at most `limit`. The start is floored to 10 minutes, so one
- *  question keeps one address (and its caches) for 10 minutes. */
-export function emscUrl({ min = 2.5, hours = 24, now = Date.now(), limit = 500 } = {}) {
+ *  agree with a USGS quake of `min` is in it), newest first, at most `limit` (500; 1000, the most asked, for windows past a
+ *  day or floors under M2.5). The start is floored to 10 minutes, so one question keeps one address (and its caches) for
+ *  10 minutes. A busy window (a week or month, M1+ in a day) can hold more than the limit: the answer then covers only its
+ *  newest part, and older USGS quakes read "reported" for want of an EMSC solution, not because EMSC disagrees. */
+export function emscUrl({ min = 2.5, hours = 24, now = Date.now(), limit = hours > 24 || min < 2.5 ? 1000 : 500 } = {}) {
   const start = new Date(Math.floor((now - hours * 3600e3) / EMSC_STEP) * EMSC_STEP).toISOString().slice(0, 19);
   const mm = Math.round((min - QUAKE_AGREE.mag) * 10) / 10;
   return `${EMSC_BASE}?format=json&limit=${Math.max(1, Math.min(1000, limit | 0))}${mm > 0 ? `&minmag=${mm}` : ''}&starttime=${start}`;
@@ -89,8 +91,9 @@ const isoMs = v => (typeof v === 'string' && v ? Date.parse(/(Z|[+-]\d\d:?\d\d)$
 /** An EMSC answer (FDSN GeoJSON) -> solutions { id, mag, magType, place, time, updated, depth (km, down), lat, lon, auth,
  *  url, dataAt }. auth: the agency whose solution EMSC publishes (NEIC is USGS's own). dataAt: the answer's newest solution
  *  update, the catalogue's data time (an EMSC answer carries no generated time). Only earthquakes (known, suspected,
- *  felt); nothing is trusted, as in parseUsgs. */
+ *  felt); nothing is trusted, as in parseUsgs. doc may be the body as text (throws when it isn't JSON). */
 export function parseEmsc(doc) {
+  if (typeof doc === 'string') doc = doc.trim() ? JSON.parse(doc) : null;   // the body as text: empty is FDSN's 204, no events
   const out = [];
   for (const f of (doc && doc.features) || []) {
     const p = (f && f.properties) || {}, c = (f && f.geometry && f.geometry.coordinates) || [];
@@ -121,22 +124,26 @@ export function matchEmsc(q, emsc) {
 }
 
 /**
- * EMSC answers for one view, fetched through json(url) -> Promise<doc>: at most one request at a time and one per gapMs
- * (10 min, as often as the globe asks USGS) for the same question; a failure keeps the last list (its own data time says
- * how old it is), so EMSC down only takes the "confirmed" votes away. load() never rejects; list is the newest kept.
+ * EMSC answers for one view, fetched through json(url) -> Promise<doc or body text>: at most one request at a time per
+ * question, and one per gapMs (9.5 min: a little under the globe's 10-min reload, so a tick a moment early still asks).
+ * A failure keeps that question's last list (its own data time says how old it is), so EMSC down only takes the
+ * "confirmed" votes away; another question (the 2D map's summary changed) never gets this one's list. load() never
+ * rejects; list is the newest kept for the latest question.
  */
-export function emscSource(json, { gapMs = 10 * 60e3, now = Date.now } = {}) {
+export function emscSource(json, { gapMs = 9.5 * 60e3, now = Date.now } = {}) {
   let at = -Infinity, key = '', pending = null;
+  const kept = new Map();   // question -> its last list
   const src = {
     list: [],
     load({ min = 2.5, hours = 24 } = {}) {
       const k = `${min}/${hours}`, t = now();
-      if (pending) return pending;
+      if (k === key && pending) return pending;
       if (k === key && t - at < gapMs) return Promise.resolve(src.list);
-      key = k; at = t;
-      pending = Promise.resolve().then(() => json(emscUrl({ min, hours, now: t }))).then(doc => (src.list = parseEmsc(doc)), () => src.list)
-        .finally(() => { pending = null; });
-      return pending;
+      key = k; at = t; src.list = kept.get(k) || [];
+      const p = pending = Promise.resolve().then(() => json(emscUrl({ min, hours, now: t }))).then(parseEmsc).catch(() => kept.get(k) || [])
+        .then(list => { kept.set(k, list); if (key === k) src.list = list; return list; })
+        .finally(() => { if (pending === p) pending = null; });
+      return p;
     },
   };
   return src;

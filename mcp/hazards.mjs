@@ -11,13 +11,18 @@ import { iso, r1, r2, coord } from './words.mjs';
 
 export { EONET_CATS };
 
+const emscKept = new WeakMap();   // feeds -> Map(summary -> its last EMSC list): the address moves every 10 min, so the feeds cache can't stand in
 /** USGS's feed for a magnitude floor and period: every earthquake in it at or above `min` ({ t } in ms, the rest for answers).
- *  emsc: also ask EMSC's catalogue (one request per summary, kept 10 min) so a quake both list reads "confirmed"; EMSC
- *  failing or slow (10 s) only leaves the answer USGS's alone. */
+ *  emsc: also ask EMSC's catalogue (one request per summary, kept 10 min; read as text, since FDSN answers an empty 204
+ *  when nothing matches) so a quake both list reads "confirmed"; EMSC failing or slow (10 s) falls back to that summary's
+ *  last EMSC list, as the browser views do, else leaves the answer USGS's alone. */
 export async function loadQuakes(feeds, { min = 2.5, period = 'day', signal, emsc = false, now = Date.now() } = {}) {
   const feed = usgsFeedFor(min, period);
+  if (emsc && !emscKept.has(feeds)) emscKept.set(feeds, new Map());
+  const kept = emsc ? emscKept.get(feeds) : null;
   const [d, em] = await Promise.all([feeds.json(usgsUrl(feed), { ttl: 60e3, timeout: 30e3, signal }),
-    emsc ? feeds.json(emscUrl({ ...emscAsk(feed), now }), { ttl: 10 * 60e3, timeout: 10e3, signal }).then(parseEmsc, () => []) : []]);
+    emsc ? feeds.text(emscUrl({ ...emscAsk(feed), now }), { ttl: 10 * 60e3, timeout: 10e3, signal }).then(parseEmsc)
+      .then(list => (kept.set(feed, list), list), () => kept.get(feed) || []) : []]);
   const dataAt = usgsDataAt(d);
   return parseUsgs(d, { min, quakesOnly: true }).map(q => ({ provenance: provLine(stampQuake(q, { dataAt, emsc: em }), now), magnitude: r1(q.mag), place: q.place || coord(q.lat, q.lon), time: iso(q.time), t: q.time, depth_km: q.depth != null ? r1(q.depth) : null,
     lat: r2(q.lat), lon: r2(q.lon), tsunami: q.tsunami, alert: q.alert, felt_reports: q.felt || 0, url: q.url || null }));

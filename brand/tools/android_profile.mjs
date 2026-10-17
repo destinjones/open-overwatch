@@ -21,7 +21,7 @@ try {
   await p.send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('oo-hints', '{"globe":1,"map":1}') } catch (e) {}` });   // the first-run touch hints (src/app/gestures.js) would take the first tap: these runs are about the views
   for (const t of await (await fetch('http://127.0.0.1:9333/json/list')).json()) if (t.type === 'page' && /localhost:8787/.test(t.url)) await fetch('http://127.0.0.1:9333/json/close/' + t.id).catch(() => {});
   await p.send('Storage.clearDataForOrigin', { origin: 'http://localhost:8787', storageTypes: 'all' });   // a first visit every time
-  await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*earthquake.usgs.gov*', '*wheretheiss.at*'] });
+  await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*earthquake.usgs.gov*', '*seismicportal.eu*', '*wheretheiss.at*'] });
   const touch = (type, pts) => p.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id, radiusX: 8, radiusY: 8, force: 1 })) });
   const tapText = async re => { const xy = await p.eval(`(() => { const b = [...document.querySelectorAll('button, a')].find(b => ${re}.test(b.textContent) && b.getBoundingClientRect().width); if (!b) return null; const q = b.getBoundingClientRect(); return [q.left + q.width / 2, q.top + q.height / 2]; })()`); if (xy) { await touch('touchStart', [xy]); await sleep(60); await touch('touchEnd', []); } return !!xy; };
   const loaded = p.waitFor('Page.loadEventFired', { timeoutMs: 120000 });
