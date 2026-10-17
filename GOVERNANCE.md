@@ -43,8 +43,8 @@ Open an issue and say so.
 5. GitHub then rebuilds the site (about a minute, with the new version at the root and under `/v/<tag>/`) and builds the
    release with its two files. Bump the MCP version (`VERSION` in `mcp/feeds.mjs`, `package.json`,
    `mcp/manifest.json`) when the server changed; the tests check they agree.
-6. Afterwards: `lastmod` in `sitemap.xml` for pages that changed, the status line in `CLAUDE.md` and the boxes in
-   ROADMAP.md, the version and date in `CITATION.cff`.
+6. Afterwards: the status line in `CLAUDE.md` and the boxes in ROADMAP.md, the version and date in `CITATION.cff`.
+   (The site build dates each page's `lastmod` in `sitemap.xml` from git; a new page only needs its `<url>` line.)
 
 When a release adds a runtime file (a new data file, texture, module folder), check it is in `APP_PATHS` in
 `build_site.py` (or archived versions 404 on it) and in the zip's file list in `release.yml`.
