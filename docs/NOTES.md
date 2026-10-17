@@ -10,8 +10,9 @@ Detail that used to live in CLAUDE.md. Read the section you need before touching
 - `globe.html` — 3D view on CesiumJS 1.146 (CDN), needs the helper. Satellites: CelesTrak TLEs (Cache Storage, 2 h),
   SGP4 in a worker for the dots; the nearest 40 within 4,000 km get glTF models (brand/models/*.glb, Blender-built,
   +X ram / +Z zenith / solar_* nodes rotate about Y toward the sun), exact SGP4 per frame keyed to the Cesium clock.
-  Objects within 5 km of the ISS/CSS are "docked" (no model, no dot). Aircraft: OpenSky snapshot (15 min) + adsb.lol mil,
-  dead-reckoned up to 15 min; the nearest 200 within 300 km (camera < 600 km) get models (brand/models/aircraft) with
+  Objects within 5 km of the ISS/CSS are "docked" (no model, no dot). Aircraft (the download version only: the website
+  has none, see "Public relay"): OpenSky snapshot (15 min) + adsb.lol mil, dead-reckoned up to 15 min; the nearest
+  200 within 300 km (camera < 600 km) get models (brand/models/aircraft) with
   heading, pitch from vertical rate and bank from turn rate. Follow camera = own preUpdate re-centring (Cesium's
   trackedEntity lags a tick ≈ 115 m at orbital speed). Lessons: 4x MSAA and one 8k single-tile imagery texture broke
   globe rendering; city lights are a tile pyramid shown only above 300 km (where sun shading is on); ground atmosphere
@@ -74,11 +75,34 @@ CelesTrak after the first timeout, and index.json lists the groups it `kept`.
 `Publish Update.bat` bumps OW_VERSION (src/map/version.js), commits, tags vX and pushes; .github/workflows/release.yml then builds
 `open-overwatch.zip` (the download the lander links to via releases/latest/download). Keep the zip file list in that
 workflow in sync when the app starts needing new files. gh CLI (portable): ~/bin/gh-cli/bin/gh.exe.
+- 2026-10-17, the Pages budget: the site root is HEAD minus SKIP_ROOT, which now also leaves out the dev-only folders
+  test/, e2e/, notes/, relay/, mcp-worker/ and brand/clip/ (KEEP_ROOT puts back the one file a page loads from them,
+  test/fixtures/horizons_2026-10-02.json for the Solar view's accuracy table). Only the newest ARCHIVE_KEEP (6) tags by
+  version number get a full /v/<tag>/ copy (`online_tags`); an older tag's pages are a small script-free page linking
+  its release zip, and its versions.json entry has `online: false` and no map/globe/solar paths. versions.json's top
+  level carries `online` (the count really online) and `keep` (ARCHIVE_KEEP). build_site.py prints the site size and
+  warns over SITE_BUDGET (900 MB); pages.yml fails the build over 950 MB.
+- 2026-10-17, news and the sitemap: a partial GDELT run fills the countries that failed from the live copy (up to 3 days
+  old) and lists them in news.json's `kept` map ({ISO2: ms of their own fetch}); the globe's country panel labels those
+  headlines with that time and says "last few days" once they are over 24 h old. sitemap.xml's <loc> list is
+  hand-written, but the build rewrites every <lastmod> from git (`date_sitemap`); the app pages (APP_PAGES: globe,
+  solar, open-overwatch, tonight) also count commits to src/ and data/.
+- 2026-10-17, the release: `Publish Update.bat` now runs `git fetch origin main` and `git merge --ff-only origin/main`
+  before it bumps anything (it stops if this branch and main have both moved), shows which branch goes to main, pushes
+  the branch and the tag together (`git push --atomic`), and on a failed push deletes the tag and takes back the version
+  commit (it then says version.js already holds the new number, so the same one can be entered again). The zip also
+  carries index/about/guide, india/, the airport, runway, deep-sky and light-pollution data (lightpollution.md, its
+  CC BY-NC note, goes with the .bin), the install-sheet screenshots, LICENSE, NOTICE and docs/DATA_SOURCES.md. Copies of
+  live feeds (data/tle/, launches, news, …: SITE_ONLY in test/release.test.mjs) are not in it: the download reads those
+  from the website. test/release.test.mjs reads the zip list from release.yml and fails on a file README.txt lists, a
+  data/ file a view fetches, a page or srcset image a shipped page links, a manifest icon or screenshot, or a folder
+  whose asset paths pages build in JS (brand/lander/clips/, brand/india/clips/, brand/models/) that the zip lacks.
 
 ### Search and sharing (SEO)
 `index.html`, `about.html` and the three app pages each carry a title, description, canonical URL, Open Graph and Twitter tags; the landing and About
 pages also carry JSON-LD (`WebSite`, `SoftwareApplication`, `Person` with `sameAs` links to GitHub and Ironbound). `robots.txt` keeps the archived `/v/<tag>/`
-copies and `/data/` out of search results and points at `sitemap.xml`: bump its `lastmod` when a release changes a page. `CITATION.cff` gives GitHub's
+copies and `/data/` out of search results and points at `sitemap.xml` (the site build dates its `lastmod`s from git; add a
+`<url>` by hand for a new page). `CITATION.cff` gives GitHub's
 "Cite this repository" button; `LICENSE` (MIT) covers the code only, the data keeps its own licences (docs/DATA_SOURCES.md). The portrait is
 `brand/about/destin-*.webp` (cropped from the owner's own photo).
 
@@ -91,7 +115,8 @@ transit) · hazards (fire hot spots, US perimeters) · measure (draw and measure
 model layers, the timeline bar) · aviation (aircraft card extras, airports, boards, runways) · main (INIT, OW).
 Modules import only from earlier ones; the five names used before they are defined (Sats, cableHit, Probe, Brief, Keys)
 are read through `late.X`. OW_VERSION is a classic-script const in src/map/version.js (Publish Update.bat edits that line).
-A hidden tab pauses feeds by design: drive them with OW.Sats.reload() etc. when testing in a background pane.
+A hidden tab slows feeds by design (engine.js: each waits two extra intervals, so it runs at a third of its cadence; alerts
+still arrive): drive them with OW.Sats.reload() or `runFeed` when testing in a background pane.
 
 ## 2D map: adding a layer (the contract the code enforces)
 1. `Layers.add({id, group, name, desc, color, default, points})` before INIT. `group` must be one of `UI.groups`
@@ -102,7 +127,19 @@ A hidden tab pauses feeds by design: drive them with OW.Sats.reload() etc. when 
    Use `Net.json` / `Net.text` for every request.
 4. `Detail.renderers[kind] = obj => html`. **Escape every upstream string with `esc()`** — `Detail.kv` values and
    the `Detail.head` sub-argument go into innerHTML raw. Check link schemes with `isHttp()`.
-5. CORS-blocked source: add the host to `NEEDS_RELAY` in the html AND `ALLOWED_HOSTS` in serve.js AND serve.py.
+5. CORS-blocked source: add the host to `NEEDS_RELAY` (src/map/util.js) AND `ALLOWED_HOSTS` in serve.js AND serve.py
+   (the download's helpers). For the website too, if the feed's terms allow relaying: `TTL` and `PATHS` in
+   relay/worker.js AND `PUBLIC_RELAY_HOSTS` in src/core/relay.js, then a Worker redeploy (the owner's OK). Four lists in
+   all; test/relayhosts.test.mjs checks PUBLIC_RELAY_HOSTS = the Worker's TTL and PATHS hosts, PUBLIC_RELAY_HOSTS ⊆
+   NEEDS_RELAY ⊆ both helpers, serve.js = serve.py, and that every NEEDS_RELAY host is one something in src/ fetches.
+   PATHS must cover every URL the client sends for a carried host: a path outside it gets a 403 'path not on the relay
+   allowlist', which the client treats as an ordinary error (only 'host not on…' stops the host).
+6. A feed the website can't get (Net.fetch throws an error with `notCarried`: no relay carries the host, or the deployed
+   Worker answered 'host not on the relay allowlist', core/relay.js `relayRefused` + `markNotCarried`) stops for the
+   visit: runFeed logs one warning, schedules no retry and skips it on pan nudges. A later success (a custom relay in the
+   Setup tab) or switching the layer off and on clears `f.notCarried`. The first `air_*` layer that stops this way logs
+   "No live aircraft on the website: they need the free download" once (`Feeds.airNotCarried`; main.js's boot line sets
+   the same flag). The refused set is per host and in memory only, so the next visit asks again.
 Moving objects: `Movers.define(id, { layerId, kind, minZoom, at(o, now, out), glyph, tip, label })` (engine.js) draws a Map
 the feed fills, placed by its own motion model each frame (transit uses it); aircraft and ships keep their own branches.
 A top-level exception anywhere aborts INIT, so test every new layer in the browser.
@@ -116,7 +153,8 @@ fallback); GDACS paged (up to 1000 events); radio-browser hosts all/de1/de2; GDE
 arrive without CORS and are reported as such); airplanes.live only when picked (403 without permission); CelesTrak
 `noaa` group gone (in `weather`), `last-30-days` often has no TLE-format data (new catalog numbers outgrow TLE).
 Helpers (serve.js/serve.py) are locked down: Host check, /proxy only for the helper's own pages, no ACAO, each
-redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_RELAY (+ old hosts for archived pages).
+redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_RELAY (+ old hosts for archived pages;
+test/relayhosts.test.mjs checks since 2026-10-17).
 
 ## Blender (for 3D assets)
 - Production renders run HEADLESS via the launcher (blocks, returns the exit code, but stdout is lost: log to files).
@@ -230,7 +268,8 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   video (hls.js) is a fine WebGL texture. One `Live` stream is shared by the card and the projection; moving a `<video>`
   between parents pauses it (the HTML rule for a removed media element), so it resumes itself on 'pause'.
 - Stills without CORS (Vegvesen, Iowa, Calgary, Singapore) show in the card without `crossorigin` and project only
-  through the relay (the local helper; the public Worker once redeployed with those hosts).
+  through a relay: the local helper, or on the website the public relay (its PATHS take each agency's still URLs; Iowa's
+  rule takes /snapshots/ or an image name, because its list was empty on 2026-10-17 and no live ImageURL could be seen).
 - CityBikes: 300 requests an hour per address (`ratelimit-*` headers); `?fields=` trims the answer; times look like
   `…+00:00Z`; some systems' feeds stopped months ago (their last numbers stay): greyed after 2 days.
 - AIS: positions are the antenna's (A to the bow, C to port: the hull is offset); ROT_AIS = 4.733 √(°/min); heading 511
@@ -250,6 +289,13 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
 - CMR: the CSV form at a point is the light one (150 KB for 3 months vs ~0.7 MB per 50 granules as JSON). The first
   pair is the newest fairly clear picture against the oldest clear one at least two weeks earlier.
 - Picking an entity drawn for an object: `entity.obj = object` (ui.js pickObj).
+- 2026-10-17 (core/cyclones.js loadCyclones, the globe and the 2D map): only NHC's tau-0 point (or one with no tau)
+  moves a storm, sets its wind and counts as NHC's report. Without it, a new storm starts at the cone's corner, or the
+  forecast only joins a storm of the same name. The points layer asks for `idp_filedate`; ArcGIS answers a field it
+  doesn't know with a 200 and `{ error }`, so loadCyclones asks once more without it (`fldatelbl` still gives the
+  advisory time), and a layer that still errors warns 'NHC forecast layer <id>' instead of quietly drawing no storms.
+  GDACS's forecast is skipped only for storms that actually got a NOAA forecast (`fc.src === 'NOAA NHC'`). Worth a live
+  look after a publish: a layer-5 query with idp_filedate should still return features.
 
 ## Draw and measure (measure.js, core/measure.js) — 2026-10-11
 - Distances: Vincenty's inverse and direct formulae on WGS84, within 0.08 mm of GeographicLib 2.1 (Karney; pip
@@ -353,9 +399,9 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
 ## Airport weather, estimates and runway history (fieldwx.js, fieldwatch.js; core metar, eta, runwaylog) — 2026-10-13
 - aviationweather.gov's data API sends no `Access-Control-Allow-Origin` (GET and OPTIONS checked 2026-10-13), so METAR
   and TAF are download-version only, relayed by serve.js/serve.py (`aviationweather.gov` added to both; not to the
-  public relay, not to the 2D map's NEEDS_RELAY: the 2D map doesn't ask it). The website keeps the Open-Meteo line and
-  says why. api.weather.gov does send CORS, but its `rawMessage` was empty for KDEN's latest observation, it has US
-  stations only, and its TAFs are IWXXM XML: not worth a second decoder. A bbox METAR query over the US timed out (504);
+  public relay; the 2D map's NEEDS_RELAY got it later, with the map's airport cards: see "The 2D map catches up,
+  round 2"). The website keeps the Open-Meteo line and says why. api.weather.gov does send CORS, but its `rawMessage`
+  was empty for KDEN's latest observation, it has US stations only, and its TAFs are IWXXM XML: not worth a second decoder. A bbox METAR query over the US timed out (504);
   `ids=` lists of 60 answer in ~0.2 s, so the dots ask by id for the fields in view (`AirportIndex.inBox`, large first).
 - The decoder (core/metar.js) works on the raw text, never AWC's decoded fields, so the same code would read any METAR
   source; the tests check it against AWC's decode of the same reports. Differences that are representation, not error:
@@ -391,36 +437,52 @@ redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_REL
   blocks the aircraft feeds); real callsigns there pulled real adsbdb routes naming other airports, which drops them
   from the board (routeOther), hence the TEST callsigns. METAR/TAF/dots in the shots are live AWC.
 
-## Public relay (relay/, Cloudflare Worker) — 2026-10-10
-`relay/worker.js` on the owner's Cloudflare account (`npx wrangler deploy` from relay/, after `npx wrangler login`):
-https://open-overwatch-relay.destinjones123.workers.dev/?url=… . Allowlist = `PUBLIC_RELAY_HOSTS` in src/core/relay.js
-(nine hosts: NOAA NHC, NYC DOT cameras, submarinecablemap, the BC and Missouri camera lists, four agencies' stills), each
-host limited to its feed paths (PATHS in worker.js), an Origin header required, GET only, redirects re-checked, a fixed
-Accept (a forwarded one let anyone poison the shared cache with DriveBC's HTML rendering: 2026-10-11 review), HTML never
-cached, a 30 MB cap counted on the stream, `Access-Control-Allow-Origin` fixed to the published site, test/relay.test.mjs
-exercises it with a stand-in upstream. Add the free-plan WAF rate-limiting rule on the route (e.g. 60 req/min per address), Workers Cache in front (works on the free plan: `CF-Cache-Status: HIT`; per-host max-age in TTL).
+## Public relay (relay/, Cloudflare Worker) — 2026-10-10, updated 2026-10-17
+`relay/worker.js` on the owner's Cloudflare account (`npx wrangler deploy` from relay/, after `npx wrangler login`; a
+redeploy needs the owner's OK): https://open-overwatch-relay.destinjones123.workers.dev/?url=… . Allowlist =
+`PUBLIC_RELAY_HOSTS` in src/core/relay.js = the Worker's TTL table (eleven hosts: NOAA NHC, NYC DOT cameras,
+submarinecablemap, the BC and Missouri camera lists, four agencies' stills (Norway, Iowa, Calgary, Singapore), NOAA NDBC
+for buoys and DART, and tsunami.gov), each host limited to its feed paths (PATHS in worker.js), an Origin header required
+(the website, or localhost:8787 / 127.0.0.1:8787 for testing), GET only, redirects re-checked, a fixed Accept (a
+forwarded one let anyone poison the shared cache with DriveBC's HTML rendering: 2026-10-11 review), HTML and error
+answers never cached, a 30 MB cap counted on the stream, `Access-Control-Allow-Origin` fixed to the published site,
+test/relay.test.mjs exercises it with a stand-in upstream. Add the free-plan WAF rate-limiting rule on the route (e.g. 60
+req/min per address), Workers Cache in front (works on the free plan: `CF-Cache-Status: HIT`; per-host max-age in TTL).
 The ADS-B networks and OpenSky refused Cloudflare's servers on 2026-10-10 (adsb.lol 429, airplanes.live / adsb.fi /
 adsb.one 403, OpenSky timeout); don't disguise the relay to get past that. adsb.lol's API terms say a key (given to feeders)
 is coming.
-- 2026-10-15, live aircraft on the website (needs a redeploy): terms checked. OpenSky's (opensky-network.org/about/
+- 2026-10-15, live aircraft on the website: tried and rolled back. Terms checked: OpenSky's (opensky-network.org/about/
   terms-of-use): non-profit research and education only, 3(iii) no making the data available to others, and "Operational
   use of the REST API in any live product, service, or automated system also requires a written license": not relayed,
   not even cached (ask OpenSky for a licence to change that). adsb.fi: "personal, non-commercial use only", 1 req/s;
   airplanes.live: written permission; adsb.one: 403. adsb.lol: ODbL 1.0, "The API is available to everyone", dynamic
-  rate limits, a feeder key later: relayed, but only queries every visitor asks alike, so the edge cache is shared:
-  `/v2/mil` and squawks 7500/7600/7700 (60 s), and `/v2/point/{lat}/{lon}/250` only on the fixed grid of
-  src/core/airgrid.js (45 s; the Worker refuses any other centre, radius or query string). The worker imports airgrid.js
-  (wrangler bundles it). A 429/5xx from adsb.lol is shared 15 s so a crowd doesn't retry together. None of api.adsb.lol,
-  opendata.adsb.fi, api.airplanes.live, api.adsb.one sends CORS headers (checked 2026-10-15), so the relay is needed.
-  Website behaviour: the globe's civil layer asks the 3 tiles nearest the camera every 45 s, one at a time 1.5 s apart
-  (adsb.lol 429s a burst even from this PC; London from 800 km: 495 planes) (`Air.civil` → `nearby`; the
-  download keeps OpenSky's 15-min snapshot), area fixes pruned after 3 min; the 2D map uses adsb.lol only (`publicAir`),
-  6 tiles per pass every 45 s, mil every 60 s, squawks every 60 s. Not verified from Cloudflare: if adsb.lol still answers
-  the Worker 429, both views show the error and nothing else changes. Workers Cache is per data centre, so "one upstream
-  request per interval" is per Cloudflare location. Budget: the free plan's 100,000 Worker requests a day (cache hits
-  may count) is ~70 a minute; a globe visitor costs ~5 a minute (3 tiles / 45 s + mil), a map visitor ~11 (6 tiles / 45 s
-  + mil + 2 squawks), so ~14 globe or ~6 map visitors on at once, averaged over the whole day, would use it up, and then every relayed feed (NHC, cameras, buoys) fails until midnight UTC. Watch the
-  Worker's request graph after advertising; Workers Paid ($5/month, 10 M requests) if needed.
+  rate limits, a feeder key later. A Worker relaying adsb.lol's shared queries (`/v2/mil`, squawks, `/v2/point` on the
+  fixed grid of src/core/airgrid.js) was deployed that day and rolled back: adsb.lol answers Cloudflare's servers with
+  429. None of api.adsb.lol, opendata.adsb.fi, api.airplanes.live, api.adsb.one sends CORS headers (checked 2026-10-15),
+  so the website has no live aircraft; the download asks them through its local helper from the visitor's own address.
+- 2026-10-17, what the Worker carries now (redeployed that day): the eleven hosts above and no aircraft feed. The adsb.lol
+  rules are gone from worker.js (it no longer imports airgrid.js; test/relayhosts.test.mjs fails if an aircraft host or
+  airgrid comes back). airgrid.js stays as the shared tiling of the 2D map sweep and the globe; its `adsbLolTtl` and
+  `adsbLolRelayable` are kept for a future relay that can reach adsb.lol and only the tests use them. On the website the
+  pages send no aircraft request at all: `publicRelayable` is false for those hosts, so the globe's `getJSON` and the map's
+  `Net.fetch` (without a custom relay) throw `notCarried` before fetching; the globe's layers say "download version" and
+  the map logs one line (rule 6 of the layer contract; the globe notes of 2026-10-17).
+- 2026-10-17, one request form: the Worker accepts only `PUBLIC_RELAY + encodeURIComponent(new URL(feed).href)` (core
+  relay.js `relayUrl`, which every client uses), optionally followed by `&t=<digits>` (a camera still's minute,
+  core/cameras.js `bustUrl`), and no query string or fragment on the target itself. Any other spelling (extra or
+  reordered parameters, a re-encoded or upper-case target) gets a 400, since each would be a separate entry in the shared
+  caches. A carried host asked for a path outside PATHS gets 403 'path not on the relay allowlist: <host>'; only 'host not
+  on the relay allowlist' reads as `relayRefused`, so a stray path never stops the whole host for the visit.
+- 2026-10-17, two caches: Workers Cache in front (keyed by the raw request, t included; its hits never reach the code) and
+  `caches.default` inside, keyed by the canonical target without t, so every minute's still URL would share one copy.
+  The inner Cache API only takes effect on a custom domain or route; on *.workers.dev it does nothing and the front cache
+  alone shares (a still asked with each minute's t then costs one upstream fetch per camera per minute, as before). To see
+  whether the inner cache works: ask the same NDBC or camera target twice with different t; a fast second answer (or a
+  cf-cache-status header) means it does.
+- Budget: the free plan's 100,000 Worker requests a day (cache hits may count) is ~70 a minute across every relayed feed
+  (NHC, cameras, buoys, tsunami messages, cables); when it runs out they all fail until midnight UTC. Workers Cache is per
+  data centre, so "one upstream request per interval" is per Cloudflare location. Watch the Worker's request graph after
+  advertising; Workers Paid ($5/month, 10 M requests) if needed.
 
 ## MCP server (mcp/) — 2026-10-11
 - Layout: `server.mjs` (CLI, stdio) → `index.mjs` (assembly) → `protocol.mjs` (JSON-RPC by hand: initialize with version
@@ -503,6 +565,18 @@ is coming.
   variable; the Marine API with `cell_selection=sea` answers for coastal points and errors or returns nulls inland (both
   read as "no sea"); multi-model daily keys come suffixed (`temperature_2m_max_ecmwf_ifs025`). Open-Meteo answered 503
   and once a truncated body during testing: transient, the feeds layer reports it as a retryable error.
+- The "not deployed" notes above are history: the Worker was deployed on 2026-10-13 (mcp-worker/README.md and
+  wrangler.toml). It was not redeployed for the 2026-10-17 changes below, so the remote connector still runs the older
+  code until the owner approves a redeploy; the stdio server has them (the .mcpb from the next release too).
+- 2026-10-17: `plate_readers` reports a failed FlockHopper index as 'unavailable' only when the point lies in that
+  index's rough box (ALPR_REACH in mcp/osm.mjs: US [-180,15,-64,72], Canada [-141.5,41.5,-52,84]); anywhere else it is
+  the usual not_found "United States and Canada only". `createOverwatchServer({ importSgp4 })` (default
+  `() => import('satellite.js')`) lets a test make satellite.js missing: the satellite tools then fail with ToolError
+  'unavailable' and "satellite.js is missing: run npm install …".
+- 2026-10-17, EMSC in `earthquakes` (mcp/hazards.mjs): one EMSC request per USGS summary, kept 10 minutes, read as text
+  (FDSN's empty 204 = no events). If EMSC fails or takes over 10 s, the summary's last EMSC list is used, kept in a
+  WeakMap on `feeds.scope` (the memo every server in a Worker isolate shares), so the Worker's per-request servers keep it
+  too.
 
 ## NYC measured traffic speeds — 2026-10-12
 - NYC DOT's Traffic Speeds dataset (i4gi-tjb9) lags far more than "a few hours": on 2026-10-12 the newest row was 27 h
@@ -560,7 +634,8 @@ is coming.
   other session's running render (`CDP connection closed` mid-run). Each profile now holds owner.pid and only a dead
   owner (or, without owner.pid, 30 minutes of age) makes a browser an orphan. Parallel sessions can also set `OW_WORK`.
 ## Solar System: missions, comets, search and links (solar/spacecraft.js, comets.js, find.js, lists.js) — 2026-10-12
-- Spacecraft: 22 tracks from `make_spacecraft.py` (Horizons, 2-5-day samples to 2035, cached in brand/source/horizons/;
+- Spacecraft: 22 tracks (28 since ISRO's six were added on 2026-10-17) from `make_spacecraft.py` (Horizons, 2-5-day
+  samples to 2035, cached in brand/source/horizons/;
   each entry now has agency, status, alias). `core/craft.js` interpolates with a Catmull-Rom cubic: ~300-1,600 km off
   Horizons half-way between samples (samples are rounded to 1e-5 AU = 1,500 km); linear was off up to 200,000 km, so
   `sky.js craftAt` (Tonight's "farthest things we built") uses it too. Subtracting the planet for craft in orbit
@@ -615,7 +690,8 @@ is coming.
   Jupiter + sets every 30 min for +-3 h around each of 109 perijoves, flown two-body around the drawn Jupiter; never
   carry a set across a perijove (Jupiter's J2 turns the orbit there: a set an hour away is ~1,000 km off at the pass).
   Within 150 km of Horizons over two days around three perijoves (sets every 15 min for +-6 h: 66 km at 1.7x the size).
-  The 1-day heliocentric track still draws the cruise and the long view. spacecraft.json is 1.6 MB (gzip 0.6 MB).
+  The 1-day heliocentric track still draws the cruise and the long view. spacecraft.json is 1.6 MB (gzip 0.6 MB); 1.9 MB
+  (gzip 0.7 MB) with the ISRO tracks.
 
 ## Shared feed core and the 2D map catching up — 2026-10-12 (branch grow-map-core)
 - One parser per feed, in src/core, for the 2D map, the globe and the MCP server: quakes, eonet, gdacs, cyclones,
@@ -716,8 +792,9 @@ is coming.
   news, …, versions.json) are network-first; offline they come back with an `x-oo-offline: <Date>` header. Our own files
   are kept even though serve.js says `no-store` to everything (that is a dev convenience, not a "never store").
 - **Precache = a crawl**, not a list: the pages, then every `src=`, stylesheet, `import … from`, `import('…')` and
-  `new URL('…', import.meta.url)` they reach (about 170 files, after load + idle so it never competes with the
-  globe's start). A module only reached by a computed path would be missed: keep imports literal. Save-Data: pages only.
+  `new URL('…', import.meta.url)` they reach (about 170 files then, 278 on 2026-10-17 against MAX_PRECACHE 450; after
+  load + idle so it never competes with the globe's start). A module only reached by a computed path would be missed:
+  keep imports literal. Save-Data: pages only.
 - **Libraries via `<script>` are no-cors**; the worker refetches pinned CDN files with CORS so the cache holds readable
   copies (an opaque one counts as ~7 MB of quota in Chrome). Leaflet's base tiles are `crossOrigin: false`: OSM and Esri
   answer CORS, so they are kept; anything that does not is passed through uncached.
@@ -736,6 +813,26 @@ is coming.
   with only a placeholder, an img without alt, duplicate ids, tabindex > 0, an unlabelled role, and text-colour tokens
   (`--ink*`, `--dim`, `--faint`, …) under 4.5:1 against `--bg` / `--panel-solid` / `--panel-2`. Viewports that block zoom
   are only warnings on the three views that handle pinch themselves.
+- **2026-10-17, one version per tab.** The pages import their modules under plain URLs, so on a published build
+  (`ONE_VERSION`: BUILD is not 'dev') pages and code come from this version's install copy first, and a tab keeps the
+  version it started with until it reloads into the new worker. The guarantee covers only what the install crawl found: a
+  file built from a run-time URL comes from the network and may be newer. test/sw.test.mjs crawls the real site and fails
+  once it passes 80% of MAX_PRECACHE (450 files; 278 on 2026-10-17). On 'dev' (git, the local helper) pages and code
+  stay network first.
+- **2026-10-17, the update flow** (src/app/pwa.js): the very first worker takes over at once; a later one waits. A tab that
+  sees it installed (or finds one already waiting when it opens) shows "A new version of Open Overwatch is ready (vX)"
+  with Reload / Later; Reload posts `skip-waiting` and reloads on the takeover (or after 4 s). Any other tab the old
+  worker controlled then gets "Open Overwatch was updated in another tab. Reload to finish." pwa.js tracks whether the
+  tab is controlled as that changes, so a tab opened on a first visit gets that bar too.
+- **2026-10-17, What's new** (core/whatsnew.js RELEASES, shown by pwa.js): a corner card once per version after an update,
+  at most 3 lines, "Try it" and "Full notes" (the CHANGELOG heading on GitHub once the entry has a date). Never on a first
+  visit (that only remembers the version, `oo-seen`) unless the visitor came through Reload, never in an archived copy
+  or an embed (`embed=0` is not one), not while a newer worker is waiting, and it ignores an Escape another panel used.
+  `?whatsnew=1` forces it, `?whatsnew=0` never. test/whatsnew.test.mjs fails when src/map/version.js names a version
+  without an entry, or when CHANGELOG.md has a `## [x.y.z]` heading whose entry has no `date`: the publisher sets it.
+- **2026-10-17, the install sheet:** a maskable icon (brand/emblem/emblem-maskable-512.png) and two screenshots,
+  brand/social/screen-narrow.jpg (720x1280) and screen-wide.jpg (1280x800), JPEG quality 85 with a copyright comment,
+  made by brand/tools/pwa_images.py from the hero stills. They are in APP_PATHS and the release zip.
 
 ## Time travel (timetravel.js, events.js; quakes/storms/satellites follow the clock; core/history.js) — 2026-10-13 (branch grow3-timetravel)
 
@@ -814,8 +911,9 @@ is coming.
 
 ## Oceans and air (ocean.js, seaair.js, map/ocean.js, core/ocean.js, mcp/ocean.mjs) — 2026-10-13 (branch grow3-ocean)
 - **CORS, checked 2026-10-13**: NDBC (`www.ndbc.noaa.gov`) sends none, so buoys and DART go through the local helper
-  (serve.js / serve.py / NEEDS_RELAY) and the public relay (worker TTL + PATHS + PUBLIC_RELAY_HOSTS; **needs a redeploy**
-  before the website can read it). NOAA's old ERDDAP copy of the buoys (`cwwcNDBCMet` on coastwatch/upwell) is gone (404).
+  (serve.js / serve.py / NEEDS_RELAY) and the public relay (worker TTL + PATHS + PUBLIC_RELAY_HOSTS; the website reads
+  them since the relay's 2026-10-17 redeploy; a host the deployed Worker still refuses shows the "download version" note,
+  not a failed fetch). NOAA's old ERDDAP copy of the buoys (`cwwcNDBCMet` on coastwatch/upwell) is gone (404).
   CO-OPS, GIBS (tiles, colour maps, DescribeDomains) and Open-Meteo send `*`. OpenAQ v3 answers 401 without a key.
 - **Reading a picture back**: GIBS colour maps (v1.3 XML) give each colour a value range; `colormapValue` looks the
   pixel up exactly (an exact RGB index: the PNGs are paletted, no blending at 1:1). Draw the tile at native size, read one
@@ -829,8 +927,8 @@ is coming.
 - **CO-OPS** answers errors with HTTP 200 and `{ error: { message } }`; "The supported Datum values are: MSL, NAVD"
   is parsed and retried with the first. Non-tidal river gauges (e.g. Carrollton, LA) may have no recent data at all.
 - **Air quality grid**: on round numbers (0.25° to 30°) so the 30-minute cache hits as the view moves; at most 48 points
-  per request (Open-Meteo counts each location as a call). The 2D map pauses feeds in a hidden tab, so a hidden preview
-  never fetches: drive `runFeed` by hand when testing.
+  per request (Open-Meteo counts each location as a call). The 2D map runs feeds at a third of their cadence in a hidden
+  tab, so a hidden preview fetches rarely: drive `runFeed` by hand when testing.
 - **Globe clicks**: `hooks.seaAt(lon, lat)` in ui.js runs when a click lands on the Earth but in no country and a picture
   layer is on; it opens a "value here" card. Land clicks still open the country.
 
@@ -914,8 +1012,8 @@ is coming.
     `sameStorm` = 150 km + 30 km/h × Δt (≤ 500 km), and counts each agency once (`agencyOf`): EONET or GDACS repeating NOAA's data is
     named "(NOAA's data again)" and not a second witness; GDACS from JTWC/JMA next to NHC is.
   - Quakes: USGS plus GDACS's earthquake alerts on the 2D map (`stampQuake`, `sameQuake` = 60 s, 100 km, 0.6 magnitude). GDACS
-    takes most solutions from NEIC (USGS), so those are listed "GDACS (USGS solution)" and don't confirm. No EMSC: adding it is
-    a new feed (follow-up). The globe and the MCP server read USGS only.
+    takes most solutions from NEIC (USGS), so those are listed "GDACS (USGS solution)" and don't confirm. Since 2026-10-17 EMSC
+    is the second catalogue on the globe, the 2D map and the MCP server (see "EMSC" below); GDACS stays on the 2D map only.
   - Ships (2D map): Digitraffic and aisstream records of one MMSI (`sameShip`: ≤ 10 min, 300 m + run). Needs an aisstream key.
   - Everything else is single-source: "reported" at best.
 - Export: core/export.js turns items into rows (plain fields, plus provenance, confidence, sources, agree, of, data_time,
@@ -1000,3 +1098,99 @@ is coming.
 - Layers: globe `lightpollution` (one equirectangular picture, 3600 px wide, 1800 on phones, brightest cell per pixel);
   2D map `lightpollution` (a GridLayer painting each Web Mercator tile from the grid, native to z9). Both off by default and
   credited "Falchi et al. 2016, CC BY-NC". MCP `dark_sky` is in the Worker's HEAVY list (decoding the grid is ~80 ms of CPU).
+
+## Globe: hover tips, hidden tabs, what the website carries, quality tiers (ui.js, main.js, core/poll.js, satellites.js, core/quality.js) — 2026-10-17
+- **Hover picking.** A hover pick draws the whole scene again into the pick buffer and stalls on readPixels, so the mouse
+  picks only at rest: 80 ms after the last move, never while a button is held or the free camera moves (moving hides the
+  tip; touch never shows one). Following an object, or a scripted camera that turns `ctrl.enableInputs` off (tower view,
+  the launch chase cam, the directions fly-through, webcam projection, look-up, the ops view), still shows tips: those
+  cameras move every frame. Releasing the last button schedules a fresh pick (a click with no move brings the tip back),
+  and moveEnd clears a waiting timer before setting its own. Aircraft dots and icons are re-uploaded only for the band
+  that can draw at the camera's height (`Air.PTS_H`, `ICON_H`; ui.js runs a pass when the camera crosses into a band).
+- **Hidden tabs** (core/poll.js `createPoller`, wired in main.js `every()`): the globe's timed feeds run nothing while
+  the tab is hidden; back in view, each feed that came due runs once, 1.5 s apart. `keep()` keeps one running hidden: the
+  aircraft feeds and trails.js while a plane is watched for its landing or followed (`hooks.airKeep`, a hook so
+  trails.js need not import landwatch.js). A failure is retried on the next run and mentioned only on the third in a row;
+  an error with `notCarried` stops the feed for the visit (`onStop`, no "retrying").
+- **What the website carries.** On a page where the aircraft feeds can't answer, `noAir()` sets `Air.offSite`: the dock
+  lines read "download version" on the website and "needs the local helper" on any other host (layers.js `AIR_WHERE`,
+  the same test as main.js), voice and "Under the hood" say aircraft come with the download instead of "Tracked 0", and
+  phones' header shows SAT and QK instead of AIR and MIL (`body.no-air`). Lines about stopped feeds wait until the boot
+  screen has lifted (`later()`: 1.5 s after, two such lines take turns), and the aircraft line shows only if a layer
+  is still on. A stopped feed without an `onStop` of its own gets one line too.
+- **Satellite worker:** satellite.js is the site's own copy (src/vendor/satellite.min.js, the same bytes the pages pin by
+  hash; `importScripts` has no integrity check), one SGP4 run per object a tick. The velocity in the tick buffer is the
+  velocity half a second on (v(t) plus 0.5 s of central gravity), so the straight line the page draws over the 1 s
+  between ticks stays about a metre off the orbit instead of about 4 m; layout and units are unchanged.
+- **Quality tiers** (core/quality.js, applied by globe/quality.js): High / Balanced / Low now also cut what each pixel
+  costs. Low: render scale 0.75 (0.66 on phones), no FXAA, no limb halo, no cloud relief taps, one cloud octave, a 30
+  fps cap. Balanced: scale 0.9 and the limb halo fading out between 1,200 and 800 km (`limbFade`, LIMB_RIM_M 1,000 km
+  ± 200), so low views on Balanced have no horizon rim. `autoLevel` starts phones and software renderers on Low.
+  Starlink (~8,000 dots) is off by default on phones; LAYERS entries may carry a `hint` shown only on the dock line, so
+  the name stays "Starlink" on cards, search and exports. e2e/snapshots/globe-europe.png was taken at the old Low, which
+  no level matches now: refresh it on the next GitHub run (OO_E2E_ALL=1, OO_E2E_UPDATE=1) and look at it first.
+- **Phones and boot:** only a shown card (`#card.show`) moves above the Time travel strip, so a closed card's slide-out
+  still clears the screen. The boot watchdog (globe.html) says a script "didn't load … may be blocking it" only after
+  one failed to load; if Cesium is still missing when the 20 s timer fires it says the library is still downloading.
+  It counts thrown errors only from src/globe, src/core or cdn.jsdelivr.net (not extensions or injected scripts), and
+  main.js's boot text clears the failure styling when a slow boot recovers.
+
+## Solar System: the hand-over, orbit lines, the deferred asteroid file, ISRO (embed.js, util.js, smallbodies.js, craft.js) — 2026-10-17
+- **Hand-over:** the globe hands over beyond 3.0e8 m and the Solar view hands back below EXIT_M = 2.2e8 m. After the
+  hand-over the 1.6 s roll (aim at Earth, roll to ecliptic north) is Earth-centred (at the globe's 1 h/s Earth moves
+  ~170,000 km in those 1.6 s) and ends at least 1.05 x EXIT_M out; hand-back waits until the camera has been past EXIT_M
+  once, so a fast clock can't bounce the view straight back. With prefers-reduced-motion (util.js `CALM`) focusOn,
+  flyDist and the roll jump instead of swooping. e2e/globe.spec.mjs drives the zoom out and back on GitHub (ci-e2e).
+- **Orbit lines** (util.js `rebasedLine` / `rebase`): float32 vertices at 39 AU are ~570 km coarse, so each line sits at
+  its body and holds path minus body, with a vertex on the body (kepler.js orbitPath `through`, comets.js conicArc `at`):
+  a 720-point line otherwise passes 56,000 km from Pluto. A line is refilled once its body has moved `reach` camera
+  distances (0.1; 0.02 for open comet arcs). Planet orbits are refilled from the elements at the current jd.
+- **asteroids_b.bin** (19 MB): a standalone desktop holds it back until the camera first passes 1.5 AU from the Sun
+  (LEAVE_EARTH) or the search box gets focus; inside the globe it waits until the view is entered; phones never load it.
+  A search or link hit on an asteroid in that file starts the load and flies there when it lands, if the focus hasn't
+  changed (`onNamed`); a `#q=` link waits for the file only when it names such an asteroid exactly.
+- **Loading and picking:** the galaxy catalogue (cosmic.js) loads once, but a failed fetch clears the latch (unless the
+  points are already in the scene) and flying out past 1e6 ly retries a minute later, the same back-off as the exoplanet
+  catalogue; exoplanets' `X.data` / `systems` / `hostPos` are set only once the markers are built. A body with a hidden
+  label is clickable only when its globe covers more than a pixel, so from far out a click near the Sun picks the Sun.
+  The in-system caption uses the famous body's name (Kepler-90 for the archive's host KOI-351).
+- **ISRO missions** (make_spacecraft.py, JPL Horizons): Chandrayaan-1, -2, the Chandrayaan-3 propulsion module, Vikram,
+  the Mars Orbiter Mission and Aditya-L1. A working craft past its last sample reads "past the published track (JPL
+  Horizons)", not "mission over", and inLocal stops at the track's end. Moon-centred orbits can be off by up to ~5,000 km
+  around orbit raising or lowering burns (craft.js). Chandrayaan-2's track ends 2026-11-08 and Aditya-L1's 2027-01-19:
+  test/india.test.mjs prints a WARNING two weeks before an India link loses its position; rerun `python
+  brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"` and republish (ROADMAP).
+
+## EMSC: a second earthquake catalogue (core/quakes.js; globe/quakes.js, map/feeds.js, mcp/hazards.mjs) — 2026-10-17
+- EMSC's FDSN service (www.seismicportal.eu, keyless, CORS *, credit "EMSC") is asked beside USGS on the globe, the 2D
+  map and the MCP `earthquakes` tool; never waited for (the USGS list draws first and is stamped again when EMSC answers).
+- One request per question every 9.5 min at most (`emscSource`: a little under the globe's 10-min reload, so a tick a
+  moment early still asks), the start floored to 10 minutes so one question keeps one address. The floor is the USGS
+  summary's minus 0.6 (`emscAsk`, `emscUrl`), limit 500, or 1000 for windows over a day or floors under M2.5. A busy
+  window (a week or a month, M1+ in a day) comes back as only its newest part, so older USGS quakes read "reported" for
+  want of an EMSC solution, not because EMSC disagrees. Each question keeps its own last list; a failure falls back to it.
+- Read as text everywhere: FDSN answers an empty 204 when nothing matches (no events), and a body that is not JSON is a
+  failure.
+- Matching (`matchEmsc`, `sameQuake`): within 60 s, 100 km and 0.6 magnitude (a missing magnitude doesn't disagree),
+  the closest in time when several match. EMSC repeating USGS (agency NEIC/USGS, or the network in the USGS id's first two
+  letters) is listed "EMSC (USGS solution)" and doesn't confirm; any other agreeing solution makes the quake "confirmed".
+  The globe's late restamp uses the magnitude USGS gave, not draw()'s default of 0. The render and profiling scripts in
+  brand/tools block seismicportal.eu like the other live hosts.
+
+## Landing pages, India and Tonight links (index.html, india/, tonight.html, 404.html) — 2026-10-17
+- Copy rule (test/landing.test.mjs): a description, blurb or README lead that names aircraft carries the exact sentence
+  "Live aircraft come with the free download.", and hero or chip copy marks planes and squawks as the free download.
+  The pages lead with the zoom, satellites, storms, quakes and Tonight. The release heading on index.html is computed
+  from versions.json and counts every release, zip-only ones too; its version picker lists only those still online.
+- india/hi/ is generated from india/index.html by `node brand/tools/india_hi.mjs` (it stops if an alt-text swap matches
+  nothing); run it after every edit of the English page, then `node brand/tools/sri.mjs --csp`. test/india.test.mjs
+  fails when the Hindi page is out of date. Each language is self-canonical and sitemap.xml names the pair with
+  xhtml:link alternates. The Hindi ad URL is india/hi/ (docs/INDIA.md).
+- Phones: opening the menu moves focus to its first link (the button comes after the links in the DOM); under 380 px the
+  home bar's brand is 15 px with a 24 px emblem so it fits 360 px; under 760 px the live dot does not blink (home and
+  India). 404.html's pasted-link fix also strips ’ ” … and zero-width spaces. brand/tools/a11y_check.mjs checks 404.html
+  and both India pages too.
+- Tonight for any place (`tonight.html#at=lat,lon&name=`, `#embed=1[&sections=…]`): an embed remembers fold taps for the
+  visit only and opens its footer links in a new tab; a place opened from a link has no aurora alert button (it would
+  save the link's place), and `Tonight.peek({ nudge: false })` re-arms reminders and aurora watching but says nothing
+  about the visitor's home.
