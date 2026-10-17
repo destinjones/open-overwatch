@@ -8,6 +8,8 @@ import { ToolError } from './feeds.mjs';
 import { areaProps, resolveArea, inArea, distKm, frameArea } from './place.mjs';
 
 export const ALPR_SOURCES = ['https://tiles.dontgetflocked.com/cameras-us-hourly.json', 'https://tiles.dontgetflocked.com/cameras-ca-hourly.json'];
+// Each index's country as a coarse box [w, s, e, n], for when its own bounds did not load (Alaska to Puerto Rico; Canada).
+const ALPR_REACH = [[-180, 15, -64, 72], [-141.5, 41.5, -52, 84]];
 export const OFM = 'https://tiles.openfreemap.org/planet';
 const MAX_TILES = 24;
 const r2 = v => Math.round(v * 100) / 100, r5 = v => Number(v.toFixed(5));
@@ -44,10 +46,11 @@ export function createOsmTools(ctx, link) {
     async run(a, { signal }) {
       const area = await resolveArea(a, feeds, { need: true, pointKm: 3, signal });
       const got = await Promise.allSettled(ALPR_SOURCES.map(u => specOf(u, signal)));   // one country's index down still answers for the other
-      const specs = got.filter(r => r.status === 'fulfilled').map(r => r.value), failed = got.filter(r => r.status === 'rejected');
+      const specs = got.filter(r => r.status === 'fulfilled').map(r => r.value);
       const lat = area.frameLat ?? area.lat, lon = area.frameLon ?? area.lon;
       if (!specs.some(s => inBounds(s.bounds, lat, lon))) {
-        if (failed.length) throw failed[0].reason;   // perhaps the one that covers it: say it is down, not that the place is outside
+        const miss = got.findIndex((r, i) => r.status === 'rejected' && inBounds(ALPR_REACH[i], lat, lon));
+        if (miss >= 0) throw got[miss].reason;   // the down one covers it: say it is down, not that the place is outside
         throw new ToolError(`The plate-reader tiles cover the United States and Canada only; ${area.label} is outside them`, 'not_found');
       }
       const down = ALPR_SOURCES.filter((u, i) => got[i].status === 'rejected').map(u => (/-ca-/.test(u) ? 'Canadian' : 'US'));

@@ -1085,6 +1085,17 @@ test('mcp: plate readers: one country\'s tile index down still answers for the o
   assert.ok(caDown.structuredContent.total >= 3, 'Chicago is in the US tiles'); assert.match(caDown.content[0].text, /The Canadian plate-reader tiles did not load just now/);
   const both = await call(serve3([[/tiles\.dontgetflocked\.com\/cameras-(us|ca)-hourly\.json$/, { status: 503 }]]).server, 'plate_readers', { lat: 41.88, lon: -87.63 });
   assert.equal(both.isError, true); assert.match(both.content[0].text, /tiles\.dontgetflocked\.com answered HTTP 503/); assert.equal(both.structuredContent.error, 'unavailable', 'down, not "outside the US and Canada"');
+  const caOut = [['https://tiles.dontgetflocked.com/cameras-ca-hourly.json', { status: 503 }]];
+  const halifax = await call(serve3(caOut).server, 'plate_readers', { lat: 44.65, lon: -63.57 });
+  assert.equal(halifax.structuredContent.error, 'unavailable', 'Halifax is only in the Canadian index: it is down, not outside');
+  const london = await call(serve3(caOut).server, 'plate_readers', { lat: 51.51, lon: -0.13 });
+  assert.equal(london.structuredContent.error, 'not_found', 'London is in neither country, whichever index is down'); assert.match(london.content[0].text, /United States and Canada only/);
+});
+
+test('mcp: without satellite.js the orbit tools say how to install it', async () => {
+  const server = createOverwatchServer({ fetchImpl: pretendInternet().fetchImpl, now: () => NOW, importSgp4: () => Promise.reject(new Error('Cannot find package')) });
+  const r = await call(server, 'where_is_satellite', { satellite: 'ISS' });
+  assert.equal(r.isError, true); assert.match(r.content[0].text, /^satellite\.js is missing: run npm install/); assert.equal(r.structuredContent.error, 'unavailable');
 });
 
 test('mcp: a second server in the same isolate (the Worker makes one a request) builds no index again', async () => {
