@@ -2,7 +2,8 @@
 // The network every browser test runs behind. One rule per request, in this order:
 //   1. CelesTrak is refused before it leaves the browser (it firewalled this project's PC once): counted, never fetched.
 //   2. The page's own server: the relay (/proxy) answers from fixtures and never reaches upstream; the site-build copies
-//      (versions.json, data/launches.json, data/wind.json) are served as fixtures; everything else is the real file.
+//      (versions.json, data/launches.json, data/wind.json, data/socrates.json, ...) are served as fixtures; everything
+//      else is the real file.
 //   3. Pinned libraries and fonts (jsDelivr, cdnjs, Google Fonts) are fetched once and kept in e2e/.cache, so a rerun
 //      is offline and byte-identical (CI keeps the folder between runs).
 //   4. The published site's data (destinjones.github.io/open-overwatch/...): the TLE mirror and the launch copy from
@@ -31,6 +32,7 @@ function tileFor(u) {
   if (h === 'gibs.earthdata.nasa.gov') return /Black_Marble|VIIRS_Black|CityLights/i.test(p) ? TILE.night : /BlueMarble|Blue_Marble/i.test(p) ? TILE.ocean : TILE.clear;
   if (/(^|\.)tile\.openstreetmap\.org$|basemaps\.cartocdn\.com$|tile\.opentopomap\.org$|tiles\.stadiamaps\.com$/.test(h)) return TILE.dark;
   if (/(^|\.)rainviewer\.com$/.test(h) && /\.png$/.test(u.pathname)) return TILE.clear;
+  if (h === 'nowcoast.noaa.gov' && /\/geoserver\//.test(u.pathname)) return TILE.clear;   // weather mode's lightning (WMS)
   return null;
 }
 
@@ -55,6 +57,7 @@ export function fixtureFor(href, now = Date.now()) {
   if (/^(api\.adsb\.lol|opendata\.adsb\.fi|api\.airplanes\.live|api\.adsb\.one)$/.test(h)) return F.readsb(href, now);
   if (h === 'opensky-network.org' && /states/.test(p)) return F.opensky(now);
   if (h === 'api.wheretheiss.at') return F.wheretheiss(now);
+  if (h === 'api.rainviewer.com' && p === '/public/weather-maps.json') return F.rainviewer(now);   // weather mode's radar frames
   if (h === 'api.github.com' && /releases\/latest$/.test(p)) return F.githubRelease();
   if (h === 'll.thespacedevs.com' && /launch/.test(p)) return F.launches(now);
   if (h === 'll.thespacedevs.com' && /astronaut/.test(p)) return F.astronauts(now);
@@ -68,6 +71,7 @@ function siteFile(rel, now = Date.now()) {
   if (rel === 'data/launches.json') return { body: JSON.stringify(F.launches(now)), type: 'application/json' };
   if (rel === 'data/astronauts.json') return { body: JSON.stringify(F.astronauts(now)), type: 'application/json' };
   if (rel === 'data/wind.json') return { body: JSON.stringify(F.wind()), type: 'application/json' };
+  if (rel === 'data/socrates.json') return { body: JSON.stringify(F.socrates(now)), type: 'application/json' };   // near misses
   // the site build's archive of past element sets (core/history.js): one day, today's fixture elements, so a rewind finds it
   if (rel === 'data/tle/history/index.json') return { body: JSON.stringify({ days: [{ day: new Date(now).toISOString().slice(0, 10), at: now, n: 1 }] }), type: 'application/json' };
   if (/^data\/tle\/history\/[\w.-]+\.txt$/.test(rel)) return { body: F.tle(), type: 'text/plain; charset=utf-8' };

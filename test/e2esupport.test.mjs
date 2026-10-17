@@ -86,6 +86,24 @@ test('e2e fixtures: aircraft, launches, crew and TLEs parse too', () => {
   assert.deepEqual(parseTle(F.tle()).map(t => t.id), ['25544', '48274', '66052']);
 });
 
+test('e2e fixtures: near misses in the build\'s shape, upcoming and closest first, two on the TLE fixture\'s stations', () => {
+  const d = F.socrates(NOW), tle = new Set(parseTle(F.tle()).map(t => t.id));
+  assert.deepEqual(d.rows.map(r => r.rangeKm), [0.412, 1.75, 2.9], 'the past one is dropped, the rest closest first');
+  assert.ok(d.rows.every(r => r.tca > NOW && r.tca < NOW + 7 * 864e5 && r.speedKmS > 0 && r.a.name && r.b.name && !/\[/.test(r.a.name)));
+  assert.equal(d.rows[0].tca, NOW + 20 * 3600e3);   // test/fixtures/socrates-small.csv's moment moves with the request
+  assert.equal(F.socrates(NOW + 864e5).rows[0].tca, NOW + 44 * 3600e3);
+  assert.deepEqual(d.rows.map(r => tle.has(r.a.id) || tle.has(r.b.id)), [true, true, false], 'the globe can show the first two');
+  assert.equal(d.rows[1].b.name, 'FENGYUN 1C DEB, PIECE');
+  assert.match(d.updated, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
+});
+
+test('e2e fixtures: RainViewer\'s frame list is two hours of past radar, oldest first', () => {
+  const d = fixtureFor('https://api.rainviewer.com/public/weather-maps.json', NOW), t = d.radar.past.map(f => f.time * 1000);
+  assert.equal(t.length, 13); assert.ok(t.every((x, i) => x < NOW && (!i || x - t[i - 1] === 600e3)));
+  assert.ok(NOW - t[12] <= 1200e3);
+  assert.equal(d.host + d.radar.past[0].path, `https://tilecache.rainviewer.com/v2/radar/${t[0] / 1000}`);
+});
+
 test('e2e network: which feed gets which fixture, and what is left to block', () => {
   assert.equal(fixtureFor('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson', NOW).features.length, 5);
   assert.equal(fixtureFor('https://api.open-meteo.com/v1/forecast?latitude=51.5&longitude=-0.1&hourly=cloud_cover', NOW).hourly.time.length, 120);

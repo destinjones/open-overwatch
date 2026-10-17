@@ -9,7 +9,7 @@ import { stubNetwork } from './net.mjs';
 export const PORT = +(process.env.OO_E2E_PORT || 8805);
 /** Feed copies only the site build makes (.github/build_site.py), which the pages expect to miss on a local server; the
  *  ones the tests need are served as fixtures (net.mjs), these stay missing. */
-const OPTIONAL = /\/data\/(flybys|news|socrates)\.json$/;
+const OPTIONAL = /\/data\/(flybys|news)\.json$/;   // data/socrates.json is a fixture (feeds.mjs), so a miss there is a bug
 
 export const test = base.extend({
   /** test.use({ fixedNow: '2026-10-13T19:00:00Z' }): the page's Date stands still at that moment (its timers still run)
