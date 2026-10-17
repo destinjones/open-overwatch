@@ -17,8 +17,8 @@
     { "src": "brand/emblem/emblem-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "screenshots": [
-    { "src": "brand/social/screen-narrow.jpg", "sizes": "720x1280", "type": "image/jpeg", "form_factor": "narrow", "label": "The live 3D Earth: flights, satellites and the night side's city lights" },
-    { "src": "brand/social/screen-wide.jpg", "sizes": "1280x800", "type": "image/jpeg", "form_factor": "wide", "label": "Satellites and flights over the live 3D Earth" }
+    { "src": "brand/social/screen-narrow.jpg", "sizes": "720x1280", "type": "image/jpeg", "form_factor": "narrow", "label": "The live 3D Earth: satellites and the night side's city lights" },
+    { "src": "brand/social/screen-wide.jpg", "sizes": "1280x800", "type": "image/jpeg", "form_factor": "wide", "label": "Satellites over the live 3D Earth" }
   ],
   "shortcuts": [
     { "name": "Tonight above you", "url": "./tonight.html" },

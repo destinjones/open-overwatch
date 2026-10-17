@@ -22,8 +22,9 @@ test('the version picker re-points the launch buttons', async ({ page }) => {
   await expect(sel.locator('option')).toHaveCount(2);
   await expect(sel.locator('option').first()).toHaveText(/v0\.9\.2\.9 · latest · Oct 13, 2026/);
   await expect(page.locator('#goSolar')).toHaveAttribute('href', 'v/v0.9.2.9/solar.html');
-  // the release count and the newest release come from the same list (the fixture has two)
-  await expect(page.locator('#relHead')).toHaveText(/^2 releases since Oct [12], 2026\.$/);
+  // the release count and the newest release come from the same list (the fixture has three, one of them retired: the
+  // heading counts every release)
+  await expect(page.locator('#relHead')).toHaveText(/^3 releases since Oct 1, 2026\.$/);
   await expect(page.locator('#relNow')).toHaveText(/^The newest, v0\.9\.2\.9, came out on Oct 1[23], 2026\.\s*$/);
   await sel.selectOption('v0.9.1');
   await expect(page.locator('#goMap')).toHaveAttribute('href', 'v/v0.9.1/open-overwatch.html');
@@ -38,6 +39,7 @@ test('the version picker re-points the launch buttons', async ({ page }) => {
 test('a retired version is in the history as a download, not in the picker', async ({ page }) => {
   await expect(page.locator('#verSel option')).toHaveCount(2);
   await expect(page.locator('#verSel option', { hasText: 'v0.5' })).toHaveCount(0);
+  await expect(page.locator('#relHead')).toHaveText(/^3 releases/);   // counted, though not in the picker
   const row = page.locator('#verList .vrow').nth(2);
   await expect(row).toContainText('v0.5');
   await expect(row).toContainText('download only');
