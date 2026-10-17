@@ -67,7 +67,8 @@ export function provenanceText(r) {
   return `${names(r)}${agree} · ${ageWords(r.ageMs)} · ${r.confidence}`;
 }
 
-/** The block a card shows: who, how many agree, how old, the confidence with its rule as a tooltip. */
+/** The block a card shows: who, how many agree, how old, the confidence with its rule as a tooltip, and the rule again as
+ *  visually hidden text (.oo-sr, src/app/shell.css) for screen readers, which often skip an abbr's title. */
 export function provenanceHtml(r) {
   if (!r || !r.sources.length) return '<div class="prov prov-unknown">No source given</div>';
   const src = r.sources.map(s => {
@@ -76,5 +77,5 @@ export function provenanceHtml(r) {
   }).join(' + ');
   const agree = r.of > 1 ? ` · ${r.agree} of ${r.of} agree` : '';
   return `<div class="prov prov-${esc(r.confidence)}"><span class="prov-src">${src}</span>${agree} · ${esc(ageWords(r.ageMs))} · ` +
-    `<abbr class="prov-conf" title="${esc(r.rule)}">${esc(r.confidence)}</abbr></div>`;
+    `<abbr class="prov-conf" title="${esc(r.rule)}">${esc(r.confidence)}</abbr>${r.rule ? `<span class="oo-sr">: ${esc(r.rule)}</span>` : ''}</div>`;
 }

@@ -175,9 +175,14 @@ export function summarizeWildfires(events, { now = Date.now(), days = 7, top = 5
 /** "Wildfire Buckhorn 2, Cassia, Idaho" → "Idaho"; "Wildfires - Northern Territory, Australia" → "Australia". */
 export const wildfireRegion = title => { const parts = String(title || '').split(',').map(s => s.trim()).filter(Boolean); return parts.length > 1 ? parts[parts.length - 1] : 'Elsewhere'; };
 
-/** Launches (core/launches.js fromLL2) in the next `hours` hours (and any in flight): soonest first. */
+/** A launch timed to the hour or better (LL2's SEC/MIN/HR, or no precision given), so a countdown means something.
+ *  LL2 parks "NET October", "Q4" and day-only dates at 00:00Z (the day, or the period's last day): placeholders. */
+export const preciseLaunch = l => !!l && fin(l.net) && ['SEC', 'MIN', 'HR', 'SECOND', 'MINUTE', 'HOUR', ''].includes(String(l.precision ?? '').toUpperCase());
+
+/** Launches (core/launches.js fromLL2) timed to the hour or better in the next `hours` hours (and any in flight):
+ *  soonest first. Month, quarter and day placeholders are left out (preciseLaunch). */
 export function launchesSoon(list, { now = Date.now(), hours = 24 } = {}) {
-  return (Array.isArray(list) ? list : []).filter(l => l && (l.status === 'In Flight' || (fin(l.net) && l.net >= now - 3600e3 && l.net <= now + hours * 3600e3)))
+  return (Array.isArray(list) ? list : []).filter(l => l && (l.status === 'In Flight' || (preciseLaunch(l) && l.net >= now - 3600e3 && l.net <= now + hours * 3600e3)))
     .sort((a, b) => (a.net || 0) - (b.net || 0));
 }
 /** Launches on today's UTC date (flown or not, as far as the list still holds them). */

@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { source, provenance, provenanceText, provenanceHtml, ageText } from '../src/core/provenance.js';
 
 const now = Date.parse('2026-10-14T12:00:00Z');
@@ -44,4 +45,15 @@ test('ageText', () => {
   assert.equal(ageText(2.5 * 3600e3), '2.5 h');
   assert.equal(ageText(4 * 86400e3), '4 days');
   assert.equal(ageText(null), 'unknown age');
+});
+
+test('the confidence rule reaches touch, keyboard and screen-reader users, not only a hover tooltip', () => {
+  const r = provenance([{ id: 'usgs', name: 'USGS', dataAt: now - min }], { now });
+  const h = provenanceHtml(r);
+  assert.match(h, /<abbr class="prov-conf" title="[^"]+">reported<\/abbr>/, 'the abbr stays');
+  const sr = h.match(/<span class="oo-sr">: ([^<]+)<\/span><\/div>$/);
+  assert.ok(sr, 'the rule follows as visually hidden text');
+  assert.ok(sr[1].length > 20 && r.rule.startsWith(sr[1].slice(0, 20)), 'it is the rule itself');
+  // .oo-sr is defined once, in the shell every page that shows provenance loads (src/app/shell.js)
+  assert.match(readFileSync(new URL('../src/app/shell.css', import.meta.url), 'utf8'), /\.oo-sr\{position:absolute/);
 });

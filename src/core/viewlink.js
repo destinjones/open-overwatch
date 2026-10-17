@@ -93,6 +93,10 @@ export function decodeView(hash) {
   return out;
 }
 
+/** The spellings a satellite is looked up by: a TLE keeps the catalogue number zero-padded ("00005"), while links (s=),
+ *  SOCRATES and people write it plain ("5"). ['00005', '5'] for a padded number, else just the id (Alpha-5 ids stay). */
+export const noradKeys = id => { const s = String(id ?? ''); return NORAD.test(s) && String(+s) !== s ? [s, String(+s)] : [s]; };
+
 // ---- the 2D map's zoom and the globe's camera height: a link made on one opens the same area on the other. At zoom z a
 // Web Mercator pixel is 40,075 km × cos(lat) / (256 × 2^z); a ~950 px wide map then spans what a 60° camera sees from
 // about this height (checked against both views: London at zoom 12 ≈ 20 km up).
@@ -106,7 +110,8 @@ export const heightToZoom = (h, lat = 0) => Math.min(19, Math.max(2, Math.round(
 // other view's own layers stay as its visitor has them)
 export const MAP_TO_GLOBE = Object.freeze({ quakes: 'quakes', storms: 'storms', cams: 'cams', transit: 'transit', bikes: 'bikes', aurora: 'aurora', ships_fi: 'ships',
   hotspots: 'fires', fireperims: 'fires', fires: 'fires', terminator: 'sun', air_mil: 'mil', air_local: 'air', air_opensky: 'air', airports: 'airports',
-  buoys: 'buoys', dart: 'dart', tides: 'tides', sst: 'sst', smoke: 'smoke', airq: 'airq', lightpollution: 'lightpollution' });
+  buoys: 'buoys', dart: 'dart', tides: 'tides', sst: 'sst', smoke: 'smoke', airq: 'airq', lightpollution: 'lightpollution',
+  events: 'events', reentry: 'reentry', alpr: 'alpr', milareas: 'milareas' });
 // the 2D map's forecast layers ↔ the globe's weather mode (its `w=` list): the model's fields have the same names; the
 // globe's clouds and rain sets show the model's cloud and rain on their forecast steps
 export const MAP_TO_WEATHER = Object.freeze({ wx_wind: 'wind', wx_temp: 'temp', wx_pres: 'pres', wx_gust: 'gust', wx_wave: 'wave', wx_cloud: 'ir', wx_rain: 'radar' });

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   quakeRegion, quakeClass, summarizeQuakes, dailyCounts, utcDayStart, kpLevel, kpSeries, kpSummary, auroraReach,
-  summarizeStorms, summarizeWildfires, prescribed, wildfireRegion, launchesSoon, launchesToday, launchesByMonth, summarizeFlybys,
+  summarizeStorms, summarizeWildfires, prescribed, wildfireRegion, launchesSoon, preciseLaunch, launchesToday, launchesByMonth, summarizeFlybys,
   fieldExtremes, windiest, weatherExtremes, tempWords, windWords, latLonWords, barsSvg, quakeChart, kpChart, launchChart,
 } from '../src/core/earthnow.js';
 import { parseUsgs } from '../src/core/quakes.js';
@@ -202,4 +202,18 @@ test('earthnow: charts are accessible SVG with every value described and every l
   assert.match(kp, /<desc[^>]*>Oct \d{1,2} \d\d:00 UTC: [\d.]+ Kp/);
   assert.match(launchChart(launchesByMonth([], { now: NOW })), /Launches scheduled per month/);
   assert.match(barsSvg([]), /^<svg/);
+});
+
+test('earthnow: month, quarter and day placeholders get no countdown in the next 24 h', () => {
+  const base = fromLL2(fx('../ll2_launch.json').results[0]);
+  const at = (iso, precision, extra = {}) => ({ ...base, net: Date.parse(iso), precision, status: 'Go', ...extra });
+  const now = Date.parse('2026-10-30T12:00:00Z');
+  // LL2 parks "NET October" at 00:00Z on the month's last day, and a day-only date at 00:00Z of the day
+  const list = [at('2026-10-31T00:00:00Z', 'M'), at('2026-10-31T00:00:00Z', 'Q4'), at('2026-10-31T00:00:00Z', 'DAY'), at('2026-10-31T03:15:00Z', 'MIN'),
+    at('2026-10-30T20:00:00Z', 'HR'), at('2026-10-30T18:00:00Z', ''), at('2026-10-30T11:50:00Z', 'M', { status: 'In Flight' })];
+  const soon = launchesSoon(list, { now });
+  assert.deepEqual(soon.map(l => l.precision), ['M', '', 'HR', 'MIN'], 'the flight in progress stays; the placeholders are left out');
+  assert.equal(launchesSoon([at('2026-10-31T00:00:00Z', 'M')], { now: Date.parse('2026-10-31T00:30:00Z') }).length, 0, 'no fake T+00:30 after midnight');
+  assert.ok(preciseLaunch(at('2026-10-31T00:00:00Z', 'SEC')) && preciseLaunch(at('2026-10-31T00:00:00Z', 'minute')));
+  assert.ok(!preciseLaunch(at('2026-10-31T00:00:00Z', 'Y')) && !preciseLaunch({ precision: 'MIN', net: NaN }) && !preciseLaunch(null));
 });
