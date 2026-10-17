@@ -15,10 +15,20 @@ file was built from.
 - Fuzz and property tests of every decoder that reads untrusted bytes (`test/fuzz.test.mjs`, a few seconds in
   `node --test`; `OO_FUZZ=1` for 50 times the cases): GRIB2, CCSDS, JPEG 2000, vector tiles, GTFS-RT, METAR/TAF, MQTT
   and the text feeds, each in a worker with a deadline, from a seeded PRNG and no new dependency.
+- The MCP server is ready for npm and the MCP Registry (nothing published yet): `.github/workflows/npm.yml` publishes
+  `open-overwatch-mcp` with trusted publishing and provenance once the owner turns it on (`NPM_PUBLISH`), skipping a
+  version npm already has; `mcp/server.json` is the registry entry (`io.github.destinjones/open-overwatch`).
+- `test/npmpack.test.mjs`: the npm tarball holds exactly what `mcp/server.mjs` imports, checked with
+  `npm pack --dry-run --json` against the import graph. It also fails on a load the scan cannot follow (a computed
+  `import()`, `import.meta.url` outside `new URL('./…', import.meta.url)`, a run-time file read) and on a link in
+  `mcp/README.md` that would break on the npm page.
 
 ### Changed
 - JSDoc types where the checker could not infer them (option objects, tables of pairs), so it passes
   with no errors and no `@ts-ignore`; `Sim` (core/traffic.js) assigns its fields one by one so they are typed.
+- The npm package ships 105 files instead of 154: only the 62 `src/core/` modules the server imports (not the
+  website's other core modules) and no `mcp/worker.mjs` (the Cloudflare Worker entry); `mcpName`, `publishConfig`
+  and more keywords in `package.json`.
 
 ### Fixed
 - Hangs on corrupt or cut-off data: a GRIB2 message of length 0 or cut short, a CCSDS stream with 0 blocks per

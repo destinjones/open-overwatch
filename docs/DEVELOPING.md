@@ -133,6 +133,7 @@ Runs every `test/*.test.mjs` with Node's own runner. No dependencies except `sat
 | `ops.test.mjs`, `inject.test.mjs`, `regress.test.mjs` | MGRS and the voice commands of the Ops pack; hostile input in numbers, ids and HTML stays harmless; regressions from the code reviews |
 | `relay.test.mjs` | the Cloudflare Worker against a stand-in upstream |
 | `mcp.test.mjs` | the MCP server: protocol, argument checks, every tool against canned answers, a stdio round trip, the HTTP transport |
+| `npmpack.test.mjs` | the npm package: `npm pack --dry-run --json` holds exactly what `mcp/server.mjs` imports (plus README, LICENSE, NOTICE), the bin's shebang, and `mcp/server.json` (the MCP Registry entry) against `package.json` |
 | `mcpworker.test.mjs` | the MCP server as a Cloudflare Worker, in Node: tokens, CORS, the free plan's tools, the Cache API between requests and isolates, the subrequest budget, the rate limit, a Node-free import graph |
 | `ocean.test.mjs` | the sea and air feeds against answers captured on 2026-10-13: NDBC buoys, stations and a DART file; CO-OPS gauges, a level and tide predictions; GIBS colour maps read back from a pixel; Open-Meteo air quality; the cards' words |
 | `wxpoint.test.mjs`, `whereis.test.mjs` | the weather at a point (tendency, Beaufort, CAPE, sea state, model agreement); "where is it now" (byte-range asteroid elements against the whole file, the quick search, H-G magnitudes) |
@@ -441,8 +442,10 @@ returns.
 - **Test** it in `test/mcp.test.mjs`: add the source's answer to `ROUTES` (the pretend Internet; a captured answer in
   `test/fixtures/` for anything big) and a `test('mcp: …')` that calls the tool through the protocol and checks
   `text`, `data` and the link (`decodeView` on its hash). Nothing in the tests touches the network.
-- **Version**: a change to the server bumps `VERSION` in `mcp/feeds.mjs`, `version` in `package.json` and in
-  `mcp/manifest.json` together (the test checks they agree).
+- **Version**: a change to the server bumps `VERSION` in `mcp/feeds.mjs`, `version` in `package.json`, in
+  `mcp/manifest.json` and both versions in `mcp/server.json` (the MCP Registry entry) together (the tests check they agree).
+- **A new `src/core/` import** in `mcp/` goes into `files` in `package.json` too: `test/npmpack.test.mjs` runs
+  `npm pack --dry-run --json` and checks the npm tarball is exactly what `mcp/server.mjs` loads.
 
 Only `show_on_globe` opens the globe panel in the chat (`ui: { resourceUri: PANEL_URI }`); other tools return links.
 
@@ -496,7 +499,13 @@ As it is today:
    on the owner's explicit OK, after the change is reviewed and `node --test` passes; the website keeps working without
    the change until then (a host the deployed Worker doesn't carry yet says it needs the download version). The MCP
    Worker (`mcp-worker/`) follows the same rule.
-7. **npm**: `npm publish` for `open-overwatch-mcp` needs the owner's npm login and has not been done.
+7. **npm**: `.github/workflows/npm.yml` publishes `open-overwatch-mcp` on a `v*` tag (or by hand from the Actions tab)
+   with npm trusted publishing and provenance, and skips a version npm already has. It is skipped until the owner links
+   the workflow as the package's trusted publisher on npmjs.com and sets the repository variable `NPM_PUBLISH` to
+   `true`. The MCP Registry entry is `mcp/server.json` (`mcp-publisher publish` from `mcp/`, the owner's GitHub login).
+   A publish by hand from a PC needs `npm publish --provenance=false` (provenance only works in CI). npm ships only the
+   `src/core/` modules the server imports (`test/npmpack.test.mjs`); the `.mcpb` still carries all of `src/core/`.
+   Links in `mcp/README.md` (the npm page) must be absolute, `../`, `./` or `#anchors`.
 
 After a release: tick `ROADMAP.md` and note anything learned in NOTES.md. `sitemap.xml` needs no hand edits (the
 build dates it from git); a new page only needs its `<url>` line there.
