@@ -3,7 +3,8 @@
 Open Overwatch is a static site: every view is an HTML page that loads ES modules straight from `src/` — no bundler, no
 framework, no server you have to run (the optional local helper only relays a few feeds that send no CORS headers).
 Third-party libraries come from a CDN, pinned to exact versions with integrity hashes (three.js and hls.js through
-import maps, CesiumJS, satellite.js and Leaflet as script tags). The one library the site serves itself is satellite.js
+import maps, CesiumJS, satellite.js and Leaflet as script tags, and on the landing page `@google/model-viewer` as a
+module script it adds when that section comes near). The one library the site serves itself is satellite.js
 for the satellite Web Workers (`src/vendor/satellite.min.js`, byte for byte the copy the pages pin): `importScripts` has
 no integrity check, so a worker never loads code from another site.
 
@@ -133,11 +134,13 @@ hooks so feature modules never import the UI. `window.OO3D` is the console handl
   every satellite once a second: one SGP4 run each gives the Earth-fixed position and, through `core/ecfvel.js`, the
   velocity, sent half a second on (plus 0.5 s of gravity) so the page's straight line between ticks stays about 1 m off
   the orbit. The page moves the dots between ticks.
-- **Feed timers:** `main.js` runs every live feed through one `core/poll.js` poller. In a hidden tab the feeds rest,
-  except the aircraft feeds while a plane is followed or watched for its landing; when the tab shows again each feed
-  that came due runs once, 1.5 s apart. A feed this page can't reach (the website's relay doesn't carry it: `env.js`
-  `notCarried`, or the deployed relay refused its host) stops for the visit, and one line says why once the boot screen
-  has lifted.
+- **Feed timers:** `main.js` runs four feeds through one `core/poll.js` poller: civil aircraft, military aircraft,
+  earthquakes and tropical cyclones. In a hidden tab these rest, except the aircraft feeds while a plane is followed or
+  watched for its landing; when the tab shows again each feed that came due runs once, 1.5 s apart. Other feeds keep
+  plain `setInterval` timers that go on in a hidden tab, for example EONET events every 30 min and the aurora check
+  every 60 s (`main.js`) and the weather model's new run every 20 min (`weather.js`). A feed this page can't reach (the
+  website's relay doesn't carry it: `env.js` `notCarried`, or the deployed relay refused its host) stops for the visit,
+  and one line says why once the boot screen has lifted.
 - **Graphics levels:** `quality.js` applies `core/quality.js` (render scale, FXAA, tile detail, model caps, cloud
   octaves and relief, the limb halo) and steps down in Auto; the table is in docs/PERFORMANCE.md.
 

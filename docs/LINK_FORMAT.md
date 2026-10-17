@@ -399,8 +399,9 @@ either view opens the same area on the other:
 - `l` with the **2D map's own layer ids** (listed in the [user guide](../guide.html#map2d)) sets exactly those layers. A
   globe link's `l` or `a` instead switches on the 2D counterparts of its globe layers, leaving the others as they are:
   `quakes`, `storms`, `cams`, `transit`, `bikes`, `aurora` (same ids), `ships` → `ships_fi`, `fires` → `hotspots` and
-  `fireperims`, `sun` → `terminator`, `mil` → `air_mil`, `airports` (same id) (`mapLayersFor`; the globe's `air` switches nothing on, as the
-  2D aircraft layers query the area themselves). `x` switches 2D layers off.
+  `fireperims`, `sun` → `terminator`, `mil` → `air_mil`, `airports`, `buoys`, `dart`, `tides`, `sst`, `smoke`, `airq`,
+  `lightpollution` (same ids) (`mapLayersFor`; the globe's `air` switches nothing on, as the 2D aircraft layers query
+  the area themselves). `x` switches 2D layers off.
 - The other way (`globeLayersFor`, the map's 3D globe button): the same pairs, plus `air_local` and `air_opensky` →
   `air` and the keyed 2D `fires` → `fires` (`MAP_TO_GLOBE` in viewlink.js).
 - `w` (the globe's weather mode) switches on the 2D forecast layers: `wind` → `wx_wind`, `temp` → `wx_temp`, `pres` →

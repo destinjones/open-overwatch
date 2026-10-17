@@ -685,8 +685,10 @@ EMSC's catalogue (www.seismicportal.eu, keyless, CORS; credit EMSC) as the secon
   address, limit 500, or 1000 for windows over a day or floors under M2.5; a busy window comes back as its newest part
   only), `emscAsk` (the window and floor beside a USGS summary), `parseEmsc` (earthquakes only; takes the body as text,
   so FDSN's empty 204 is no events), `matchEmsc` (the closest in time; a long list is searched by time).
-  `emscSource(json, { gapMs })`: one request at a time per question and at most one per 9.5 minutes; each question
-  keeps its own last list, which a failure leaves in place; `load()` never rejects.
+  `emscSource(json, { gapMs })`: one request at a time per question, and asking the same question again within 9.5
+  minutes reuses its list (only the latest question and its time are remembered, so going back to an earlier one fetches
+  it again at once, showing its kept list meanwhile); each question keeps its own last list, which a failure leaves in
+  place; `load()` never rejects.
 
 ### `eonet.js`
 
@@ -1054,7 +1056,7 @@ answering. Used by globe, map.
 ### `viewlink.js`
 
 The share link: a view as a URL hash and back (full format in [LINK_FORMAT.md](LINK_FORMAT.md)), and Tonight's links
-for a place. Used by globe, map, sky, mcp.
+for a place. Used by globe, map, sky, mcp, core.
 
 - `encodeView`, `decodeView`: a view ↔ `c=…&l=…&…`. Nothing decoded is trusted: the heading is wrapped to 0-360°, the
   pitch clamped to ±90°, and a clock rate to ±10 years per second (the Solar view's fastest).
@@ -1156,8 +1158,9 @@ The public relay for the published website (`relay/worker.js`, a Cloudflare Work
 globe, map.
 
 - `PUBLIC_RELAY`, `PUBLIC_RELAY_HOSTS`: the Worker's address and its allowlist (= the Worker's `TTL` table;
-  `test/relayhosts.test.mjs` checks): eleven hosts, NOAA NHC, NDBC (buoys and DART), tsunami.gov, the NYC, BC and
-  Missouri camera lists, four agencies' camera stills (Norway, Iowa, Calgary, Singapore) and the submarine cable map.
+  `test/relayhosts.test.mjs` checks): eleven hosts, NOAA NHC, NDBC (buoys and DART), tsunami.gov, the NYC camera list
+  and its frames, the BC camera list (the Worker also allows its `/images/` pictures, which the pages load directly),
+  the Missouri camera list, four agencies' camera stills (Norway, Iowa, Calgary, Singapore) and the submarine cable map.
   No aircraft feed is on it: adsb.lol answers Cloudflare's servers with 429, and the others' terms don't allow it.
 - `publicRelayable`: whether the relay carries a URL: a listed host the deployed Worker hasn't refused in this visit (it
   doesn't check paths; the Worker does).

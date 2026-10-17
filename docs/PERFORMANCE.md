@@ -97,9 +97,10 @@ Known left (emulation can't show a real phone's GPU):
     That cut the globe variants from 11 to 6.
   - Pre-warm every aircraft and satellite model type at boot (`src/globe/warm.js`).
   - Model shaders still differ near the ground: fog adds an atmosphere stage to them. Those compile once per session.
-- **Graphics levels** (`src/core/quality.js` holds the globe's; `src/globe/quality.js` and `src/solar/quality.js`
-  apply them): High, Balanced and Low. Auto starts phones and software renderers on Low, everything else on High.
-  A level picked in the dock is kept and never changed automatically.
+- **Graphics levels** (`src/core/quality.js` holds the globe's and `src/globe/quality.js` applies them;
+  `src/solar/quality.js` defines its own three and its own step-down, below): High, Balanced and Low. Auto starts
+  phones and software renderers on Low, everything else on High. A level picked in the dock is kept and never changed
+  automatically.
   - Globe levers (a phone's figure in brackets where it differs). Low cuts what every pixel costs, not only tile detail
     and models:
 
