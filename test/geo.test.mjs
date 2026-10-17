@@ -41,3 +41,17 @@ test('dead reckoning through a turn: a held turn rate curves the path, then it f
   assert.deepEqual(deadReckonArc(plane, 60, 0.1), straight);   // a rate this small is noise: straight on
   assert.deepEqual(deadReckonArc({ ...plane, ground: true }, 60, 3), { lat: 40, lon: -74, track: 0 });
 });
+
+test('deadReckonArc and destination fill an out object, with the same answer as allocating, in every branch', () => {
+  const plane = { lat: 40, lon: -74, gs: 100, track: 0, ground: false }, out = { lat: NaN, lon: NaN, track: NaN };
+  const cases = [[60, 0], [60, 3], [60, -3], [90, 3, 60], [60, 0.1], [0, 3], [600, 2.5, 120]];
+  for (const [s, turn, max] of cases) {
+    const fresh = deadReckonArc(plane, s, turn, max), filled = deadReckonArc(plane, s, turn, max, out);
+    assert.equal(filled, out, 'returns the object it was given');
+    assert.deepEqual({ ...filled }, fresh, `seconds ${s}, turn ${turn}`);
+  }
+  assert.deepEqual({ ...deadReckonArc({ ...plane, ground: true }, 60, 3, 120, out) }, { lat: 40, lon: -74, track: 0 });   // parked: copied, not moved
+  assert.deepEqual({ ...deadReckonArc({ ...plane, track: null }, 60, 3, 120, out) }, { lat: 40, lon: -74, track: null });
+  const d = {}; assert.equal(destination(51.47, -0.45, 5.5e6, 288, d), d); assert.deepEqual(d, destination(51.47, -0.45, 5.5e6, 288));
+  assert.notEqual(deadReckonArc(plane, 60, 3), deadReckonArc(plane, 60, 3));   // no out: a new object each call, as before
+});

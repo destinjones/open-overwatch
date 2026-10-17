@@ -4,12 +4,14 @@
 export const EARTH_RADIUS_M = 6371000;
 const R2D = 180 / Math.PI, D2R = Math.PI / 180;
 
-/** Point reached from (lat, lon) after `dist` metres along initial bearing `bearing` (degrees), on a great circle. */
-export function destination(lat, lon, dist, bearing) {
+/** Point reached from (lat, lon) after `dist` metres along initial bearing `bearing` (degrees), on a great circle
+ *  (into `out` {lat, lon} when given). */
+export function destination(lat, lon, dist, bearing, out = {}) {
   const d = dist / EARTH_RADIUS_M, th = bearing * D2R, p1 = lat * D2R, l1 = lon * D2R;
   const p2 = Math.asin(Math.sin(p1) * Math.cos(d) + Math.cos(p1) * Math.sin(d) * Math.cos(th));
   const l2 = l1 + Math.atan2(Math.sin(th) * Math.sin(d) * Math.cos(p1), Math.cos(d) - Math.sin(p1) * Math.sin(p2));
-  return { lat: p2 * R2D, lon: ((l2 * R2D + 540) % 360) - 180 };
+  out.lat = p2 * R2D; out.lon = ((l2 * R2D + 540) % 360) - 180;
+  return out;
 }
 
 /** The unit vector along a course at a point (Earth-fixed, into `out` {x, y, z}): an icon's alignedAxis, which Cesium
@@ -41,14 +43,17 @@ export function deadReckon({ lat, lon, gs, track, ground }, seconds) {
 /**
  * Like deadReckon, but holding a constant-rate turn (deg/s, + = right) for up to `maxTurn` seconds, then straight on:
  * an aircraft that was turning between its last two fixes keeps turning instead of flying off along a tangent.
- * Rates under 0.4 or over 4 deg/s are treated as straight (noise, or a rate no airliner holds). Returns { lat, lon, track }.
+ * Rates under 0.4 or over 4 deg/s are treated as straight (noise, or a rate no airliner holds). Returns { lat, lon, track },
+ * into `out` when given (not `o` itself): the globe moves thousands of planes a pass without a new object for each.
  */
-export function deadReckonArc(o, seconds, turn = 0, maxTurn = 120) {
-  if (o.ground || !(o.gs > 15) || o.track == null || !(seconds > 0)) return { lat: o.lat, lon: o.lon, track: o.track };
+export function deadReckonArc(o, seconds, turn = 0, maxTurn = 120, out = {}) {
+  if (o.ground || !(o.gs > 15) || o.track == null || !(seconds > 0)) { out.lat = o.lat; out.lon = o.lon; out.track = o.track; return out; }
   const w = Math.abs(turn) >= 0.4 && Math.abs(turn) <= 4 ? turn * D2R : 0;
-  if (!w) return { ...destination(o.lat, o.lon, o.gs * seconds, o.track), track: o.track };
+  if (!w) { destination(o.lat, o.lon, o.gs * seconds, o.track, out); out.track = o.track; return out; }
   const ta = Math.min(seconds, maxTurn), c0 = o.track * D2R, r = o.gs / w;   // r: signed turn radius
   const e = r * (Math.cos(c0) - Math.cos(c0 + w * ta)), n = r * (Math.sin(c0 + w * ta) - Math.sin(c0));   // east / north of the arc's end
-  const end = destination(o.lat, o.lon, Math.hypot(e, n), Math.atan2(e, n) * R2D), track = ((o.track + turn * ta) % 360 + 360) % 360;
-  return seconds > ta ? { ...destination(end.lat, end.lon, o.gs * (seconds - ta), track), track } : { ...end, track };
+  const track = ((o.track + turn * ta) % 360 + 360) % 360;
+  destination(o.lat, o.lon, Math.hypot(e, n), Math.atan2(e, n) * R2D, out);   // the end of the arc
+  if (seconds > ta) destination(out.lat, out.lon, o.gs * (seconds - ta), track, out);   // then straight on
+  out.track = track; return out;
 }

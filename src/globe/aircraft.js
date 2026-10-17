@@ -10,7 +10,7 @@ import { viewer, camera, airPts, airIcons, camHeight } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { state, hooks } from './state.js';
 import { Follow, MODEL_FIX } from './follow.js';
-import { deadReckonArc, courseAxis } from '../core/geo.js';
+import { deadReckonArc, courseAxis, EARTH_RADIUS_M } from '../core/geo.js';
 import { readsb, openskyState, noteAircraftReport, EMERGENCY_SQUAWKS as EMERGENCY } from '../core/aircraft.js';
 import { Terrain } from './terrain.js';
 import { Time } from './time.js';
@@ -32,16 +32,18 @@ export const airShape = r => airClass(r).shape;
 
 /** Where an aircraft is at time ms: along its track for up to 15 min (planes never freeze between snapshots), through the
  *  turn it was making for up to 2 min, climbing or descending at its vertical rate for up to 1 min. alt: barometric
- *  (labels, cards); altE: geometric, above the ellipsoid, where the feed sends it; track: its course then. */
-export function aircraftAt(r, ms) {
-  const dts = Math.max(0, (ms - r.ts) / 1000), p = deadReckonArc(r, Math.min(DR_MAX_S, dts), r.turn || 0);
+ *  (labels, cards); altE: geometric, above the ellipsoid, where the feed sends it; track: its course then. Into `out`
+ *  when given (the per-pass loops reuse one; anything that keeps the answer, or holds two at once, leaves it out). */
+export function aircraftAt(r, ms, out = {}) {
+  const dts = Math.max(0, (ms - r.ts) / 1000), p = deadReckonArc(r, Math.min(DR_MAX_S, dts), r.turn || 0, 120, out);
   const climb = r.ground ? 0 : (r.vr || 0) * Math.min(60, dts);
-  return { lat: p.lat, lon: p.lon, track: p.track, alt: Math.max(0, (r.alt || 0) + climb), altE: r.ground || r.altG == null ? null : r.altG + climb };
+  p.alt = Math.max(0, (r.alt || 0) + climb); p.altE = r.ground || r.altG == null ? null : r.altG + climb;
+  return p;
 }
 /** aircraftAt plus what is left of the last correction: a fix that disagrees with where we drew the plane is eased in
  *  over a second or a few (a 15-min snapshot can be kilometres off), position and heading together, instead of a jump. */
-export function displayAt(r, ms) {
-  const p = aircraftAt(r, ms), k = r.corr;
+export function displayAt(r, ms, out) {
+  const p = aircraftAt(r, ms, out), k = r.corr;
   if (k) {
     const f = Math.exp(-(ms - k.t0) / k.tau);
     if (f < 0.01) r.corr = null;
@@ -57,7 +59,7 @@ export function renderHeight(r, p, near = true) {
   if (r.ground) return Terrain.near(p.lat, p.lon, 4, near ? 0.3 : 0) + 2;   // parked or taxiing: on the ground (the most detailed near the view)
   return h < 4500 ? Math.max(h, Terrain.near(p.lat, p.lon, 2, 0) + 15) : h;   // low fliers: never inside a hill (coarse ground)
 }
-const AX = new C.Cartesian3();
+const AX = new C.Cartesian3(), POS = new C.Cartesian3(), UPD = {}, D2R = Math.PI / 180;   // Air.update's scratch (Cesium's setters copy)
 
 /** An adsb.lol (readsb) aircraft as one of ours; mil: true for the /mil feed, else from its database flags. */
 export function fromAdsb(a, now, mil = false) {   // read by core/aircraft.js, like the 2D map's; null without a position
@@ -157,15 +159,34 @@ export const Air = {
       AirModels.drop(r, true); airPts.remove(r.pt); airIcons.remove(r.icon); this.map.delete(k);
     }
   },
+  /* Each pass re-uploads every collection it writes, so it writes only the ones that can draw: dots show beyond
+     0.8 x AIR_ICON_RANGE from the camera, which no plane is from below PTS_H (the horizon is nearer), and icons within
+     AIR_ICON_RANGE, which none is from above ICON_H. ptsFresh / iconsFresh say whether the last pass wrote them: ui.js
+     updateBand hides a collection that is out of date and runs a pass at once when the camera crosses into its band. */
+  PTS_H: 1.2e5, ICON_H: AIR_ICON_RANGE * 1.2, ptsFresh: false, iconsFresh: false,
   update(now) {
     const cc = camera.positionCartographic, far = !cc || cc.height > 1.5e6;   // terrain heights only within ~400 km of a low camera
     const cLat = cc ? C.Math.toDegrees(cc.latitude) : 0, cLon = cc ? C.Math.toDegrees(cc.longitude) : 0;
+    const ch = camHeight(), pts = ch > this.PTS_H, icons = ch < this.ICON_H, same = pts === this.ptsFresh && icons === this.iconsFresh;
+    this.ptsFresh = pts; this.iconsFresh = icons;
+    // planes behind the Earth (from the last drawn position; a margin over the horizon) move once a second, not each pass;
+    // never on the pass that brings a collection back, which must put every plane where it is
+    const c = camera.positionWC, back = EARTH_RADIUS_M - 0.1 * C.Cartesian3.magnitude(c);
     for (const r of this.map.values()) {
       if (!airShown(r)) continue;
-      const p = displayAt(r, now), near = !far && Math.abs(p.lat - cLat) < 4 && Math.abs(((p.lon - cLon + 540) % 360) - 180) < 4 / Math.max(0.2, Math.cos(p.lat * Math.PI / 180));
+      const q = r.cur;
+      if (same && q && now - r._at < 900) {
+        const la = q.lat * D2R, lo = q.lon * D2R, cl = Math.cos(la);
+        if (cl * Math.cos(lo) * c.x + cl * Math.sin(lo) * c.y + Math.sin(la) * c.z < back) continue;
+      }
+      const p = displayAt(r, now, UPD), near = !far && Math.abs(p.lat - cLat) < 4 && Math.abs(((p.lon - cLon + 540) % 360) - 180) < 4 / Math.max(0.2, Math.cos(p.lat * Math.PI / 180));
       const h = near ? renderHeight(r, p, cc.height < 1.5e5) : r.ground ? 3 : (p.altE ?? p.alt);
-      const pos = C.Cartesian3.fromDegrees(p.lon, p.lat, h + (r.ground ? 6 : 60));
-      r.pt.position = pos; r.icon.position = pos; r.cur = { lat: p.lat, lon: p.lon };
+      const pos = C.Cartesian3.fromDegrees(p.lon, p.lat, h + (r.ground ? 6 : 60), C.Ellipsoid.WGS84, POS);   // the setters copy it
+      if (pts) r.pt.position = pos;
+      if (icons) r.icon.position = pos;
+      if (q) { q.lat = p.lat; q.lon = p.lon; } else r.cur = { lat: p.lat, lon: p.lon };
+      r._at = now;
+      if (!icons) continue;   // the course axis waits too: it is re-checked against where the plane is when icons return
       const trk = p.track ?? r.track ?? 0;
       if (r._axT == null || Math.abs(((trk - r._axT + 540) % 360) - 180) > 0.3 || Math.abs(p.lat - r._axLat) + Math.abs(p.lon - r._axLon) > 0.05) {
         r.icon.alignedAxis = courseAxis(p.lat, p.lon, trk, AX); r._axT = trk; r._axLat = p.lat; r._axLon = p.lon;
@@ -177,6 +198,13 @@ export const Air = {
 
 /* The nearest aircraft to the camera (when it is below ~600 km) swap their icon for a glTF model at real size. Same axes
    as the satellites (+X nose, +Z up), so the same MODEL_FIX applies. */
+// AirModels.state's scratch: used and done with inside one call (what it keeps goes into each plane's own st.pos/st.quat)
+const SG = {}, S_M4 = new C.Matrix4(), S_M3 = new C.Matrix3(), S_E = new C.Cartesian3(), S_N = new C.Cartesian3(), S_U = new C.Cartesian3(),
+  S_A = new C.Cartesian3(), S_B = new C.Cartesian3(), S_F = new C.Cartesian3(), S_X = new C.Cartesian3(), S_Y0 = new C.Cartesian3(),
+  S_Z0 = new C.Cartesian3(), S_Z = new C.Cartesian3(), S_Y = new C.Cartesian3();
+// only the helicopters have a node named rotor; its angle depends on the time alone, so every rotor shares one quaternion
+const ROTOR_Q = new C.Quaternion();
+const rotorBag = () => ({ rotor: new C.NodeTransformationProperty({ rotation: new C.CallbackProperty(t => C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_Y, (t.secondsOfDay * 2 * Math.PI * 4.5) % (2 * Math.PI), ROTOR_Q), false) }) });
 export const AirModels = {
   max: 200, range: 3.0e5, ceiling: 6.0e5, pool: new Map(), _p: new C.Cartesian3(),
   view: { airliner: 38, prop: 28, heli: 18, fighter: 17, heavy: 50, tprop: 40 },
@@ -185,19 +213,21 @@ export const AirModels = {
     const key = time.dayNumber * 86400 + time.secondsOfDay;
     if (r._k === key && r._st) return r._st;
     const st = r._st || (r._st = { pos: new C.Cartesian3(), quat: new C.Quaternion() }); r._k = key;
-    const g = displayAt(r, C.JulianDate.toDate(time).getTime());
+    const g = displayAt(r, C.JulianDate.toDate(time).getTime(), SG);   // every frame for every model: scratch, nothing new
     C.Cartesian3.fromDegrees(g.lon, g.lat, renderHeight(r, g), C.Ellipsoid.WGS84, st.pos);
-    const enu = C.Transforms.eastNorthUpToFixedFrame(st.pos), E = new C.Cartesian3(enu[0], enu[1], enu[2]), N = new C.Cartesian3(enu[4], enu[5], enu[6]), U = new C.Cartesian3(enu[8], enu[9], enu[10]);
+    const enu = C.Transforms.eastNorthUpToFixedFrame(st.pos, C.Ellipsoid.WGS84, S_M4);
+    const E = C.Cartesian3.fromElements(enu[0], enu[1], enu[2], S_E), N = C.Cartesian3.fromElements(enu[4], enu[5], enu[6], S_N), U = C.Cartesian3.fromElements(enu[8], enu[9], enu[10], S_U);
     const h = C.Math.toRadians(g.track ?? r.track ?? 0);
     const pitch = r.ground ? 0 : Math.max(-0.35, Math.min(0.35, Math.atan2(r.vr || 0, Math.max(30, r.gs || 0))));
     const bank = r.ground ? 0 : Math.max(-0.5, Math.min(0.5, Math.atan((r.gs || 0) * C.Math.toRadians(r.turn || 0) / 9.81)));   // coordinated turn
-    const f = C.Cartesian3.add(C.Cartesian3.multiplyByScalar(E, Math.sin(h), new C.Cartesian3()), C.Cartesian3.multiplyByScalar(N, Math.cos(h), new C.Cartesian3()), new C.Cartesian3());
-    const X = C.Cartesian3.normalize(C.Cartesian3.add(C.Cartesian3.multiplyByScalar(f, Math.cos(pitch), new C.Cartesian3()), C.Cartesian3.multiplyByScalar(U, Math.sin(pitch), new C.Cartesian3()), new C.Cartesian3()), new C.Cartesian3());
-    const Y0 = C.Cartesian3.normalize(C.Cartesian3.cross(U, X, new C.Cartesian3()), new C.Cartesian3());   // left wing
-    const Z0 = C.Cartesian3.cross(X, Y0, new C.Cartesian3());
-    const Z = C.Cartesian3.normalize(C.Cartesian3.subtract(C.Cartesian3.multiplyByScalar(Z0, Math.cos(bank), new C.Cartesian3()), C.Cartesian3.multiplyByScalar(Y0, Math.sin(bank), new C.Cartesian3()), new C.Cartesian3()), new C.Cartesian3()); // right turn = right wing down
-    const Y = C.Cartesian3.cross(Z, X, new C.Cartesian3());
-    C.Quaternion.multiply(C.Quaternion.fromRotationMatrix(new C.Matrix3(X.x, Y.x, Z.x, X.y, Y.y, Z.y, X.z, Y.z, Z.z), st.quat), MODEL_FIX, st.quat);
+    const f = C.Cartesian3.add(C.Cartesian3.multiplyByScalar(E, Math.sin(h), S_A), C.Cartesian3.multiplyByScalar(N, Math.cos(h), S_B), S_F);
+    const X = C.Cartesian3.normalize(C.Cartesian3.add(C.Cartesian3.multiplyByScalar(f, Math.cos(pitch), S_A), C.Cartesian3.multiplyByScalar(U, Math.sin(pitch), S_B), S_X), S_X);
+    const Y0 = C.Cartesian3.normalize(C.Cartesian3.cross(U, X, S_Y0), S_Y0);   // left wing
+    const Z0 = C.Cartesian3.cross(X, Y0, S_Z0);
+    const Z = C.Cartesian3.normalize(C.Cartesian3.subtract(C.Cartesian3.multiplyByScalar(Z0, Math.cos(bank), S_A), C.Cartesian3.multiplyByScalar(Y0, Math.sin(bank), S_B), S_Z), S_Z); // right turn = right wing down
+    const Y = C.Cartesian3.cross(Z, X, S_Y), m = S_M3;   // the columns X, Y, Z
+    m[0] = X.x; m[1] = X.y; m[2] = X.z; m[3] = Y.x; m[4] = Y.y; m[5] = Y.z; m[6] = Z.x; m[7] = Z.y; m[8] = Z.z;
+    C.Quaternion.multiply(C.Quaternion.fromRotationMatrix(m, st.quat), MODEL_FIX, st.quat);
     return st;
   },
   uri: r => `brand/models/aircraft/${r.shape || 'airliner'}_${r.mil ? 'mil' : 'civ'}.glb`,
@@ -206,14 +236,14 @@ export const AirModels = {
     const uri = this.uri(r); if (m.uri.getValue() !== uri) m.uri = uri;
     if (m.scale.getValue() !== (r.scale || 1)) m.scale = r.scale || 1;
     m.silhouetteColor = C.Color.fromCssColorString('#ff4d5e'); m.silhouetteSize = r.emerg ? 2.0 : 0.0;
+    const heli = r.shape === 'heli'; if (!!m.nodeTransformations !== heli) m.nodeTransformations = heli ? rotorBag() : undefined;   // became, or stopped being, a helicopter
   },
   ensure(r) {
     if (r.ent) return r.ent;
-    const rotor = new C.NodeTransformationProperty({ rotation: new C.CallbackProperty(t => C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_Y, (t.secondsOfDay * 2 * Math.PI * 4.5) % (2 * Math.PI)), false) });
-    r.ent = viewer.entities.add({
-      position: new C.CallbackProperty(t => this.state(r, t).pos, false),
-      orientation: new C.CallbackProperty(t => this.state(r, t).quat, false),
-      model: { uri: this.uri(r), scale: r.scale || 1, environmentMapOptions: NO_ENV_MAP, minimumPixelSize: 26, maximumScale: 2.0e4, nodeTransformations: { rotor }, silhouetteColor: C.Color.fromCssColorString('#ff4d5e'), silhouetteSize: r.emerg ? 2.0 : 0.0 },
+    r.ent = viewer.entities.add({   // Cesium hands each callback a result to fill: copy the plane's own state into it
+      position: new C.CallbackProperty((t, res) => { const p = this.state(r, t).pos; return res ? C.Cartesian3.clone(p, res) : p; }, false),
+      orientation: new C.CallbackProperty((t, res) => { const q = this.state(r, t).quat; return res ? C.Quaternion.clone(q, res) : q; }, false),
+      model: { uri: this.uri(r), scale: r.scale || 1, environmentMapOptions: NO_ENV_MAP, minimumPixelSize: 26, maximumScale: 2.0e4, nodeTransformations: r.shape === 'heli' ? rotorBag() : undefined, silhouetteColor: C.Color.fromCssColorString('#ff4d5e'), silhouetteSize: r.emerg ? 2.0 : 0.0 },
     });
     r.ent.air = r; r.pt.show = false; r.icon.show = false; this.pool.set(r.hex, r);
     return r.ent;

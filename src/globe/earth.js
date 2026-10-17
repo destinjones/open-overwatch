@@ -70,7 +70,10 @@ export function setBase(id) {
 export function showPlaceNames(on) { if (labelLayer) labelLayer.show = on; }
 
 // ---- shader shells (equirectangular earth_fx texture on an ellipsoid; EllipsoidGeometry's st = lon/lat)
-const FX_TEX = PHONE ? 'brand/textures/earth_fx_2k.jpg' : 'brand/textures/earth_fx_8k.jpg';   // phones: 0.9 MB instead of 2.6
+// 2k 0.9 MB on phones, 4k 2.6 MB on desktops, 8k 7.4 MB (128 MB of video memory) only where the GPU takes 16k textures
+// and the screen is 2,560+ pixels wide, so its detail can show (an 8k texture is hard work for an integrated GPU)
+const FX_8K = !PHONE && (C.ContextLimits?.maximumTextureSize || 0) >= 16384 && screen.width * (devicePixelRatio || 1) >= 2560;
+const FX_TEX = `brand/textures/earth_fx_${PHONE ? '2k' : FX_8K ? '8k' : '4k'}.jpg`;
 const FX_GLSL = `
 uniform sampler2D fx; uniform float fade; uniform float ocean; uniform float cshadow;
 czm_material czm_getMaterial(czm_materialInput mi) {
@@ -115,7 +118,7 @@ czm_material czm_getMaterial(czm_materialInput mi) {
   vec3 N = normalize(mi.normalEC), V = normalize(mi.positionToEyeEC), L = normalize(czm_lightDirectionEC);
   float ndl = dot(N, L), ndv = max(dot(N, V), 0.0);
   vec3 nW = normalize(czm_inverseViewRotation * N), lW = normalize(czm_inverseViewRotation * L);
-  // fractal detail below the texture's ~5 km texels: each octave fades in once it is bigger than a few pixels (no shimmer from orbit)
+  // fractal detail below the texture's texels (~5 km at 8k, ~10 km at 4k): each octave fades in once it is bigger than a few pixels (no shimmer from orbit)
   vec3 pW = (czm_inverseView * vec4(-mi.positionToEyeEC, 1.0)).xyz;
   float px = length(fwidth(pW)), n = 0.0, wsum = 0.0, lam = 16000.0, k = 0.0;
   for (int o = 0; o < 4; o++) {
@@ -128,7 +131,9 @@ czm_material czm_getMaterial(czm_materialInput mi) {
   float d = mix(t.r, t.b, 0.35 + 0.35 * k);                    // the blurred density kills speckle (and jpeg ringing up close)
   d = clamp(d + n * 4.0 * d * (1.0 - d), 0.0, 1.0);            // erodes soft edges into ragged ones; thick cores stay whole
   // relief: dense cores stand taller, so slopes facing the sun are brighter and the far side darker
-  vec2 tx = vec2(5.0 / 8192.0, 5.0 / 4096.0);
+  // the slope across ~24 km either way: the soft channel is blurred over that ground distance in every texture size
+  // (make_earth_fx.py blurs the 8k and scales it down), so the step is a distance, not a count of texels
+  vec2 tx = vec2(24500.0 / (6.2832 * 6378137.0), 24500.0 / (3.1416 * 6378137.0));
   float gx = texture(fx, mi.st + vec2(tx.x, 0.0)).b - texture(fx, mi.st - vec2(tx.x, 0.0)).b;
   float gy = texture(fx, mi.st + vec2(0.0, tx.y)).b - texture(fx, mi.st - vec2(0.0, tx.y)).b;
   vec3 east = normalize(cross(vec3(0.0, 0.0, 1.0), nW)), north = cross(nW, east);
