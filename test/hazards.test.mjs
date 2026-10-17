@@ -41,6 +41,38 @@ test('NHC forecasts mid-update: a cone from an older advisory than the points is
   assert.equal(s.coherent, false); assert.equal(s.advisory, '015');
 });
 
+test('NHC forecasts: a point without geometry is left out, an empty cone ring is dropped, short rings and paths too', () => {
+  const s = nhcForecasts({ points: [feat({ idp_source: 'al052026-012_5day_pts', stormname: 'Erin', tau: 0 }, null), feat({ idp_source: 'al052026-012_5day_pts', tau: 12 }, pt(-62, 22)),
+    feat({ idp_source: 'al052026-012_5day_pts', tau: 24 }, pt('x', 23)), feat({ idp_source: 'al052026-012_5day_pts', tau: 36 }, pt(-64, 95))],
+  cones: [feat({ idp_source: 'al052026-012_5day_pgn' }, { type: 'Polygon', coordinates: [[]] }), feat({ idp_source: 'al052026-012_5day_pgn' }, { type: 'MultiPolygon', coordinates: [[[]], [[[-61, 21], [-62, 22], [-61, 21]]]] })],
+  tracks: [feat({ idp_source: 'al052026-012_5day_lin' }, line([-61, 21])), feat({ idp_source: 'al052026-012_5day_lin' }, { type: 'MultiLineString', coordinates: [[[-61, 21]], [[-61, 21], [-62, 22]]] })] }).get('al052026');
+  assert.deepEqual(s.points.map(p => [p.tau, p.lat, p.lon]), [[12, 22, -62]]);   // no NaN, no latitude 95
+  assert.deepEqual(s.cone, [[[-61, 21], [-62, 22], [-61, 21]]]); assert.deepEqual(s.track, [[[-61, 21], [-62, 22]]]);
+  const empty = nhcForecasts({ cones: [feat({ idp_source: 'al062026-001_5day_pgn' }, { type: 'Polygon', coordinates: [[]] })] }).get('al062026');
+  assert.equal(empty.cone.length, 0); assert.equal(empty.points.length, 0);
+});
+
+test('NHC forecasts: the advisory time, from the file date or the tau-0 label in a US zone', () => {
+  const at = (props, more = {}) => nhcForecasts({ points: [feat({ idp_source: 'al052026-012_5day_pts', tau: 0, ...props }, pt(-61, 21)), feat({ idp_source: 'al052026-012_5day_pts', tau: 12, fldatelbl: '2026-10-17 9:00 AM Sat CDT', ...more }, pt(-62, 22))] }).get('al052026').advisoryAt;
+  assert.equal(at({ fldatelbl: '2026-10-16 9:00 PM Fri CST' }), Date.UTC(2026, 9, 17, 3, 0));
+  assert.equal(at({ fldatelbl: '2026-10-16 2100 UTC' }), Date.UTC(2026, 9, 16, 21, 0));
+  assert.equal(at({ fldatelbl: '2026-10-16 12:00 AM Fri AST' }), Date.UTC(2026, 9, 16, 4, 0));
+  assert.equal(at({ fldatelbl: '2026-10-16 9:00 PM Fri XYZ' }), null);   // an unknown zone, and a later point's label is its valid time, not the advisory's
+  assert.equal(at({ fldatelbl: '3:00 PM Sat' }), null);
+  assert.equal(at({ fldatelbl: '2026-10-16 9:00 PM Fri CST', idp_filedate: 1792216969000 }, { idp_filedate: 1792216969000 }), 1792216969000);
+});
+
+test('GDACS: a zoned polygondate still gives the advisory; none leaves past and forecast unknown', () => {
+  const pts = [feat({ Class: 'Point_Polygon_Point_0', polygonlabel: '09/10 00:00 UTC' }, poly([138, 20], [138.2, 20], [138.2, 20.2], [138, 20])),
+    feat({ Class: 'Point_Polygon_Point_1', polygonlabel: '11/10 06:00 UTC' }, poly([141, 28], [141.2, 28], [141.2, 28.2], [141, 28]))];
+  for (const date of ['2026-10-10T06:00:00Z', '2026-10-10T06:00:00+00:00', '2026-10-10T06:00:00']) {
+    const g = gdacsForecast({ features: [feat({ Class: 'Poly_Cones', polygondate: date }, poly([140, 25], [142, 26], [139, 30], [140, 25])), ...pts] });
+    assert.equal(g.advisory, Date.UTC(2026, 9, 10, 6, 0), date); assert.deepEqual(g.points.map(p => p.forecast), [false, true], date);
+  }
+  const none = gdacsForecast({ features: pts });
+  assert.ok(Number.isNaN(none.advisory)); assert.deepEqual(none.points.map(p => p.forecast), [undefined, undefined]);
+});
+
 test('GDACS: cone, past and forecast track by category, timed points', () => {
   const g = gdacsForecast({ features: [
     feat({ Class: 'Point_Centroid', eventid: 1001333, eventname: 'KOGUMA-26', source: 'JTWC' }, pt(140, 25)),

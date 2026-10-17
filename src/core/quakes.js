@@ -61,7 +61,7 @@ export const usgsDataAt = (doc, quakes = []) => fin(doc && doc.metadata && doc.m
 /** GDACS's earthquake alerts (core/gdacs.js parseGdacsEvents items) as solutions to compare: { time, lat, lon, mag, usgs }
  *  where usgs: GDACS took the solution from USGS (NEIC), so it repeats USGS rather than confirming it. */
 export const gdacsQuakes = list => (list || []).filter(p => p && p.eventtype === 'EQ').map(p => ({ id: String(p.eventid ?? ''), time: Date.parse(p.fromdate), lat: +p.lat, lon: +p.lon,
-  mag: fin(p.severitydata && p.severitydata.severity), dataAt: Date.parse(p.datemodified ? (/(Z|[+-]\d\d:?\d\d)$/.test(p.datemodified) ? p.datemodified : p.datemodified + 'Z') : p.todate) || null,
+  mag: fin(p.severitydata && p.severitydata.severity), dataAt: Date.parse(p.datemodified || p.todate) || null,
   usgs: /NEIC|USGS/i.test(String(p.source || '')), url: /^https:\/\//.test(String(p.url && p.url.report || '')) ? p.url.report : null })).filter(g => Number.isFinite(g.time));
 
 /** Stamp a USGS quake with its provenance: USGS at the summary's data time, plus a matching GDACS alert (sameQuake), which

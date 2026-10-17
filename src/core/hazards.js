@@ -4,18 +4,19 @@
 // satellite fire detections (NASA's VIIRS thermal anomalies as GIBS vector tiles: FIRMS without a key), and the dates of
 // recent Landsat and Sentinel-2 pictures of a place (NASA CMR, Harmonized Landsat Sentinel-2).
 
+const drawable = r => Array.isArray(r) && r.length >= 2;   // fewer than 2 points: nothing to draw, no corner to read
 /** Outer rings [[lon, lat], …] of a GeoJSON Polygon or MultiPolygon. */
 export function rings(g) {
-  if (!g) return [];
-  if (g.type === 'Polygon') return g.coordinates.length ? [g.coordinates[0]] : [];
-  if (g.type === 'MultiPolygon') return g.coordinates.filter(p => p.length).map(p => p[0]);
+  if (!g || !Array.isArray(g.coordinates)) return [];
+  if (g.type === 'Polygon') return drawable(g.coordinates[0]) ? [g.coordinates[0]] : [];
+  if (g.type === 'MultiPolygon') return g.coordinates.map(p => (Array.isArray(p) ? p[0] : null)).filter(drawable);
   return [];
 }
 /** Paths [[lon, lat], …] of a GeoJSON LineString or MultiLineString. */
 export function paths(g) {
-  if (!g) return [];
-  if (g.type === 'LineString') return [g.coordinates];
-  if (g.type === 'MultiLineString') return g.coordinates;
+  if (!g || !Array.isArray(g.coordinates)) return [];
+  if (g.type === 'LineString') return drawable(g.coordinates) ? [g.coordinates] : [];
+  if (g.type === 'MultiLineString') return g.coordinates.filter(drawable);
   return [];
 }
 
@@ -29,21 +30,34 @@ export function stormKey(src) {
 /** NHC watch and warning codes: [name, NHC's colour]. */
 export const WW = Object.freeze({ HWR: ['Hurricane warning', '#ff2e2e'], HWA: ['Hurricane watch', '#ff9fd2'], TWR: ['Tropical storm warning', '#3d7dff'], TWA: ['Tropical storm watch', '#ffe36e'] });
 
+/** US time zones in NHC's labels (fldatelbl is local time: "2026-10-16 9:00 PM Fri CST"), hours from UTC. */
+const NHC_TZ = Object.freeze({ UTC: 0, GMT: 0, Z: 0, AST: -4, ADT: -3, EST: -5, EDT: -4, CST: -6, CDT: -5, MST: -7, MDT: -6, PST: -8, PDT: -7, AKST: -9, AKDT: -8, HST: -10, HDT: -9 });
+/** "2026-10-16 9:00 PM Fri CST" or "2026-10-16 2100 UTC" -> UTC ms; NaN when it doesn't read (an unknown zone too). */
+function nhcTime(text) {
+  const m = String(text || '').trim().match(/^(\d{4})-(\d\d)-(\d\d)\s+(\d{1,2}):?(\d\d)\s*(AM|PM)?\s+(?:[A-Z][a-z]{2}\s+)?([A-Z]{1,4})$/i);
+  const zone = m ? NHC_TZ[m[7].toUpperCase()] : null; if (zone == null) return NaN;
+  let h = +m[4]; if (m[6]) { if (h < 1 || h > 12) return NaN; h = h % 12 + (/PM/i.test(m[6]) ? 12 : 0); }
+  return h > 23 || +m[5] > 59 ? NaN : Date.UTC(+m[1], +m[2] - 1, +m[3], h, +m[5]) - zone * 3600e3;
+}
 /**
  * NOAA NHC's forecast layers (GeoJSON from the tropical weather summary map service: 5 forecast points, 6 forecast
  * track, 7 cone, 8 watches and warnings, 11 past track, 16 the wind field now) -> Map id -> { id, name, kind, basin,
- * advisory, coherent, points: [{ lat, lon, tau (h), kt, gust, mb, label, when }], track, cone, warnings: [{ code,
- * paths }], winds: [{ kt, rings }], past: [{ kind, paths }] }. `coherent`: points, track and cone all come from the same
- * advisory (mid-update the service can mix two; then only the points are trusted).
+ * advisory, advisoryAt (ms or null), coherent, points: [{ lat, lon, tau (h), kt, gust, mb, label, when }], track, cone,
+ * warnings: [{ code, paths }], winds: [{ kt, rings }], past: [{ kind, paths }] }. `coherent`: points, track and cone all
+ * come from the same advisory (mid-update the service can mix two; then only the points are trusted). A point without a
+ * position (geometry: null) is left out. advisoryAt: the points' file time (idp_filedate), else the tau-0 fldatelbl.
  */
 export function nhcForecasts({ points = [], tracks = [], cones = [], warnings = [], winds = [], past = [] }) {
   const out = new Map();
-  const get = id => out.get(id) || out.set(id, { id, name: '', kind: '', basin: id.slice(0, 2).toUpperCase(), adv: {}, points: [], track: [], cone: [], warnings: [], winds: [], past: [] }).get(id);
+  const get = id => out.get(id) || out.set(id, { id, name: '', kind: '', basin: id.slice(0, 2).toUpperCase(), adv: {}, advisoryAt: null, points: [], track: [], cone: [], warnings: [], winds: [], past: [] }).get(id);
   for (const f of points) {
     const p = f.properties || {}, k = stormKey(p.idp_source); if (!k) continue;
     const s = get(k.id), c = f.geometry && f.geometry.coordinates || [p.lon, p.lat];
     s.adv.points = k.adv; s.name = String(p.stormname || s.name); s.kind = String(p.tcdvlp || s.kind);
-    s.points.push({ lat: +c[1], lon: +c[0], tau: +p.tau || 0, kt: +p.maxwind || null, gust: +p.gust || null, mb: +p.mslp > 800 && +p.mslp < 1100 ? +p.mslp : null,
+    const t = +p.idp_filedate > 0 ? +p.idp_filedate : !(+p.tau) ? nhcTime(p.fldatelbl) : NaN;
+    if (Number.isFinite(t) && !(s.advisoryAt >= t)) s.advisoryAt = t;
+    const lat = +c[1], lon = +c[0]; if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+    s.points.push({ lat, lon, tau: +p.tau || 0, kt: +p.maxwind || null, gust: +p.gust || null, mb: +p.mslp > 800 && +p.mslp < 1100 ? +p.mslp : null,
       label: String(p.datelbl || ''), when: String(p.fldatelbl || '') });
   }
   for (const f of tracks) { const k = stormKey(f.properties && f.properties.idp_source); if (!k) continue; const s = get(k.id); s.adv.track = k.adv; s.track.push(...paths(f.geometry)); }
@@ -76,7 +90,7 @@ function gdacsTime(label, year) {
 /**
  * A GDACS cyclone geometry package (polygons/getgeometry) -> { id, name, source, advisory (ms), cone, past: [{ kind,
  * path }], forecast: [{ kind, path }], points: [{ lat, lon, t, label, forecast }] }. Kinds are the category labels
- * on the track segments (TD, TS, HU…).
+ * on the track segments (TD, TS, HU…). A point's forecast is undefined when the package has no advisory time.
  */
 export function gdacsForecast(fc) {
   const r = { id: null, name: '', source: '', advisory: NaN, cone: [], past: [], forecast: [], points: [] };
@@ -85,7 +99,7 @@ export function gdacsForecast(fc) {
     if (r.id == null && p.eventid != null) r.id = p.eventid;
     if (!r.name && p.eventname) r.name = String(p.eventname).replace(/-\d\d$/, '');
     if (!r.source && p.source) r.source = String(p.source);
-    if (p.polygondate && Number.isNaN(r.advisory)) r.advisory = Date.parse(p.polygondate + 'Z');
+    if (p.polygondate && Number.isNaN(r.advisory)) r.advisory = Date.parse(String(p.polygondate) + (/(Z|[+-]\d\d:?\d\d)$/.test(String(p.polygondate)) ? '' : 'Z'));   // UTC without a zone (gdacs.js utc())
     if (cls === 'Poly_Cones') r.cone.push(...rings(f.geometry));
     else if (cls.startsWith('Line_Line')) for (const path of paths(f.geometry)) (p.forecast === true || p.forecast === 'true' ? r.forecast : r.past).push({ kind: String(p.polygonlabel || ''), path });
     else if (cls.startsWith('Point_Polygon_Point')) {
@@ -96,7 +110,7 @@ export function gdacsForecast(fc) {
   }
   const ref = Number.isNaN(r.advisory) ? Date.now() : r.advisory, year = new Date(ref).getUTCFullYear();
   const nearest = label => { let best = NaN; for (const y of [year - 1, year, year + 1]) { const t = gdacsTime(label, y); if (!Number.isNaN(t) && (Number.isNaN(best) || Math.abs(t - ref) < Math.abs(best - ref))) best = t; } return best; };   // the labels carry no year: a forecast over New Year is next year's
-  for (const q of r.points) { q.t = nearest(q.label); q.forecast = q.t > r.advisory; }
+  for (const q of r.points) { q.t = nearest(q.label); q.forecast = Number.isNaN(r.advisory) ? undefined : q.t > r.advisory; }   // no advisory time: past or forecast is unknown
   r.points.sort((a, b) => a.t - b.t);
   return r;
 }

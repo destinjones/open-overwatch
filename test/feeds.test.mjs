@@ -3,9 +3,11 @@
 // and the MCP server. Inputs are small hand-made copies of each service's real answer shape.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseUsgs, usgsUrl, usgsFeedFor, largest, quakeTitle } from '../src/core/quakes.js';
+import { parseUsgs, usgsUrl, usgsFeedFor, largest, quakeTitle, gdacsQuakes } from '../src/core/quakes.js';
 import { parseEonet, eonetUrl, newestFirst } from '../src/core/eonet.js';
-import { parseNhcCurrent, parseGdacsCyclones, stormsFromEonet, mergeNhc, mergeNoaa, mergeGdacs, loadCyclones, category, catName, compass16, gdacsTcUrl, NOAA_LAYERS, NHC_CURRENT, activeLine, shortName, stormSources } from '../src/core/cyclones.js';
+import { nhcForecasts } from '../src/core/hazards.js';
+import { stampReports, recordOf } from '../src/core/liveprov.js';
+import { parseNhcCurrent, parseGdacsCyclones, stormsFromEonet, mergeNhc, mergeNoaa, mergeGdacs, stormAgreement, loadCyclones, category, catName, compass16, gdacsTcUrl, NOAA_LAYERS, NHC_CURRENT, activeLine, shortName, stormSources } from '../src/core/cyclones.js';
 import { parseGdacsEvents, loadGdacsEvents, gdacsEventsUrl, utc } from '../src/core/gdacs.js';
 import { parseOvation, ovationAt, paintEquirect, paintMercator, auroraColor, latestKp } from '../src/core/aurora.js';
 import { parseLandings, nearestCable, okColor } from '../src/core/cables.js';
@@ -140,11 +142,80 @@ test('cyclones: merge helpers keep separate storms apart', () => {
   assert.equal(list.length, 3); assert.equal(list[1].fc.src, 'GDACS (JTWC)');
 });
 
+test('cyclones: a storm without a position is never drawn at NaN or 0,0, and one bad forecast loses nothing else', async () => {
+  assert.doesNotThrow(() => mergeNoaa([], [{ id: 'al05', name: 'Erin', points: [], cone: [[]] }]));
+  assert.deepEqual(mergeNoaa([], [{ id: 'al05', name: 'Erin', points: [{ lat: NaN, lon: NaN, tau: 0 }], cone: [] }]), []);   // nothing to place it by
+  const fc = nhcForecasts({ points: [{ properties: { idp_source: 'al052026-012_5day_pts', stormname: 'Erin', tau: 0 }, geometry: null }] });
+  assert.deepEqual(mergeNoaa([], [...fc.values()]), []);
+  const gd = parseGdacsCyclones({ features: [{ properties: { iscurrent: 'true', eventid: 7, episodeid: 1, eventname: 'KOGUMA-26', todate: '2026-10-10T06:00:00' }, geometry: { type: 'Point', coordinates: [] } }] });
+  assert.equal(gd[0].lat, null);
+  const empty = { id: 7, source: 'JTWC', advisory: NaN, cone: [], forecast: [], past: [], points: [] };
+  assert.deepEqual(mergeGdacs([], [{ ...gd[0], fc: empty }]), []);   // not at 0,0
+  const known = [{ kind: 'storm', title: 'Typhoon Koguma', lat: 25, lon: 140, track: [], links: [] }];
+  mergeGdacs(known, [{ ...gd[0], fc: empty }]);
+  assert.equal(known.length, 1); assert.equal(known[0].lat, 25); assert.equal(known[0].fc.src, 'GDACS (JTWC)'); assert.equal(known[0].reports, undefined);   // joins by name, adds no fix
+  const list = await loadCyclones({ json: async url => {
+    if (url.startsWith('https://eonet')) return eonetDoc;
+    if (url.includes('/MapServer/5/')) return { features: [{ properties: { idp_source: 'al062026-001_5day_pts', tau: 0 }, geometry: null }] };
+    if (url.includes('/MapServer/7/')) return { features: [{ properties: { idp_source: 'al072026-001_5day_pgn', stormname: 'Odd' }, geometry: { type: 'Polygon', coordinates: [[]] } }] };
+    return { features: [] };
+  } });
+  assert.equal(list.length, 1); assert.ok(list.every(s => Number.isFinite(s.lat) && Number.isFinite(s.lon)));   // EONET's storm survives
+});
+
+test('cyclones: only the NOAA tau-0 point moves a storm; a dropped forecast still lets GDACS draw it; a bad field is retried', async () => {
+  const pts = [{ properties: { idp_source: 'al052026-012_5day_pts', stormname: 'Hurricane Erin', tau: 0, maxwind: 105 }, geometry: null },
+    { properties: { idp_source: 'al052026-012_5day_pts', stormname: 'Hurricane Erin', tau: 12, maxwind: 115 }, geometry: { type: 'Point', coordinates: [-64, 24] } }];
+  const known = [{ kind: 'storm', title: 'Hurricane Erin', lat: 21.6, lon: -61.2, kt: 100, track: [], links: [] }];
+  mergeNoaa(known, [...nhcForecasts({ points: pts }).values()]);
+  assert.equal(known.length, 1); assert.equal(known[0].lat, 21.6); assert.equal(known[0].lon, -61.2); assert.equal(known[0].kt, 100);
+  assert.equal(known[0].fc.src, 'NOAA NHC'); assert.equal(known[0].reports, undefined);   // the forecast is drawn, the tau-12 point is no fix
+  assert.deepEqual(mergeNoaa([], [...nhcForecasts({ points: pts }).values()]), []);   // a new storm has no cone corner to start at
+  const asked = [], warns = [];
+  const list = await loadCyclones({ json: async url => {
+    asked.push(url);
+    if (url.startsWith('https://eonet')) return eonetDoc;
+    if (url.includes('/MapServer/5/')) return url.includes('idp_filedate') ? { error: { code: 400, message: 'Invalid field' } } : { features: pts };
+    if (url.includes('/MapServer/')) return { features: [] };
+    if (url.includes('geteventlist')) return gdacsList;
+    if (url.includes('getgeometry')) return gdacsGeom;
+    throw new Error('unexpected ' + url);
+  }, warn: w => warns.push(w) });
+  assert.equal(asked.filter(u => u.includes('/MapServer/5/')).length, 2); assert.deepEqual(warns, []);   // asked again without idp_filedate
+  assert.ok(list.every(s => Number.isFinite(s.lat) && Number.isFinite(s.lon)));
+  const w2 = [];
+  await loadCyclones({ json: async url => (url.startsWith('https://eonet') ? eonetDoc : url.includes('/MapServer/6/') ? { error: { code: 500 } } : { features: [] }), warn: w => w2.push(w) });
+  assert.deepEqual(w2, ['NHC forecast layer 6']);   // an ArcGIS error is said, not drawn as "no storms"
+  const lone = [{ properties: { idp_source: 'wp302026-001_5day_pts', stormname: 'Koguma', tau: 12 }, geometry: { type: 'Point', coordinates: [140, 25] } }];
+  const asked2 = [];
+  await loadCyclones({ json: async url => {
+    asked2.push(url);
+    if (url.startsWith('https://eonet')) return { events: [] };
+    if (url.includes('/MapServer/5/')) return { features: lone };
+    if (url.includes('/MapServer/')) return { features: [] };
+    if (url.includes('geteventlist')) return { features: [{ properties: { iscurrent: 'true', eventid: 9, episodeid: 1, eventname: 'KOGUMA-26' }, geometry: { type: 'Point', coordinates: [140, 25] } }] };
+    if (url.includes('getgeometry')) return gdacsGeom;
+    throw new Error('unexpected ' + url);
+  } });
+  assert.equal(asked2.filter(u => u.includes('getgeometry')).length, 1);   // NOAA placed nothing for Koguma, so GDACS's forecast is fetched
+});
+
+test('cyclones: a NOAA forecast report carries the advisory time, so its provenance has an age', () => {
+  const fc = nhcForecasts({ points: [{ properties: { idp_source: 'al052026-012_5day_pts', stormname: 'Hurricane Erin', tau: 0, maxwind: 105, fldatelbl: '2026-10-16 9:00 PM Fri CST' }, geometry: { type: 'Point', coordinates: [-61.2, 21.6] } }] });
+  const [erin] = mergeNoaa([], [...fc.values()]);
+  assert.equal(erin.reports[0].t, Date.UTC(2026, 9, 17, 3, 0)); assert.equal(erin.lat, 21.6);
+  const { reports, agreeing } = stormAgreement(erin);
+  assert.equal(recordOf(stampReports(erin, 'storms', reports, agreeing), Date.UTC(2026, 9, 17, 4, 0)).confidence, 'reported');   // was 'unknown'
+});
+
 test('GDACS alerts: one per event, explicit UTC, green quakes out, paged', async () => {
   const f = (type, id, level, extra = {}) => ({ geometry: { type: 'Point', coordinates: [10, 20] }, properties: { eventtype: type, eventid: id, alertlevel: level, fromdate: '2026-10-01T00:00:00', ...extra } });
   const list = parseGdacsEvents([f('FL', 1, 'Orange'), f('FL', 1, 'Green'), f('EQ', 2, 'Green'), f('EQ', 3, 'Red', { fromdate: '2026-10-01T00:00:00+02:00' }), { geometry: { type: 'Polygon' } }]);
   assert.deepEqual(list.map(p => p.eventtype + p.eventid), ['FL1', 'EQ3']);
   assert.equal(list[0].fromdate, '2026-10-01T00:00:00Z'); assert.equal(list[1].fromdate, '2026-10-01T00:00:00+02:00');
+  const [mod] = parseGdacsEvents([f('FL', 5, 'Orange', { datemodified: '2026-10-12T07:00:00' })]);
+  assert.equal(mod.datemodified, '2026-10-12T07:00:00Z');   // the gdacs layer's data time: UTC, not the visitor's local time
+  assert.equal(gdacsQuakes(parseGdacsEvents([f('EQ', 6, 'Red', { datemodified: '2026-10-12T07:00:00' })]))[0].dataAt, Date.UTC(2026, 9, 12, 7, 0));
   assert.equal(utc(undefined), undefined);
   const pages = [Array.from({ length: 100 }, (_, i) => f('VO', 100 + i, 'Green')), [f('DR', 999, 'Red')]];
   const urls = [];

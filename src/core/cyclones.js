@@ -19,7 +19,7 @@ export const KIND_KT = Object.freeze({ TD: 30, TS: 50, HU: 80, TY: 80, MH: 100, 
 export const NHC_CURRENT = 'https://www.nhc.noaa.gov/CurrentStorms.json';
 export const NOAA_TROPICAL = 'https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather_summary/MapServer/';
 /** The map service's layers: [layer id, fields, the nhcForecasts input it feeds]. */
-export const NOAA_LAYERS = Object.freeze([[5, 'idp_source,stormname,tcdvlp,tau,maxwind,gust,mslp,datelbl,fldatelbl', 'points'], [6, 'idp_source', 'tracks'], [7, 'idp_source,stormname', 'cones'],
+export const NOAA_LAYERS = Object.freeze([[5, 'idp_source,stormname,tcdvlp,tau,maxwind,gust,mslp,datelbl,fldatelbl,idp_filedate', 'points'], [6, 'idp_source', 'tracks'], [7, 'idp_source,stormname', 'cones'],
   [8, 'idp_source,tcww', 'warnings'], [16, 'stormid,radii,tau', 'winds'], [11, 'idp_source,stormtype', 'past']]);
 export const noaaLayerUrl = (id, fields) => `${NOAA_TROPICAL}${id}/query?where=1%3D1&outFields=${fields}&outSR=4326&geometryPrecision=3&f=geojson`;
 const day = ms => new Date(ms).toISOString().slice(0, 10);
@@ -66,10 +66,10 @@ export function parseGdacsCyclones(doc) {
   return out;
 }
 
+const named = (list, name) => { const n = String(name || '').toLowerCase().split(/\s+/).pop(); return (n.length > 2 && list.find(x => x.title.toLowerCase().includes(n))) || null; };
 /** The storm in `list` a forecast belongs to (the same last name, or within 300 km), or a new one from make(). */
 export function attach(list, name, at, make) {
-  const n = String(name || '').toLowerCase().split(/\s+/).pop();
-  let s = n.length > 2 ? list.find(x => x.title.toLowerCase().includes(n)) : null;
+  let s = named(list, name);
   if (!s && at) s = list.find(x => distKm(x, at) < 300);
   if (!s) { s = make(); list.push(s); }
   return s;
@@ -137,22 +137,30 @@ export function mergeNhc(list, nhc) {
   }
   return list;
 }
-/** NOAA forecasts (nhcForecasts values with points or a cone) into the list as `fc`. */
+const placed = q => (q && Number.isFinite(q.lat) && Number.isFinite(q.lon) ? q : null);
+/** NOAA forecasts (nhcForecasts values with points or a cone) into the list as `fc`. Only the tau-0 point moves a storm
+ *  and counts as NHC's fix (a later one is a forecast); without it a new storm starts at the cone's corner, and one with
+ *  neither only joins a storm of the same name (it has nothing to place it by). */
 export function mergeNoaa(list, forecasts) {
   for (const f of forecasts) {
-    const now = f.points[0], s = attach(list, f.name || f.id, now, () => ({ kind: 'storm', id: 'fc-' + f.id, title: f.name || f.id.toUpperCase(), src: 'NOAA NHC',
-      lat: now ? now.lat : f.cone[0][0][1], lon: now ? now.lon : f.cone[0][0][0], kt: now && now.kt, track: [], links: [] }));
+    const p0 = (f.points || [])[0], now = p0 && !(p0.tau > 0) ? placed(p0) : null;
+    const c0 = f.cone && f.cone[0] && f.cone[0][0], corner = c0 ? placed({ lat: +c0[1], lon: +c0[0] }) : null;
+    const s = now || corner ? attach(list, f.name || f.id, now, () => ({ kind: 'storm', id: 'fc-' + f.id, title: f.name || f.id.toUpperCase(), src: 'NOAA NHC',
+      lat: (now || corner).lat, lon: (now || corner).lon, kt: now && now.kt, track: [], links: [] })) : named(list, f.name || f.id);
+    if (!s) continue;
     s.fc = { src: 'NOAA NHC', ...f };
-    if (now) { s.kt = now.kt || s.kt; s.lat = now.lat; s.lon = now.lon; addReport(s, { src: 'nhc', t: null, lat: now.lat, lon: now.lon, agency: 'noaa' }); }
+    if (now) { s.kt = now.kt || s.kt; s.lat = now.lat; s.lon = now.lon; addReport(s, { src: 'nhc', t: Number.isFinite(f.advisoryAt) ? f.advisoryAt : null, lat: now.lat, lon: now.lon, agency: 'noaa' }); }
   }
   return list;
 }
-/** GDACS cyclones with their parsed geometry ({ ...parseGdacsCyclones item, fc: gdacsForecast(...) }) into the list. */
+/** GDACS cyclones with their parsed geometry ({ ...parseGdacsCyclones item, fc: gdacsForecast(...) }) into the list. One
+ *  without a position only joins a storm of the same name (never a new storm at 0,0). */
 export function mergeGdacs(list, gd) {
   for (const g of gd) {
-    const f = g.fc, at = g.lat != null ? { lat: g.lat, lon: g.lon } : null, kt = g.kmh ? Math.round(g.kmh / 1.852) : null;
-    const s = attach(list, g.name, at, () => ({ kind: 'storm', id: 'gdacs-' + (f.id ?? g.eventid), title: g.nice, src: `GDACS (${f.source || 'agency'})`,
-      lat: at ? at.lat : 0, lon: at ? at.lon : 0, kt, track: [], links: [] }));
+    const f = g.fc, at = g.lat != null && g.lon != null ? placed({ lat: +g.lat, lon: +g.lon }) : null, kt = g.kmh ? Math.round(g.kmh / 1.852) : null;
+    const s = at ? attach(list, g.name, at, () => ({ kind: 'storm', id: 'gdacs-' + (f.id ?? g.eventid), title: g.nice, src: `GDACS (${f.source || 'agency'})`,
+      lat: at.lat, lon: at.lon, kt, track: [], links: [] })) : named(list, g.name);
+    if (!s) continue;
     s.fc = { src: `GDACS (${f.source || 'agency'})`, gdacs: { alert: g.alert, peak: g.peak, kmh: g.kmh, countries: g.countries }, cone: f.cone, track: f.forecast.map(x => x.path),
       past: f.past.map(x => ({ kind: x.kind, paths: [x.path] })), points: f.points.filter(q => q.forecast).map(q => ({ lat: q.lat, lon: q.lon, label: q.label.replace(' UTC', ''), kt: null })),
       warnings: [], winds: [], coherent: true };
@@ -174,14 +182,21 @@ export async function loadCyclones({ json, nhc = false, kept = new Map(), now = 
   if (nhc) {
     try { mergeNhc(list, parseNhcCurrent(await json(NHC_CURRENT, { relay: true, timeout: 25000 }))); } catch (e) { warn('NHC advisories', e); }
   }
-  let noaa = [];
   try {
-    const parts = await Promise.all(NOAA_LAYERS.map(([id, fields]) => json(noaaLayerUrl(id, fields), { timeout: 30000 }).then(d => (d && d.features) || []).catch(() => [])));
+    // ArcGIS answers a bad field with 200 and { error }: the points layer is asked again without idp_filedate (fldatelbl
+    // still dates the advisory), and a layer still in error warns rather than quietly drawing nothing
+    const layer = async (id, fields) => {
+      let d = await json(noaaLayerUrl(id, fields), { timeout: 30000 });
+      if (d && d.error && fields.includes(',idp_filedate')) d = await json(noaaLayerUrl(id, fields.replace(',idp_filedate', '')), { timeout: 30000 });
+      if (d && d.error) warn('NHC forecast layer ' + id, new Error(String(d.error.message || d.error.code || 'error')));
+      return (d && d.features) || [];
+    };
+    const parts = await Promise.all(NOAA_LAYERS.map(([id, fields]) => layer(id, fields).catch(() => [])));
     const input = {}; NOAA_LAYERS.forEach(([, , key], i) => { input[key] = parts[i]; });
-    noaa = [...nhcForecasts(input).values()].filter(s => s.points.length || s.cone.length);
+    mergeNoaa(list, [...nhcForecasts(input).values()].filter(s => s.points.length || s.cone.length));   // in the try: one odd forecast warns rather than losing every storm
   } catch (e) { warn('NHC forecasts', e); }
-  mergeNoaa(list, noaa);
-  const skip = new Set(noaa.map(f => f.name.toLowerCase().split(/\s+/).pop()));   // NOAA's own forecast is drawn for its storms
+  // NOAA's own forecast is drawn for its storms (only those mergeNoaa placed, so a dropped one still gets GDACS's)
+  const skip = new Set(list.filter(s => s.fc && s.fc.src === 'NOAA NHC').map(s => String(s.fc.name || '').toLowerCase().split(/\s+/).pop()));
   try {
     const gd = [];
     for (const g of parseGdacsCyclones(await json(gdacsTcUrl(now), { timeout: 30000 }))) {
