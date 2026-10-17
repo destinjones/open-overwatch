@@ -23,7 +23,8 @@ import re, io, json, os, socket, subprocess, sys, tarfile, time, urllib.parse, u
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 OUT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, '_site'))
 SKIP_ROOT = ('brand/source/', 'brand/blend/', '.github/', 'brand/models/previews/',
-             'test/', 'e2e/', 'notes/', 'relay/', 'mcp-worker/', 'brand/clip/')   # dev-only: no page loads these
+             'test/', 'e2e/', 'notes/', 'relay/', 'mcp-worker/', 'brand/clip/',
+             'types/', 'tsconfig.json', 'tsconfig.workers.json', 'eslint.config.mjs', 'playwright.config.mjs')   # dev tools' configs   # dev-only: no page loads these
 # ...except these, which a page does load: the Solar view's "Accuracy vs NASA JPL" table (src/solar/nerd.js). Archived
 # versions and the download version fetch it from the site root too (src/core/assets.js), so it must stay here.
 KEEP_ROOT = ('test/fixtures/horizons_2026-10-02.json',)

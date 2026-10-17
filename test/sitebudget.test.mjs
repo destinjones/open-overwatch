@@ -54,7 +54,7 @@ test('site build: a retired version\'s page points at its release zip and loads 
 test('site build: dev-only folders stay off the site, except what a page loads', { skip }, () => {
   const names = ['test/mcp.test.mjs', 'test/fixtures/adsbdb-4ca87c.json', 'test/', 'e2e/snapshots/globe-europe.png', 'notes/handoff-2026-10-06.md',
     'relay/worker.js', 'mcp-worker/wrangler.toml', 'brand/clip/open-overwatch-zoom.mp4', 'brand/source/x.psd', '.github/build_site.py',
-    'test/fixtures/horizons_2026-10-02.json', 'docs/NOTES.md', 'src/solar/nerd.js', 'index.html', 'testing.html', 'brand/clipart.png', 'mcp/server.mjs', '.devcontainer/README.md'];
+    'test/fixtures/horizons_2026-10-02.json', 'docs/NOTES.md', 'src/solar/nerd.js', 'index.html', 'testing.html', 'brand/clipart.png', 'mcp/server.mjs', '.devcontainer/README.md', 'tsconfig.json', 'types/page.d.ts', 'eslint.config.mjs', 'playwright.config.mjs'];
   const out = run(`n = json.loads(sys.argv[1])
 print(json.dumps({x: b.published(x, b.SKIP_ROOT, b.KEEP_ROOT) for x in n} | {'keep': list(b.KEEP_ROOT), 'skip': list(b.SKIP_ROOT)}))`, JSON.stringify(names));
   const on = names.filter(n => out[n]);

@@ -83,7 +83,12 @@ export function mutateText(src, r, vocab = []) {
 export function nonFinite(v, path = '', nanOk = false, depth = 0) {
   if (depth > 12 || v == null) return null;
   if (typeof v === 'number') return Number.isFinite(v) ? null : `${path} = ${v}`;
-  if (ArrayBuffer.isView(v)) { for (let i = 0; i < v.length; i++) if (!Number.isFinite(v[i]) && !(nanOk && Number.isNaN(v[i]))) return `${path}[${i}] = ${v[i]}`; return null; }
+  if (ArrayBuffer.isView(v)) {   // a typed array (a DataView holds no numbers of its own)
+    if (v instanceof DataView) return null;
+    const a = /** @type {Float64Array} */ (v);
+    for (let i = 0; i < a.length; i++) if (!Number.isFinite(a[i]) && !(nanOk && Number.isNaN(a[i]))) return `${path}[${i}] = ${a[i]}`;
+    return null;
+  }
   if (typeof v === 'object') for (const [k, x] of Object.entries(v)) { const bad = nonFinite(x, path + '.' + k, nanOk, depth + 1); if (bad) return bad; }
   return null;
 }
