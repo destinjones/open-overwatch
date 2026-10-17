@@ -11,7 +11,7 @@ import { observer, sunEcef } from '../src/core/observer.js';
 import { planetsTonight, moonPhase, darkWindow, auroraAt, describePass, riseSet, sunAlt } from '../src/core/sky.js';
 import { showersFor } from '../src/core/meteors.js';
 import { skyWords, weatherSentence, SENSORS } from '../src/core/voicecmd.js';
-import { decodeView } from '../src/core/viewlink.js';
+import { decodeView, tonightHash } from '../src/core/viewlink.js';
 import { AU_KM } from '../src/core/units.js';
 import { ToolError } from './feeds.mjs';
 import { rep, lineFor } from '../src/core/liveprov.js';
@@ -480,8 +480,9 @@ export function createTools(ctx) {
         if (ov) { const ch = auroraAt(ov.coordinates || [], lat, lon); if (ch.level) out.push(ch.text); data.aurora = { level: ch.level, text: ch.text }; }
       }
       const camera = frame(lat, lon, 900), url = link({ camera, on: ['stations', 'visual'], time: dark ? { ms: Math.max(t, dark.start), rate: 60 } : null });
-      out.push(`The night over ${area.label} on the globe (a minute a second): ${url}`);
-      return { text: [`Tonight from ${area.label} (times ${tz || 'UTC'}):`, ...out].join('\n'), data: { ...data, url } };
+      const tonight = `${site}tonight.html#${tonightHash({ lat, lon, name: area.label })}`;   // the Tonight card for the place: light and phone-fast, with reminders (rounded to ~1 km)
+      out.push(`The night over ${area.label} on the globe (a minute a second): ${url}`, `Tonight's card for ${area.label}, with reminders: ${tonight}`);
+      return { text: [`Tonight from ${area.label} (times ${tz || 'UTC'}):`, ...out].join('\n'), data: { ...data, url, tonight_url: tonight } };
     },
   };
 

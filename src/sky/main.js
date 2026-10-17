@@ -4,7 +4,9 @@
 // the launch list, the country borders for "the ISS is over ...", and the eclipse tables. Eclipses turn the Sun and Moon
 // into the Earth-fixed frame with core/eclipselocal.js's precession, nutation and sidereal time (the same turn as the
 // sky positions in core/sky.js; the globe uses Cesium's full IAU rotation): plenty for "how much of the Sun from here".
-import { $, getText, bigStore, ON_SITE } from '../globe/env.js';
+// #at=lat,lon&name= answers for that place (core/viewlink.js); #embed=1[&sections=passes,planets] is the card for someone
+// else's page: no toasts, no location buttons (an <iframe> gets no location anyway), only the chosen sections open, and a link back.
+import { $, esc, getText, bigStore, ON_SITE, EMBED } from '../globe/env.js';
 import { Tonight } from '../globe/tonight.js';
 import { createTleSource, parseTle } from '../core/tle.js';
 import { fetchAsset } from '../core/assets.js';
@@ -14,6 +16,7 @@ import { seenFrom } from '../core/eclipse.js';
 import { observer } from '../core/observer.js';
 import { icrfToFixed } from '../core/eclipselocal.js';
 import { msFromJd } from '../core/time.js';
+import { decodeTonight, tonightHash } from '../core/viewlink.js';
 
 const sats = { list: [], byId: new Map() };
 const tles = createTleSource({ fetchText: (url, o) => getText(url, o), cache: bigStore, onSite: ON_SITE });
@@ -56,11 +59,23 @@ async function nextEclipse(lat, lon) {
   return null;
 }
 
+const link = decodeTonight(location.hash), embed = EMBED || link.embed;
+const GREENWICH = { lat: 51.48, lon: 0, name: 'Greenwich, London' };
+const go = url => { if (embed) window.open(url, '_blank', 'noopener'); else location.href = url; };   // an embed sends the globe to a tab of its own
 Tonight.use({
-  sats, auroraGrid, countryName, launches,
-  showLaunch: l => { location.href = 'globe.html#go=launches&id=' + encodeURIComponent(l.id); },
-  nextEclipse, watchEclipse: e => { location.href = 'globe.html#go=eclipses&id=' + encodeURIComponent(e.date); },
+  sats, auroraGrid, countryName, launches, embed: embed ? { sections: link.sections } : null,
+  showLaunch: l => go('globe.html#go=launches&id=' + encodeURIComponent(l.id)),
+  nextEclipse, watchEclipse: e => go('globe.html#go=eclipses&id=' + encodeURIComponent(e.date)),
 });
-Tonight.open();
-Tonight.peek().catch(() => {});
+if (embed) {
+  const at = link.at || GREENWICH, back = document.createElement('p');   // an embed with no place shows Greenwich: something, not a prompt it can't answer
+  back.innerHTML = `<a href="https://destinjones.github.io/open-overwatch/tonight.html#${esc(tonightHash(at))}" target="_blank" rel="noopener"><b>Open Overwatch</b>: tonight's full sky for ${esc(at.name || 'this place')}, and for yours</a>`;
+  $('footer').querySelectorAll('a').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });   // About and the globe open in a tab, not inside the host's frame
+  $('footer').prepend(back);
+  Tonight.open(at);
+} else {
+  Tonight.open(link.at);
+  Tonight.peek({ nudge: !link.at }).catch(() => {});   // a linked place: no toast about the visitor's own passes over it
+}
+addEventListener('hashchange', () => { const n = decodeTonight(location.hash); if (n.at && !embed) Tonight.open(n.at); });   // another place's link pasted into the open page
 window.OOSKY = { Tonight, sats };

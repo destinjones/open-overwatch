@@ -45,6 +45,9 @@ same way, and the examples here use them for readability.
 | `go` | panel name | `go=tonight` | open a panel (links **without** `c` only) |
 | `id` | item id | `go=launches&id=abc-123` | one launch, eclipse or re-entry (NORAD number) in that panel |
 | `embed` | `1` | `embed=1&c=…` | embed mode, for an `<iframe>` |
+| `at` | `lat,lon` | `go=tonight&at=18.52,73.86` | Tonight for that place (2 decimals; panel links and `tonight.html`) |
+| `name` | text | `at=18.52,73.86&name=Pune` | the place's name on the Tonight card |
+| `sections` | section keys | `embed=1&sections=passes,planets` | the Tonight sections an embedded `tonight.html` opens |
 | `scene` | base64url | `scene=djE7…` | a Director scene (takes precedence over a view) |
 
 ## Two kinds of link
@@ -53,7 +56,7 @@ same way, and the examples here use them for readability.
 
 1. **A view link** has `c=`. The camera goes there and every other parameter applies on top. `go` and `id` are ignored
    in a view link (the flight in `f` still works).
-2. **A panel link** has no `c=`. `decodeExtras(hash)` then reads only `go`, `id` and `f`: it opens a panel, optionally at
+2. **A panel link** has no `c=`. `decodeExtras(hash)` then reads only `go`, `id`, `f` and `at`/`name`: it opens a panel, optionally at
    one item, and/or looks for a flight, and leaves the camera alone. This is what the landing page and `tonight.html`
    use, because they don't know where the visitor's camera should be.
 
@@ -272,6 +275,20 @@ The navpad's `</>` button writes an iframe like this (`Share.embedCode()`):
   style="border:0;border-radius:12px" loading="lazy" allow="fullscreen" title="Open Overwatch: the Earth, live"></iframe>
 ```
 
+### `at`, `name` and `sections` — Tonight for a place
+
+`at=lat,lon` gives the Tonight card a place: `tonight.html#at=18.52,73.86&name=Pune` or, on the globe,
+`globe.html#go=tonight&at=18.52,73.86&name=Pune`. Each number is written and read to 2 decimals (about 1 km, as a saved
+home is); out of range, or anything but plain decimals, and the link has no place. `name` (optional, with `at` only) is
+the place's name for the card: at most 60 characters, control characters and `<` `>` removed, and escaped where shown.
+A place from a link is shown, never saved on the visitor's device. `tonightHash` and `decodeTonight` in
+`src/core/viewlink.js` write and read them; the card's Share writes `tonight.html#at=…&name=…` for a named place only
+(a visitor's own location never goes into a link).
+
+`sections` (with `embed=1`, `tonight.html` only) lists the card's sections an embed opens, the rest folded shut:
+`clouds`, `sky`, `passes`, `planets`, `deepsky`, `meteors`, `launches`, `sun`, `moon`, `aurora`, `coming`, `eclipse`,
+`far` (`TONIGHT_SECTIONS`). Unknown keys are ignored; none known and the whole card is open.
+
 ### `scene` — a Director scene
 
 `scene=` plus base64url (no padding) of the text `v1;` followed by shots joined with `|`, each
@@ -394,7 +411,9 @@ its forecast layers and the drawing.
 
 ### Tonight
 
-`tonight.html` takes no link parameters; it hands launches and eclipses to the globe with `#go=…&id=…`.
+`tonight.html` reads `at`, `name`, `embed` and `sections` (above): `tonight.html#embed=1&at=28.61,77.21&name=Delhi&sections=passes,planets`
+is a light card for an `<iframe>`, with no toasts or location buttons and a link back. It hands launches and eclipses to
+the globe with `#go=…&id=…` (from an embed, in a new tab).
 
 ## Checklist
 

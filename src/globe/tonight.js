@@ -4,7 +4,10 @@
 // satellites when they climb high, the bright planets, the Moon's phase and the aurora chance where you stand. Each
 // pass can become a calendar reminder (works with the site closed) or a notification (while the page is open).
 // Your location is used here and saved only on this device (rounded to ~1 km), so the next visit can say it straight away.
+// Or a place typed in (only the words go to Photon, the site's geocoder), or one from a link (#at=lat,lon&name=, never saved).
 import { $, esc, toast, store } from './env.js';
+import { photon, PHOTON_CREDIT } from './geocode.js';
+import { tonightHash, tonightHeadings, placeName } from '../core/viewlink.js';
 import { state, hooks } from './state.js';
 import { Alerts } from './alerts.js';
 import { observer, sunEcef } from '../core/observer.js';
@@ -37,8 +40,8 @@ const friendly = n => / R\/B$/.test(n) ? `${n.replace(/ R\/B$/, '')} rocket stag
 const breathe = () => new Promise(r => setTimeout(r, 0));
 
 const home = {
-  get: () => store.get('home', null),
-  set: (lat, lon) => { const h = { lat: +lat.toFixed(2), lon: +lon.toFixed(2) }; store.set('home', h); return h; },   // works even when storage is blocked
+  get: () => { const h = store.get('home', null); return h && Number.isFinite(h.lat) && Number.isFinite(h.lon) ? { lat: h.lat, lon: h.lon, ...(placeName(h.name) ? { name: placeName(h.name) } : {}) } : null; },
+  set: (lat, lon, name) => { const h = { lat: +lat.toFixed(2), lon: +lon.toFixed(2), ...(placeName(name) ? { name: placeName(name) } : {}) }; store.set('home', h); return h; },   // works even when storage is blocked
   forget: () => { try { localStorage.removeItem('oo3d.home'); localStorage.removeItem('oo3d.auroraWatch'); } catch (e) { /* private mode */ } },
 };
 const locate = () => new Promise(res => {
@@ -130,23 +133,44 @@ async function launchesNear(loc) {
 function card(html) { const c = $('#card'); deselect(); c.innerHTML = `<button class="x" aria-label="Close">×</button><div data-tn hidden></div>${html}`; c.classList.add('show'); c.querySelector('.x').onclick = () => Tonight.close(); fold(c); return c; }
 // sections fold: tap a heading to hide what's under it (remembered on this device)
 const SHUT = new Set((v => Array.isArray(v) ? v.filter(x => typeof x === 'string') : ['Farthest from home'])(store.get('tnShut', null)));   // garbage in storage must not throw at module load
+// an embed (tonight.html#embed=1[&sections=...]) opens only its chosen sections (or the usual ones), and remembers taps for this visit only
+const tapped = new Map();
 function fold(c) {
+  const embedMode = !!(D && D.embed), only = embedMode && D.embed.sections ? tonightHeadings(D.embed.sections) : null;
   for (const h of c.querySelectorAll('h3')) {
     const name = h.firstChild ? h.firstChild.textContent.trim() : '', body = [];
     for (let n = h.nextElementSibling; n && n.tagName !== 'H3' && !n.classList.contains('acts') && !(n.tagName === 'P' && n.classList.contains('note')); n = n.nextElementSibling) body.push(n);
     if (!body.length) continue;
     const set = shut => { h.classList.toggle('shut', shut); h.setAttribute('aria-expanded', String(!shut)); for (const n of body) n.hidden = shut; };
-    h.tabIndex = 0; h.setAttribute('role', 'button'); h.classList.add('fold'); set(SHUT.has(name));
-    h.onclick = h.onkeydown = e => { if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); const shut = !h.classList.contains('shut'); set(shut); shut ? SHUT.add(name) : SHUT.delete(name); store.set('tnShut', [...SHUT]); };
+    h.tabIndex = 0; h.setAttribute('role', 'button'); h.classList.add('fold'); set(embedMode && tapped.has(name) ? tapped.get(name) : only ? !only.has(name) : SHUT.has(name));
+    h.onclick = h.onkeydown = e => { if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); const shut = !h.classList.contains('shut'); set(shut);
+      if (embedMode) { tapped.set(name, shut); return; }
+      shut ? SHUT.add(name) : SHUT.delete(name); store.set('tnShut', [...SHUT]); };
   }
 }
 
 function intro(msg = '') {
+  S.run++; S.loc = null; clearTimeout(pending); pending = 0;   // a place's feeds still landing must not redraw over the place box
   const c = card(`<div class="k" style="--c:#7dffa6">Your sky</div><h2>Tonight above you</h2>
     <p class="note">The space station, Starlink trains, bright planets, the Moon and the aurora chance where you are, in plain words, with reminders.</p>
     ${msg ? `<p class="note warn">${esc(msg)}</p>` : ''}
     <div class="acts"><button class="chipbtn" id="tnLoc" style="color:#7dffa6">Use my location</button><button class="chipbtn" id="tnGreen">Try Greenwich</button></div>
-    <p class="note">Your location is used on this device only (saved rounded to about 1 km, so the next visit can tell you straight away). The cloud forecast is asked for a point rounded to about 10 km (Open-Meteo); nothing else leaves this device.</p>`);
+    <form id="tnFind" role="search" style="margin-top:12px"><label for="tnQ" class="note" style="display:block;margin:0 2px 6px">Or another place: a town, an airport, an address</label>
+      <span style="display:flex;gap:6px"><input id="tnQ" type="search" maxlength="80" autocomplete="off" enterkeyhint="search" style="flex:1;min-width:0;min-height:40px;padding:8px 10px;border-radius:9px;border:1px solid rgba(230,237,243,.16);background:rgba(230,237,243,.05);color:inherit;font:inherit"><button class="chipbtn" type="submit">Find</button></span></form>
+    <div class="tn-list" id="tnHits" style="margin-top:6px"></div>
+    <p class="note">Your location is used on this device only (saved rounded to about 1 km, so the next visit can tell you straight away). A place you type is looked up by Photon (komoot): only the words you type are sent, and the place you pick is saved on this device the same way. The cloud forecast is asked for a point rounded to about 10 km (Open-Meteo); nothing else leaves this device. <small>${esc(PHOTON_CREDIT)}</small></p>`);
+  const hits = c.querySelector('#tnHits');
+  c.querySelector('#tnFind').onsubmit = async e => {
+    e.preventDefault();
+    const q = c.querySelector('#tnQ').value.trim(); if (!q) return;
+    hits.innerHTML = '<p class="note">Looking…</p>';
+    const list = await photon(q, 5).catch(() => null);
+    if (!c.contains(hits)) return;   // the card moved on meanwhile
+    if (!list) { hits.innerHTML = '<p class="note warn">The place search (Photon) is unreachable right now. Try again in a moment.</p>'; return; }
+    if (!list.length) { hits.innerHTML = `<p class="note">No place found for “${esc(q)}”.</p>`; return; }
+    hits.innerHTML = list.map((pl, i) => `<button class="tn-row" data-pl="${i}" style="text-align:left;cursor:pointer;color:inherit;font:inherit"><span><b>${esc(pl.name)}</b>${pl.sub ? ` <small style="color:var(--faint,#738599)">${esc(pl.sub)}</small>` : ''}</span></button>`).join('');
+    hits.querySelectorAll('[data-pl]').forEach(b => { b.onclick = () => { const pl = list[+b.dataset.pl]; show(home.set(pl.lat, pl.lon, pl.name)); }; });
+  };
   c.querySelector('#tnLoc').onclick = async () => {
     c.querySelector('#tnLoc').textContent = 'Finding you…';
     const p = await locate(), mine = c.classList.contains('show') && c.querySelector('#tnLoc');   // closed or replaced while the permission prompt was up: stay quiet
@@ -171,7 +195,7 @@ function draw(initial) {
   const cur = $('#card');   // closed, or replaced by another card (Esc, a click on the globe): stop updating it
   if (!initial && !(cur.classList.contains('show') && cur.querySelector('[data-tn]'))) { S.open = false; S.run++; return; }
   const scrolls = [cur.scrollTop, ...[...cur.querySelectorAll('.tn-list')].map(el => el.scrollTop)];   // a redraw must not throw away where the reader had scrolled to
-  const { lat, lon, demo } = S.loc, now = Date.now(), list = S.passes.filter(p => p.set > now).sort((a, b) => a.rise - b.rise);
+  const { lat, lon, demo, name, shared } = S.loc, embed = !!(D && D.embed), now = Date.now(), list = S.passes.filter(p => p.set > now).sort((a, b) => a.rise - b.rise);
   const mk = `${lat},${lon},${Math.floor(now / 60e3)}`;   // the sky maths (~5 ms) is the same within a minute
   if (!S.memo || S.memo.key !== mk) S.memo = { key: mk, planets: planetsTonight(lat, lon, now, { time, ...NIGHT }), sm: sunMoon(lat, lon, now), showers: showersFor(lat, lon, now, { time, ...NIGHT }).filter(m => m.days > -2 || m.rate >= 3), moon: (w => w && moonOver(lat, lon, w))(darkWindow(lat, lon, now, NIGHT)) };
   const { planets, sm, showers } = S.memo, up = planets.filter(p => p.up), moon = moonPhase(now);
@@ -188,9 +212,10 @@ function draw(initial) {
     cl ? (/all night/.test(cl.text) && cl.clear.length ? '<b>Clear skies tonight.</b>' : cl.clear.length ? `<b>Clear from ${esc(time(cl.clear[0].from))} to ${esc(time(cl.clear[0].to))}.</b>` : `<b class="cl">${cl.mean >= 75 ? 'Cloudy tonight.' : 'Patchy cloud tonight.'}</b>`) : '',
     S.aurora && S.aurora.level >= 2 ? `<b class="ok">${esc(S.aurora.text)}</b>` : ''].filter(Boolean).join(' ');
   const watching = !!store.get('auroraWatch', null);
-  S.summary = [`Tonight's sky${demo ? ' over Greenwich' : ''}:`, first ? `${first.short} at ${time(first.rise)}, look ${compass(first.azRise)}` : '', cl ? (cl.clear.length ? `clear ${time(cl.clear[0].from)} to ${time(cl.clear[0].to)}` : `cloudy (${cl.mean}%)`) : '',
+  S.summary = [`Tonight's sky${demo ? ' over Greenwich' : name ? ' over ' + name : ''}:`, first ? `${first.short} at ${time(first.rise)}, look ${compass(first.azRise)}` : '', cl ? (cl.clear.length ? `clear ${time(cl.clear[0].from)} to ${time(cl.clear[0].to)}` : `cloudy (${cl.mean}%)`) : '',
     up.length ? `${up.map(p => p.name).join(', ')} up` : '', S.dark && S.dark.sky ? `Bortle ${S.dark.sky.bortle} sky, ${q.word} for stars` : '', `Moon ${Math.round(moon.lit * 100)}% lit`, S.aurora && S.aurora.level >= 2 ? S.aurora.text : ''].filter(Boolean).join(' · ');
-  const c = card(`<div class="k" style="--c:#7dffa6">${demo ? 'Greenwich, London (example)' : `Your sky · ${lat.toFixed(2)}, ${lon.toFixed(2)} · saved on this device`}</div><h2>Tonight above you</h2>
+  const where = demo ? 'Greenwich, London (example)' : `${name ? esc(name) : shared ? 'The sky here' : 'Your sky'} · ${lat.toFixed(2)}, ${lon.toFixed(2)} · ${shared ? (embed ? 'Open Overwatch' : 'from a link, not saved') : 'saved on this device'}`;
+  const c = card(`<div class="k" style="--c:#7dffa6">${where}</div><h2>${name && !demo ? `Tonight over ${esc(name)}` : 'Tonight above you'}</h2>
     <p class="tn-head">${head}</p>
     ${S.iss ? `<p class="tn-p" style="margin-top:6px">${esc(S.iss)}${S.crew ? ` ${esc(S.crew)} <a href="#" id="tnCrew">Who?</a>` : ''}</p>` : ''}
     <h3>Clouds tonight</h3><p class="tn-p">${cl ? esc(cl.text) + (cl.next ? ' ' + esc(cl.next) : '') : S.cloudErr ? esc(S.cloudErr) : S.hours ? 'No dark sky to forecast.' : 'Checking the cloud forecast…'} <small>Forecast: Open-Meteo.com (CC BY 4.0)</small></p>
@@ -204,12 +229,12 @@ function draw(initial) {
     <h3>Sun</h3><p class="tn-p">${esc(sm.sunText)}</p>
     <h3>Moon</h3><p class="tn-p">${esc(moon.name)} · ${Math.round(moon.lit * 100)}% lit · ${esc(sm.moonText)}${sky > 0 ? ' · it is daytime here now' : ''}<br><small>${esc(sm.full)}</small></p>
     <h3>Aurora</h3><p class="tn-p">${S.aurora ? esc(S.aurora.text) + (S.aurora.err ? '' : ` <small>(NOAA OVATION: ${S.aurora.overhead}% overhead)</small>`) : 'Checking NOAA\'s aurora forecast…'}</p>
-    <div class="acts"><button class="chipbtn" id="tnAur">${watching ? 'Stop aurora alerts' : 'Alert me if aurora gets likely'}</button></div>
+    ${embed || shared ? '' : `<div class="acts"><button class="chipbtn" id="tnAur">${watching ? 'Stop aurora alerts' : 'Alert me if aurora gets likely'}</button></div>`}
     ${sunTonightHtml(S.sun, S.sunErr)}
     ${soon.length ? `<h3>Coming up in the sky</h3><div class="tn-list">${soon.map(t => `<div class="tn-row"><span>${esc(t)}</span></div>`).join('')}</div>` : ''}
     ${S.ecl ? `<h3>Next solar eclipse you can see</h3><div class="tn-list"><div class="tn-row"><span>${esc(new Date(S.ecl.at).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}, ${esc(new Date(S.ecl.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}: ${S.ecl.kind === 'total' ? '<b class="ok">TOTAL</b> from here' : S.ecl.kind === 'annular' ? 'a ring of fire from here' : `the Moon covers ${Math.round(S.ecl.covered * 100)}% of the Sun from here`}${S.ecl.e.type === 'total' && S.ecl.kind !== 'total' ? ' (totality elsewhere)' : ''}. Never look at the Sun without eclipse glasses.</span>${D.watchEclipse ? '<span class="tn-b"><button class="chipbtn" id="tnEcl">Watch the shadow</button></span>' : ''}</div></div>` : S.ecl === false ? '<h3>Solar eclipses</h3><p class="tn-p">None visible from here in 2027–2030.</p>' : ''}
     ${S.far.length ? `<h3>Farthest from home</h3><div class="tn-list">${S.far.map(f => `<div class="tn-row"><span>${esc(f.text)}</span></div>`).join('')}</div>` : ''}
-    <div class="acts">${D.lookUp ? '<button class="chipbtn" id="tnLook" style="color:#7dffa6">Look up</button>' : ''}<button class="chipbtn" id="tnShare">Share tonight</button>${demo ? '<button class="chipbtn" id="tnLoc">Use my location</button>' : '<button class="chipbtn" id="tnForget">Forget my location</button>'}</div>
+    ${embed ? '' : `<div class="acts">${D.lookUp ? '<button class="chipbtn" id="tnLook" style="color:#7dffa6">Look up</button>' : ''}<button class="chipbtn" id="tnShare">Share tonight</button>${demo || shared ? '<button class="chipbtn" id="tnLoc">Use my location</button>' : `<button class="chipbtn" id="tnForget">${name ? 'Forget this place' : 'Forget my location'}</button>`}<button class="chipbtn" id="tnOther">Another place</button></div>`}
     <p class="note">Times are yours (${esc(Intl.DateTimeFormat().resolvedOptions().timeZone || 'local')}). "Calendar" adds an event that reminds you 10 minutes before, even with this site closed. "Remind me" and aurora alerts work while this page is open in a tab.</p>`);
   [c, ...c.querySelectorAll('.tn-list')].forEach((el, i) => { if (scrolls[i]) el.scrollTop = scrolls[i]; });
   bindPasses(c);
@@ -224,19 +249,22 @@ function draw(initial) {
     const m = showers[+b.dataset.met], night = showersFor(lat, lon, m.peakMs - 12 * HOUR, { time }).find(x => x.name === m.name), at = (night && night.bestMs) || m.peakMs;
     Alerts.calendar([{ uid: `oo-${m.name.replace(/\W+/g, '')}-${new Date(m.peakMs).getUTCFullYear()}@open-overwatch`, start: at - HOUR, end: at + HOUR, title: `${m.name} meteor shower: look up (radiant ${m.dir})`, details: `${m.text}\nFrom ${m.parent}, hitting the air at ${m.kms} km/s. Get away from lights, give your eyes 20 minutes, lie back.\nhttps://destinjones.github.io/open-overwatch/globe.html#go=tonight`, alarmMin: 30 }], `${m.name.toLowerCase().replace(/\W+/g, '-')}.ics`);
   }; });
-  c.querySelector('#tnAur').onclick = async () => {
+  if (c.querySelector('#tnAur')) c.querySelector('#tnAur').onclick = async () => {
     if (watching) { try { localStorage.removeItem('oo3d.auroraWatch'); } catch (e) { /* private mode */ } toast('Aurora alerts off'); return render(); }
     if (!(await Alerts.permission())) return toast('Notifications are blocked or not supported in this browser', 4000);
     if (!store.set('auroraWatch', { lat, lon })) return toast("Can't switch that on: this browser blocks site storage, so the alert couldn't be remembered", 5000);
     toast('Aurora alerts on: checked every 10 minutes while this page is open, once a night at most', 5000); render(); Tonight.watchAurora(); Tonight.checkAurora();
   };
-  c.querySelector('#tnShare').onclick = async () => {
-    const url = 'https://destinjones.github.io/open-overwatch/globe.html#go=tonight', text = S.summary + '\nSee yours:';
+  if (c.querySelector('#tnShare')) c.querySelector('#tnShare').onclick = async () => {
+    // a named place (typed, or from a link) is shared as itself; your own location never goes into a link
+    const at = name && !demo ? tonightHash(S.loc) : '';
+    const url = at ? 'https://destinjones.github.io/open-overwatch/tonight.html#' + at : 'https://destinjones.github.io/open-overwatch/globe.html#go=tonight', text = S.summary + (at ? '\nSee it live:' : '\nSee yours:');
     if (navigator.share) { try { await navigator.share({ title: "Tonight's sky", text, url }); return; } catch (e) { if (e.name === 'AbortError') return; } }
     try { await navigator.clipboard.writeText(text + ' ' + url); toast('Copied: paste it into a message', 3000); } catch (e) { window.prompt('Copy this:', text + ' ' + url); }
   };
   if (c.querySelector('#tnLook')) c.querySelector('#tnLook').onclick = () => { Tonight.close(); D.lookUp(); };
-  if (c.querySelector('#tnForget')) c.querySelector('#tnForget').onclick = () => { home.forget(); toast('Location forgotten'); intro(); };
+  if (c.querySelector('#tnForget')) c.querySelector('#tnForget').onclick = () => { home.forget(); toast(name ? 'Place forgotten' : 'Location forgotten'); intro(); };
+  if (c.querySelector('#tnOther')) c.querySelector('#tnOther').onclick = () => { intro(); const q = $('#tnQ'); if (q) q.focus(); };
   if (c.querySelector('#tnLoc')) c.querySelector('#tnLoc').onclick = async () => { const p = await locate(), mine = c.classList.contains('show') && c.querySelector('#tnLoc'); if (p) home.set(p.latitude, p.longitude); if (!mine) return; if (p) show(home.get() || home.set(p.latitude, p.longitude)); else toast('Location refused or unavailable', 4000); };
 }
 
@@ -316,7 +344,12 @@ let D = null;
 
 export const Tonight = {
   use(deps) { D = deps; return this; },
-  open() { S.open = true; const h = home.get(); if (h) show(h); else intro(); },
+  /** at: { lat, lon, name? } from a link (#at=, core/viewlink.js) answers for that place without saving it; else the saved home, or ask. */
+  open(at) {
+    S.open = true;
+    if (at && Number.isFinite(at.lat) && Number.isFinite(at.lon)) return show({ lat: at.lat, lon: at.lon, ...(placeName(at.name) ? { name: placeName(at.name) } : {}), shared: true });
+    const h = home.get(); if (h) show(h); else intro();
+  },
   /** Back from a card Tonight led to: the same place, saved or not (the Greenwich example has no saved home). */
   reopen() { if (S.loc) show(S.loc); else this.open(); },
   /** Passes of one satellite over the saved location (asks for it first if there isn't one). */
@@ -333,9 +366,9 @@ export const Tonight = {
   },
   close() { S.open = false; S.run++; clearTimeout(pending); pending = 0; deselect(); $('#card').classList.remove('show'); },
   /** After boot: if this device has a saved location, say the next thing worth seeing in one line. */
-  async peek() {
+  async peek({ nudge = true } = {}) {   // nudge: false (a page opened on another place's link) re-arms reminders and alerts, but says nothing about home
     Alerts.init(); this.watchAurora();
-    const h = home.get(); if (!h || !(await satsReady(60e3))) return;
+    const h = home.get(); if (!nudge || !h || !(await satsReady(60e3))) return;
     const iss = D.sats.byId.get('25544'); if (!iss) return;
     await new Promise(r => (window.requestIdleCallback || setTimeout)(r));   // ~15 ms of SGP4: not in the same tick the satellites landed in
     const obs = observer(h.lat, h.lon), now = Date.now();

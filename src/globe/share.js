@@ -2,7 +2,7 @@
 // Share a view: a link that puts the next person where you are, with the same layers, the same time and (if open) the same
 // weather sources and country. Everything lives in the URL hash (nothing is stored on a server):
 //   #c=lon,lat,height,heading,pitch  &l=ids,of,layers,on  &w=ir,wind  &t=julianDate,rate  &k=ISO2  &f=CALLSIGN  &d=drawing
-// and #go=tonight (a panel that needs no camera, e.g. from the landing page). The drawing (measure.js) goes in as its points.
+// and #go=tonight (a panel that needs no camera, e.g. from the landing page; &at=lat,lon&name= gives it a place). The drawing (measure.js) goes in as its points.
 // Links made elsewhere (the MCP server) add &a= / &x= (layers on / off) and &s= (a satellite to follow). A new hash in an
 // open page is applied again, flying there (main.js): the MCP panel moves its framed globe that way, without reloading it.
 import { C, $, toast } from './env.js';
@@ -18,6 +18,7 @@ import { Sats, SatModels } from './satellites.js';
 import { Flight } from './flight.js';
 import { Launches } from './launches.js';
 import { Eclipses } from './eclipses.js';
+import { Tonight } from './tonight.js';
 import { encodeView, decodeView, decodeExtras, mapLayersFor } from '../core/viewlink.js';
 
 const r = (v, n) => +v.toFixed(n);
@@ -62,6 +63,7 @@ export const Share = {
       if (x.go === 'launches' && x.id) Launches.openList(x.id);   // tonight.html hands over one launch or eclipse
       else if (x.go === 'eclipses' && x.id) Eclipses.openList(x.id);
       else if (x.go === 'reentry' && x.id) hooks.reentry?.(x.id);
+      else if (x.go === 'tonight' && x.at) { document.querySelectorAll('#band .go').forEach(b => b.classList.toggle('on', b.dataset.go === 'tonight')); Tonight.open(x.at); }   // Tonight for the place in the link (&at=lat,lon&name=), not saved
       else if (x.go) { const b = document.querySelector(`#band [data-go="${x.go}"]`); if (b) b.click(); else PRESETS[x.go](); }
       if (x.flight) Flight.find(x.flight); return !!(x.go || x.flight);
     }
