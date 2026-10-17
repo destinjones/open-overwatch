@@ -64,13 +64,33 @@ test('a launch\'s Details open it on the globe', async ({ page }) => {
   await page.goto('tonight.html');
   await page.locator('#tnLoc').click();
   await expect(card(page)).toContainText('Next launch anywhere');
-  const heading = card(page).locator('h3', { hasText: /rocket launches/i });
-  await expect(heading).toHaveAttribute('aria-expanded', 'true');   // a folding section, open by default
-  await heading.click();
+  await expect(card(page).getByRole('heading', { level: 3, name: /rocket launches/i })).toBeVisible();   // still a heading for screen readers
+  const toggle = card(page).locator('h3 > button.foldbtn', { hasText: /rocket launches/i });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');   // a folding section, open by default
+  await toggle.click();
   await expect(card(page).locator('[data-lch="0"]')).toBeHidden();
-  await heading.press('Enter');                                        // folds open again from the keyboard
+  await toggle.press('Enter');                                         // folds open again from the keyboard
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await card(page).locator('[data-lch="0"]').click();
   await expect(page).toHaveURL(/globe\.html#go=launches&id=e2e-1$/);
+});
+
+test('a redraw keeps keyboard focus, and the card is not one big live region', async ({ page }) => {
+  await page.goto('tonight.html');
+  await expect(card(page)).not.toHaveAttribute('aria-live', /./);
+  await expect(page.locator('#toast')).toHaveAttribute('role', 'status');
+  await page.locator('#tnLoc').click();
+  await expect(card(page)).toContainText('Saturn');
+  const bino = card(page).locator('[data-gear="binoculars"]');
+  await bino.focus();
+  await bino.press('Enter');                                           // the gear picker redraws the whole card
+  await expect(card(page).locator('[data-gear="binoculars"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(card(page).locator('[data-gear="binoculars"]')).toBeFocused();   // the new button, not <body>
+  const fold = card(page).locator('h3 > button.foldbtn', { hasText: /^Planets/ });
+  await fold.focus();
+  await card(page).locator('[data-gear="eyes"]').evaluate(b => b.click());   // a redraw while the heading's toggle has focus
+  await expect(card(page).locator('[data-gear="eyes"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(card(page).locator('h3 > button.foldbtn', { hasText: /^Planets/ })).toBeFocused();
 });
 
 test('Share tonight copies the summary and a link', async ({ page }) => {
@@ -122,8 +142,8 @@ test('the embed: the chosen sections, no location buttons or toasts, a link back
   await page.goto('tonight.html#embed=1&at=28.6,77.2&name=Delhi&sections=passes,planets');
   await expect(card(page).locator('h2')).toHaveText('Tonight over Delhi');
   await expect(card(page)).toContainText(/Saturn/);
-  await expect(card(page).locator('h3', { hasText: /^Planets/ })).toHaveAttribute('aria-expanded', 'true');
-  await expect(card(page).locator('h3', { hasText: /^Moon/ })).toHaveAttribute('aria-expanded', 'false');
+  await expect(card(page).locator('h3 > button.foldbtn', { hasText: /^Planets/ })).toHaveAttribute('aria-expanded', 'true');
+  await expect(card(page).locator('h3 > button.foldbtn', { hasText: /^Moon/ })).toHaveAttribute('aria-expanded', 'false');
   for (const id of ['#tnLoc', '#tnForget', '#tnShare', '#tnAur']) await expect(page.locator(id)).toHaveCount(0);
   await expect(page.locator('#toast')).toBeHidden();
   await expect(page.locator('footer a').first()).toHaveAttribute('href', 'https://destinjones.github.io/open-overwatch/tonight.html#at=28.6,77.2&name=Delhi');
