@@ -2,10 +2,12 @@
 """Build deep-space spacecraft trajectories for solar.html from JPL Horizons.
 
     python brand/tools/make_spacecraft.py
+    python brand/tools/make_spacecraft.py --only "Aditya-L1,Chandrayaan-2"   # rebuild those, keep the rest of the file
 
 Frame: heliocentric (Sun centre, 500@10) ECLIPTIC J2000, AU, TDB.
-Raw Horizons responses are cached in brand/source/horizons/ (delete a file to refetch it).
-Requests are sequential and at least 1 s apart.
+Raw Horizons responses are cached in brand/source/horizons/ (or $OO_HORIZONS_CACHE; delete a file to refetch it).
+Requests are sequential and at least 1 s apart. --only fetches just the named craft (and the bodies their events need)
+and merges them into the existing file in CRAFT order, so adding a mission costs a few requests, not a full rebuild.
 
 Output data/solar/spacecraft.json:
   [{name, id, launch_jd, desc, events: [[jd, text], ...], t0_jd, step_days, n, end_jd, agency, status, alias,
@@ -15,12 +17,17 @@ Output data/solar/spacecraft.json:
   `local` (a craft in orbit around a planet, Juno): Horizons' osculating elements around the planet (CENTER 500@599,
   ecliptic J2000, TDB), one set a day; src/core/craft.js flies the nearest set as a two-body orbit around the planet as
   the view draws it. Perijove passes come out within tens of km (test/fixtures/horizons_juno_perijoves.json: 20-minute
-  Horizons vectors for a day either side of three perijoves, written by this script as well).
+  Horizons vectors for a day either side of three perijoves, written by this script as well). `pj` (the 30-minute sets
+  around each periapsis) only for Juno: a Moon orbiter passes periapsis every two hours, Mars Orbiter Mission every three
+  days, and a set every 3 days (`step`; 6 hours for Chandrayaan-3) keeps them within ~300 km of Horizons
+  (test/fixtures/horizons_isro_orbits.json, written here too). Moon orbiters centre on 500@301 ('moon').
+  Craft that spend their first weeks raising their orbit around Earth (the ISRO missions) start their tracks at the burn
+  that sent them away (`since`): samples a day or more apart cannot follow an orbit that takes a day or two.
 """
 import datetime as dt, hashlib, json, math, os, re, sys, time, urllib.parse, urllib.request
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-CACHE = os.path.join(ROOT, 'brand', 'source', 'horizons')
+CACHE = os.environ.get('OO_HORIZONS_CACHE') or os.path.join(ROOT, 'brand', 'source', 'horizons')
 OUT = os.path.join(ROOT, 'data', 'solar', 'spacecraft.json')
 API = 'https://ssd.jpl.nasa.gov/api/horizons.api'
 
@@ -31,7 +38,8 @@ MAX_POINTS = 7000
 
 # events: (date 'YYYY-MM-DD[ HH:MM]' | 'auto', text, body for the closest-approach check or None)
 # 'auto' events take the closest approach to `body` in the window (date range) given as the 4th item;
-# 'end' events sit on the last sample of the track.
+# 'end' events sit on the last sample of the track, 'start' events on the first.
+# since / until: start or end the heliocentric track there (else it runs over Horizons' whole coverage, to 2035).
 CRAFT = [
     dict(name='Voyager 1', id=-31, launch='1977-09-05 12:56', step=5,
          desc='Fastest-receding probe; flew past Jupiter and Saturn/Titan, first craft in interstellar space.',
@@ -97,7 +105,7 @@ CRAFT = [
                  ('end', 'Jupiter arrival (end of the published trajectory)', None)]),
     # ---- added 2026-10-12: missions that orbit, land or sit at L2, and the classics
     dict(name='Juno', id=-61, launch='2011-08-05 16:25', step=1, agency='NASA', status='Orbiting Jupiter',
-         local=dict(center='599', key='jupiter', since='2016-07-05 12:00'),
+         local=dict(center='599', key='jupiter', since='2016-07-05 12:00', pj=True),
          desc="Jupiter polar orbiter: skims the cloud tops every few weeks, mapping gravity, magnetism and the deep atmosphere.",
          events=[('auto', 'Earth gravity assist', '399', ('2013-09-15', '2013-10-31')),
                  ('2016-07-05 03:53', 'Jupiter orbit insertion', '599'),
@@ -194,6 +202,58 @@ CRAFT = [
                  ("1994-09-13", "First pass over the Sun's south pole", None),
                  ("1995-07-31", "First pass over the Sun's north pole", None),
                  ('2009-06-30', 'Mission ended', None)]),
+    # ---- added 2026-10-17: ISRO's missions, every one Horizons carries (searched by name: Chandrayaan, Aditya,
+    # Mangalyaan). Left out: the Chandrayaan-2 lander (-153, a 4-day track to the failed landing). Launch times and
+    # the lander/landing times are from Horizons' own notes on each craft.
+    dict(name='Chandrayaan-2', id=-152, launch='2019-07-22 09:13', step=2, since='2019-08-14 06:00', agency='ISRO',
+         status='Orbiting the Moon', alias=['Chandrayaan', 'Chandrayaan 2', 'CH-2'],
+         local=dict(center='301', key='moon', since='2019-08-20 06:00', step=3),
+         desc="India's second Moon mission: its orbiter has mapped the Moon from a 100 km polar orbit since 2019; its Vikram lander was lost in the landing attempt.",
+         events=[('2019-08-14', 'Left Earth orbit for the Moon', None),
+                 ('2019-08-20 03:32', 'Entered lunar orbit', None),
+                 ('2019-09-02 07:45', 'Vikram lander separated from the orbiter', None),
+                 ('2019-09-06 20:23', 'Vikram lost 2 km above the surface in its landing attempt', None),
+                 ('end', 'End of the published trajectory', None)]),
+    dict(name='Chandrayaan-3 propulsion module', id=-169, launch='2023-07-14 09:05', step=0.25, since='2023-08-01 06:00',
+         agency='ISRO', status='Back in Earth orbit since 2023', alias=['Chandrayaan-3', 'CH-3 PM', 'Chandrayaan 3'],
+         local=dict(center='301', key='moon', since='2023-08-05 18:00', until='2023-10-13 00:00', step=0.25),
+         desc="Carried the Vikram lander and Pragyan rover to the Moon, then left lunar orbit for a high Earth orbit, where its SHAPE instrument studies Earth as a distant planet.",
+         events=[('2023-08-01', 'Left Earth orbit for the Moon', None),
+                 ('2023-08-05', 'Entered lunar orbit', None),
+                 ('2023-08-17', 'Vikram lander separated', None),
+                 ('2023-08-23 12:32', 'Vikram landed near the lunar south pole (Shiv Shakti Point)', None),
+                 ('2023-10-13', 'Left low lunar orbit, looping past the Moon four times on its way out', None),
+                 ('end', 'Back in Earth orbit: the published trajectory ends', None)]),
+    dict(name='Vikram lander (Chandrayaan-3)', id=-158, launch='2023-07-14 09:05', step=0.25, since='2023-08-01 06:00',
+         until='2023-08-23 06:00', agency='ISRO', status='Landed 2023 near the lunar south pole',
+         alias=['Vikram', 'Chandrayaan-3 lander', 'Pragyan'],
+         local=dict(center='301', key='moon', since='2023-08-05 18:00', until='2023-08-23 06:00', step=0.25),
+         desc="India's first soft landing on the Moon, and the first anywhere near its south pole; the Pragyan rover drove off it to study the soil.",
+         events=[('2023-08-01', 'Left Earth orbit for the Moon (riding the propulsion module)', None),
+                 ('2023-08-05', 'Entered lunar orbit', None),
+                 ('2023-08-17', 'Separated from the propulsion module', None),
+                 ('2023-08-23 12:32', 'Landed at Shiv Shakti Point, 69.4 S 32.3 E (the drawn track ends in its last orbit)', None)]),
+    dict(name='Aditya-L1', id=-156, launch='2023-09-02 06:20', step=2, since='2023-09-19 00:00', agency='ISRO',
+         status='Observing the Sun from Sun-Earth L1', alias=['Aditya L1', 'Aditya'],
+         desc="India's first solar observatory: watches the Sun's corona, flares and solar wind nonstop from a halo orbit around Sun-Earth L1, 1.5 million km sunward of Earth.",
+         events=[('2023-09-19', 'Left Earth orbit for L1', None),
+                 ('2024-01-06', 'Entered its halo orbit around Sun-Earth L1', None),
+                 ('end', 'End of the published trajectory', None)]),
+    dict(name='Mars Orbiter Mission', id=-3, launch='2013-11-05 09:08', step=2, since='2013-12-01 00:00', agency='ISRO',
+         status='Ended 2022', alias=['Mangalyaan', 'MOM'],
+         local=dict(center='499', key='mars', since='2014-09-24 06:00', step=3),
+         desc="Mangalyaan, India's first interplanetary mission: reached Mars orbit at the first attempt in 2014 and worked there for seven and a half years.",
+         events=[('2013-11-30', 'Left Earth for Mars', None),
+                 ('2014-09-24 02:10', 'Entered Mars orbit, at the first attempt', None),
+                 ('2022-10-02', 'Mission declared over (contact was lost in April 2022)', None)]),
+    dict(name='Chandrayaan-1', id=-86, launch='2008-10-22 00:52', step=2, agency='ISRO', status='Silent since 2009',
+         alias=['Chandrayaan 1', 'CH-1'],
+         local=dict(center='301', key='moon', since='2016-07-03 00:00', step=3),
+         desc="India's first Moon mission found signs of water on the Moon; contact was lost in 2009, and NASA radar found the silent craft still circling the Moon in 2016.",
+         events=[('2008-11-08', 'Entered lunar orbit', None),
+                 ('2008-11-14', 'Its Moon Impact Probe struck near the south pole', None),
+                 ('2009-08-29', 'Contact lost', None),
+                 ('start', 'Found again by NASA radar, still in lunar orbit (the published track starts)', None)]),
 ]
 
 
@@ -203,6 +263,11 @@ STATUS = {'Voyager 1': ('NASA', 'In interstellar space'), 'Voyager 2': ('NASA', 
           'New Horizons': ('NASA', 'In the Kuiper Belt'), 'Parker Solar Probe': ('NASA', 'Orbiting the Sun'),
           'Europa Clipper': ('NASA', 'Cruise to Jupiter'), 'Psyche': ('NASA', 'Cruise to asteroid Psyche'),
           'Lucy': ('NASA', 'Touring Trojan asteroids'), 'JUICE': ('ESA', 'Cruise to Jupiter')}
+
+
+def step_str(step):
+    """Horizons STEP_SIZE for a step in days ('5 d'; under a day in hours, '6 h')."""
+    return f'{step} d' if step >= 1 else f'{round(step * 24)} h'
 
 
 def jd_of(s):
@@ -279,10 +344,12 @@ def fetch_track(craft):
     start = coverage_error(probe, 'prior to')
     if start is None:
         sys.exit(f"{craft['name']}: could not read coverage start from Horizons:\n{probe.get('error') or probe.get('result', '')[:800]}")
-    t0 = GRID0 + math.ceil((start + 0.25 - GRID0) / step) * step   # first grid point >= 6 h after coverage start
-    stop = GRID0 + math.floor((LIMIT_JD - GRID0) / step) * step
+    # first grid point >= 6 h after coverage start (and at or after `since`); the last at or before 2035 (and `until`)
+    t0 = GRID0 + math.ceil((max(start + 0.25, jd_of(craft.get('since', '1900-01-01'))) - GRID0) / step) * step
+    stop = GRID0 + math.floor((min(LIMIT_JD, jd_of(craft.get('until', '2100-01-01'))) - GRID0) / step) * step
+    fmt = (lambda jd: f'JD{jd:.1f}') if step >= 1 else (lambda jd: f'JD{jd:.4f}')
     for _ in range(3):
-        data = horizons(cid, f'JD{t0:.1f}', f'JD{stop:.1f}', f'{step} d')
+        data = horizons(cid, fmt(t0), fmt(stop), step_str(step))
         rows = parse_vectors(data)
         if rows:
             break
@@ -321,12 +388,17 @@ def horizons_q(params, key):
 
 
 def fetch_local(craft, end_jd):
-    """Daily osculating elements around the planet: {center, gm, t0_jd, step_days, el}."""
+    """Osculating elements around the planet (or the Moon), one set a day or every `step` days: {center, gm, t0_jd, step_days, el, pj}."""
     L = craft['local']
-    t0 = GRID0 + math.ceil((jd_of(L['since']) - GRID0))   # first 0h TDB after `since`
+    step = L.get('step', 1)
+    t0 = GRID0 + math.ceil((jd_of(L['since']) - GRID0) / step) * step   # first grid time (0h TDB for daily sets) after `since`
+    if L.get('until'):
+        end_jd = min(end_jd, GRID0 + math.floor((jd_of(L['until']) - GRID0) / step) * step)
+    span = (f"'JD{t0:.1f}'", f"'JD{end_jd:.1f}'") if step >= 1 else (f"'JD{t0:.4f}'", f"'JD{end_jd:.4f}'")
+    key = f"el_{craft['id']}_{L['center']}_{t0}_{end_jd}" + ('' if step == 1 else f'_{step}')
     data = horizons_q(dict(format='json', COMMAND=f"'{craft['id']}'", OBJ_DATA="'NO'", MAKE_EPHEM="'YES'", EPHEM_TYPE="'ELEMENTS'",
                            CENTER=f"'500@{L['center']}'", REF_PLANE="'ECLIPTIC'", REF_SYSTEM="'ICRF'", OUT_UNITS="'KM-S'", CSV_FORMAT="'YES'",
-                           START_TIME=f"'JD{t0:.1f}'", STOP_TIME=f"'JD{end_jd:.1f}'", STEP_SIZE="'1 d'"), f"el_{craft['id']}_{L['center']}_{t0}_{end_jd}")
+                           START_TIME=span[0], STOP_TIME=span[1], STEP_SIZE=f"'{step_str(step)}'"), key)
     res = data['result']
     gm = float(re.search(r'Keplerian GM\s*:\s*([0-9.Ee+-]+)', res).group(1))
     body = res.split('$$SOE', 1)[1].split('$$EOE', 1)[0]
@@ -334,7 +406,13 @@ def fetch_local(craft, end_jd):
     for line in body.strip().splitlines():
         c = [x.strip() for x in line.split(',')]
         jd, ec, qr, inc, om, w, tp = float(c[0]), float(c[2]), float(c[3]), float(c[4]), float(c[5]), float(c[6]), float(c[7])
-        el.append([round(qr), round(ec, 7), round(inc, 5), round(om % 360, 5), round(w % 360, 5), round(tp, 5)])   # ~1 km
+        if L.get('pj'):
+            el.append([round(qr), round(ec, 7), round(inc, 5), round(om % 360, 5), round(w % 360, 5), round(tp, 5)])   # ~1 km
+        else:   # sets 3 days apart are good to ~300 km (checked against Horizons vectors): coarser is plenty
+            el.append([round(qr), round(ec, 6), round(inc, 4), round(om % 360, 4), round(w % 360, 4), round(tp, 5)])
+        assert abs(jd - (t0 + (len(el) - 1) * step)) < 1e-6, (craft['name'], jd)
+    if not L.get('pj'):
+        return dict(center=L['key'], gm=gm, t0_jd=t0, step_days=step, el=el, pj=[])
     # each perijove once (the daily sets name it from either side: take it from the set nearest to it), then element
     # sets every 30 minutes for 3 hours either side of it (fetched every 15 minutes for 6 hours): near the planet its
     # oblateness turns the osculating orbit fast, and a set an hour away already misses the pass by ~1,000 km
@@ -361,6 +439,31 @@ def fetch_local(craft, end_jd):
         # day around a pass, vs 66 km for all of them at twice the size)
         pj.append(dict(tp=round(tp, 6), t0=round(a + 0.125, 6), step=1 / 48, el=sets[12:37:2]))
     return dict(center=L['key'], gm=gm, t0_jd=t0, step_days=1, el=el, pj=pj)
+
+
+# Horizons vectors around the centre body for a few days of each kind of ISRO orbit -> test/fixtures/horizons_isro_orbits.json
+# (the orbits drawn from the sets every 3 days, or 6 hours, are checked against them: test/whereis.test.mjs)
+LOCAL_CHECKS = [('Chandrayaan-2', '2026-10-01', '2026-10-05', '20 m', 6), ('Mars Orbiter Mission', '2018-03-01', '2018-03-08', '30 m', 6),
+                ('Chandrayaan-3 propulsion module', '2023-08-25', '2023-08-27', '20 m', 6)]
+
+
+def local_fixture(crafts):
+    by = {c['name']: c for c in crafts}
+    if not all(n in by for n, *_ in LOCAL_CHECKS):
+        return
+    out = {'source': 'JPL Horizons vectors around the centre body (500@301 Moon, 500@499 Mars), ecliptic J2000, km, JD TDB', 'craft': {}}
+    for name, a, b, step, every in LOCAL_CHECKS:
+        c = by[name]
+        data = horizons_q(dict(format='json', COMMAND=f"'{c['id']}'", OBJ_DATA="'NO'", MAKE_EPHEM="'YES'", EPHEM_TYPE="'VECTORS'",
+                               CENTER=f"'500@{c['local']['center']}'", REF_PLANE="'ECLIPTIC'", REF_SYSTEM="'ICRF'", VEC_TABLE="'1'",
+                               OUT_UNITS="'KM-S'", CSV_FORMAT="'YES'", VEC_LABELS="'NO'", START_TIME=f"'{a}'", STOP_TIME=f"'{b}'", STEP_SIZE=f"'{step}'"),
+                         f"chk_{c['id']}_{a}")
+        rows = parse_vectors(data)[::every]
+        out['craft'][name] = {'center': c['local']['key'], 'rows': [[r[0], round(r[1], 1), round(r[2], 1), round(r[3], 1)] for r in rows]}
+    path = os.path.join(ROOT, 'test', 'fixtures', 'horizons_isro_orbits.json')
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(out, f, separators=(',', ':'))
+    print(f"  fixture {os.path.basename(path)}: {', '.join(n for n, *_ in LOCAL_CHECKS)}")
 
 
 def perijove_fixture(craft, local, n=3):
@@ -415,14 +518,18 @@ def closest(rows, body_rows, lo, hi):
 def main():
     global LIMIT_JD
     LIMIT_JD = jd_of('2035-01-01')
+    only = set(sys.argv[sys.argv.index('--only') + 1].split(',')) if '--only' in sys.argv else None
+    if only and only - {c['name'] for c in CRAFT}:
+        sys.exit(f"--only: no craft called {', '.join(sorted(only - {c['name'] for c in CRAFT}))}")
+    crafts = [c for c in CRAFT if not only or c['name'] in only]
     tracks = {}
-    for c in CRAFT:
+    for c in crafts:
         print(c['name'])
         tracks[c['name']] = fetch_track(c)
 
     # bodies for flyby checks / auto event dates: one 5-day series covering every craft
     first = min(rows[0][0] for _, rows in tracks.values()) - 10
-    bodies = sorted({e[2] for c in CRAFT for e in c['events'] if e[2]})
+    bodies = sorted({e[2] for c in crafts for e in c['events'] if e[2]})
     body_rows = {}
     for b in bodies:
         lo = GRID0 + math.floor((first - GRID0) / 5) * 5
@@ -433,13 +540,15 @@ def main():
 
     out = []
     print('\nEvents (curated date vs closest approach on the sampled track):')
-    for c in CRAFT:
+    for c in crafts:
         start, rows = tracks[c['name']]
         events = [[round(jd_of(c['launch']), 4), 'Launch']]
         for e in c['events']:
             date, text, body = e[0], e[1], e[2]
             if date == 'end':
                 jd = rows[-1][0]
+            elif date == 'start':
+                jd = rows[0][0]
             elif date == 'auto':
                 lo, hi = jd_of(e[3][0]), jd_of(e[3][1])
                 ca = closest(rows, body_rows[body], lo, hi)
@@ -463,14 +572,21 @@ def main():
             xyz.extend(round(v, 5) for v in r[1:])
         if c.get('local'):
             local = fetch_local(c, rows[-1][0])
-            print(f"  {c['name']}: {len(local['el'])} daily element sets around {local['center']}, GM {local['gm']}")
-            perijove_fixture(c, local)
+            print(f"  {c['name']}: {len(local['el'])} element sets every {local['step_days']} d around {local['center']}, GM {local['gm']}")
+            if local['pj']:
+                perijove_fixture(c, local)
         out.append(dict(name=c['name'], id=c['id'], launch_jd=round(jd_of(c['launch']), 4), desc=c['desc'],
                         events=events, t0_jd=rows[0][0], step_days=step, n=len(rows), end_jd=rows[-1][0],
                         coverage_start_jd=round(start, 4), agency=c.get('agency') or STATUS[c['name']][0],
                         status=c.get('status') or STATUS[c['name']][1], alias=c.get('alias', []), xyz=xyz,
                         **({'local': local} if c.get('local') else {})))
 
+    local_fixture(crafts)
+    if only:   # merge into the file as it is, in CRAFT order
+        with open(OUT, encoding='utf-8') as f:
+            have = {o['name']: o for o in json.load(f)}
+        have.update({o['name']: o for o in out})
+        out = [have[c['name']] for c in CRAFT if c['name'] in have]
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, 'w', encoding='utf-8') as f:
         json.dump(out, f, separators=(',', ':'))

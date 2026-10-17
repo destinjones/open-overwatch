@@ -10,12 +10,16 @@
 // one set a day ({ center, gm km^3/s^2, t0_jd, step_days, el: [[q km, e, i, node, peri (deg), tp], ...] }); the
 // position is the planet (as the view draws it) plus a two-body orbit from the nearest set, so the perijove passes
 // are exact to a few km and the craft sits on its orbit around the Jupiter on screen, not 100,000 km beside it.
+// ISRO's Moon orbiters (Chandrayaan) and Mars Orbiter Mission carry the same around 'moon' and 'mars', a set every
+// 3 days (6 hours for Chandrayaan-3's short stay) and no perijove sets: within ~300 km of Horizons, ~20 km for
+// Chandrayaan-3 (test/fixtures/horizons_isro_orbits.json).
 // Past the last sample a craft that is leaving the Sun for good (above escape speed) coasts on in a straight line,
 // which is how Voyager and Pioneer really fly; any other craft has no published position there (null).
 
 import { AU_KM, C_KM_S } from './units.js';
 import { GM_SUN, cometPosition } from './comets.js';
 import { DEG } from './units.js';
+import { earthPosition, moonGeocentric } from './planets.js';
 
 /** Signal (light) time over au, in seconds. */
 export const lightSeconds = au => au * AU_KM / C_KM_S;
@@ -77,6 +81,19 @@ function nearestPj(L, jd) {   // binary search in the perijoves (sorted by time)
 }
 /** Planet-centred position (AU, ecliptic J2000) at jd, or null outside the local stretch. */
 export function localPosition(c, jd, out = {}) { return inLocal(c, jd) ? cometPosition(localOrbit(c, jd), jd, out) : null; }
+
+const MG = {};
+/**
+ * A centre for callers without a view of their own (the MCP, the India page): the Moon as the Solar System view draws it
+ * by default (Earth plus core/planets.js's lunar series), so a Moon orbiter (Chandrayaan) sits on its orbit around that
+ * Moon and its distance from that Earth is the Moon's plus the orbit, not the ~2,000 km scatter of its 2-day samples.
+ * Any other centre gives null: Juno and Mars Orbiter Mission keep their Horizons samples, which beat the approximate planets.
+ */
+export function moonCenterAt(key, jd, out = {}) {
+  if (key !== 'moon') return null;
+  earthPosition(jd, out); moonGeocentric(jd, MG);
+  out.x += MG.x; out.y += MG.y; out.z += MG.z; return out;
+}
 
 /** Periapsis passages (Juno's perijoves) inside the local stretch: [jd], in time order. */
 export const periapses = c => (c.local?.pj || []).map(p => p.tp);
@@ -175,11 +192,12 @@ export function lagrangeL1L2(earth, mu = EARTH_MOON_MU) {
   return { L1: { x: earth.x * (1 - k), y: earth.y * (1 - k), z: earth.z * (1 - k) }, L2: { x: earth.x * (1 + k), y: earth.y * (1 + k), z: earth.z * (1 + k) } };
 }
 
-/** One line per mission for a list: { name, phase, au (from Earth) | null, light (s) | null, next: [jd, text] | null }, nearest first. */
-export function missionsNow(tracks, jd, earth) {
+/** One line per mission for a list: { name, phase, au (from Earth) | null, light (s) | null, next: [jd, text] | null }, nearest first.
+ *  centerAt as for trackPosition (the view's own planets and Moon, or moonCenterAt). */
+export function missionsNow(tracks, jd, earth, centerAt = null) {
   const p = {};
   return tracks.map(c => {
-    const at = trackPosition(c, jd, p), au = at && jd >= c.launch_jd ? Math.hypot(p.x - earth.x, p.y - earth.y, p.z - earth.z) : null;
+    const at = trackPosition(c, jd, p, centerAt), au = at && jd >= c.launch_jd ? Math.hypot(p.x - earth.x, p.y - earth.y, p.z - earth.z) : null;
     return { name: c.name, status: c.status, phase: missionPhase(c, jd), au, light: au == null ? null : lightSeconds(au), next: eventsAround(c, jd).next };
   }).sort((a, b) => (a.au ?? Infinity) - (b.au ?? Infinity));
 }

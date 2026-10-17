@@ -2,22 +2,24 @@
 // Deep-space missions from JPL Horizons trajectories (data/solar/spacecraft.json, fixed time steps; maths in
 // src/core/craft.js). Each craft draws the path it has flown (bright) and the path still planned (faint), and the
 // focused craft marks its mission events along the track. Cards carry the mission, the signal time to Earth, the next
-// event with a countdown, and a timeline whose entries jump the clock there. A craft in orbit around a planet (Juno)
-// rides its two-body orbit around the Jupiter on screen (core/craft.js track.local), and that orbit is drawn there.
+// event with a countdown, and a timeline whose entries jump the clock there. A craft in orbit around a planet (Juno, Mars
+// Orbiter Mission) or the Moon (Chandrayaan) rides its two-body orbit around the body on screen (core/craft.js
+// track.local), and that orbit is drawn there.
 import * as THREE from 'three';
-import { KM_AU } from '../core/units.js';
+import { KM_AU, AU_KM } from '../core/units.js';
 import { fetchAsset } from '../core/assets.js';
 import { distance, lightTime } from '../core/format.js';
 import { formatUtc } from '../core/time.js';
-import { trackPosition, trackSpeed, sampleIndex, missionPhase, eventsAround, relativeTime, escaping, lagrangeL1L2, inLocal, localOrbit, periapses } from '../core/craft.js';
+import { trackPosition, trackSpeed, sampleIndex, missionPhase, eventsAround, relativeTime, escaping, lagrangeL1L2, inLocal, localOrbit, localPosition, periapses } from '../core/craft.js';
 import { planetPosition, PHYSICAL } from '../core/planets.js';
 import { orbitPath } from '../core/kepler.js';
 import { STAR_TEXTURE } from './util.js';
 import { addBody, byKey, layer, layerOn, onLayers } from './world.js';
 
-const FLOWN = 0xffb44d, AHEAD = 0xffd9a3;
-/** Where the view draws a planet (the centre of a planet-centred track). */
-const centerAt = (key, jd, out) => planetPosition(key, jd, out);
+const FLOWN = 0xffb44d, AHEAD = 0xffd9a3, LP = {};
+/** Where the view draws a planet or the Moon (the centre of a planet- or Moon-centred track). */
+const centerAt = (key, jd, out) => key === 'moon' ? byKey.moon?.posAt(jd, out) ?? null : planetPosition(key, jd, out);
+const AROUND = { moon: 'the Moon', mars: 'Mars', jupiter: 'Jupiter' };
 
 export function createSpacecraft({ scene }) {
   const craft = [];
@@ -85,6 +87,10 @@ export function createSpacecraft({ scene }) {
             const dE = c.pos.distanceTo(byKey.earth.pos);
             rows.push(['From the Sun', distance(c.pos.length())], ['From Earth', distance(dE)], ['Signal to Earth', lightTime(dE) + ' each way'], ['Speed (Sun)', c.vel.toFixed(1) + ' km/s']);
           }
+          if (s.local && inLocal(s, jd) && c.launched) {   // height over the body it circles (equatorial radius)
+            const l = localPosition(s, jd, LP);
+            rows.push([`Above ${AROUND[s.local.center] || s.local.center}`, Math.round(Math.hypot(l.x, l.y, l.z) * AU_KM - Rp).toLocaleString('en-US') + ' km']);
+          }
           if (pjs.length && inLocal(s, jd)) {   // perijoves: the passes over the cloud tops
             let i = pjs.findIndex(t => t > jd); if (i < 0) i = pjs.length;
             const alt = k => Math.round(s.local.pj[k].el[Math.floor(s.local.pj[k].el.length / 2)][0] - Rp).toLocaleString('en-US');
@@ -117,7 +123,7 @@ export function createSpacecraft({ scene }) {
   }
   onLayers(() => { for (const c of craft) c.line.visible = layerOn('craft'); if (!layerOn('craft')) marks.visible = false; else if (marked) markEvents(marked); });
   return {
-    load, craft,
+    load, craft, centerAt,
     frame({ camSun, fade }) {
       const o = 1 - fade(2000, 3e4, camSun), on = layerOn('craft');
       for (const c of craft) {

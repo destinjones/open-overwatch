@@ -18,7 +18,7 @@ export function createLists({ craft, comets, clock, find, eclipses }) {
   const statusAt = st => { const m = /^(Ended|Silent since) (\d{4})/.exec(st || ''); return m && 2000 + (clock.jd - 2451545) / 365.25 < +m[2] ? 'In flight' : st; };
 
   function missionsHtml() {
-    const E = byKey.earth.pos, rows = missionsNow(craft.craft.map(c => c.s), clock.jd, E);
+    const E = byKey.earth.pos, rows = missionsNow(craft.craft.map(c => c.s), clock.jd, E, craft.centerAt);   // Moon orbiters around the Moon on screen
     return `<div class="k">Deep-space missions · ${esc(clock.live ? 'now' : 'at the clock\'s time')}</div><h3>Nearest first · signal time is one way</h3>
       <table><tr><th>Mission</th><th>From Earth</th><th>Signal</th></tr>${rows.map(m => `<tr data-key="${esc('craft:' + m.name)}" class="${m.au == null ? 'off' : ''}">
         <td>${esc(m.name)}<small>${esc(m.au == null ? (m.phase === 'before launch' ? 'not launched yet' : 'no position (mission over)') : statusAt(m.status))}${m.next ? ' · next: ' + esc(m.next[1]) + ' ' + esc(relativeTime(m.next[0] - clock.jd)) : ''}</small></td>

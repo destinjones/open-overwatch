@@ -968,10 +968,11 @@ test('mcp: where in space copes with a server that ignores byte ranges', async (
 test('mcp: where in space without a name: the missions nearest first, or the comets best placed now', async () => {
   const { server } = serve3();
   const m = ok(await call(server, 'where_in_space', {})), md = m.structuredContent;
-  assert.match(m.content[0].text, /^\d+ deep-space missions with a position on 2026-10-01, nearest first:\nJames Webb Space Telescope: /);
+  assert.match(m.content[0].text, /^\d+ deep-space missions with a position on 2026-10-01, nearest first:\nChandrayaan-2: 3\d\d,\d{3} km away, signal 1\.\d light-seconds · Orbiting the Moon[^\n]*\nJames Webb Space Telescope: /);
   assert.ok(md.missions.length >= 15); assert.deepEqual(md.missions.map(x => x.earth_au), [...md.missions.map(x => x.earth_au)].sort((a, b) => a - b), 'nearest first');
   assert.equal(md.missions.at(-1).name, 'Voyager 1'); assert.ok(md.without_position.includes('Cassini'), 'ended missions have no position now');
-  assert.match(md.missions[0].url, /solar\.html#f=craft%3AJames\+Webb/);
+  assert.match(md.missions[1].url, /solar\.html#f=craft%3AJames\+Webb/); assert.match(md.missions[0].url, /solar\.html#f=craft%3AChandrayaan-2$/);
+  assert.ok(md.without_position.includes('Mars Orbiter Mission') && md.missions.some(x => x.name === 'Aditya-L1'), 'ISRO: Mangalyaan ended in 2022, Aditya-L1 flies');
   const c = ok(await call(server, 'where_in_space', { list: 'comets' })), cd = c.structuredContent;
   assert.equal(cd.comets.length, 10); assert.match(cd.note, /not by brightness/);
   for (const x of cd.comets) { assert.ok(x.sun_au <= 4, x.name); if (x.perihelion_estimated) assert.ok(Math.abs(Date.parse(x.perihelion) - NOW) < (x.period_years / 2 + 0.01) * 3.156e10, `${x.name}: the return nearest now`); }
