@@ -11,9 +11,9 @@ import { iso, r1, r2, coord } from './words.mjs';
 
 export { EONET_CATS };
 
-/** USGS's feed for a magnitude floor and period: every earthquake in it at or above `min` ({ t } in ms, the rest for answers). */
-export async function loadQuakes(feeds, { min = 2.5, period = 'day', signal } = {}) {
-  const d = await feeds.json(usgsUrl(usgsFeedFor(min, period)), { ttl: 60e3, timeout: 30e3, signal }), dataAt = usgsDataAt(d), now = Date.now();
+/** USGS's feed for a magnitude floor and period: every earthquake in it at or above `min` ({ t } in ms, the rest for answers; `now` ages the provenance). */
+export async function loadQuakes(feeds, { min = 2.5, period = 'day', signal, now = Date.now() } = {}) {
+  const d = await feeds.json(usgsUrl(usgsFeedFor(min, period)), { ttl: 60e3, timeout: 30e3, signal }), dataAt = usgsDataAt(d);
   return parseUsgs(d, { min, quakesOnly: true }).map(q => ({ provenance: provLine(stampQuake(q, { dataAt }), now), magnitude: r1(q.mag), place: q.place || coord(q.lat, q.lon), time: iso(q.time), t: q.time, depth_km: q.depth != null ? r1(q.depth) : null,
     lat: r2(q.lat), lon: r2(q.lon), tsunami: q.tsunami, alert: q.alert, felt_reports: q.felt || 0, url: q.url || null }));
 }
@@ -43,10 +43,9 @@ export async function loadStorms(feeds, now, signal) {
   });
 }
 
-/** NASA EONET's open events active in the last `days` (optionally one category), at their latest position, newest first. */
-export async function loadEvents(feeds, { days = 30, category, signal } = {}) {
+/** NASA EONET's open events active in the last `days` (optionally one category), at their latest position, newest first (`now` ages the provenance). */
+export async function loadEvents(feeds, { days = 30, category, signal, now = Date.now() } = {}) {
   const d = await feeds.json(eonetUrl({ days, category: category || '' }), { ttl: 15 * 60e3, timeout: 40e3, signal });
-  const now = Date.now();
   return newestFirst(parseEonet(d)).map(e => ({ provenance: provLine(stamp({}, 'events', [rep('eonet', { dataAt: e.date })]), now), id: e.id, title: e.title, categories: e.cats, latest: e.date ? e.date.replace('.000Z', 'Z') : null,
     lat: r2(e.lat), lon: r2(e.lon), magnitude: e.mag, sources: e.sources.map(s => s.url).slice(0, 3), link: e.link || null }));
 }

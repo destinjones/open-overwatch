@@ -123,7 +123,7 @@ export function createTools(ctx) {
     async run(a, { signal }) {
       const min = a.min_magnitude ?? 2.5, period = a.period || 'day', sort = a.sort || 'magnitude';
       if (period === 'month' && min < 2.5) throw new ToolError('For a whole month ask for magnitude 2.5 or more (the full list is too large)', 'invalid_arguments');
-      const [quakes, area] = await Promise.all([loadQuakes(feeds, { min, period, signal }), resolveArea(a, feeds, { pointKm: 500, signal })]);
+      const [quakes, area] = await Promise.all([loadQuakes(feeds, { min, period, signal, now: now() }), resolveArea(a, feeds, { pointKm: 500, signal })]);
       const all = quakes.filter(q => inArea(area, q.lat, q.lon));
       all.sort(sort === 'time' ? (x, y) => y.t - x.t : (x, y) => y.magnitude - x.magnitude || y.t - x.t);
       const list = take(all, a.limit || 20), t = now(), top = all.length ? all.reduce((m, q) => (q.magnitude > m.magnitude ? q : m)) : null;
@@ -301,7 +301,7 @@ export function createTools(ctx) {
     },
     async run(a, { signal }) {
       const days = a.days || 30;
-      const [list, area] = await Promise.all([loadEvents(feeds, { days, category: a.category, signal }), resolveArea(a, feeds, { pointKm: 500, signal })]);
+      const [list, area] = await Promise.all([loadEvents(feeds, { days, category: a.category, signal, now: now() }), resolveArea(a, feeds, { pointKm: 500, signal })]);
       const all = list.filter(e => inArea(area, e.lat, e.lon));
       const shown = take(all, a.limit || 20), cats = a.category ? [a.category] : [];
       const camera = area ? frameArea(area) : shown[0] ? frame(shown[0].lat, shown[0].lon, 400) : EARTH_VIEW, url = link({ camera, on: cats.map(c => EVENT_LAYER[c]).filter(Boolean) });

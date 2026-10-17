@@ -67,6 +67,7 @@ test('mcp worker: the token in the Authorization header or in the path; or no to
   assert.equal(viaPath.status, 200, 'claude.ai connectors: the secret is the URL');
   assert.match((await viaPath.json()).result.content[0].text, /1 earthquake of magnitude 4\+/);
   assert.equal((await worker.fetch(post(LIST, { path: '/mcp/not-the-secret-at-all', auth: null }), env)).status, 404, 'a wrong secret URL is a page that is not there');
+  for (const bad of ['/mcp/%zz', '/mcp/%E0%A4%A']) assert.equal((await worker.fetch(post(LIST, { path: bad, auth: null }), env)).status, 404, `${bad}: a malformed escape is a wrong secret, not a crash`);
   assert.equal((await worker.fetch(post(LIST, { path: `/mcp/${TOKEN}`, auth: null }), { PUBLIC: 'true' })).status, 404, 'public without a token: no secret paths');
   const open = await worker.fetch(post(LIST, { auth: null }), { PUBLIC: 'true' });
   assert.equal(open.status, 200);

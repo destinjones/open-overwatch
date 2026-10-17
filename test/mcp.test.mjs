@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createOverwatchServer, SITE } from '../mcp/index.mjs';
 import { checkArgs, PROTOCOL_VERSIONS } from '../mcp/protocol.mjs';
-import { createFeeds } from '../mcp/feeds.mjs';
+import { createFeeds, derive } from '../mcp/feeds.mjs';
 import { frame, inArea, globeUrl, LAYERS, WEATHER } from '../mcp/place.mjs';
 import { decodeView } from '../src/core/viewlink.js';
 import { haversine } from '../src/core/geo.js';
@@ -228,7 +228,7 @@ test('mcp: earthquakes, strongest first, in an area or worldwide, with a link th
   const { server } = serve();
   const all = ok(await call(server, 'earthquakes', {}));
   assert.deepEqual(all.structuredContent.earthquakes.map(q => q.magnitude), [5.1, 3.0, 2.6], 'no quarry blasts');
-  assert.match(all.structuredContent.earthquakes[0].provenance, /^USGS · data .* old · (reported|stale)$/, 'each quake says where it came from and how old the data is');
+  assert.equal(all.structuredContent.earthquakes[0].provenance, 'USGS · data 30 min old · reported', 'each quake says where it came from and how old the data is, by the server clock');
   assert.match(all.content[0].text, /^3 earthquakes of magnitude 2\.5\+ in the last day worldwide\./); assert.match(all.content[0].text, /M5\.1 · 20 km SE of Tokyo, Japan .* tsunami flag · PAGER green/);
   const v = hashOf(all.structuredContent.url); assert.deepEqual(v.add, ['quakes']); assert.ok(Math.abs(v.lat - 35.6) < 0.01, 'framed on the strongest');
   const tx = ok(await call(server, 'earthquakes', { place: 'Texas', sort: 'time' }));
@@ -286,6 +286,7 @@ test('mcp: tropical cyclones from NOAA and GDACS, merged by name', async () => {
 test('mcp: natural events by kind and place', async () => {
   const { server } = serve(), r = ok(await call(server, 'natural_events', { category: 'wildfires', place: 'Texas' })).structuredContent;
   assert.deepEqual(r.events.map(e => e.title), ['Wildfire near Austin, Texas']); assert.deepEqual(hashOf(r.url).add, ['fires']);
+  assert.equal(r.events[0].provenance, 'NASA EONET · data 42 h old · reported', 'aged by the server clock, not the wall clock');
   assert.equal(ok(await call(server, 'natural_events', {})).structuredContent.total, 2);
 });
 
@@ -516,6 +517,7 @@ test('mcp: live transit near a place: HSL\'s file read into lines and modes, fil
   assert.match(ok(await call(server, 'transit_vehicles', { lat: 60.1699, lon: 24.9384, mode: 'ferry' })).content[0].text, /^No ferry vehicles reporting within 1 km/);
   const far = await call(server, 'transit_vehicles', { place: 'Paris' });
   assert.equal(far.isError, true); assert.match(far.content[0].text, /outside the live transit .*Boston, Helsinki, Austin, Minneapolis, Norway/);
+  assert.equal(far.structuredContent.error, 'unsupported', 'a real place outside the coverage: its own code');
 });
 
 test('mcp: live transit in Boston (MBTA) and Oslo (Entur, asked for a box around the place by POST)', async () => {
@@ -1056,4 +1058,58 @@ test('mcp: dark sky: the class and the way to darker skies, tonight, the deep-sk
   assert.match(south.content[0].text, /outside the light pollution atlas/); assert.equal(south.structuredContent.sky, undefined);
   assert.equal((await call(server, 'dark_sky', {})).isError, true, 'a place is needed');
   assert.equal((await call(server, 'dark_sky', { lat: 40, lon: -105, gear: 'radio telescope' })).isError, true);
+});
+
+// ---- upstream failures, and the Worker's server per request ---------------------------------------------------------
+test('mcp: each upstream failure reaches the model as a readable tool error with its code', async () => {
+  const fails = async (routes, name, args, re, code = 'unavailable') => {
+    const r = await call(serve3(routes).server, name, args);
+    assert.equal(r.isError, true, `${name}: ${r.content[0].text}`); assert.match(r.content[0].text, re); assert.equal(r.structuredContent.error, code, name);
+  };
+  await fails([['https://www.nhc.noaa.gov/CurrentStorms.json', { status: 503 }], [/gdacs\.org\/gdacsapi\//, { status: 503 }]], 'tropical_storms', {}, /^Neither NOAA NHC nor GDACS answered/);
+  await fails([['https://www.ndbc.noaa.gov/data/latest_obs/latest_obs.txt', ''], ['https://www.ndbc.noaa.gov/activestations.xml', '']], 'sea_conditions', { lat: 36.8, lon: -122.4 }, /^NOAA NDBC sent no observations$/);
+  await fails([[/air-quality-api\.open-meteo\.com\/v1\/air-quality/, { latitude: 40.7, longitude: -74, current: { time: '2026-10-01T18:00', us_aqi: null, pm2_5: null } }]], 'air_quality', { lat: 40.7, lon: -74 }, /^Open-Meteo has no air-quality value for /);
+  await fails([[SITE + 'data/airports.json', { cols: ['icao', 'iata', 'name', 'city', 'cc', 'lat', 'lon', 'elevFt', 'size'], airports: [['BCW', '', 'Benguera Island Airstrip', 'Benguera', 'MZ', -21.85, 35.43, 10, 2]] }]],   // a local code, as 12 of the real list have
+    'airport_weather', { airport: 'Benguera' }, /^Benguera Island Airstrip has no ICAO code to ask the Aviation Weather Center about$/, 'not_found');
+  await fails([[/api\.open-meteo\.com\/v1\/forecast\?.*&current=temperature_2m,apparent_temperature/, { timezone: 'UTC' }]], 'weather', { lat: 60.17, lon: 24.94 }, /^Open-Meteo sent no forecast for that place$/);
+  await fails([['https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json', []]], 'aurora', {}, /^NOAA SWPC sent no Kp readings$/);
+  await fails([[/api\.citybik\.es\/v2\/networks\/velib$/, { network: { stations: [] } }]], 'bike_share', { place: 'Paris' }, /^Vélib' Métropole lists no stations right now$/);
+  await fails([[CAM_NETS.tfl.url, { status: 503 }]], 'traffic_cameras', { lat: 51.5079, lon: -0.1283 }, /^The camera list for .* did not load \(TfL JamCams\): .*HTTP 503/);
+  const long = await call(serve().server, 'airport_weather', { airport: 'x'.repeat(81) });
+  assert.equal(long.isError, true); assert.equal(long.structuredContent.error, 'invalid_arguments', 'the airport name is bounded like every other free-text argument');
+});
+
+test('mcp: plate readers: one country\'s tile index down still answers for the other; both down says so', async () => {
+  const caDown = await call(serve3([['https://tiles.dontgetflocked.com/cameras-ca-hourly.json', { status: 503 }]]).server, 'plate_readers', { lat: 41.88, lon: -87.63, radius_km: 2 });
+  assert.equal(caDown.isError, false, caDown.content[0].text);
+  assert.ok(caDown.structuredContent.total >= 3, 'Chicago is in the US tiles'); assert.match(caDown.content[0].text, /The Canadian plate-reader tiles did not load just now/);
+  const both = await call(serve3([[/tiles\.dontgetflocked\.com\/cameras-(us|ca)-hourly\.json$/, { status: 503 }]]).server, 'plate_readers', { lat: 41.88, lon: -87.63 });
+  assert.equal(both.isError, true); assert.match(both.content[0].text, /tiles\.dontgetflocked\.com answered HTTP 503/); assert.equal(both.structuredContent.error, 'unavailable', 'down, not "outside the US and Canada"');
+  const caOut = [['https://tiles.dontgetflocked.com/cameras-ca-hourly.json', { status: 503 }]];
+  const halifax = await call(serve3(caOut).server, 'plate_readers', { lat: 44.65, lon: -63.57 });
+  assert.equal(halifax.structuredContent.error, 'unavailable', 'Halifax is only in the Canadian index: it is down, not outside');
+  const london = await call(serve3(caOut).server, 'plate_readers', { lat: 51.51, lon: -0.13 });
+  assert.equal(london.structuredContent.error, 'not_found', 'London is in neither country, whichever index is down'); assert.match(london.content[0].text, /United States and Canada only/);
+});
+
+test('mcp: without satellite.js the orbit tools say how to install it', async () => {
+  const server = createOverwatchServer({ fetchImpl: pretendInternet().fetchImpl, now: () => NOW, importSgp4: () => Promise.reject(new Error('Cannot find package')) });
+  const r = await call(server, 'where_is_satellite', { satellite: 'ISS' });
+  assert.equal(r.isError, true); assert.match(r.content[0].text, /^satellite\.js is missing: run npm install/); assert.equal(r.structuredContent.error, 'unavailable');
+});
+
+test('mcp: a second server in the same isolate (the Worker makes one a request) builds no index again', async () => {
+  const site = [url => url.startsWith(SITE) && /data\/(lightpollution\.bin|deepsky\.json)$/.test(url), url => { const b = readFileSync(new URL(url.slice(SITE.length), root)); return url.endsWith('.bin') ? new Uint8Array(b) : b.toString('utf8'); }];
+  const net = pretendInternet(withFns([site, ...NEW_ROUTES, ...ROUTES])), memo = new Map();
+  const ask = async () => {
+    const server = createOverwatchServer({ fetchImpl: net.fetchImpl, now: () => NOW, memo });
+    ok(await call(server, 'country_briefing', { country: 'Japan' })); ok(await call(server, 'eclipses', { lat: 25.687, lon: 32.639 }));
+    ok(await call(server, 'submarine_cables', { place: 'Marseille' })); ok(await call(server, 'dark_sky', { lat: 39.74, lon: -104.99 }));
+  };
+  const before = derive.builds;
+  await ask();
+  const first = derive.builds - before;
+  assert.ok(first >= 6, `the borders (once for three tools), the eclipse tracks, the cables and landings, the grid and the catalogue: ${first}`);
+  await ask();
+  assert.equal(derive.builds - before, first, 'the second server reused every one');
 });

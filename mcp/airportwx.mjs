@@ -19,7 +19,7 @@ export function airportWxTool(ctx) {
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
-        airport: { type: 'string', description: 'ICAO or IATA code ("KDEN", "LHR"), an airport name ("Heathrow") or a city ("Denver": its largest airport).' },
+        airport: { type: 'string', maxLength: 80, description: 'ICAO or IATA code ("KDEN", "LHR"), an airport name ("Heathrow") or a city ("Denver": its largest airport).' },
         lat: { type: 'number', minimum: -90, maximum: 90, description: 'Latitude, for the nearest airport (instead of airport).' },
         lon: { type: 'number', minimum: -180, maximum: 180, description: 'Longitude, with lat.' },
         hours: { type: 'integer', minimum: 1, maximum: 30, description: 'Hours of forecast to describe (default 12).' },
@@ -33,7 +33,7 @@ export function airportWxTool(ctx) {
       if (a.airport) ap = findAirport(list, a.airport);
       else if (Number.isFinite(a.lat) && Number.isFinite(a.lon)) ap = new AirportIndex(list).nearest(a.lat, a.lon, 400);
       else throw new ToolError('Say which airport (a code, a name or a city), or give lat and lon', 'invalid_arguments');
-      if (!ap) throw new ToolError(a.airport ? `No large or medium airport matches "${a.airport}"` : 'No large or medium airport within 400 km of that point', 'not_found');
+      if (!ap) throw new ToolError(a.airport ? `No large or medium airport matches "${String(a.airport).slice(0, 80)}"` : 'No large or medium airport within 400 km of that point', 'not_found');
       if (!/^[A-Z]{4}$/.test(ap.icao)) throw new ToolError(`${ap.name} has no ICAO code to ask the Aviation Weather Center about`, 'not_found');
       const [mj, tj] = await Promise.all([feeds.json(metarUrl([ap.icao]), { ttl: 5 * 60e3, timeout: 20e3, signal }), feeds.json(tafUrl([ap.icao]), { ttl: 10 * 60e3, timeout: 20e3, signal }).catch(() => null)]);
       const m = readAwcMetars(mj, { now: t }).get(ap.icao) || null, taf = tj ? readAwcTafs(tj, { now: t }).get(ap.icao) || null : null;

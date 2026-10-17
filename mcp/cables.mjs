@@ -3,7 +3,7 @@
 // submarine cable map, the data the 2D map draws; asked directly, so no relay): the landing stations nearby and the cables
 // at them, with their length, owners and the year they entered service. The two map files (~1 MB) are kept a day.
 import { CABLE_URLS, LANDING_URLS, cableUrl, landingUrl, cablePage, parseCables, parseLandings, cablesNear, landingsNear, parseCable, parseLanding } from '../src/core/cables.js';
-import { ToolError } from './feeds.mjs';
+import { ToolError, derive } from './feeds.mjs';
 import { areaProps, resolveArea, frame, globeUrl } from './place.mjs';
 import { r1, r2, km, plural, areaData, limitProp } from './words.mjs';
 
@@ -12,7 +12,7 @@ export function cablesTool(ctx) {
   let maps = null;
   const both = ([url, mirror], signal) => feeds.json(url, { ttl: 864e5, timeout: 60e3, maxBytes: 40e6, signal }).catch(() => feeds.json(mirror, { ttl: 864e5, timeout: 60e3, maxBytes: 40e6, signal }));
   const load = signal => (maps = maps || Promise.all([both(CABLE_URLS, signal), both(LANDING_URLS, signal)])
-    .then(([c, l]) => ({ cables: parseCables(c), landings: parseLandings(l) }), e => { maps = null; throw e; }));
+    .then(([c, l]) => ({ cables: derive(c, 'cables', parseCables), landings: derive(l, 'landings', parseLandings) }), e => { maps = null; throw e; }));
   const detail = (id, signal) => feeds.json(cableUrl(id), { ttl: 864e5, timeout: 20e3, signal }).then(parseCable, () => null);
   const station = (id, signal) => feeds.json(landingUrl(id), { ttl: 864e5, timeout: 20e3, signal }).then(parseLanding, () => null);
 

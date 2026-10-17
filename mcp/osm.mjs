@@ -8,6 +8,8 @@ import { ToolError } from './feeds.mjs';
 import { areaProps, resolveArea, inArea, distKm, frameArea } from './place.mjs';
 
 export const ALPR_SOURCES = ['https://tiles.dontgetflocked.com/cameras-us-hourly.json', 'https://tiles.dontgetflocked.com/cameras-ca-hourly.json'];
+// Each index's country as a coarse box [w, s, e, n], for when its own bounds did not load (Alaska to Puerto Rico; Canada).
+const ALPR_REACH = [[-180, 15, -64, 72], [-141.5, 41.5, -52, 84]];
 export const OFM = 'https://tiles.openfreemap.org/planet';
 const MAX_TILES = 24;
 const r2 = v => Math.round(v * 100) / 100, r5 = v => Number(v.toFixed(5));
@@ -43,9 +45,16 @@ export function createOsmTools(ctx, link) {
     inputSchema: { type: 'object', additionalProperties: false, properties: { ...areaProps('to count (default 3 km around a point, or the place itself)'), limit: limitProp(10, 50) } },
     async run(a, { signal }) {
       const area = await resolveArea(a, feeds, { need: true, pointKm: 3, signal });
-      const specs = await Promise.all(ALPR_SOURCES.map(u => specOf(u, signal)));
+      const got = await Promise.allSettled(ALPR_SOURCES.map(u => specOf(u, signal)));   // one country's index down still answers for the other
+      const specs = got.filter(r => r.status === 'fulfilled').map(r => r.value);
       const lat = area.frameLat ?? area.lat, lon = area.frameLon ?? area.lon;
-      if (!specs.some(s => inBounds(s.bounds, lat, lon))) throw new ToolError(`The plate-reader tiles cover the United States and Canada only; ${area.label} is outside them`, 'not_found');
+      if (!specs.some(s => inBounds(s.bounds, lat, lon))) {
+        const miss = got.findIndex((r, i) => r.status === 'rejected' && inBounds(ALPR_REACH[i], lat, lon));
+        if (miss >= 0) throw got[miss].reason;   // the down one covers it: say it is down, not that the place is outside
+        throw new ToolError(`The plate-reader tiles cover the United States and Canada only; ${area.label} is outside them`, 'not_found');
+      }
+      const down = ALPR_SOURCES.filter((u, i) => got[i].status === 'rejected').map(u => (/-ca-/.test(u) ? 'Canadian' : 'US'));
+      const gap = down.length ? [`The ${down.join(' and ')} plate-reader tiles did not load just now: readers only in them are not counted.`] : [];
       const box = areaBox(area), detail = zoomFor(box, [12, 11, 10, 9]), pick = detail || zoomFor(box, [8, 7, 6, 5, 4, 3]);
       if (!pick) throw new ToolError('That area is too large to count: ask about a state or smaller', 'invalid_arguments');
       const jobs = [];
@@ -54,7 +63,7 @@ export function createOsmTools(ctx, link) {
       const camera = frameArea(area, { tilt: area.radiusKm < 30 ? 45 : 0 }), url = link({ camera, on: ['alpr'] });
       const head = `${plural(all.length, 'licence-plate reader')} mapped in OpenStreetMap${area.bbox ? ` in ${area.label}` : ` within ${r2(area.radiusKm)} km of ${area.label}`}`;
       if (!detail) {   // a big area: the far tiles carry positions only
-        return { text: [`${head}.`, 'For makes, operators and the nearest ones, ask about a smaller area (a city or a county).', `On the globe: ${url}`].join('\n'),
+        return { text: [`${head}.`, 'For makes, operators and the nearest ones, ask about a smaller area (a city or a county).', ...gap, `On the globe: ${url}`].join('\n'),
           data: { total: all.length, detail: false, area: { name: area.label, lat: r2(lat), lon: r2(lon), radius_km: Math.round(area.radiusKm) }, url, source: 'OpenStreetMap contributors (ODbL), via DeFlock and FlockHopper (dontgetflocked.com)' } };
       }
       const ops = new Map(); for (const c of all) if (c.operator) ops.set(c.operator, (ops.get(c.operator) || 0) + 1);
@@ -64,7 +73,7 @@ export function createOsmTools(ctx, link) {
       const text = [`${head}${all.length ? `: ${makesWords(all, 4)}` : ''}.`,
         ...(topOps.length ? [`Run by: ${topOps.map(([k, v]) => `${k} ${v}`).join(', ')}${ops.size > 5 ? `, and ${plural(ops.size - 5, 'other')}` : ''}; ${all.length - [...ops.values()].reduce((s, v) => s + v, 0)} with no operator tagged.`] : []),
         ...(all.length ? [`${faced} of them have the direction they face tagged. Nearest first:`, ...lines] : []),
-        'Mapped locations only (no images, no plates); readers nobody has mapped are not counted.', `On the globe: ${url}`];
+        'Mapped locations only (no images, no plates); readers nobody has mapped are not counted.', ...gap, `On the globe: ${url}`];
       return { text: text.join('\n'), data: { total: all.length, detail: true, makes: makesWords(all, 8), operators: topOps.map(([name, n]) => ({ name, n })), facing_tagged: faced,
         nearest: list.map(c => ({ osm: `https://www.openstreetmap.org/${c.osmType === 'way' ? 'way' : 'node'}/${c.osmId}`, make: c.brand, operator: c.operator, lat: r5(c.lat), lon: r5(c.lon), distance_m: Math.round(c.km * 1000),
           facts: Object.fromEntries(cameraFacts(c)) })),
