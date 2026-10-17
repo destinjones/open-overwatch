@@ -59,7 +59,8 @@ export function initMobile() {
     const b = e.target.closest('[data-tab]'); if (!b) return; const k = b.dataset.tab;
     if (k === 'explore' || k === 'time') { open === k ? close() : (close(), show(k)); return; }
     close();
-    if (k === 'layers') { $('#btnDock').click(); sync(); } else if (k === 'lookup') band.querySelector('[data-go="lookup"]').click(); else northUp();
+    // Layers: the dock and the card share one slot on a phone, and the card would hide the dock, so it closes first
+    if (k === 'layers') { if (!$('#dock').classList.contains('open')) hooks.closeCard?.(); $('#btnDock').click(); sync(); } else if (k === 'lookup') band.querySelector('[data-go="lookup"]').click(); else northUp();
   });
   sheet.addEventListener('click', e => {
     const go = e.target.closest('[data-go]'), share = e.target.closest('[data-share]'), rate = e.target.closest('[data-rate]'), now = e.target.closest('[data-now]');
@@ -73,6 +74,9 @@ export function initMobile() {
   scrim.addEventListener('click', close);
   $('#timebar').addEventListener('click', e => { if (!e.target.closest('[data-rate],#tLive') && open !== 'time') { close(); show('time'); } });   // tap the clock
   new MutationObserver(sync).observe($('#dock'), { attributes: true, attributeFilter: ['class'] });
+  let cardShown = $('#card').classList.contains('show');   // ...and a card that opens (a tap on the globe, Search, Tonight) closes the dock
+  new MutationObserver(() => { const now = $('#card').classList.contains('show'); if (now && !cardShown) $('#dock').classList.remove('open'); cardShown = now; })
+    .observe($('#card'), { attributes: true, attributeFilter: ['class'] });
   setInterval(() => {   // keep the clock in the time sheet moving, in place (replacing the buttons would eat a tap in progress)
     if (open !== 'time') return; const h = sheet.querySelector('.m-head'); if (!h) return;
     h.firstChild.textContent = $('#tNow').textContent; h.lastChild.textContent = $('#tMode').textContent;

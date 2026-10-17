@@ -373,10 +373,13 @@ function listen() {
   rec.onend = () => { listening = false; $('#opsMic')?.classList.remove('live'); if (!done && bubble.querySelector('.vb-mic.on')) bubble.classList.remove('show'); };
   try { rec.start(); listening = true; $('#opsMic')?.classList.add('live'); show('', '', true); chime('start'); } catch (e) { toast('Voice could not start: ' + e.message); }
 }
-// push to talk: hold Space (not in a text box or on a button) for 0.4 s, speak, let go
+// push to talk: hold Space over the globe (or with nothing focused) for 0.4 s, speak, let go. Anything else that takes
+// Space keeps it: a focused summary, link, dial or role=button heading, as well as text boxes and buttons.
+const NOT_PTT = 'input,textarea,select,button,summary,a[href],[role=button],[role=slider],[contenteditable]:not([contenteditable=false])';
+const pttTarget = (t, doc = document) => t === doc.body || t === doc.documentElement || !!(t && t.closest && t.closest('#globe') && !t.closest(NOT_PTT));
 let pttTimer = 0, ptt = false;
 addEventListener('keydown', e => {
-  if (e.code !== 'Space' || e.repeat || e.ctrlKey || e.metaKey || e.altKey || /input|textarea|select|button/i.test(e.target.tagName) || e.target.isContentEditable) return;
+  if (e.code !== 'Space' || e.repeat || e.ctrlKey || e.metaKey || e.altKey || !pttTarget(e.target)) return;
   e.preventDefault(); clearTimeout(pttTimer);
   pttTimer = setTimeout(() => { ptt = true; if (!listening) listen(); }, 400);
 }, true);

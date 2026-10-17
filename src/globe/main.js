@@ -155,7 +155,7 @@ updateBand(); applyVisibility();
 (async () => {
   const [lon, lat] = sunlitView(), t0 = Date.now();
   const until = (ms, cond = () => false) => new Promise(res => { const id = setInterval(() => { if (cond() || Date.now() - t0 > ms) { clearInterval(id); res(); } }, 100); });
-  const say = t => { const el = $('#boot div'); if (el) el.textContent = t; };
+  const say = t => { const el = $('#boot div'); if (el) el.textContent = t; $('#boot')?.classList.remove('fail'); };   // a slow boot the watchdog spoke too soon about
   let high;
   if (PHONE) {   // phones: a fast first view matters more; the models warm up in the background, from orbit only
     camera.setView({ destination: C.Cartesian3.fromDegrees(lon, lat, 2.0e7) }); say('Loading the Earth…');

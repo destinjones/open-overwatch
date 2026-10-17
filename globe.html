@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one);
      'unsafe-eval' because Cesium's widgets run on Knockout (eval at load, new Function per data-bind). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-eval' 'sha256-5H6UXlGmXVotIBnP0qK/nVs2xzlTS5hqO9Buf31xh7s=' 'sha256-P5skaw/CUJLcCGM1kcv/zrG7kvCOWsU/C6sLyGeX7cM=' 'sha256-j+uHiFPkO8OJxchEN9a0y0gvpF97+ceq/1EKpvxrVSE=' 'sha256-yCrdYMG9/cGcwFrlJjf+2+T9U0UOLHA110Mwi25YYqQ=' 'sha256-mrjerRp10Etjs0MhXq/ngp49RNU0I523nZn7Qi6nr7U='; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; child-src 'self' blob: https://cdn.jsdelivr.net; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-eval' 'sha256-5H6UXlGmXVotIBnP0qK/nVs2xzlTS5hqO9Buf31xh7s=' 'sha256-P5skaw/CUJLcCGM1kcv/zrG7kvCOWsU/C6sLyGeX7cM=' 'sha256-j+uHiFPkO8OJxchEN9a0y0gvpF97+ceq/1EKpvxrVSE=' 'sha256-yCrdYMG9/cGcwFrlJjf+2+T9U0UOLHA110Mwi25YYqQ=' 'sha256-HzDiltcmbR3hAhPKgaIqtBUG7puL/Yh0hokK2GcDAa0=' 'sha256-mrjerRp10Etjs0MhXq/ngp49RNU0I523nZn7Qi6nr7U='; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; child-src 'self' blob: https://cdn.jsdelivr.net; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <script type="importmap">{ "integrity": { "https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.light.mjs": "sha384-OQpxx4NyhnwaH6BpRnuHkLoE710dl+R2jDCUYLeXFVi1Msn+cqfvyy9F0Tt0FmXP" } }</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <script>/* iOS ignores user-scalable=no: stop its page pinch-zoom too (the views handle pinch themselves) */ addEventListener('gesturestart', e => e.preventDefault(), { passive: false });</script>
@@ -29,7 +29,7 @@
 <link rel="stylesheet" href="src/globe/now.css">
 <style>
 html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%} /* no page pinch-zoom; panels still scroll */
-/* Open Overwatch · Orbital (prototype): one CesiumJS globe from deep space to street level, floating glass UI. */
+/* Open Overwatch · Orbital: one CesiumJS globe from deep space to street level, floating glass UI. */
 :root{
   --bg:#04060a; --glass:rgba(8,12,18,.62); --glass-strong:rgba(8,12,18,.82); --edge:rgba(125,255,166,.16); --edge-dim:rgba(230,237,243,.08);
   --ink:#e6edf3; --dim:#8b9bab; --faint:#738599; --accent:#7dffa6;
@@ -136,11 +136,12 @@ body.lookup #top,body.lookup #band,body.lookup #dock,body.lookup #card,body.look
 #hover{position:fixed;pointer-events:none;z-index:6;padding:5px 9px;border-radius:7px;font:500 11.5px/1.2 var(--mono);background:var(--glass-strong);border:1px solid var(--edge-dim);display:none;white-space:nowrap}
 #credits{position:fixed;right:12px;bottom:10px;max-width:46vw;z-index:3;font:400 10px/1.3 var(--body);color:var(--faint);text-align:right}
 #credits a{color:var(--faint)}
-#toast{position:fixed;left:50%;top:84px;transform:translateX(-50%);padding:9px 14px;z-index:7;font:500 12px/1.2 var(--mono);opacity:0;transition:opacity .3s;pointer-events:none}
+#toast{position:fixed;left:50%;top:124px;transform:translateX(-50%);padding:9px 14px;z-index:7;font:500 12px/1.2 var(--mono);opacity:0;transition:opacity .3s;pointer-events:none}
 #toast.show{opacity:1}
 #boot{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:var(--bg);transition:opacity .8s}
 #boot.out{opacity:0;pointer-events:none}
 #boot div{font:500 12px/1.6 var(--mono);color:var(--dim);letter-spacing:.14em;text-transform:uppercase}
+#boot.fail div{max-width:min(440px,calc(100vw - 32px));text-align:center;text-transform:none;letter-spacing:.02em;font-size:13px;color:var(--ink)} #boot a{color:#7dffa6} /* the boot watchdog's message */
 @media (max-width:820px){
   #dock{top:auto;bottom:86px;left:10px;right:10px;width:auto;max-height:34vh;display:none} #dock.open{display:block}
   #top{gap:8px;left:10px;right:10px;top:calc(10px + env(safe-area-inset-top,0px))} /* an installed app draws under the status bar */ .brand{padding:7px} .brand b,.brand small{display:none} /* emblem only: the bar must fit 360 px */
@@ -160,6 +161,7 @@ body.lookup #top,body.lookup #band,body.lookup #dock,body.lookup #card,body.look
 @media (pointer:coarse){
   .tb{min-width:38px;height:38px} .chipbtn,.links a{min-height:40px} .go{min-height:44px;padding:10px 12px}
   #card .x{font-size:24px;padding:8px 14px} .ly{min-height:40px} .cj{min-height:48px}
+  #lookup select,#lookup .lu-when input{min-height:40px}   /* Look up's Find and Sky on: held up to the sky, one-handed */
 }
 /* phone control set (src/globe/mobile.js adds body.m and the dock only on phones; desktops never match any of this) */
 body.m #band,body.m .links,body.m #timebar .tb{display:none}
@@ -178,7 +180,7 @@ body.m .m-sheet.show{transform:none;opacity:1;pointer-events:auto}
 .m-item.on{border-color:var(--edge);color:var(--accent)} .m-now{margin-top:8px;width:100%}
 .m-rates{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .m-rate{min-height:48px;border-radius:10px;border:1px solid var(--edge-dim);background:rgba(230,237,243,.03);color:var(--ink);font:600 12px/1 var(--mono)} .m-rate.on{color:#04060a;background:var(--accent);border-color:var(--accent)}
-body.m #dock{bottom:calc(86px + env(safe-area-inset-bottom,0px))} body.m #card{bottom:calc(100px + env(safe-area-inset-bottom,0px))} body.m #credits{bottom:calc(86px + env(safe-area-inset-bottom,0px))} body.m #toast{bottom:calc(104px + env(safe-area-inset-bottom,0px))}
+body.m #dock{bottom:calc(86px + env(safe-area-inset-bottom,0px))} body.m #dock.open ~ #card.show{display:none} /* one panel in that slot (mobile.js closes the other; this is the backstop) */ body.m #card{bottom:calc(100px + env(safe-area-inset-bottom,0px))} body.m #credits{bottom:calc(86px + env(safe-area-inset-bottom,0px))} body.m #toast{bottom:calc(104px + env(safe-area-inset-bottom,0px))}
 /* country dossier (src/globe/country.js) */
 .cn-sec{margin-top:10px;padding-top:8px;border-top:1px solid var(--edge-dim);font:500 12px/1.5 var(--mono);color:var(--dim)} .cn-sec h3{margin:0 0 4px;font:700 11px/1.2 var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
 .cn-news{display:block;padding:6px 0;border-bottom:1px solid var(--edge-dim);color:var(--ink);text-decoration:none;font:500 12px/1.35 var(--body)} .cn-news:hover span{color:var(--accent)} .cn-news i{display:block;font:500 10px/1.2 var(--mono);font-style:normal;color:var(--faint);margin-top:2px}
@@ -225,6 +227,8 @@ body.lookup #navpad{display:none}
 @media (max-width:900px){ .tt-st{grid-template-columns:auto 1fr} }
 body.m #tt{left:10px;right:10px;width:auto;transform:none;bottom:calc(86px + env(safe-area-inset-bottom,0px));max-height:52dvh}
 body.tt-open #wx{display:none}
+body.m.tt-open #card.show{bottom:calc(52dvh + 96px + env(safe-area-inset-bottom,0px));max-height:max(120px,calc(48dvh - 166px - env(safe-area-inset-bottom,0px) - env(safe-area-inset-top,0px)))}   /* a shown card above the strip, not under it; a closed one keeps its slot, so its slide-out still clears the screen */
+@media (pointer:coarse){ .tt-st .tt-on{min-height:36px;padding:6px 10px} #tt .x,.wx-head .x{font-size:24px;padding:8px 14px} }   /* after the rules they bump: same specificity, so order decides */
 body.lookup #tt,body.embed #tt{display:none!important}
 /* provenance block on live cards (core/liveprov.js + provenance.js): its own dark backing so it reads on any page or theme;
    the confidence is a word, an icon and a border style, never colour alone */
@@ -243,7 +247,7 @@ body.lookup #tt,body.embed #tt{display:none!important}
 <body>
 <div id="globe" role="application" aria-label="3D globe. Drag to turn it, pinch or scroll to zoom. The buttons along the bottom search, fly to places and open lists."></div>
 <header id="top">
-  <div class="brand glass"><img src="brand/emblem/emblem-256.png" alt=""><div><b>Open Overwatch</b><small>Orbital · prototype</small></div></div>
+  <div class="brand glass"><img src="brand/emblem/emblem-256.png" alt=""><div><b>Open Overwatch</b><small>Orbital</small></div></div>
   <div class="timebar glass" id="timebar">
     <div class="tnow"><b class="mono" id="tNow">—</b><span id="tMode">live</span></div>
     <button class="tb" data-rate="-3600" title="Backwards, 1 hour per second" aria-label="Backwards, 1 hour per second">«</button>
@@ -306,6 +310,36 @@ body.lookup #tt,body.embed #tt{display:none!important}
    exist (iOS before 16.4, some WebKit builds): the globe never got past its boot screen there. A stand-in that hands out
    an ordinary canvas keeps those checks false and any construction working. */
 if (typeof OffscreenCanvas === 'undefined') window.OffscreenCanvas = class OffscreenCanvas { constructor(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; } };</script>
+<script>/* Boot watchdog: if the 3D library is blocked (a firewall, a filter, a failed integrity check) or WebGL fails, main.js
+   never runs and the boot screen would say "Initialising" forever. Say what failed instead, with a retry and the 2D map.
+   main.js sets window.OO3D as soon as its modules have run, so a healthy boot, however slow, is never touched. */
+(() => {
+  let failed = false, blocked = false;   // blocked: a script that failed to load, not one still on its way
+  const show = () => {
+    const boot = document.getElementById('boot'), box = boot && boot.firstElementChild;
+    if (!box || window.OO3D || location.protocol === 'file:') return;   // booted, or the file:// note below says it already
+    let gl = false;
+    try { const c = document.createElement('canvas'); gl = !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) { /* no canvas at all */ }
+    const noLib = typeof Cesium === 'undefined';
+    const why = noLib && blocked ? "The 3D library didn't load from cdn.jsdelivr.net. A network filter, firewall or browser extension may be blocking it."
+      : noLib && !failed ? 'The 3D library is still downloading from cdn.jsdelivr.net; a slow connection can take a while.'
+      : !gl ? 'This browser has no WebGL, which the 3D globe needs. Turning on hardware acceleration, or another browser, may help.'
+      : failed ? 'The 3D globe could not start in this browser.' : 'The 3D globe is taking much longer than it should to start.';
+    const retry = document.createElement('a'), map = document.createElement('a'), links = document.createElement('p');
+    retry.href = location.href; retry.textContent = 'Retry'; retry.addEventListener('click', e => { e.preventDefault(); location.reload(); });
+    map.href = 'open-overwatch.html'; map.textContent = 'Open the 2D map';
+    links.append(retry, ' · ', map); box.textContent = why; box.append(links); boot.classList.add('fail');
+  };
+  // a script that failed to load (capture: load errors don't bubble), or an error thrown by the globe's own code or the
+  // CDN libraries (not the shell, nor a browser extension or anything else the page did not ship)
+  addEventListener('error', e => {
+    const t = e.target, script = !!t && t.tagName === 'SCRIPT', thrown = e instanceof ErrorEvent && /\/src\/(globe|core)\/|cdn\.jsdelivr\.net/.test(e.filename || '');
+    if (script) blocked = true;
+    if (script || thrown) { failed = true; setTimeout(show, 1500); }
+  }, true);
+  setTimeout(show, 20000);
+})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/cesium@1.146.0/Build/Cesium/Cesium.js" integrity="sha384-1lWK5deN/B+lLaUw4lk6xKp/L19ii/98SZLk6K8YthDskgvc+GbdixLzbCnSS2Wn" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/dist/satellite.min.js" integrity="sha384-e6V1JVpc+kVNTxT0gEOla7yL4c92Romsw7itPoipfzHbEjzUwPhTv6oeVDMHHzqT" crossorigin="anonymous"></script>
 <script>

@@ -10,6 +10,7 @@
 #rdTuner button:hover{color:var(--ink);border-color:var(--edge-dim)}
 #rdTuner button:focus-visible,#rdTuner .rd-dial:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 #rdTuner .rd-x{font-size:17px;line-height:1;padding:2px 7px;margin:-3px -5px -3px 0}
+@media (pointer:coarse){#rdTuner .rd-x{font-size:24px;padding:8px 14px;margin:-8px -10px -8px 0}}   /* a finger-sized close, as #card .x gets */
 
 /* the dial window: station name riding the needle above, a scale of ticks below, station detents in the layer colour */
 #rdTuner .rd-dial{position:relative;height:66px;border-radius:9px;border:1px solid var(--edge-dim);cursor:ew-resize;touch-action:none;overflow:hidden;
