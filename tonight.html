@@ -49,6 +49,8 @@ header img{width:30px;height:30px} header b{font:900 18px/1 var(--display);lette
 footer{max-width:720px;margin:0 auto;padding:14px 16px calc(30px + env(safe-area-inset-bottom,0px));color:var(--faint);font-size:12px}
 button:focus-visible,a:focus-visible,h3:focus-visible{outline:2px solid #7dffa6;outline-offset:2px}
 @media (max-width:480px){ #card{border-radius:0;border-left:0;border-right:0} #card h2{font-size:28px} }
+/* #embed=1: the card inside someone else's page (src/sky/main.js): no toasts or page links, a link back in the footer */
+.embed header nav,.embed #toast{display:none!important} .embed header{padding-top:10px} .embed #card{margin-top:8px} .embed footer p{margin:0 0 8px;font-size:13px}
 </style>
 </head>
 <body>

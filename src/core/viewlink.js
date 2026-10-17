@@ -6,6 +6,8 @@
 //   &a=ids,on  &x=ids,off  layers to switch on or off, leaving the others as the visitor has them (links made elsewhere,
 //   e.g. by the MCP server, which can't know a visitor's layers)  &s=25544 a satellite to follow (NORAD catalogue number)
 //   #go=tonight opens a panel by itself (no camera needed): see GO; &id= names one launch (LL2 id) or eclipse (date) in it
+//   &at=lat,lon&name=Pune: the place Tonight answers for (tonight.html#at=... or globe.html#go=tonight&at=...), rounded to
+//   0.01 deg (~1 km, as a saved home is); tonight.html also takes &embed=1&sections=passes,planets (a card for an <iframe>)
 
 import { SENSORS } from './voicecmd.js';
 import { encodeDrawing, decodeDrawing } from './measure.js';
@@ -18,8 +20,39 @@ export const GO = Object.freeze(['tonight', 'flight', 'search', 'launches', 'cre
 /** The parts of a hash that work without a camera: { go: 'tonight' | null, flight: 'BAW123' | null }. */
 export function decodeExtras(hash) {
   const p = new URLSearchParams(String(hash || '').replace(/^#/, '')), go = p.get('go'), f = p.get('f'), id = p.get('id');
-  return { go: GO.includes(go) ? go : null, flight: f && FLIGHT.test(f) ? f.toUpperCase() : null, id: id && /^[\w.-]{1,40}$/.test(id) ? id : null };
+  return { go: GO.includes(go) ? go : null, flight: f && FLIGHT.test(f) ? f.toUpperCase() : null, id: id && /^[\w.-]{1,40}$/.test(id) ? id : null, at: placeOf(p) };
 }
+
+// ---- Tonight for a place: #at=lat,lon[&name=...]. Only the hash carries it (never a query string, never a server).
+const DEG = /^-?\d{1,3}(\.\d+)?$/;
+/** A place's name from a link: at most 60 characters, no control characters or angle brackets (it is escaped where shown too). */
+export const placeName = n => { const s = String(n == null ? '' : n).replace(/\s+/g, ' ').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 60).trim(); return s || null; };
+function placeOf(p) {
+  const at = (p.get('at') || '').split(',');
+  if (at.length !== 2 || !at.every(x => DEG.test(x))) return null;
+  const lat = r(at[0], 2) + 0, lon = r(at[1], 2) + 0;   // + 0: no "-0"
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  const name = p.has('name') ? placeName(p.get('name')) : null;
+  return name ? { lat, lon, name } : { lat, lon };
+}
+/** The hash for Tonight at a place: 'at=18.52,73.86&name=Pune' (rounded to 0.01 deg), or '' for a place that is not one. */
+export function tonightHash(pl) {
+  if (!pl || !Number.isFinite(pl.lat) || !Number.isFinite(pl.lon) || Math.abs(pl.lat) > 90 || Math.abs(pl.lon) > 180) return '';
+  const name = placeName(pl.name);
+  return `at=${r(pl.lat, 2) + 0},${r(pl.lon, 2) + 0}${name ? '&name=' + encodeURIComponent(name) : ''}`;
+}
+/** The card's sections a Tonight embed can show (&sections=passes,planets): key -> the headings it opens. */
+export const TONIGHT_SECTIONS = Object.freeze({ clouds: ['Clouds tonight'], sky: ['Your sky'], passes: ['Satellites you can see'], planets: ['Planets'], deepsky: ['Deep sky tonight'],
+  meteors: ['Meteor showers'], launches: ['Rocket launches'], sun: ['Sun', 'The Sun now'], moon: ['Moon'], aurora: ['Aurora'], coming: ['Coming up in the sky'],
+  eclipse: ['Next solar eclipse you can see', 'Solar eclipses'], far: ['Farthest from home'] });
+/** tonight.html's hash: { at: { lat, lon, name? } | null, embed: bool, sections: [keys] | null (null = the card as it is) }. */
+export function decodeTonight(hash) {
+  const p = new URLSearchParams(String(hash || '').replace(/^#/, ''));
+  const sections = p.has('sections') ? [...new Set(p.get('sections').split(',').filter(k => Object.hasOwn(TONIGHT_SECTIONS, k)))] : [];
+  return { at: placeOf(p), embed: p.get('embed') === '1', sections: sections.length ? sections : null };
+}
+/** The headings a list of section keys opens (the rest fold shut in an embed). */
+export const tonightHeadings = keys => new Set((keys || []).flatMap(k => TONIGHT_SECTIONS[k] || []));
 
 /** view: { lon, lat, height, heading, pitch (degrees, metres), layers: [ids], weather: [ids] | null, time: { jd, rate } | null, country: 'JP' | null } */
 export function encodeView(v) {

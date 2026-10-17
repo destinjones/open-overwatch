@@ -1,7 +1,8 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { encodeView, decodeView, decodeExtras } from '../src/core/viewlink.js';
+import { readFileSync } from 'node:fs';
+import { encodeView, decodeView, decodeExtras, tonightHash, decodeTonight, tonightHeadings, placeName, TONIGHT_SECTIONS } from '../src/core/viewlink.js';
 
 const view = { lon: 139.6917, lat: 35.6895, height: 4_500_000, heading: 12.5, pitch: -63.2, layers: ['stations', 'quakes', 'companies'], weather: ['ir', 'wind'], time: { jd: 2461314.12345, rate: 60 }, country: 'JP', flight: 'BAW123' };
 
@@ -26,12 +27,43 @@ test('missing heading and pitch default to a straight-down view', () => {
 });
 
 test('links can open a panel or find a flight, and nothing else', () => {
-  assert.deepEqual(decodeExtras('#go=tonight'), { go: 'tonight', flight: null, id: null });
-  assert.deepEqual(decodeExtras('#go=launches&id=abc-123'), { go: 'launches', flight: null, id: 'abc-123' }); assert.equal(decodeExtras('#id=<x>').id, null);
-  assert.deepEqual(decodeExtras('#go=lookup&f=baw123'), { go: null, flight: 'BAW123', id: null });   // look-up needs a tap first
+  assert.deepEqual(decodeExtras('#go=tonight'), { go: 'tonight', flight: null, id: null, at: null });
+  assert.deepEqual(decodeExtras('#go=launches&id=abc-123'), { go: 'launches', flight: null, id: 'abc-123', at: null }); assert.equal(decodeExtras('#id=<x>').id, null);
+  assert.deepEqual(decodeExtras('#go=lookup&f=baw123'), { go: null, flight: 'BAW123', id: null, at: null });   // look-up needs a tap first
   assert.equal(decodeExtras('#f=<img src=x>').flight, null); assert.equal(decodeExtras('#f=ABCDEFGHIJ').flight, null);
   assert.equal(decodeView('#go=tonight'), null);                                           // no camera: not a view
   assert.equal(new URLSearchParams(encodeView({ lon: 0, lat: 0, height: 1, heading: 0, pitch: 0, flight: 'a"b' })).get('f'), null);
+});
+
+test('Tonight for a place: at= and name= survive a link, rounded to ~1 km, and nothing else gets in', () => {
+  const h = tonightHash({ lat: 18.52049, lon: 73.85674, name: 'Pune, Maharashtra' });
+  assert.equal(h, 'at=18.52,73.86&name=Pune%2C%20Maharashtra');
+  assert.deepEqual(decodeTonight('#' + h).at, { lat: 18.52, lon: 73.86, name: 'Pune, Maharashtra' });
+  assert.deepEqual(decodeExtras('#go=tonight&' + h), { go: 'tonight', flight: null, id: null, at: { lat: 18.52, lon: 73.86, name: 'Pune, Maharashtra' } }, 'the globe reads it too');
+  assert.deepEqual(decodeTonight('#at=28.6,77.2').at, { lat: 28.6, lon: 77.2 }, 'a name is optional');
+  assert.deepEqual(decodeTonight('#at=-33.868765,151.209296').at, { lat: -33.87, lon: 151.21 }, 'rounded as a saved home is');
+  assert.equal(Object.is(decodeTonight('#at=-0.001,-0.004').at.lat, 0), true, 'no "-0.00" on the card');
+  for (const bad of ['', '#at=', '#at=1', '#at=1,2,3', '#at=91,0', '#at=0,181', '#at=a,b', '#at=1e2,3', '#at=Infinity,0', '#at=,5', '#at=1,%202', '#name=Pune'])
+    assert.equal(decodeTonight(bad).at, null, bad);
+  assert.equal(decodeTonight('#at=1,2&name=' + encodeURIComponent('<img src=x onerror=alert(1)>')).at.name, 'img src=x onerror=alert(1)', 'no angle brackets (and the card escapes it as well)');
+  assert.equal(placeName('a\u0000b\nc  d'), 'ab c d'); assert.equal(placeName('x'.repeat(80)).length, 60); assert.equal(placeName('   '), null);
+  assert.equal(tonightHash({ lat: 95, lon: 0 }), ''); assert.equal(tonightHash(null), ''); assert.equal(tonightHash({ lat: 51.4778, lon: -0.0014 }), 'at=51.48,0');
+});
+
+test('a Tonight embed: embed=1, and the sections it opens (only known ones)', () => {
+  assert.deepEqual(decodeTonight('#embed=1&at=28.6,77.2&sections=passes,planets'), { at: { lat: 28.6, lon: 77.2 }, embed: true, sections: ['passes', 'planets'] });
+  assert.deepEqual(decodeTonight('#at=28.6,77.2'), { at: { lat: 28.6, lon: 77.2 }, embed: false, sections: null });
+  assert.equal(decodeTonight('#embed=1&sections=__proto__,constructor,<b>').sections, null, 'nothing known: the whole card');
+  assert.deepEqual(decodeTonight('#embed=yes&sections=moon,moon').embed, false);
+  assert.deepEqual([...tonightHeadings(['passes', 'sun'])], ['Satellites you can see', 'Sun', 'The Sun now']);
+  assert.equal(tonightHeadings(null).size, 0);
+  for (const [k, v] of Object.entries(TONIGHT_SECTIONS)) { assert.match(k, /^[a-z]+$/); assert.ok(Array.isArray(v) && v.length, k); }
+  // the card's headings (globe/tonight.js and the parts it draws): a renamed heading must be renamed here too
+  const src = ['tonight', 'darksky', 'sunnow'].map(f => readFileSync(new URL(`../src/globe/${f}.js`, import.meta.url), 'utf8')).join('\n');
+  for (const h of tonightHeadings(Object.keys(TONIGHT_SECTIONS))) assert.ok(src.includes(`<h3>${h}`), `no <h3>${h} on the card`);
+  // a typed place goes to Photon and nowhere else: Tonight never uses the globe's switchable geocoder
+  const tn = readFileSync(new URL('../src/globe/tonight.js', import.meta.url), 'utf8');
+  assert.match(tn, /import \{ photon, PHOTON_CREDIT \} from '\.\/geocode\.js'/); assert.doesNotMatch(tn, /findPlaces|places\.js/);
 });
 
 test('a drawing rides along, and only a good one', () => {

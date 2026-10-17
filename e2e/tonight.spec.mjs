@@ -82,5 +82,46 @@ test('Share tonight copies the summary and a link', async ({ page }) => {
   await expect(page.locator('#toast')).toContainText('Copied');
   const text = await page.evaluate(() => navigator.clipboard.readText());
   expect(text).toMatch(/Saturn/);
-  expect(text).toMatch(/See yours: https:\/\/destinjones\.github\.io\/open-overwatch\/globe\.html#go=tonight$/);
+  expect(text).toMatch(/See yours: https:\/\/destinjones\.github\.io\/open-overwatch\/globe\.html#go=tonight$/);   // your own location never goes into a link
+});
+
+test('a link answers for its place (#at=lat,lon), and saves nothing', async ({ page }) => {
+  await page.goto('tonight.html#at=28.6,77.2&name=New%20Delhi');
+  await expect(card(page).locator('.k').first()).toContainText('New Delhi · 28.60, 77.20 · from a link');
+  await expect(card(page).locator('h2')).toHaveText('Tonight over New Delhi');
+  await expect(card(page)).toContainText(/Saturn/);
+  await expect(page.locator('#tnLoc')).toBeVisible();   // and still offers your own place
+  expect(await page.evaluate(() => localStorage.getItem('oo3d.home'))).toBeNull();
+});
+
+test('a typed place: only the words go to Photon, and Share links that place', async ({ page }) => {
+  await page.addInitScript(() => { delete Navigator.prototype.share; });
+  const asked = [];
+  await page.route('https://photon.komoot.io/**', route => { asked.push(route.request().url()); return route.fulfill({ json: { features: [
+    { geometry: { coordinates: [73.8567, 18.5204] }, properties: { name: 'Pune', state: 'Maharashtra', country: 'India', osm_value: 'city' } }] } }); });
+  await page.goto('tonight.html');
+  await page.locator('#tnQ').fill('Pune');
+  await page.locator('#tnQ').press('Enter');
+  await page.locator('[data-pl="0"]').click();
+  await expect(card(page).locator('.k').first()).toContainText('Pune · 18.52, 73.86 · saved on this device');
+  expect(asked).toHaveLength(1);
+  expect(new URL(asked[0]).searchParams.get('q')).toBe('Pune');
+  expect(new URL(asked[0]).searchParams.has('lat')).toBe(false);   // the words only, never where the visitor is
+  await expect(card(page)).toContainText('Saturn');
+  await page.locator('#tnShare').click();
+  await expect(page.locator('#toast')).toContainText('Copied');
+  const text = await page.evaluate(() => navigator.clipboard.readText());
+  expect(text).toMatch(/^Tonight's sky over Pune:/);
+  expect(text).toMatch(/See it live: https:\/\/destinjones\.github\.io\/open-overwatch\/tonight\.html#at=18\.52,73\.86&name=Pune$/);
+});
+
+test('the embed: the chosen sections, no location buttons or toasts, a link back', async ({ page }) => {
+  await page.goto('tonight.html#embed=1&at=28.6,77.2&name=Delhi&sections=passes,planets');
+  await expect(card(page).locator('h2')).toHaveText('Tonight over Delhi');
+  await expect(card(page)).toContainText(/Saturn/);
+  await expect(card(page).locator('h3', { hasText: /^Planets/ })).toHaveAttribute('aria-expanded', 'true');
+  await expect(card(page).locator('h3', { hasText: /^Moon/ })).toHaveAttribute('aria-expanded', 'false');
+  for (const id of ['#tnLoc', '#tnForget', '#tnShare', '#tnAur']) await expect(page.locator(id)).toHaveCount(0);
+  await expect(page.locator('#toast')).toBeHidden();
+  await expect(page.locator('footer a').first()).toHaveAttribute('href', 'https://destinjones.github.io/open-overwatch/tonight.html#at=28.6,77.2&name=Delhi');
 });

@@ -9,7 +9,7 @@ import { createOverwatchServer, SITE } from '../mcp/index.mjs';
 import { checkArgs, PROTOCOL_VERSIONS } from '../mcp/protocol.mjs';
 import { createFeeds } from '../mcp/feeds.mjs';
 import { frame, inArea, globeUrl, LAYERS, WEATHER } from '../mcp/place.mjs';
-import { decodeView } from '../src/core/viewlink.js';
+import { decodeView, decodeTonight } from '../src/core/viewlink.js';
 import { haversine } from '../src/core/geo.js';
 import { gzipSync } from 'node:zlib';
 import { CAMERA_NETS as CAM_NETS } from '../src/core/cameras.js';
@@ -350,6 +350,11 @@ test('mcp: tonight\'s sky: darkness, clouds, planets, the Moon, showers and brig
   assert.ok(d.dark && Date.parse(d.dark.from) >= NOW - 3600e3); assert.equal(typeof d.cloud_percent, 'number'); assert.equal(d.planets.length, 5);
   assert.match(text, /Moon: .*% lit/); assert.ok(Array.isArray(d.passes));
   const v = hashOf(d.url); assert.equal(v.time.rate, 60); assert.deepEqual(v.add, ['stations', 'visual']);
+  const tn = new URL(d.tonight_url);   // and the light Tonight card for the same place, its place only in the hash
+  assert.equal(tn.pathname.split('/').pop(), 'tonight.html'); assert.equal(tn.search, '');
+  const at = decodeTonight(tn.hash).at; assert.equal(at.name, 'Helsinki, Uusimaa, Finland');
+  assert.ok(Math.abs(at.lat - d.place.lat) < 0.006 && Math.abs(at.lon - d.place.lon) < 0.006, 'rounded to ~1 km');
+  assert.ok(text.includes(d.tonight_url));
 });
 
 test('mcp: show_on_globe builds a view, or shows another answer\'s link, and only the site\'s', async () => {
