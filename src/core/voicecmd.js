@@ -17,6 +17,7 @@
 //   { act: 'draw', mode | on: false | finish }   "draw an area", "measure a distance", "stop drawing", "finish"
 //   { act: 'pin', place? }       "drop a pin" (where the pointer rests), "drop a pin on Rome"
 //   { act: 'undoDraw' | 'clearDraw' | 'drawInfo' }   "undo", "clear the drawing", "how long is it"
+// Hindi too, for the main commands (parseHindi below): "मुझे टोक्यो ले चलो", "सैटेलाइट दिखाओ", "ज़ूम इन".
 
 import { compass } from './gfs.js';
 
@@ -111,7 +112,122 @@ function airCommand(s) {
   return null;
 }
 
+// ---- Hindi (हिन्दी): the main commands, for a browser set to Hindi (voice.js then listens in hi-IN). The recogniser
+// writes Devanagari, English loanwords included ("सैटेलाइट", "ज़ूम इन"), sometimes with a Latin word or two. Hindi puts
+// the verb last: "मुझे टोक्यो ले चलो" (take me to Tokyo), "सैटेलाइट दिखाओ" (show the satellites), "भूकंप बंद करो"
+// (earthquakes off). The actions are the English ones; places come out in Latin letters (romanize) for the search.
+const DEV = /[ऀ-ॿ]/;
+/** Hindi text folded for matching: no nukta (ज़ → ज), chandrabindu as anusvara (ँ → ं), no punctuation, wake word or politeness. */
+function foldHi(text) {
+  return String(text || '').normalize('NFD').replace(/़/g, '').replace(/ँ/g, 'ं').normalize('NFC').toLowerCase()
+    .replace(/[।॥?!.,;:"“”‘’'()]+/g, ' ')
+    .replace(/^\s*(?:हे |ओके |hey |ok )?(?:ओपन ओवरवॉच|ओवरवॉच|open overwatch|overwatch)(?= |$)/, '')
+    .replace(/(?:^| )(?:कृपया|प्लीज|please|जरा|जी|अब)(?= |$)/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
+const HI_SHOW = 'दिखाओ|दिखाइए|दिखाइये|दिखाएं|दिखाये|दिखा दो|दिखा दीजिए|दिखाना|दिखा|चालू करो|चालू करें|चालू कीजिए|चालू कर दो|चालू|ऑन करो|ऑन करें|ऑन कर दो|ऑन|खोलो|खोलें|खोलिए|शो करो|show|on';
+const HI_HIDE = 'छिपाओ|छिपाइए|छिपाएं|छिपा दो|छुपाओ|छुपाइए|छुपाएं|छुपा दो|हटाओ|हटाइए|हटाएं|हटा दो|बंद करो|बंद करें|बंद कीजिए|बंद कर दो|बंद|ऑफ करो|ऑफ करें|ऑफ कर दो|ऑफ|hide|off';
+// the layers by their Hindi names, in the order they are tried ("हवाई जहाज", a plane, before "जहाज", a ship); name: what voice.js's findLayers knows
+const HI_LAYERS = [
+  ['planes', 'हवाई जहाजों|हवाई जहाज|विमानों|विमान|प्लेन्स|प्लेन|फ्लाइट्स|फ्लाइट|planes|flights'],
+  ['ships', 'पानी के जहाज|जहाजों|जहाज|शिप्स|शिप|ships'],
+  ['satellites', 'सैटेलाइट्स|सैटेलाइटों|सैटेलाइट|सेटेलाइट्स|सेटेलाइटों|सेटेलाइट|सैटलाइट|उपग्रहों|उपग्रह|satellites|satellite|sats'],
+  ['earthquakes', 'भूकंपों|भूकंप|भूकम्पों|भूकम्प|भूचाल|अर्थक्वेक|earthquakes|quakes'],
+  ['storms', 'तूफानों|तूफान|चक्रवातों|चक्रवात|आंधी|स्टॉर्म्स|स्टॉर्म|हरिकेन|साइक्लोन|storms'],
+].map(([name, words]) => [name, new RegExp(`^(?:(?:मुझे|हमें) )?(?:(?:सभी|सारे|सारी|सब) )?(?:${words})(?: को)? (${HI_SHOW}|${HI_HIDE})$`)]);
+const HI_ON = new RegExp(`^(?:${HI_SHOW})$`);
+const HI_HERE = /^(?:यहां|इधर|वहां|यहां का|अभी|आज|आज रात|कल|बाहर|मेरे यहां)$/;
+// names said in Hindi whose English differs from the letters (the rest go through romanize)
+const HI_TERMS = {
+  'आईएसएस': 'iss', 'आई एस एस': 'iss', 'अंतरिक्ष स्टेशन': 'iss', 'स्पेस स्टेशन': 'iss', 'इंटरनेशनल स्पेस स्टेशन': 'iss', 'अंतरराष्ट्रीय अंतरिक्ष स्टेशन': 'iss',
+  'हबल': 'hubble', 'चांद': 'the moon', 'चंद्रमा': 'the moon', 'चन्द्रमा': 'the moon', 'सौर मंडल': 'solar system', 'सौरमंडल': 'solar system', 'अंतरिक्ष': 'space',
+  'भारत': 'india', 'हिंदुस्तान': 'india', 'इंडिया': 'india', 'अमेरिका': 'united states', 'अमरीका': 'united states', 'चीन': 'china', 'जापान': 'japan', 'रूस': 'russia',
+  'इंग्लैंड': 'england', 'ब्रिटेन': 'united kingdom', 'फ्रांस': 'france', 'जर्मनी': 'germany', 'दिल्ली': 'delhi', 'नई दिल्ली': 'new delhi', 'लंदन': 'london',
+  'पेरिस': 'paris', 'न्यूयॉर्क': 'new york', 'हैदराबाद': 'hyderabad', 'बैंगलोर': 'bangalore', 'बेंगलुरु': 'bengaluru', 'हिमालय': 'himalayas',
+  'जयपुर': 'jaipur', 'लखनऊ': 'lucknow', 'वाराणसी': 'varanasi', 'अहमदाबाद': 'ahmedabad',
+  'एवरेस्ट': 'mount everest', 'माउंट एवरेस्ट': 'mount everest', 'ताजमहल': 'taj mahal', 'ताज महल': 'taj mahal',
+};
+const HI_ISS = 'आईएसएस|आई एस एस|इंटरनेशनल स्पेस स्टेशन|अंतरराष्ट्रीय अंतरिक्ष स्टेशन|अंतरिक्ष स्टेशन|स्पेस स्टेशन|iss';
+const placeOf = x => { x = x.trim(); return HI_TERMS[x] || (DEV.test(x) ? romanize(x) : x); };
+
+// ---- Devanagari in Latin letters, the way names are written in English: consonants carry an "a" that Hindi drops at
+// the end of a word and between a vowel-ended syllable and a consonant-vowel one (जयपुर → jaypur, कोलकाता → kolkata).
+const CONS = { 'क': 'k', 'ख': 'kh', 'ग': 'g', 'घ': 'gh', 'ङ': 'n', 'च': 'ch', 'छ': 'chh', 'ज': 'j', 'झ': 'jh', 'ञ': 'n', 'ट': 't', 'ठ': 'th', 'ड': 'd', 'ढ': 'dh', 'ण': 'n',
+  'त': 't', 'थ': 'th', 'द': 'd', 'ध': 'dh', 'न': 'n', 'प': 'p', 'फ': 'f', 'ब': 'b', 'भ': 'bh', 'म': 'm', 'य': 'y', 'र': 'r', 'ल': 'l', 'ळ': 'l', 'व': 'v', 'श': 'sh', 'ष': 'sh', 'स': 's', 'ह': 'h' };
+const NUKTA = { 'क': 'q', 'ख': 'kh', 'ग': 'g', 'ज': 'z', 'ड': 'r', 'ढ': 'rh', 'फ': 'f' };
+const SIGN = { 'ा': 'a', 'ि': 'i', 'ी': 'i', 'ु': 'u', 'ू': 'u', 'ृ': 'ri', 'े': 'e', 'ै': 'ai', 'ो': 'o', 'ौ': 'au', 'ॉ': 'o', 'ॅ': 'e', 'ॆ': 'e', 'ॊ': 'o' };
+const VOWEL = { 'अ': 'a', 'आ': 'a', 'इ': 'i', 'ई': 'i', 'उ': 'u', 'ऊ': 'u', 'ऋ': 'ri', 'ए': 'e', 'ऐ': 'ai', 'ओ': 'o', 'औ': 'au', 'ऑ': 'o', 'ऍ': 'e' };
+function romanWord(w) {
+  const u = [], ch = [...w.normalize('NFD')];
+  for (let i = 0; i < ch.length; i++) {
+    const c = ch[i], last = u[u.length - 1];
+    if (CONS[c]) { const nk = ch[i + 1] === '़'; if (nk) i++; u.push({ c: nk ? NUKTA[c] || CONS[c] : CONS[c], v: 'a', auto: true, coda: '' }); }
+    else if (c === '्') { if (last) { last.v = ''; last.auto = false; } }   // virama: no vowel
+    else if (SIGN[c]) { if (last) { last.v = SIGN[c]; last.auto = false; } }
+    else if (VOWEL[c]) u.push({ c: '', v: VOWEL[c], auto: false, coda: '' });
+    else if (c === 'ं' || c === 'ँ') { if (last) last.coda += 'N'; }   // anusvara: n, or m before p, b, m (मुंबई → mumbai)
+    else if (c === 'ः') { if (last) last.coda += 'h'; }
+    else if (/[a-z0-9]/i.test(c)) u.push({ c: c.toLowerCase(), v: '', auto: false, coda: '' });
+  }
+  const n = u.length;
+  if (n > 1 && u[n - 1].auto && !u[n - 1].coda) u[n - 1].v = '';
+  for (let i = n - 2; i >= 1; i--) {
+    const p = u[i - 1], x = u[i], q = u[i + 1];
+    if (x.auto && x.c && !x.coda && p.v && !p.coda && q.c && q.v) { x.v = ''; i--; }
+  }
+  return u.map((x, i) => x.c + x.v + x.coda.replace(/N/g, () => /^[pbm]/.test((u[i + 1] || {}).c || '') ? 'm' : 'n')).join('');
+}
+/** Devanagari → Latin letters (words kept apart; Latin passes through): "टोक्यो" → "tokyo", "मुंबई" → "mumbai". */
+export function romanize(text) {
+  return String(text || '').split(/\s+/).filter(Boolean).map(w => DEV.test(w) ? romanWord(w) : w.toLowerCase()).join(' ');
+}
+
+/** A Hindi sentence → the same actions parse() gives for English, or null when it is none of the Hindi commands. */
+function parseHindi(text) {
+  const h = foldHi(text); let m;
+  if (!h) return null;
+  if (/^(?:मदद|सहायता|हेल्प)(?: (?:करो|करें|कीजिए|चाहिए))?$|^(?:मैं )?क्या (?:बोल|कह) (?:सकता|सकती) हूं$/.test(h)) return { act: 'help' };
+  if (/^(?:जूम इन|zoom in)(?: (?:करो|करें|कीजिए|कर दो))?$|^(?:और )?(?:पास|नजदीक|करीब) (?:लाओ|जाओ|ले चलो|करो|आओ|दिखाओ)$|^बडा करो$/.test(h)) return { act: 'zoom', dir: 'in' };
+  if (/^(?:जूम आउट|zoom out)(?: (?:करो|करें|कीजिए|कर दो))?$|^(?:और )?दूर (?:ले जाओ|जाओ|करो|हटो|से दिखाओ)$|^पीछे (?:जाओ|हटो)$|^छोटा करो$/.test(h)) return { act: 'zoom', dir: 'out' };
+  // the weather: a question ("पेरिस में मौसम कैसा है?") is the weather there; "मौसम दिखाओ" opens weather mode
+  if ((m = h.match(/^(?:(.+?) (?:में|का|की|के) )?(?:आज(?: रात)? )?मौसम (?:कैसा|क्या|बताओ|बताइए|बताएं)(?: (?:है|हे|रहेगा|हाल है))?$/))) {
+    const place = m[1] && !HI_HERE.test(m[1]) ? placeOf(m[1]) : null; return place ? { act: 'weather', place } : { act: 'weather' };
+  }
+  if (new RegExp(`^(?:(?:मुझे|हमें) )?(?:मौसम|वेदर|बादल|बारिश|रडार)(?: (?:का नक्शा|मोड|मैप))?(?: को)?(?: (?:${HI_SHOW}))?$`).test(h)) return { act: 'view', go: 'weather' };
+  if (/(?:^| )(?:आज रात|टुनाइट|tonight|मेरे ऊपर)(?: |$)/.test(h)) return { act: 'view', go: 'tonight' };
+  if (/^(?:ऊपर|आसमान(?: में| की ओर| की तरफ)?|आकाश(?: में| की ओर| की तरफ)?) (?:देखो|देखें|देखिए|देखना)$|^(?:लुक अप|look up|स्काई मोड)(?: (?:करो|करें))?$/.test(h)) return { act: 'view', go: 'lookup' };
+  for (const [name, re] of HI_LAYERS) if ((m = h.match(re))) return { act: 'layer', name, on: HI_ON.test(m[1]) };
+  if ((m = h.match(/^(.+?)(?: को| का)? (?:ट्रैक|फॉलो|फोलो|track|follow)(?: (?:करो|करें|कीजिए|कर दो))?$/) || h.match(/^(.+?) का पीछा (?:करो|करें|कीजिए)$/))) return { act: 'track', what: placeOf(m[1]) };
+  if (new RegExp(`^(?:${HI_ISS})(?: को)? (?:${HI_SHOW})$`).test(h)) return { act: 'go', place: 'iss' };
+  if ((m = h.match(/^(?:(?:मुझे|हमें) )?(.+?)(?: (?:पर|में|तक|की ओर|की तरफ|के पास))? (?:ले चलो|ले चलिए|ले चलें|ले जाओ|ले जाइए|ले जाएं|जाओ|जाइए|जाएं|चलो|चलिए|चलें|दिखाओ|दिखाइए|दिखाएं|दिखा दो|दिखाना|दिखा|ढूंढो|ढूंढें|खोजो|खोजें)$/)
+    || h.match(/^(.+?) (?:कहां|किधर) (?:है|हैं)$/))) return { act: 'go', place: placeOf(m[1]) };
+  return null;
+}
+
+/** Phrases for the help card in Hindi. */
+export const EXAMPLES_HI = Object.freeze(['मुझे टोक्यो ले चलो', 'सैटेलाइट दिखाओ', 'भूकंप बंद करो', 'आईएसएस ट्रैक करो', 'आज रात क्या दिखेगा', 'पेरिस में मौसम कैसा है', 'ज़ूम इन']);
+/** The languages parse() understands. */
+export const COMMAND_LANGS = Object.freeze(['en', 'hi']);
+const EN_REGIONS = new Set(['US', 'GB', 'IN', 'AU', 'CA', 'NZ', 'IE', 'ZA', 'SG', 'PH', 'NG', 'KE', 'PK', 'GH', 'LK', 'BD', 'MY']);
+/**
+ * Which language to listen and answer in, from the browser's languages (navigator.languages, first choice first):
+ * { listen, speak, words }. The first language parse() understands wins: English as the browser says it, Hindi
+ * heard in hi-IN (answers stay English, in an Indian English voice). With neither, English for the first language's
+ * country (Tamil in India → en-IN), else en-US: a recogniser set to a language parse() can't read hears nothing useful.
+ */
+export function voiceLangs(langs) {
+  const list = (Array.isArray(langs) ? langs : [langs]).map(l => String(l || '').trim().replace('_', '-')).filter(Boolean);
+  for (const l of list) {
+    const base = l.split('-')[0].toLowerCase();
+    if (base === 'en') return { listen: l, speak: l, words: 'en' };
+    if (base === 'hi') return { listen: 'hi-IN', speak: 'en-IN', words: 'hi' };
+  }
+  const r = ((list[0] || '').split('-')[1] || '').toUpperCase(), en = EN_REGIONS.has(r) ? `en-${r}` : 'en-US';
+  return { listen: en, speak: en, words: 'en' };
+}
+
 export function parse(text) {
+  if (DEV.test(text || '')) { const h = parseHindi(text); if (h) return h; if (!normalize(text)) return { act: 'unknown', text: foldHi(text) }; }
   const s = normalize(text);
   if (!s) return { act: 'unknown', text: '' };
   if (/^(help|what can i (say|do)|commands|what do you do)\b/.test(s)) return { act: 'help' };
