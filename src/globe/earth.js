@@ -17,7 +17,7 @@ import { viewer, scene, globe } from './viewer.js';
 import { L } from './layers.js';
 import { state } from './state.js';
 import { Quality, LEVELS } from './quality.js';
-import { limbShown, shellPartitions } from '../core/quality.js';
+import { limbFade, shellPartitions } from '../core/quality.js';
 
 export const R_EQ = 6378137, R_PO = 6356752.3142;
 globe.baseColor = C.Color.fromCssColorString('#0b1622');
@@ -217,7 +217,8 @@ export const Earth = {
     // globe shader variant per combination (each new variant is a compile stall mid-flight): switch those off
     marbleLayer.show = marbleLayer.alpha > 0.001;
     if (baseLayer) { baseLayer.nightAlpha = 1 - real; baseLayer.show = marbleLayer.alpha < 0.999; }   // close in, the map stays visible on the night side
-    limbShell.primitive.show = limbShown(this.q, h);   // a full-disc pass for a thin rim: none on 'low', only from high up on 'balanced' (look-up mode hides it)
+    const limb = limbFade(this.q, h);   // a full-disc pass for a thin rim: none on 'low'; on 'balanced' it fades out below ~1,000 km
+    limbShell.primitive.show = limb > 0; limbShell.material.uniforms.fade = limb;   // (look-up mode hides it)
     marbleLayer.nightAlpha = 1 - real;
     nightLayer.show = L.night.on && real > 0.001; nightLayer.alpha = real;
     // the globe dims its night side to 0.3 only at full lighting (linear in height between the two lighting fade

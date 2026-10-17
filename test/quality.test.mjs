@@ -5,7 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ORDER, LIMB_RIM_M, qualityLevels, shellPartitions, autoLevel, limbShown, medianFrame, slowWindows, lowerLevel } from '../src/core/quality.js';
+import { ORDER, LIMB_RIM_M, qualityLevels, shellPartitions, autoLevel, limbFade, limbShown, medianFrame, slowWindows, lowerLevel } from '../src/core/quality.js';
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
@@ -47,9 +47,14 @@ test('quality: the limb halo per level and height', () => {
   const L = qualityLevels(false);
   assert.equal(limbShown(null, 500), true, 'no level yet: as before');
   for (const h of [500, 2e5, 3e7]) { assert.equal(limbShown(L.high, h), true); assert.equal(limbShown(L.low, h), false); }
-  assert.equal(limbShown(L.balanced, LIMB_RIM_M - 1), false);
-  assert.equal(limbShown(L.balanced, LIMB_RIM_M + 1), true);
-  assert.equal(limbShown(L.balanced, 2.0e7), true);
+  // on 'balanced' it fades over 800 to 1,200 km instead of popping at one height
+  assert.equal(limbFade(L.balanced, 4e5), 0); assert.equal(limbShown(L.balanced, 4e5), false);
+  assert.equal(limbFade(L.balanced, LIMB_RIM_M), 0.5);
+  assert.ok(limbFade(L.balanced, LIMB_RIM_M - 1.5e5) > 0 && limbFade(L.balanced, LIMB_RIM_M - 1.5e5) < 0.1);
+  assert.equal(limbFade(L.balanced, 2.0e7), 1); assert.equal(limbShown(L.balanced, 2.0e7), true);
+  let prev = 0;   // never steps: small height changes make small changes
+  for (let h = 7e5; h <= 1.3e6; h += 1e4) { const f = limbFade(L.balanced, h); assert.ok(f >= prev && f - prev < 0.05, `${h}`); prev = f; }
+  assert.equal(limbFade(L.high, 500), 1); assert.equal(limbFade(L.low, 3e7), 0);
 });
 
 test('quality: the step-down needs two slow windows, or one very slow one', () => {
@@ -76,7 +81,7 @@ test('quality: the globe applies resolution, FXAA, the limb and the relief taps 
   assert.match(q, /viewer\.resolutionScale = q\.scale/);
   assert.match(q, /scene\.postProcessStages\.fxaa\.enabled = q\.fxaa/);
   assert.doesNotMatch(v, /fxaa\.enabled = true/, 'FXAA is the level\'s to switch, not always on');
-  assert.match(e, /limbShell\.primitive\.show = limbShown\(this\.q, h\)/);
+  assert.match(e, /const limb = limbFade\(this\.q, h\);[^\n]*\n\s*limbShell\.primitive\.show = limb > 0; limbShell\.material\.uniforms\.fade = limb;/);
   assert.doesNotMatch(e, /limbShell\.primitive\.show = true/);
   assert.match(e, /uniform float bumps;/); assert.match(e, /if \(bumps > 0\.5\)/);
   assert.match(e, /bumps: q\.relief \? 1\.0 : 0\.0/);
@@ -85,7 +90,9 @@ test('quality: the globe applies resolution, FXAA, the limb and the relief taps 
 });
 
 test('quality: Starlink is off by default on phones, and the dock says so', () => {
-  const line = read('src/globe/layers.js').split('\n').find(l => l.includes("{ id: 'starlink'"));
+  const src = read('src/globe/layers.js'), line = src.split('\n').find(l => l.includes("{ id: 'starlink'"));
   assert.match(line, /on: !PHONE/);
-  assert.match(line, /name: PHONE \? '[^']*off by default on phones[^']*tap to show[^']*' : 'Starlink'/);
+  // the name stays a plain label (the satellite card and the export list show it); only the dock line carries the hint
+  assert.match(line, /name: 'Starlink', hint: PHONE \? '[^']*off by default on phones[^']*' : ''/);
+  assert.match(src, /\$\{esc\(l\.name\)\}\$\{l\.hint \? ` <small>\(\$\{esc\(l\.hint\)\}\)<\/small>` : ''\}/);
 });

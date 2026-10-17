@@ -9,8 +9,9 @@ export const LAYERS = [
   { id: 'gnss', group: 'Space', name: 'Navigation (GPS · Galileo · GLONASS · BeiDou)', color: '#ffd45c', on: true, sat: ['gps-ops', 'galileo', 'glo-ops', 'beidou'], size: 4 },
   { id: 'geo', group: 'Space', name: 'Geostationary belt', color: '#b48cff', on: true, sat: ['geo'], size: 3.5 },
   { id: 'weather', group: 'Space', name: 'Weather satellites', color: '#62e0c8', on: true, sat: ['weather'], size: 4 },
-  // Off by default on phones (~8,000 dots, the most of any layer; the dock says so): one tap shows them
-  { id: 'starlink', group: 'Space', name: PHONE ? 'Starlink (off by default on phones: ~8,000 dots; tap to show)' : 'Starlink', color: '#d9ccff', on: !PHONE, sat: ['starlink'], size: 1.6, alpha: 0.55 },
+  // Off by default on phones (~8,000 dots, the most of any layer): one tap shows them. The hint is for the dock line only;
+  // the name stays a plain label (the satellite card, search and the export list use it)
+  { id: 'starlink', group: 'Space', name: 'Starlink', hint: PHONE ? '~8,000 dots: off by default on phones' : '', color: '#d9ccff', on: !PHONE, sat: ['starlink'], size: 1.6, alpha: 0.55 },
   // last, so the groups above keep their own objects: every other active satellite CelesTrak lists, then the debris
   // clouds of the 2007 Fengyun-1C test and the 2009 Iridium 33 / Cosmos 2251 collision. (The full catalogue, with every
   // rocket body and fragment, is Space-Track's and may not be redistributed.) Off by default on phones: ~5,000 more dots.
@@ -68,7 +69,7 @@ export function initDock({ bases, currentBase, onBase, quality, saver }) {
     let html = '', g = '';
     for (const l of LAYERS) {
       if (l.group !== g) { html += (g ? '<div class="sep"></div>' : '') + `<h3>${esc(l.group)}</h3>`; g = l.group; }
-      html += `<button class="ly ${l.on ? '' : 'off'}" data-ly="${l.id}" style="--c:${l.color}"><i></i><span class="t">${esc(l.name)}</span><span class="n" id="n-${l.id}">${esc(counts[l.id] || '')}</span></button>`;
+      html += `<button class="ly ${l.on ? '' : 'off'}" data-ly="${l.id}" style="--c:${l.color}"><i></i><span class="t">${esc(l.name)}${l.hint ? ` <small>(${esc(l.hint)})</small>` : ''}</span><span class="n" id="n-${l.id}">${esc(counts[l.id] || '')}</span></button>`;
     }
     html += '<div class="sep"></div><h3>Base map</h3>' + Object.entries(bases).map(([id, b]) => `<button class="ly ${currentBase() === id ? '' : 'off'}" data-base="${id}" style="--c:#e6edf3"><i></i><span class="t">${esc(b.name)}</span></button>`).join('');
     if (quality) {

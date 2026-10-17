@@ -1102,8 +1102,9 @@ GPU checks shared by the 3D views; the caller passes the WebGL context. Used by 
 The globe's three graphics levels and the rules between them. Used by globe.
 
 - `qualityLevels`: the levels for a phone or not (tile detail, model caps, cloud octaves, frame cap, render scale, FXAA,
-  the limb halo, cloud relief, shell mesh); `ORDER`. `autoLevel`: where 'auto' starts. `limbShown`: the halo at a height
-  (`LIMB_RIM_M`). `shellPartitions`. `medianFrame`, `slowWindows` and `lowerLevel`: the automatic step-down.
+  the limb halo, cloud relief, shell mesh); `ORDER`. `autoLevel`: where 'auto' starts. `limbFade` and
+  `limbShown`: the halo at a height (`LIMB_RIM_M`). `shellPartitions`. `medianFrame`, `slowWindows` and
+  `lowerLevel`: the automatic step-down.
 
 ## The app shell
 

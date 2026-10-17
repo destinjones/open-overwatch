@@ -4,12 +4,15 @@
 // costs: a lower render resolution, no FXAA pass, no limb halo shell, fewer cloud taps; not only tile detail and models.
 
 export const ORDER = ['high', 'balanced', 'low'];
-/** On 'balanced' the limb halo is drawn only above this height (m): below it the rim is off screen or barely there. */
+/** On 'balanced' the limb halo fades out below this height (m; over 1,200 to 800 km): Balanced trades away the horizon
+ *  rim of low views (ISS height and below) for one full-disc pass fewer. From higher up the rim stays. */
 export const LIMB_RIM_M = 1.0e6;
+const RIM_BAND = 0.2e6;
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 /** The three levels for this device. sse: tile detail (screen-space error); air, sat: 3D model caps; octaves: cloud
  *  noise; fps: frame cap (0 = none); scale: render resolution (× CSS pixels); fxaa: the anti-aliasing pass; limb:
- *  'all' | 'rim' (above LIMB_RIM_M) | 'off'; relief: the cloud shader's four sun-side relief taps; mesh: shell partitions. */
+ *  'all' | 'rim' (fades out below LIMB_RIM_M) | 'off'; relief: the cloud shader's four sun-side relief taps; mesh: shell partitions. */
 export function qualityLevels(phone = false) {
   return {
     high: { name: 'High', sse: 2, air: 200, sat: 40, octaves: 4, fps: 0, scale: 1, fxaa: true, limb: 'all', relief: true, mesh: phone ? 'coarse' : 'fine' },
@@ -24,11 +27,14 @@ export const shellPartitions = mesh => mesh === 'fine' ? { stacks: 256, slices: 
 /** The level 'auto' means: phones and software renderers start low (the GPU is the limit there), the rest high. */
 export const autoLevel = (phone, software) => phone || software ? 'low' : 'high';
 
-/** Whether the limb halo shows at camera height h (m) on a level (null: no level yet, show it). */
-export function limbShown(q, h) {
+/** The limb halo's strength at camera height h (m) on a level, 0 to 1 (null: no level yet, full). On 'rim' it fades
+ *  over LIMB_RIM_M ± 200 km, so zooming through it never pops the halo in or out in one frame. */
+export function limbFade(q, h) {
   const limb = q ? q.limb : 'all';
-  return limb === 'all' || (limb === 'rim' && h > LIMB_RIM_M);
+  return limb === 'all' ? 1 : limb === 'rim' ? smooth(LIMB_RIM_M - RIM_BAND, LIMB_RIM_M + RIM_BAND, h) : 0;
 }
+/** Whether the limb halo is drawn at all (its shell is a full-disc pass, so it is hidden, not drawn at zero). */
+export const limbShown = (q, h) => limbFade(q, h) > 0;
 
 /** The median of one window's frame times (ms; sorts the array). */
 export function medianFrame(times) { times.sort((a, b) => a - b); return times[times.length >> 1] || 0; }
