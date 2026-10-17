@@ -113,8 +113,8 @@ open(p, 'w').write(open(${JSON.stringify(join(root, 'sitemap.xml'))}).read())
 b.date_sitemap(p)
 print(json.dumps({'n': n, 'asked': asked, 'fake': fake, 'real': open(p).read()}))
 `);
-  assert.deepEqual(out.asked, ['index.html', 'india/index.html', 'about.html', 'guide.html', 'tonight.html', 'globe.html', 'solar.html', 'open-overwatch.html']);
-  assert.equal(out.n, 7, 'a page git knows nothing about keeps its date');
+  assert.deepEqual(out.asked, ['index.html', 'india/index.html', 'india/hi/index.html', 'about.html', 'guide.html', 'tonight.html', 'globe.html', 'solar.html', 'open-overwatch.html']);
+  assert.equal(out.n, 8, 'a page git knows nothing about keeps its date');
   assert.match(out.fake, /open-overwatch\/<\/loc><lastmod>2027-01-01<\/lastmod>/);
   assert.match(out.fake, /india\/<\/loc><lastmod>2027-01-02<\/lastmod>/);
   const repo = readFileSync(join(root, 'sitemap.xml'), 'utf8');

@@ -2,7 +2,9 @@
 
 `india/` (<https://destinjones.github.io/open-overwatch/india/>) is a landing page for visitors from India, made for
 Meta ads aimed at India. English by default, हिन्दी with the toggle in the top bar or with `?lang=hi`; the choice is
-kept in the browser (`localStorage` `oo-lang`). The app itself stays in English.
+kept in the browser (`localStorage` `oo-lang`). `india/hi/` is the same page opening in हिन्दी at its own,
+self-canonical address (hreflang hi-IN), made from `india/index.html` by `node brand/tools/india_hi.mjs` (run it after
+every edit of the English page). The app itself stays in English.
 
 Files: `india/index.html` (the page, both languages in it), `india/india.js` (the page's code), `src/core/india.js`
 (the logic, tested in `test/india.test.mjs`), `brand/india/` (hero stills, the Open Graph card and the phone clips),
@@ -22,7 +24,7 @@ they are already on every ad.
 | Ad | URL |
 |---|---|
 | English | `https://destinjones.github.io/open-overwatch/india/?utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&utm_content=promo_en` |
-| Hindi | `https://destinjones.github.io/open-overwatch/india/?lang=hi&utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&utm_content=promo_hi` |
+| Hindi | `https://destinjones.github.io/open-overwatch/india/hi/?utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&utm_content=promo_hi` |
 | ISS passes | `https://destinjones.github.io/open-overwatch/india/?utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&utm_content=iss#iss` |
 | ISRO launches | `https://destinjones.github.io/open-overwatch/india/?utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&utm_content=isro#launches` |
 | Air quality | `https://destinjones.github.io/open-overwatch/india/?utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&utm_content=aqi#air` |
@@ -30,7 +32,8 @@ they are already on every ad.
 
 Display link: `destinjones.github.io/open-overwatch/india`. In Ads Manager the tags can go in "URL parameters"
 instead, with Meta's own fields: `utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}`.
-A Hindi ad keeps `lang=hi` in the website URL itself.
+A Hindi ad points at `india/hi/` (its share card and search entry are in Hindi); the older `india/?lang=hi` still
+opens in Hindi, but it is not the Hindi page's own address.
 
 ## What the page claims, and why it is true
 
