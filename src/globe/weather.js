@@ -76,23 +76,43 @@ export const Weather = {
   get model() { return Models[this.modelId]; },
   get other() { return Object.values(Models).find(m => m !== this.model); },
 
+  /** The pictures and the model's run are looked for together, but the pictures don't wait for the run: a bucket that
+   *  can't be reached is tried again and again (core/wxload.js runComplete: S3's "503 Slow Down" comes without CORS, so it
+   *  looks like a failed fetch), minutes for both models, and weather mode sat on "loading…" all that time with the radar
+   *  and satellite frames in hand. It opens on what was seen; the forecast joins the timeline when its run is found
+   *  (adoptRun). With no pictures at all it waits for the run, as before. */
   async init() {
     if (this.ready) return this.ready;
-    this.ready = (async () => {
+    const ready = this.ready = (async () => {
       const now = Date.now();
-      const [ir, rainAt, maps, run] = await Promise.all([
+      let run = null, found = false;
+      const runFound = this.findRun().then(r => { found = true; return (run = r); });
+      const [ir, rainAt, maps] = await Promise.all([
         Promise.all(SATS.map(async ([layer]) => ({ layer, latest: await latest(layer, 600e3, now - 25 * 60e3, now - 4 * 3600e3, 2000) }))),
         latest('IMERG_Precipitation_Rate_30min', 1800e3, now - 3 * 3600e3, now - 30 * 3600e3, 1500),
-        fetch('https://api.rainviewer.com/public/weather-maps.json').then(r => r.json()).catch(() => null),
-        this.findRun()]);
-      this.ir = ir.filter(s => s.latest); this.rainAt = rainAt || 0; this.run = run;
+        fetch('https://api.rainviewer.com/public/weather-maps.json').then(r => r.json()).catch(() => null)]);
+      this.ir = ir.filter(s => s.latest); this.rainAt = rainAt || 0;
       this.radar = maps && maps.radar ? maps.radar.past.map(f => ({ time: f.time * 1000, url: maps.host + f.path })) : [];
       this.end = this.ir.length ? Math.max(...this.ir.map(s => s.latest)) : Math.max(0, ...this.radar.map(f => f.time));   // the observed frames run on the satellites' clock; radar follows to the nearest frame
-      if (!this.end && run) this.end = Math.floor(now / STEP) * STEP;   // no pictures at all: the forecast still works
+      if (!this.end) { await runFound; if (run) this.end = Math.floor(now / STEP) * STEP; }   // no pictures at all: the forecast still works
       if (!this.end) throw new Error('no weather data reachable');
+      this.run = run;
       this.frames = timeline({ obsEnd: this.end, obs: FRAMES, obsStep: STEP, run, until: now + MAX_H * 3600e3 });
-    })().catch(e => { this.ready = null; throw e; });
-    return this.ready;
+      if (!found) runFound.then(r => this.adoptRun(r, ready)).catch(e => console.warn('weather forecast', e));
+    })().catch(e => { if (this.ready === ready) this.ready = null; throw e; });
+    return ready;
+  },
+  /** The run, found after weather opened on its pictures: the forecast part of the timeline joins it (unless weather was
+   *  closed or reopened since, or a model change found one first: `ready` is that opening's). */
+  adoptRun(run, ready) {
+    if (!run || run !== this.model.run || this.run || !this.on || this.ready !== ready || !this.frames.length) return;   // the model shown may have changed meanwhile
+    this.run = run; this.retime();
+  },
+  /** The timeline again on this.run (a new run, another model), staying on the moment shown. */
+  retime() {
+    const f = this.frames[this.frame];
+    this.frames = timeline({ obsEnd: this.end, obs: FRAMES, obsStep: STEP, run: this.run, until: Date.now() + MAX_H * 3600e3 });
+    this.frame = f ? this.nearest(f.t) : FRAMES - 1; this.build(); this.show();
   },
   /** The model choice in a share link, beside the layer ids: 'ecmwf' (GFS is the default), 'compare'. */
   shareTokens() { return [...(this.modelId !== 'gfs' ? [this.modelId] : []), ...(this.compare ? ['compare'] : [])]; },
@@ -111,20 +131,16 @@ export const Weather = {
     this.modelId = id; this.compare = compare; store.set('wx.model', id);
     Wind.setModels(this.model, compare ? this.other : null); this.splitBar(compare && this.on);
     if (!this.on || !this.frames.length) return;
-    const f = this.frames[this.frame], run = await this.findRun();
+    const run = await this.findRun();
     if (!this.on) return;
-    this.run = run;
-    this.frames = timeline({ obsEnd: this.end, obs: FRAMES, obsStep: STEP, run: this.run, until: Date.now() + MAX_H * 3600e3 });
-    this.frame = f ? this.nearest(f.t) : FRAMES - 1; this.build(); this.show();
+    this.run = run; this.retime();
   },
   /** A newer model run is out (every 6 h): rebuild the forecast part of the timeline on it. */
   async newRun() {
     if (!this.on) return;
     if (this.compare) this.other.refresh().then(n => n && this.show()).catch(() => {});
     if (!(await this.model.refresh().catch(() => false))) return;
-    const f = this.frames[this.frame]; this.run = this.model.run;
-    this.frames = timeline({ obsEnd: this.end, obs: FRAMES, obsStep: STEP, run: this.run, until: Date.now() + MAX_H * 3600e3 });
-    this.frame = f ? this.nearest(f.t) : FRAMES - 1; this.build(); this.show();
+    this.run = this.model.run; this.retime();
   },
 
   // the imagery layers of one observed frame of one set (made once, hidden until shown)

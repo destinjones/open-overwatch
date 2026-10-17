@@ -220,6 +220,9 @@ test/relayhosts.test.mjs checks since 2026-10-17).
   test/grib2.test.mjs carries its own small encoder instead of a data file.
 - The run to read: newest first from 3.5 h after the run starts, accepted once the last hour we show (f120, f072 on
   phones) exists. A newer run replaces it every 6 h (checked every 20 min while weather is open).
+- Weather mode opens on the pictures without waiting for the run (`Weather.adoptRun` adds the forecast later): a failed
+  fetch to a bucket is retried like S3's CORS-less "503 Slow Down" (wxload.js runComplete, 8 tries, 4 runs, then the
+  other model), so an unreachable S3 kept the panel on "loading…" for minutes (the e2e weather test caught it).
 - Weather mode sets the globe's clock (paused at the moment; live again on the newest observed frame or on close), and
   follows `Time.onChange` and a running clock: watch `selfClock` / `following` so the two don't chase each other.
 - The battery saver uses Cesium's `targetFrameRate` (cheap idle RAF ticks), not `requestRenderMode`: every per-frame
