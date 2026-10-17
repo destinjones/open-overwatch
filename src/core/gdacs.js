@@ -13,7 +13,7 @@ export const gdacsEventsUrl = (page = 1, now = Date.now(), days = 14) =>
 export const utc = s => (typeof s === 'string' && s && !/(Z|[+-]\d\d:?\d\d)$/.test(s) ? s + 'Z' : s);
 
 /** Event-list features → alerts, one per event (its latest episode: the list comes newest first), each the GDACS
- *  properties plus lat, lon, with fromdate / todate made explicit UTC. Green earthquakes are left out (USGS has them). */
+ *  properties plus lat, lon, with fromdate / todate / datemodified made explicit UTC. Green earthquakes are left out (USGS has them). */
 export function parseGdacsEvents(features, { greenQuakes = false } = {}) {
   const out = [], seen = new Set();
   for (const f of features || []) {
@@ -22,7 +22,7 @@ export function parseGdacsEvents(features, { greenQuakes = false } = {}) {
     if (!Number.isFinite(+lat) || !Number.isFinite(+lon)) continue;
     const p = { ...(f.properties || {}), lat: +lat, lon: +lon };
     const key = p.eventtype + p.eventid; if (p.eventid != null && seen.has(key)) continue; seen.add(key);
-    p.fromdate = utc(p.fromdate); p.todate = utc(p.todate);
+    p.fromdate = utc(p.fromdate); p.todate = utc(p.todate); p.datemodified = utc(p.datemodified);
     if (p.eventtype === 'EQ' && p.alertlevel === 'Green' && !greenQuakes) continue;
     out.push(p);
   }
