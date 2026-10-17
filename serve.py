@@ -12,7 +12,7 @@ import http.server, socketserver, urllib.request, urllib.parse, urllib.error, os
 PORT = int(os.environ.get("OW_PORT", "8787"))
 PAGE = "open-overwatch.html"
 ALLOWED_HOSTS = {
-    "api.adsb.lol", "api.airplanes.live", "opendata.adsb.fi", "api.adsb.one",   # aircraft
+    "api.adsb.lol", "api.airplanes.live", "opendata.adsb.fi",                     # aircraft
     "opensky-network.org",                                                        # aircraft snapshot
     "www.nhc.noaa.gov",                                                           # hurricane advisories
     "webcams.nyctmc.org",                                                         # NYC cameras
@@ -24,7 +24,7 @@ ALLOWED_HOSTS = {
     "kamera.atlas.vegvesen.no", "atmsqf.iowadot.gov", "trafficcam.calgary.ca", "images.data.gov.sg",  # camera stills sent without CORS
     "aviationweather.gov",                                                        # METAR and TAF (the globe's airport cards)
     "www.ndbc.noaa.gov",                                                          # NOAA buoys and DART tsunami buoys
-}  # keep in sync with NEEDS_RELAY in open-overwatch.html and ALLOWED_HOSTS in serve.js
+}  # keep in sync with NEEDS_RELAY in src/map/util.js and ALLOWED_HOSTS in serve.js (test/relayhosts.test.mjs checks)
 FORWARD_HEADERS = {"x-windy-api-key", "accept"}
 UA = "OpenOverwatch/1.0 (local helper; personal use)"
 OWN_HOSTS = {"127.0.0.1:%d" % PORT, "localhost:%d" % PORT}

@@ -1,16 +1,18 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Aircraft: ADS-B sources swept tile by tile, OpenSky, emergencies, photos.
 import { num, idArg } from '../core/format.js';
-import { $, C, Log, Net, Relay, Store, debounce, destination, esc, fmt, haversine, late, regionOf, toast } from './util.js';
+import { $, C, Log, Net, Relay, Store, debounce, destination, esc, fmt, haversine, isHttp, late, regionOf, toast } from './util.js';
 import { map, vecRenderer } from './mapview.js';
 import { Dyn, Exports, Layers, Sel, UI, airAt, feed, requestDraw } from './engine.js';
 import { Detail, Tracks } from './detail.js';
 import { readsb, openskyState, noteAircraftReport, readsbTime } from '../core/aircraft.js';
 import { AIR_TTL, ROW_DEG, TILE_KM, gridRow, tileAt } from '../core/airgrid.js';
-import { onPublishedSite } from '../core/relay.js';
+import { carried, onPublishedSite } from '../core/relay.js';
 
 /** The website without a helper or custom relay: adsb.lol only, through the public relay (core/airgrid.js says which queries). */
-export const publicAir = () => !Relay.base() && onPublishedSite(location.hostname);
+const website = () => !Relay.base() && onPublishedSite(location.hostname);
+/** The website, and its relay hasn't refused adsb.lol in this visit (the deployed Worker may not carry it: core/relay.js carried). */
+export const publicAir = () => website() && carried('https://api.adsb.lol/v2/mil');
 
 /* ============================================================ AIRCRAFT (ADS-B) */
 export const AIR_SRC = { 'adsb.lol': 'https://api.adsb.lol', 'adsb.fi': 'https://opendata.adsb.fi/api', 'airplanes.live': 'https://api.airplanes.live' };
@@ -25,7 +27,7 @@ export const Air = {
   paced(src) { return this.gap[src] || 2500; },
   onOk(src) { this.okStreak[src] = (this.okStreak[src] || 0) + 1; if (this.okStreak[src] >= 25) { this.okStreak[src] = 0; this.gap[src] = Math.max(2000, Math.round(this.paced(src) * 0.85)); } },
   on429(src) { this.okStreak[src] = 0; this.gap[src] = Math.min(6000, Math.round(this.paced(src) * 1.5)); this.cooldown[src] = Date.now() + 60000; },
-  order() { if (publicAir()) return ['adsb.lol']; const pref = AIR_SRC[Layers.opt('air_src')] ? Layers.opt('air_src') : 'adsb.lol'; return [pref, ...Object.keys(AIR_SRC).filter(s => s !== pref && !AIR_PATHS[s].optIn)]; },
+  order() { if (website()) return ['adsb.lol']; const pref = AIR_SRC[Layers.opt('air_src')] ? Layers.opt('air_src') : 'adsb.lol'; return [pref, ...Object.keys(AIR_SRC).filter(s => s !== pref && !AIR_PATHS[s].optIn)]; },
   path(src, kind, args) { const P = AIR_PATHS[src]; if (kind === 'point') return P.point(...args); if (kind === 'reg') return P.reg(args[0]); if (kind === 'squawk') return P.squawk(args[0]); if (kind === 'mil') return '/v2/mil'; return `/v2/${kind}/${args[0]}`; },
   async getFrom(src, kind, ...args) {
     const now = Date.now(); if ((this.cooldown[src] || 0) > now) throw new Error(`cooling down after rate limit (${Math.ceil((this.cooldown[src] - now) / 1000)} s)`);
@@ -33,7 +35,7 @@ export const Air = {
     catch (e) { if (/HTTP 429/.test(e.message)) { this.on429(src); throw new Error(e.message + ` — pausing this source 60 s, then 1 request per ${(this.paced(src) / 1000).toFixed(1)} s`); } throw e; }
   },
   async get(kind, ...args) { // kind: 'mil' | 'squawk' | 'hex' | 'callsign' | 'reg' | 'point'; tries the sources in order
-    const errs = []; const now = Date.now();
+    const errs = []; const now = Date.now(); let nc = false;
     for (const src of this.order()) {
       if ((this.cooldown[src] || 0) > now) { errs.push(`${src}: cooling down after rate limit (${Math.ceil((this.cooldown[src] - now) / 1000)} s)`); continue; }
       const P = AIR_PATHS[src]; let path;
@@ -44,10 +46,10 @@ export const Air = {
         let msg = e.message;
         if (/HTTP 429/.test(msg)) { this.on429(src); msg += ' — pausing this source 60 s'; }
         if (/HTTP 403/.test(msg) && src === 'airplanes.live') msg = 'HTTP 403 — airplanes.live now requires written permission for API use (contact@airplanes.live)';
-        errs.push(`${src}: ${msg}`); if (/blocked by browser|no helper/.test(msg)) break;
+        errs.push(`${src}: ${msg}`); if (e.notCarried) { nc = true; break; } if (/blocked by browser|no helper/.test(msg)) break;
       }
     }
-    throw new Error(errs.join(' · '));
+    throw Object.assign(new Error(errs.join(' · ')), { notCarried: nc });   // notCarried: runFeed stops the layer for the visit
   },
   alerted: new Map(), // hex -> time of the last emergency alert (one per aircraft per 30 min)
   raiseEmergency(rec) {
@@ -158,7 +160,7 @@ Detail.renderers.air = a => {
 export const AirSweep = {
   R_KM: TILE_KM, MAX_TILES: 30, PUBLIC_TILES: 6, tiles: [], partial: false, key: '', passMs: 0, cover: L.layerGroup(), showCover: Store.get('sweep_cover', false),
   plan() {
-    const b = map.getBounds(); const c = map.getCenter(), max = publicAir() ? this.PUBLIC_TILES : this.MAX_TILES;   // the public relay is shared: a few tiles per visitor
+    const b = map.getBounds(); const c = map.getCenter(), max = website() ? this.PUBLIC_TILES : this.MAX_TILES;   // the public relay is shared: a few tiles per visitor
     const south = Math.max(-80, b.getSouth()), north = Math.min(80, b.getNorth()); let west = b.getWest(), east = b.getEast(); if (east - west > 360) { west = -180; east = 180; }
     const dLat = ROW_DEG, cand = [];
     const row0 = Math.floor((south - dLat) / dLat), row1 = Math.ceil((north + dLat) / dLat);
@@ -176,7 +178,7 @@ export const AirSweep = {
     if (!map.hasLayer(this.cover)) this.cover.addTo(map);
   },
   async pass() {
-    const tiles = this.plan(); const key = this.key; const t0 = Date.now(); let n = 0, done = 0, errs = [];
+    const tiles = this.plan(); const key = this.key; const t0 = Date.now(); let n = 0, done = 0, errs = [], nc = false;
     const srcs = Air.order(); if (!srcs.length) throw new Error('no aircraft source available');
     const queue = tiles.slice(); // shared: each source pulls the next tile, so if one source fails the others cover everything
     const worker = async (src) => {
@@ -186,6 +188,7 @@ export const AirSweep = {
         try { const d = await Air.getFrom(src, 'point', t.lat, t.lon, 250); n += Air.ingest(d, 'local'); done++; }
         catch (e) {
           errs.push(`${src}: ${e.message}`);
+          if (e.notCarried) { nc = true; return; } // the website's relay doesn't carry it: no retry, the layer stops (runFeed)
           if (/blocked by browser|no helper|cooling down|pausing|HTTP 40[13]/.test(e.message)) { queue.unshift(t); return; } // this source is out for the pass: hand the tile back
           if (!t.retried) { t.retried = true; queue.push(t); } // a one-off failure (timeout, 5xx): one more try at the end, by whichever source gets there
         }
@@ -193,7 +196,7 @@ export const AirSweep = {
       }
     };
     await Promise.all(srcs.map(worker));
-    if (!done && errs.length) throw new Error(errs[0]);
+    if (!done && errs.length) throw Object.assign(new Error(errs[0]), { notCarried: nc });
     if (this.key !== key) { setTimeout(() => { lyAirLocal.feed.nextAt = 0; }, 0); return n; } // moved mid-pass: sweep again right away (after runFeed has set its own nextAt)
     this.passMs = Date.now() - t0; // only whole passes feed the civil-aircraft TTL in prune()
     const cooling = Object.entries(Air.cooldown).filter(([, v]) => v > Date.now()).map(([k]) => k);
@@ -218,17 +221,17 @@ export const lyAirLocal = Layers.add({
   enable() { AirSweep.drawCover(); },
   disable() { AirSweep.cover.clearLayers(); for (const [k, a] of Dyn.air) if (!a.mil && !a.emerg && a.src !== 'opensky') Dyn.air.delete(k); },
 });
-feed(lyAirLocal, { interval: 8, viewDependent: true, minZoom: 3, startDelay: 3, fetch: async () => { lyAirLocal.feed.interval = publicAir() ? AIR_TTL.point : 8; await AirSweep.pass(); lyAirLocal.feed.count = Dyn.air.size; } });
+feed(lyAirLocal, { interval: 8, viewDependent: true, minZoom: 3, startDelay: 3, fetch: async () => { lyAirLocal.feed.interval = website() ? AIR_TTL.point : 8; await AirSweep.pass(); lyAirLocal.feed.count = Dyn.air.size; } });
 map.on('moveend', debounce(() => { if (lyAirLocal.on && map.getZoom() >= 3) { AirSweep.plan(); } }, 300));
 
 export const lyAirMil = Layers.add({ id: 'air_mil', group: 'Air', name: 'Military aircraft, worldwide', desc: 'Everything the aggregator flags as military', color: C.mil, default: true, disable() { for (const [k, a] of Dyn.air) if (a.mil && !a.tags.has('local')) Dyn.air.delete(k); } });
-feed(lyAirMil, { interval: 15, fetch: async () => { lyAirMil.feed.interval = publicAir() ? AIR_TTL.mil : 15; const d = await Air.get('mil'); lyAirMil.feed.count = Air.ingest(d, 'mil'); } });
+feed(lyAirMil, { interval: 15, fetch: async () => { lyAirMil.feed.interval = website() ? AIR_TTL.mil : 15; const d = await Air.get('mil'); lyAirMil.feed.count = Air.ingest(d, 'mil'); } });
 
 export const lyAirEmg = Layers.add({ id: 'air_emg', group: 'Air', name: 'Emergency squawks, worldwide', desc: '7700 emergency · 7600 radio failure · 7500 unlawful interference', color: C.emg, default: true });
 export let emgCycle = 0;
 feed(lyAirEmg, {
   interval: 45, errorInterval: 90, startDelay: 12, fetch: async () => {
-    lyAirEmg.feed.interval = publicAir() ? AIR_TTL.squawk : 45;   // the relay shares each answer this long anyway
+    lyAirEmg.feed.interval = website() ? AIR_TTL.squawk : 45;   // the relay shares each answer this long anyway
     let n = 0; // alerts come from Air.ingest when an aircraft turns emergency, whichever feed sees it first
     const squawks = ['7700', (emgCycle++ % 2) ? '7600' : '7500']; // 7700 every cycle, the rarer two alternate: 2 requests instead of 3
     for (const sq of squawks) {
@@ -268,7 +271,8 @@ export const Photos = {
   async fetch(hex) {
     if (this.pending.has(hex)) return; this.pending.add(hex);
     try { const d = await Net.json(`https://api.planespotters.net/pub/photos/hex/${hex}`, { throttle: 'planespotters', gap: 700, timeout: 15000 }); const p = (d.photos || [])[0];
-      this.cache.set(hex, p ? { src: (p.thumbnail_large || p.thumbnail).src, link: p.link, by: p.photographer } : null); }
+      const src = p && (p.thumbnail_large || p.thumbnail || {}).src;   // only http(s) links and pictures (a bad record = no photo)
+      this.cache.set(hex, p && isHttp(p.link) && isHttp(src) ? { src, link: p.link, by: p.photographer } : null); }
     catch (e) { this.cache.set(hex, { failAt: Date.now() }); }
     finally { this.pending.delete(hex); if (this.cache.size > 500) this.cache.delete(this.cache.keys().next().value); if (Sel.kind === 'air' && Sel.id === hex) Detail.render(); }
   },

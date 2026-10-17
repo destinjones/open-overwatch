@@ -39,10 +39,10 @@ export const lyDart = Layers.add({ id: 'dart', group: G, name: 'Tsunami buoys (D
 Points.define('dart', 'dart');
 const DART_LOOK = { event: '#ff4d6d', standard: '#ffd45c', late: '#c9a35a', silent: '#8b9bab' };
 Detail.renderers.dart = o => {
-  if (!o.read) { o.read = Net.text(dartUrl(o.id), { timeout: 60000 }).then(t => { o.d = parseDart(t, { max: 200 }); stamp(o, 'dart', [rep('ndbc', { dataAt: o.d.latest?.t, cached: Relay.viaCopy(NDBC_LATEST) })]); }, e => { o.err = e.message; }).finally(() => reshow(o)); }
+  if (!o.read) { o.read = Net.text(dartUrl(o.id), { timeout: 60000 }).then(t => { o.d = parseDart(t, { max: 200 }); stamp(o, 'dart', [rep('ndbc', { dataAt: o.d.latest?.t, cached: Relay.viaCopy(NDBC_LATEST) })]); }, e => { o.err = e.message; o.notCarried = !!e.notCarried; }).finally(() => reshow(o)); }
   const s = o.d && dartStatus(o.d), l = o.d?.latest;
   const rows = o.d ? [['Status', s.words], ...(l ? [['Water column', `${l.heightM.toFixed(3)} m above the sensor`], ['Sampling', DART_MODES[l.mode] || 'mode ' + l.mode], ['Last reading', agoWords(l.t, Date.now(), true)]] : []), ...(s.rangeM != null ? [['Change, last 6 h', `${s.rangeM.toFixed(3)} m (mostly the tide)`]] : [])]
-    : [['Status', o.err ? 'NDBC is not answering: ' + o.err : 'reading the buoy…']];
+    : [['Status', o.notCarried ? "The buoy's file needs the download version (its local helper relays it)" : o.err ? 'NDBC is not answering: ' + o.err : 'reading the buoy…']];
   return `<div class="det">${Detail.head(s ? DART_LOOK[s.state] : DART_LOOK.standard, 'NOAA DART · tsunami buoy', o.name || o.id, esc(o.id + (o.owner ? ' · ' + o.owner : '')))}${Detail.kv(rows)}${center(o)}${Detail.links([{ text: 'NDBC station page', url: ndbcPage(o.id) }, { text: 'Tsunami warnings (tsunami.gov)', url: 'https://www.tsunami.gov/' }])}
 ${foot('A pressure sensor on the sea floor measures the water above it; tides move it by a metre or more. A sudden change, a quake or a test switches it into event mode (15-second and 1-minute readings) for a few hours. NOAA NDBC (public domain).')}</div>`;
 };

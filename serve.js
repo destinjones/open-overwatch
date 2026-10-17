@@ -12,7 +12,7 @@ const PORT = +(process.env.OW_PORT || 8787);
 const PAGE = 'open-overwatch.html';
 const DIR = __dirname;
 const ALLOWED_HOSTS = new Set([
-  'api.adsb.lol', 'api.airplanes.live', 'opendata.adsb.fi', 'api.adsb.one', // aircraft
+  'api.adsb.lol', 'api.airplanes.live', 'opendata.adsb.fi',                // aircraft
   'opensky-network.org',                                                    // aircraft snapshot
   'www.nhc.noaa.gov',                                                       // hurricane advisories
   'webcams.nyctmc.org',                                                     // NYC cameras
@@ -24,7 +24,7 @@ const ALLOWED_HOSTS = new Set([
   'kamera.atlas.vegvesen.no', 'atmsqf.iowadot.gov', 'trafficcam.calgary.ca', 'images.data.gov.sg', // camera stills sent without CORS
   'aviationweather.gov',                                                    // METAR and TAF (the globe's airport cards)
   'www.ndbc.noaa.gov',                                                      // NOAA buoys and DART tsunami buoys
-]); // keep in sync with NEEDS_RELAY in open-overwatch.html and ALLOWED_HOSTS in serve.py
+]); // keep in sync with NEEDS_RELAY in src/map/util.js and ALLOWED_HOSTS in serve.py (test/relayhosts.test.mjs checks)
 const FORWARD_HEADERS = ['x-windy-api-key', 'accept'];
 const UA = 'OpenOverwatch/1.0 (local helper; personal use)';
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8', '.py': 'text/plain; charset=utf-8', '.bat': 'text/plain; charset=utf-8', '.md': 'text/markdown; charset=utf-8',

@@ -227,7 +227,7 @@ export function drawTerminator() { const ring = nightRing(Date.now()); if (termP
 lyTerm.enable = () => { drawTerminator(); termTimer = setInterval(drawTerminator, 60000); }; lyTerm.disable = () => { clearInterval(termTimer); if (termPoly) map.removeLayer(termPoly); };
 
 /* ---------- Submarine cables + landing points (TeleGeography data); cables are non-interactive lines with a manual click test */
-export const lyCables = Layers.add({ id: 'cables', group: 'Infrastructure', name: 'Submarine cables', desc: 'TeleGeography submarine cable map data · live with the helper, an older GitHub copy without it', color: C.cable, default: false });
+export const lyCables = Layers.add({ id: 'cables', group: 'Infrastructure', name: 'Submarine cables', desc: 'TeleGeography submarine cable map data · live through the helper or the website relay, an older GitHub copy without either', color: C.cable, default: false });
 export const gCables = lineLayer(lyCables); export let cableData = null;
 export const lyLanding = Layers.add({ id: 'landing', group: 'Infrastructure', name: 'Cable landing stations', desc: 'Where the cables come ashore', color: '#8fc6e6', shape: 'round', default: false, points: 'landing' });
 Points.define('landing', 'landing', { minZoom: 4 });

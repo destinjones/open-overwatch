@@ -294,6 +294,8 @@ export async function runFeed(f, force = false) {
   try { await f.fetch(force); f.status = 'ok'; f.lastOk = Date.now(); f.err = ''; f.fails = 0; f.nextAt = Math.min(f.nextAt, Date.now() + f.interval * 1000); }
   catch (e) {
     const msg = e.message || String(e); f.status = 'error'; f.fails++;
+    // the website's relay refused this feed's host (util.js Net.fetch): retrying can't help, so it waits for a re-enable
+    if (e.notCarried) { f.notCarried = true; f.nextAt = Infinity; if (msg !== f.err) Log.warn(`${d.name}: ${msg}`); f.err = msg; return; }
     f.retry = Math.min(f.errorInterval * 2 ** (f.fails - 1), Math.max(f.errorInterval, Math.min(Math.max(f.interval, 300), 1800)));
     f.nextAt = Math.min(f.nextAt, Date.now() + f.retry * 1000); if (msg !== f.err) Log.error(`${d.name}: ${msg}`); f.err = msg;
   }
@@ -303,5 +305,5 @@ setInterval(() => { // hidden tab: keep polling at a third of the cadence so ale
   if (Feeds.paused) return; const now = Date.now(), hidden = document.hidden;
   for (const f of Feeds.list) if (f.layer.on && !f.running && now >= f.nextAt + (hidden ? 2 * (f.status === 'error' ? f.retry : f.interval) * 1000 : 0)) runFeed(f);
 }, 1000);
-map.on('moveend', debounce(() => { for (const f of Feeds.list) if (f.viewDependent && f.layer.on) f.nextAt = Math.min(f.nextAt, Date.now() + 1500); }, 600));
+map.on('moveend', debounce(() => { for (const f of Feeds.list) if (f.viewDependent && f.layer.on && !f.notCarried) f.nextAt = Math.min(f.nextAt, Date.now() + 1500); }, 600));
 $('#btnPause').addEventListener('click', () => { Feeds.paused = !Feeds.paused; $('#btnPause').textContent = Feeds.paused ? 'Resume' : 'Pause'; $('#btnPause').classList.toggle('primary', Feeds.paused); Log.warn(Feeds.paused ? 'All feeds paused' : 'Feeds resumed'); });

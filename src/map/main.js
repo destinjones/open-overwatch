@@ -4,7 +4,7 @@ import { $, Log, Net, Relay, Sound, Store, esc, fmt, regionOf, sleep, toast } fr
 import { map } from './mapview.js';
 import { Dyn, Feeds, Layers, Points, Sel, UI, glyphs, requestDraw, runFeed } from './engine.js';
 import { Detail, Hover, Tracks, applyLayoutMode, openSheet, showTab } from './detail.js';
-import { Air, Photos } from './aircraft.js';
+import { Air, Photos, publicAir } from './aircraft.js';
 import { Sats } from './satellites.js';
 import { AisWs, World, auroraOverlay, countryIso, fetchKp, irTiles, radarTiles, scanArea } from './feeds.js';
 import { Fun, Locate, PRESETS, Presets, legendHtml } from './presets.js';
@@ -57,13 +57,15 @@ export const Splash = {
   line(k, v, cls = '') { const el = $('#boot'); const cur = $('.cursor', el); if (cur) cur.classList.remove('cursor'); const d = document.createElement('div'); d.innerHTML = `<span>${esc(k)}</span><span class="${cls}">${esc(v)}</span>`; el.appendChild(d); while (el.children.length > 7) el.firstChild.remove(); },
   async run() {
     const t0 = Date.now(); const ok = await Relay.check(); Keys.relayStatus(); Feeds.paused = false;
-    this.line('relay', ok ? (Relay.usingCustom() ? 'custom relay answering' : 'helper online · aircraft feeds unlocked') : (Relay.custom ? 'custom relay not answering' : Relay.local ? 'helper not answering' : location.hostname === 'destinjones.github.io' ? 'public relay · adsb.lol aircraft near you' : 'not running · aircraft feeds locked'), ok ? 'ok' : 'warn');
+    this.line('relay', ok ? (Relay.usingCustom() ? 'custom relay answering' : 'helper online · aircraft feeds unlocked') : (Relay.custom ? 'custom relay not answering' : Relay.local ? 'helper not answering' : location.hostname === 'destinjones.github.io' ? 'public relay · NOAA storms, cameras, cables' : 'not running · aircraft feeds locked'), ok ? 'ok' : 'warn');
     if (Relay.custom && !Relay.usingCustom()) Log.warn('The custom relay (Setup tab) is not answering' + (ok ? ' — using the local helper instead' : ''));
     if (ok) Log.info(Relay.usingCustom() ? 'Custom relay answering — blocked sources routed through it' : 'Helper detected — aircraft, OpenSky, NYC cameras, NHC, cables, FIRMS and Windy go through it');
-    else if (location.hostname === 'destinjones.github.io') Log.info('Website: adsb.lol aircraft (military, emergencies and the tiles nearest the centre), NOAA hurricanes, NYC cameras and the live cable map come through the public relay; OpenSky, adsb.fi, FIRMS and Windy need the download (its helper)');
-    else Log.warn(Relay.local ? 'Served from localhost but the helper /proxy route is not answering — is this serve.py / serve.js?' : 'Opened as a plain file: aircraft, OpenSky, NYC cameras, NHC, the live cable map, FIRMS and Windy are blocked by the browser. Run the helper (Setup tab) to enable them.');
+    else if (location.hostname !== 'destinjones.github.io') Log.warn(Relay.local ? 'Served from localhost but the helper /proxy route is not answering — is this serve.py / serve.js?' : 'Opened as a plain file: aircraft, OpenSky, NYC cameras, NHC, the live cable map, FIRMS and Windy are blocked by the browser. Run the helper (Setup tab) to enable them.');
     const watch = [['sats', 'orbital data'], ['air_mil', 'military ads-b'], ['quakes', 'seismic'], ['storms', 'storm tracks'], ['nws', 'weather warnings']]; const seen = new Set();
-    for (let i = 0; i < 40 && seen.size < watch.length; i++) { await sleep(150); for (const [id, name] of watch) { const f = Layers.byId[id] && Layers.byId[id].feed; if (seen.has(id) || !f) continue; if (!Layers.byId[id].on) { seen.add(id); this.line(name, 'standby', ''); continue; } if (f.status === 'ok') { seen.add(id); this.line(name, `online · ${fmt.n(f.count)}`, 'ok'); } else if (f.status === 'error') { seen.add(id); this.line(name, f.err.slice(0, 60), 'bad'); } } }
+    for (let i = 0; i < 40 && seen.size < watch.length; i++) { await sleep(150); for (const [id, name] of watch) { const f = Layers.byId[id] && Layers.byId[id].feed; if (seen.has(id) || !f) continue; if (!Layers.byId[id].on) { seen.add(id); this.line(name, 'standby', ''); continue; } if (f.status === 'ok') { seen.add(id); this.line(name, `online · ${fmt.n(f.count)}`, 'ok'); } else if (f.status === 'error') { seen.add(id); this.line(name, f.notCarried ? 'needs the download version' : f.err.slice(0, 60), f.notCarried ? 'warn' : 'bad'); } } }
+    // the website: said once the aircraft feeds have answered, since the deployed relay may not carry adsb.lol (core/relay.js carried)
+    if (!ok && location.hostname === 'destinjones.github.io') Log.info((publicAir() ? 'Website: adsb.lol aircraft (military, emergencies and the tiles nearest the centre), ' : 'No live aircraft on the website: they need the free download. ')
+      + 'NOAA hurricanes, NYC cameras and the live cable map come through the public relay; OpenSky, adsb.fi, FIRMS and Windy need the download (its helper)');
     this.line('ready', `${((Date.now() - t0) / 1000).toFixed(1)} s`, 'ok'); this.done = true;
   },
   close(withAudio) { const el = $('#splash'); el.classList.add('out'); setTimeout(() => { el.hidden = true; }, 650); if (withAudio) { Music.auto = true; Store.set('music_auto', true); Music.start(); } else { Music.auto = false; Store.set('music_auto', false); } if (!Store.get('welcomed', false)) Welcome.show(); requestDraw(); },

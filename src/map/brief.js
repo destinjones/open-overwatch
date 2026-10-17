@@ -5,7 +5,7 @@ import { map } from './mapview.js';
 import { sunAlt as sunElevation } from '../core/sky.js';
 import { Dyn, Layers } from './engine.js';
 import { Detail } from './detail.js';
-import { Air, AirSweep, lyAirEmg, lyAirMil } from './aircraft.js';
+import { Air, AirSweep, lyAirEmg, lyAirMil, publicAir } from './aircraft.js';
 import { Sats } from './satellites.js';
 import { Aurora, Space, World, lyQuakes, lyStorms } from './feeds.js';
 import { Fun, Locate, PRESETS, Presets, legendHtml } from './presets.js';
@@ -122,7 +122,7 @@ export const Welcome = {
   show() {
     const el = $('#welcome'); el.hidden = false;
     el.innerHTML = `<div class="wcard" role="dialog" aria-labelledby="wt"><h2 id="wt">Open Overwatch</h2><p class="sub">A live picture of what is moving right now — aircraft, satellites, ships, storms and quakes — pulled straight from open feeds, no accounts. Pick where to start:</p>
-      ${!Relay.available && location.hostname === 'destinjones.github.io' ? `<div class="wnote">Aircraft come from adsb.lol through the website's relay: military and emergencies worldwide, and the area round the centre of the map. The download version (its helper) sweeps the whole view and adds OpenSky.</div>` : ''}
+      ${!Relay.available && location.hostname === 'destinjones.github.io' ? `<div class="wnote">${publicAir() ? "Aircraft come from adsb.lol through the website's relay: military and emergencies worldwide, and the area round the centre of the map. The download version (its helper) sweeps the whole view and adds OpenSky." : 'No live aircraft on the website: they need the free download (its helper sweeps the whole view and adds OpenSky). Everything else works from here.'}</div>` : ''}
       ${!Relay.available && location.hostname !== 'destinjones.github.io' ? `<div class="wnote">Aircraft feeds need the bundled helper. ${Relay.local ? 'It is not answering on this port.' : 'Run <span class="mono">Start Open Overwatch.bat</span> (or serve.py / serve.js) and open the page it gives you.'} Everything else works from here.</div>` : ''}
       <div class="wgrid">${PRESETS.map(p => `<button class="view" data-preset="${p.id}"><b>${esc(p.name)}</b><small>${esc(p.desc)}</small></button>`).join('')}</div>
       <div class="legend">${legendHtml()}</div>
