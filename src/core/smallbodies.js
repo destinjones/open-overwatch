@@ -41,7 +41,8 @@ export function packSmallBodies(list, cls = 6) {
   const N = list.length, buf = new ArrayBuffer(N * RECORD_BYTES), v = viewSmallBodies(buf);
   const ang = x => Math.round(wrap2pi(x) / TWO_PI * 65535) % 65536;
   list.forEach((el, k) => {
-    v.a[k] = el.a; v.e[k] = Math.round(el.e * 65535); v.i[k] = Math.round(el.i / Math.PI * 65535);
+    // 65534 at most: a near-parabolic comet (e > 0.9999924) would otherwise round to 65535 and decode as e = 1 exactly
+    v.a[k] = el.a; v.e[k] = Math.min(65534, Math.round(el.e * 65535)); v.i[k] = Math.round(el.i / Math.PI * 65535);
     v.node[k] = ang(el.node); v.peri[k] = ang(el.peri); v.M0[k] = ang(el.M0); v.cls[k] = el.cls ?? cls;
   });
   return buf;

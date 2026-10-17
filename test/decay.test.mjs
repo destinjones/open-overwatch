@@ -76,6 +76,14 @@ test('decay: Tiangong-1, 34 h before it came down, has 2018-04-02 00:16 UTC insi
   }
 });
 
+test('decay: n-dot says days while B* says 25+ years: that is disagreement, the window widens to ±50%', () => {
+  const p = predict('1 46709U 20073AR  26286.57776559  .00500000  00000-0  10000-6 0  9996',   // a placeholder-sized B*
+    '2 46709  53.0090 234.7860 0002227 286.5126  73.5674 15.90000000331485');
+  assert.equal(p.method, 'n-dot'); assert.ok(Number.isFinite(p.days) && p.days < 30, spanText(p.days)); assert.equal(p.otherDays, Infinity);
+  assert.equal(p.fraction, 0.5);
+  assert.match(uncertaintyWords(p), /wider than the usual/);
+});
+
 test('decay: GOCE, 19 days out (just after its engine stopped), has 2013-11-11 00:16 UTC inside its window', () => {
   const p = predict(...GOCE, { solar: MAX2013 });
   assert.ok(inside(p, '2013-11-11T00:16Z'), `${new Date(p.windowMs[0]).toISOString()} - ${new Date(p.windowMs[1]).toISOString()}`);

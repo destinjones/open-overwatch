@@ -43,13 +43,15 @@ export function findPasses(positionAt, observer, t0, t1, { step = 20e3, minEl = 
       let peak = rise, best = -90;                                 // golden-section-free: sample, then refine around the best
       for (let s = rise; s <= set; s += 5e3) { const e = el(s); if (e > best) { best = e; peak = s; } }
       for (let h = 2500; h >= 250; h /= 2) for (const s of [peak - h, peak + h]) { const e = el(s); if (e > best) { best = e; peak = s; } }
-      const a = t => lookAngles(positionAt(t), observer).az;
+      // Azimuth at t, or (where SGP4 has already failed at t, e.g. a decaying object) at the nearest valid instant on the way to the peak
+      const a = t => { for (let k = 0; k < 16; k++, t = (t + peak) / 2) { const p = positionAt(t); if (p) return lookAngles(p, observer).az; } return null; };
+      const pPeak = positionAt(peak), azRise = a(rise), azPeak = a(peak), azSet = a(set);
       let visible = null;
-      if (sunAt) {
+      if (sunAt && pPeak) {
         const sun = sunAt(peak), o = observer, sunEl = Math.asin(sun.x * o.up.x + sun.y * o.up.y + sun.z * o.up.z) * RAD;
-        visible = sunEl < -6 && sunlit(positionAt(peak), sun);
+        visible = sunEl < -6 && sunlit(pPeak, sun);
       }
-      out.push({ rise, peak, set, maxEl: best, azRise: a(rise), azPeak: a(peak), azSet: a(set), visible });
+      if (azRise != null && azPeak != null && azSet != null) out.push({ rise, peak, set, maxEl: best, azRise, azPeak, azSet, visible });
       rise = null;
     }
     prev = cur; tPrev = t;

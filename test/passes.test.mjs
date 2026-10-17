@@ -33,3 +33,15 @@ test('passes: visibility needs a sunlit satellite and a dark sky', () => {
   const night = findPasses(sat, obs, 0, PERIOD, { sunAt: () => ({ x: 0, y: -0.2, z: Math.sqrt(1 - 0.04) }) });   // sun below the horizon
   assert.equal(night.length, 1); assert.equal(typeof night[0].visible, 'boolean');
 });
+
+test('passes: a satellite whose propagation fails mid-pass (decay) ends the pass, it does not throw', () => {
+  const sun = () => ({ x: 0, y: -0.2, z: Math.sqrt(1 - 0.04) });
+  for (let k = 0; k < 20; k++) {                         // the set-edge bisection lands on either side of the cut-off
+    const cut = PERIOD / 4 + 90e3 + k * 37;               // 90 s after the first overhead peak
+    const dying = t => (t > cut ? null : sat(t));
+    const p = findPasses(dying, obs, 0, 2 * PERIOD, { sunAt: sun });
+    assert.equal(p.length, 1);
+    for (const f of ['azRise', 'azPeak', 'azSet']) assert.ok(Number.isFinite(p[0][f]), `${f} = ${p[0][f]}`);
+    assert.equal(compass(p[0].azSet), 'N');
+  }
+});

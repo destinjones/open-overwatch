@@ -12,6 +12,9 @@ import { encodeDrawing, decodeDrawing } from './measure.js';
 
 const r = (v, n) => +Number(v).toFixed(n);
 const FLIGHT = /^[A-Za-z0-9]{2,8}$/, NORAD = /^\d{1,9}$/;
+// The fastest clock a link may carry: the Solar view's 10 years per second (solarlink.js), which the globe takes back
+// with it (space.js); the time bar itself tops out at an hour per second. Faster runs Cesium's clock off the date range.
+const MAX_RATE = 3652.5 * 86400;
 /** Panels a link may open on arrival (#go=...). Nothing that needs a tap first (look-up asks for motion sensors). */
 export const GO = Object.freeze(['tonight', 'flight', 'search', 'launches', 'crew', 'eclipses', 'flybys', 'conj', 'reentry', 'now', 'history']);
 
@@ -44,8 +47,8 @@ export function decodeView(hash) {
   const p = new URLSearchParams(hash.replace(/^#/, '')), c = (p.get('c') || '').split(',').map(Number);
   if (c.length < 3 || c.slice(0, 3).some(x => !Number.isFinite(x)) || Math.abs(c[0]) > 180 || Math.abs(c[1]) > 90 || c[2] < 0 || c[2] > 1e10) return null;
   const ids = s => (s || '').split(',').filter(x => /^[a-z0-9_-]{1,24}$/i.test(x)).slice(0, 60);
-  const out = { lon: c[0], lat: c[1], height: c[2], heading: Number.isFinite(c[3]) ? c[3] : 0, pitch: Number.isFinite(c[4]) ? c[4] : -90, layers: p.has('l') ? ids(p.get('l')) : null, weather: p.has('w') ? ids(p.get('w')) : null, time: null, country: null };
-  if (p.has('t')) { const [jd, rate] = p.get('t').split(',').map(Number); if (Number.isFinite(jd) && jd > 2000000 && jd < 3000000) out.time = { jd, rate: Number.isFinite(rate) ? rate : 1 }; }
+  const out = { lon: c[0], lat: c[1], height: c[2], heading: Number.isFinite(c[3]) ? ((c[3] % 360) + 360) % 360 : 0, pitch: Number.isFinite(c[4]) ? Math.max(-90, Math.min(90, c[4])) : -90, layers: p.has('l') ? ids(p.get('l')) : null, weather: p.has('w') ? ids(p.get('w')) : null, time: null, country: null };
+  if (p.has('t')) { const [jd, rate] = p.get('t').split(',').map(Number); if (Number.isFinite(jd) && jd > 2000000 && jd < 3000000) out.time = { jd, rate: Number.isFinite(rate) ? Math.max(-MAX_RATE, Math.min(MAX_RATE, rate)) : 1 }; }
   if (/^[A-Z]{2}$/.test(p.get('k') || '')) out.country = p.get('k');
   out.flight = decodeExtras(hash).flight;
   const o = (p.get('o') || '').split('.');

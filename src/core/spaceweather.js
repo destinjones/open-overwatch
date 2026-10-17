@@ -88,7 +88,8 @@ export function parseFlares(doc) {
 export function flareClass(flux) {
   if (!fin(flux) || flux <= 0) return '';
   const L = [['X', 1e-4], ['M', 1e-5], ['C', 1e-6], ['B', 1e-7], ['A', 1e-8]];
-  const [c, base] = L.find(([, b]) => flux >= b * 0.99995) || L[L.length - 1], v = Math.floor(flux / base * 10 + 1e-6) / 10;
+  const hit = L.find(([, b]) => flux >= b * 0.99995), [c, base] = hit || L[L.length - 1], v0 = Math.floor(flux / base * 10 + 1e-6) / 10;
+  const v = hit ? Math.max(1, v0) : v0;   // a flux a hair under a decade takes the higher letter, so it reads 1.0 there, never "X0.9"
   return c + (c === 'X' && v >= 10 ? Math.floor(v) : v.toFixed(1));
 }
 /** Back from a class to its flux ("M2.3" → 2.3e-5), NaN for anything else. */

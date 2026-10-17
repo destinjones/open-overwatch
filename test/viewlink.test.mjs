@@ -21,6 +21,16 @@ test('bad links are refused or cleaned, never trusted', () => {
   assert.deepEqual(v.layers, ['quakes', 'ok_1']); assert.equal(v.country, null); assert.equal(v.time, null); assert.deepEqual(v.weather, ['ir']);
 });
 
+test('a hostile rate, heading or pitch is clamped, not applied', () => {
+  assert.equal(decodeView('#c=0,0,1e7&t=2461000,1e300').time.rate, 3652.5 * 86400);
+  assert.equal(decodeView('#c=0,0,1e7&t=2461000,-1e300').time.rate, -3652.5 * 86400);
+  assert.equal(decodeView('#c=0,0,1e7&t=2461000,3600').time.rate, 3600);           // the time bar's fastest survives
+  assert.equal(decodeView('#c=0,0,1e7&t=2461000,x').time.rate, 1);
+  const v = decodeView('#c=0,0,1000,1e308,-1e308');
+  assert.ok(v.heading >= 0 && v.heading < 360, `heading ${v.heading}`); assert.equal(v.pitch, -90);
+  assert.equal(decodeView('#c=0,0,1000,-90,400').heading, 270); assert.equal(decodeView('#c=0,0,1000,-90,400').pitch, 90);
+});
+
 test('missing heading and pitch default to a straight-down view', () => {
   const v = decodeView('#c=10,20,3000'); assert.equal(v.heading, 0); assert.equal(v.pitch, -90);
 });

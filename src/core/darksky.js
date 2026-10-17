@@ -77,7 +77,8 @@ export function qLimit(g, cls) {
 /**
  * The nearest stretch of sky at Bortle `maxBortle` or better (a dark cell whose four neighbours are dark too, so not a
  * single gap between towns) within maxKm: { lat, lon, km, bearing, dir, bortle, sqm } or null; { here: true, km: 0 } when
- * the spot itself qualifies. `land(lat, lon)` (optional) rejects candidates at sea: the atlas is dark offshore.
+ * the spot itself qualifies. `land(lat, lon)` (optional) rejects candidates at sea: the atlas is dark offshore. Without
+ * it the nearest cell comes back marked `unchecked: true`, and darkText says it may be at sea.
  */
 export function nearestDark(g, lat, lon, { maxBortle = 3, maxKm = 1000, land = null, tries = 20000 } = {}) {
   const q = qLimit(g, maxBortle), { cols, rows, step } = g, cells = g.cells;
@@ -99,7 +100,9 @@ export function nearestDark(g, lat, lon, { maxBortle = 3, maxKm = 1000, land = n
   for (const [km, la, lo, k] of found.slice(0, land ? tries : 1)) {
     if (land && !land(la, lo)) continue;
     const art = cells[k] ? 10 ** (g.log0 + (cells[k] - 1) * g.qstep) : 0, sqm = sqmFromMcd(art + (g.natural ?? NATURAL_MCD)), b = bearing(lat, lon, la, lo);
-    return { lat: +la.toFixed(3), lon: +lo.toFixed(3), km, bearing: b, dir: compass(b), bortle: bortleFromSqm(sqm), sqm };
+    const d = { lat: +la.toFixed(3), lon: +lo.toFixed(3), km, bearing: b, dir: compass(b), bortle: bortleFromSqm(sqm), sqm };
+    if (!land) d.unchecked = true;   // no land test ran (the caller's land map did not load): it may be offshore
+    return d;
   }
   return null;
 }
@@ -118,8 +121,8 @@ export const COMPASS_WORDS = { N: 'north', NNE: 'north-north-east', NE: 'north-e
 export function darkText(d, maxKm = 1000) {
   if (!d) return `No Bortle 3 or 4 sky within ${maxKm.toLocaleString('en-US')} km on land.`;
   if (d.here) return d.bortle <= 3 ? 'You are already under a dark (Bortle 3 or better) sky.' : `No Bortle 3 sky within ${maxKm.toLocaleString('en-US')} km on land, and this sky is already as dark as the nearest ones.`;
-  const km = d.km < 20 ? Math.round(d.km) : Math.round(d.km / 5) * 5;
-  return `${d.fallback ? `No Bortle 3 sky within ${maxKm.toLocaleString('en-US')} km on land. The nearest darker one` : 'The nearest dark sky'} (Bortle ${d.bortle}) is about ${km} km to the ${COMPASS_WORDS[d.dir] || d.dir}, around ${Math.abs(d.lat).toFixed(2)}°${d.lat >= 0 ? 'N' : 'S'} ${Math.abs(d.lon).toFixed(2)}°${d.lon >= 0 ? 'E' : 'W'} (as the crow flies).`;
+  const km = d.km < 20 ? Math.round(d.km) : Math.round(d.km / 5) * 5, sea = d.unchecked ? ' The land map did not load: it may be at sea.' : '';
+  return `${d.fallback ? `No Bortle 3 sky within ${maxKm.toLocaleString('en-US')} km${d.unchecked ? '' : ' on land'}. The nearest darker one` : 'The nearest dark sky'} (Bortle ${d.bortle}) is about ${km} km to the ${COMPASS_WORDS[d.dir] || d.dir}, around ${Math.abs(d.lat).toFixed(2)}°${d.lat >= 0 ? 'N' : 'S'} ${Math.abs(d.lon).toFixed(2)}°${d.lon >= 0 ? 'E' : 'W'} (as the crow flies).${sea}`;
 }
 
 // The Moon's light on the sky: a full Moon well up brightens a dark sky to about SQM 18.5 (~4.3 mcd/m²); the phase law

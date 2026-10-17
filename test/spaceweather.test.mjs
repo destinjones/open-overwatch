@@ -47,6 +47,11 @@ test('spaceweather: flare classes from flux and back, and the R scale', () => {
   assert.equal(flareClass(1e-5), 'M1.0');
   assert.equal(flareClass(2.8e-3), 'X28');
   assert.equal(flareClass(9.99e-5), 'M9.9');
+  assert.equal(flareClass(9.9996e-5), 'X1.0');   // inside the tolerance under a decade: the higher letter at 1.0, not "X0.9"
+  assert.equal(flareClass(9.9999e-6), 'M1.0');
+  assert.equal(flareClass(9.99951e-7), 'C1.0');
+  assert.equal(flareClass(9.9996e-8), 'B1.0');
+  assert.equal(flareClass(5e-9), 'A0.5');        // below A1 stays as it is
   assert.equal(flareClass(0), '');
   assert.ok(Math.abs(classFlux('M6.4') - 6.4e-5) < 1e-12);
   assert.deepEqual([classFlux('C9.9'), classFlux('M1'), classFlux('M5'), classFlux('X1'), classFlux('X10'), classFlux('X20')].map(rScale), [0, 1, 2, 3, 4, 5]);
