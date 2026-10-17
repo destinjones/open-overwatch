@@ -64,5 +64,10 @@ test('relay hosts: every NEEDS_RELAY host is one some view fetches (no dead entr
   walk('src/');
   const code = files.filter(f => f !== 'src/map/util.js').map(read).join('\n');
   const stills = ['kamera.atlas.vegvesen.no', 'atmsqf.iowadot.gov', 'trafficcam.calgary.ca', 'images.data.gov.sg'];   // camera pictures: the feeds name them
-  for (const h of needs) if (!stills.includes(h)) assert.ok(code.includes('https://' + h) || (h === ADSB_LOL_HOST && /ADSB_LOL_HOST/.test(code)), `${h} is in NEEDS_RELAY but nothing in src/ fetches it`);
+  // relayed ahead of its feed (the owner's call, so the feature needs no second Worker redeploy). Nothing fetches it yet:
+  // the DART card's plain link to https://www.tsunami.gov/ would otherwise satisfy the check below by accident.
+  // Take a host off this list once its loader lands.
+  const planned = ['www.tsunami.gov'];
+  for (const h of planned) assert.ok(needs.includes(h) && PUBLIC_RELAY_HOSTS.includes(h), `${h} is planned but no longer relayed: drop it from this list`);
+  for (const h of needs) if (!stills.includes(h) && !planned.includes(h)) assert.ok(code.includes('https://' + h) || (h === ADSB_LOL_HOST && /ADSB_LOL_HOST/.test(code)), `${h} is in NEEDS_RELAY but nothing in src/ fetches it`);
 });

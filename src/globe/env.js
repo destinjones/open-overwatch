@@ -38,10 +38,10 @@ export const bigStore = {
 
 // the local helper (serve.js / serve.py) relays the few feeds that send no CORS headers; the website has no helper
 export const RELAY = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) && location.protocol.startsWith('http') ? location.origin + '/proxy?url=' : null;
-/** The relayed URL for a feed: the local helper if there is one, else the website's public relay for the feeds it carries
- *  (src/core/relay.js: some cameras and NOAA feeds, in the one form it accepts), else null. */
 /** Whether url reaches the page through the public relay, a copy that may be cached (provenance marks it); the local helper only passes it on. */
 export const viaCopy = url => { const r = relayed(url); return !!r && r.startsWith(PUBLIC_RELAY); };
+/** The relayed URL for a feed: the local helper if there is one, else the website's public relay for the feeds it carries
+ *  (src/core/relay.js: some cameras and NOAA feeds, in the one form it accepts), else null. */
 export function relayed(url) {
   if (RELAY) return RELAY + encodeURIComponent(url);
   try { if (onPublishedSite(location.hostname) && publicRelayable(url)) return relayUrl(url); } catch (e) { /* not a URL */ }

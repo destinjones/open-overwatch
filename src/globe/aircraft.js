@@ -134,8 +134,9 @@ export const Air = {
     if (Date.now() - (this.snapTry || 0) < 15 * 60e3 - 5e3) return Promise.resolve();
     this.snapTry = Date.now(); return this.opensky();
   },
-  /** The website: adsb.lol's planes in the 3 grid tiles nearest the camera (core/airgrid.js; 250 nm each), through the
-   *  public relay, which shares each tile among every visitor for 45 s. Nothing while the civil layer is off. */
+  /** The website: adsb.lol's planes in the 3 grid tiles nearest the camera (core/airgrid.js; 250 nm each), through a
+   *  shared relay that could share each tile among every visitor for 45 s (none does today: adsb.lol refuses Cloudflare,
+   *  so this stops as notCarried). Nothing while the civil layer is off. */
   async nearby() {
     const cc = camera.positionCartographic; if (!cc || !L.air.on || Time.offLive()) return;
     const tiles = nearestTiles(C.Math.toDegrees(cc.latitude), C.Math.toDegrees(cc.longitude), 3);

@@ -1084,20 +1084,30 @@ carry the big data files. Used by globe, solar, sky, core.
 The public relay for the published website (`relay/worker.js`, a Cloudflare Worker) and the hosts it carries. Used by
 globe, map.
 
-- `PUBLIC_RELAY`, `PUBLIC_RELAY_HOSTS`: the Worker's address and its allowlist (= the Worker's `TTL` table).
-- `publicRelayable`: whether the relay carries a URL (a listed host, or one of adsb.lol's shared queries in airgrid.js).
+- `PUBLIC_RELAY`, `PUBLIC_RELAY_HOSTS`: the Worker's address and its allowlist (= the Worker's `TTL` table). No aircraft
+  feed is on it: adsb.lol answers Cloudflare's servers with 429, and the others' terms don't allow it.
+- `publicRelayable`: whether the relay carries a URL: a listed host the deployed Worker hasn't refused in this visit (it
+  doesn't check paths; the Worker does).
+- `relayUrl`: the relay's URL for a feed in the one form it accepts, `PUBLIC_RELAY + encodeURIComponent(new URL(u).href)`
+  (any other spelling gets a 400, since it would be a separate entry in the shared cache; an optional `&t=<digits>` may
+  follow, for a camera still's refresh).
+- `relayRefused`: whether an answer is the Worker refusing the host (its own 403 text), not the feed itself refusing.
+- `markNotCarried`, `carried`: note a host the deployed Worker refused (it can lag behind the list: a rollback, a redeploy
+  not done yet), and whether a URL's host is still asked; kept in memory only, so the next visit asks again.
 - `onPublishedSite`: true on the published site (the relay answers only that origin).
 
 ### `airgrid.js`
 
-The one fixed grid of 250 nm circles the website asks the ADS-B feeds for through the public relay, and which adsb.lol
-queries the relay carries for how long. Every visitor asks for the same URLs, so the relay's edge cache shares them; the
-Worker imports this file, so both sides agree. Used by globe, map, relay.
+The one fixed grid of 250 nm circles the 2D map sweeps its view in and the globe asks the few nearest its camera from,
+and which adsb.lol queries a shared relay could share for how long. Every visitor asks for the same URLs, so a shared
+cache could keep one answer for all of them; none does today (the public relay carried them until adsb.lol refused
+Cloudflare's servers on 2026-10-15, and the Worker no longer imports this file). Used by globe, map.
 
 - `gridRow`, `tileAt`, `ROW_DEG`, `TILE_KM`, `TILE_NM`: the grid (rows 1.5 R apart, a whole number of tiles round each
   row, so no seam at the antimeridian). `onGrid`: whether a URL's centre is on it. `nearestTiles`: the n nearest.
 - `adsbLolTtl`, `adsbLolRelayable`, `AIR_TTL`, `ADSB_LOL_HOST`: /v2/mil and squawks 7500/7600/7700 (60 s), grid tiles
-  (45 s); nothing else (single-plane lookups differ per visitor).
+  (45 s); nothing else (single-plane lookups differ per visitor). `adsbLolTtl` and `adsbLolRelayable` are kept for a
+  future relay that can reach adsb.lol; the map reads `AIR_TTL`.
 
 ### `gpu.js`
 

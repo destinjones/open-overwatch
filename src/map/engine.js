@@ -296,7 +296,7 @@ export async function runFeed(f, force = false) {
     const msg = e.message || String(e); f.status = 'error'; f.fails++;
     // the website's relay refused this feed's host (util.js Net.fetch): retrying can't help, so it waits for a re-enable or a
     // custom relay (setup.js); nextAt stays at the Infinity set above unless something rescheduled it during the fetch
-    if (e.notCarried) { if (/^air_/.test(f.id) && !Feeds.airNotCarried) { Feeds.airNotCarried = true; Log.info('No live aircraft on the website: they need the free download'); }   // once, whatever the boot log said earlier
+    if (e.notCarried) { if (/^air_/.test(f.id) && !Feeds.airNotCarried) { Feeds.airNotCarried = true; Log.info('No live aircraft on the website: they need the free download'); }   // once per visit: the boot line (main.js) sets the flag too
       f.notCarried = true; if (msg !== f.err) Log.warn(`${d.name}: ${msg}`); f.err = msg; return; }
     f.retry = Math.min(f.errorInterval * 2 ** (f.fails - 1), Math.max(f.errorInterval, Math.min(Math.max(f.interval, 300), 1800)));
     f.nextAt = Math.min(f.nextAt, Date.now() + f.retry * 1000); if (msg !== f.err) Log.error(`${d.name}: ${msg}`); f.err = msg;

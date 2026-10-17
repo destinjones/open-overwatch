@@ -156,11 +156,12 @@ Detail.renderers.air = a => {
 /* ---- "All aircraft in view": the public APIs answer at most 250 nm per query, so the visible area is swept
    with a hexagonal grid of 250 nm circles (up to MAX_TILES per pass, nearest the center first), the tiles split
    across the two aggregators in parallel, and everything is dead-reckoned between passes. The grid is fixed
-   (core/airgrid.js), so on the website every visitor asks the public relay for the same tiles and shares its copies. */
+   (core/airgrid.js), so every visitor asks for the same tiles and a shared relay could share each one (none does
+   today: adsb.lol refuses Cloudflare, so the website has no live aircraft). */
 export const AirSweep = {
   R_KM: TILE_KM, MAX_TILES: 30, PUBLIC_TILES: 6, tiles: [], partial: false, key: '', passMs: 0, cover: L.layerGroup(), showCover: Store.get('sweep_cover', false),
   plan() {
-    const b = map.getBounds(); const c = map.getCenter(), max = website() ? this.PUBLIC_TILES : this.MAX_TILES;   // the public relay is shared: a few tiles per visitor
+    const b = map.getBounds(); const c = map.getCenter(), max = website() ? this.PUBLIC_TILES : this.MAX_TILES;   // a shared relay (none carries aircraft today): a few tiles per visitor
     const south = Math.max(-80, b.getSouth()), north = Math.min(80, b.getNorth()); let west = b.getWest(), east = b.getEast(); if (east - west > 360) { west = -180; east = 180; }
     const dLat = ROW_DEG, cand = [];
     const row0 = Math.floor((south - dLat) / dLat), row1 = Math.ceil((north + dLat) / dLat);
@@ -231,7 +232,7 @@ export const lyAirEmg = Layers.add({ id: 'air_emg', group: 'Air', name: 'Emergen
 export let emgCycle = 0;
 feed(lyAirEmg, {
   interval: 45, errorInterval: 90, startDelay: 12, fetch: async () => {
-    lyAirEmg.feed.interval = website() ? AIR_TTL.squawk : 45;   // the relay shares each answer this long anyway
+    lyAirEmg.feed.interval = website() ? AIR_TTL.squawk : 45;   // a shared relay would share each answer this long anyway (none carries aircraft today)
     let n = 0; // alerts come from Air.ingest when an aircraft turns emergency, whichever feed sees it first
     const squawks = ['7700', (emgCycle++ % 2) ? '7600' : '7500']; // 7700 every cycle, the rarer two alternate: 2 requests instead of 3
     for (const sq of squawks) {

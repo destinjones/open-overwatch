@@ -63,9 +63,14 @@ export const Splash = {
     else if (location.hostname !== 'destinjones.github.io') Log.warn(Relay.local ? 'Served from localhost but the helper /proxy route is not answering — is this serve.py / serve.js?' : 'Opened as a plain file: aircraft, OpenSky, NYC cameras, NHC, the live cable map, FIRMS and Windy are blocked by the browser. Run the helper (Setup tab) to enable them.');
     const watch = [['sats', 'orbital data'], ['air_mil', 'military ads-b'], ['quakes', 'seismic'], ['storms', 'storm tracks'], ['nws', 'weather warnings']]; const seen = new Set();
     for (let i = 0; i < 40 && seen.size < watch.length; i++) { await sleep(150); for (const [id, name] of watch) { const f = Layers.byId[id] && Layers.byId[id].feed; if (seen.has(id) || !f) continue; if (!Layers.byId[id].on) { seen.add(id); this.line(name, 'standby', ''); continue; } if (f.status === 'ok') { seen.add(id); this.line(name, `online · ${fmt.n(f.count)}`, 'ok'); } else if (f.status === 'error') { seen.add(id); this.line(name, f.notCarried ? 'needs the download version' : f.err.slice(0, 60), f.notCarried ? 'warn' : 'bad'); } } }
-    // the website: said once the aircraft feeds have answered, since the deployed relay may not carry adsb.lol (core/relay.js carried)
-    if (!ok && location.hostname === 'destinjones.github.io') Log.info((publicAir() ? 'Website: adsb.lol aircraft (military, emergencies and the tiles nearest the centre), ' : 'No live aircraft on the website: they need the free download. ')
-      + 'NOAA hurricanes, NYC cameras and the live cable map come through the public relay; OpenSky, adsb.fi, FIRMS and Windy need the download (its helper)');
+    // the website: said once the aircraft feeds have answered. The website relay carries no aircraft (core/relay.js), and
+    // runFeed (engine.js) may already have said so when the first air_* feed stopped as notCarried: then it isn't repeated
+    if (!ok && location.hostname === 'destinjones.github.io') {
+      const air = publicAir() ? 'Website: adsb.lol aircraft (military, emergencies and the tiles nearest the centre), '
+        : Feeds.airNotCarried ? '' : 'No live aircraft on the website: they need the free download. ';
+      if (!publicAir()) Feeds.airNotCarried = true;   // said once per visit, here or in runFeed
+      Log.info(air + 'NOAA hurricanes, NYC cameras and the live cable map come through the public relay; OpenSky, adsb.fi, FIRMS and Windy need the download (its helper)');
+    }
     this.line('ready', `${((Date.now() - t0) / 1000).toFixed(1)} s`, 'ok'); this.done = true;
   },
   close(withAudio) { const el = $('#splash'); el.classList.add('out'); setTimeout(() => { el.hidden = true; }, 650); if (withAudio) { Music.auto = true; Store.set('music_auto', true); Music.start(); } else { Music.auto = false; Store.set('music_auto', false); } if (!Store.get('welcomed', false)) Welcome.show(); requestDraw(); },
