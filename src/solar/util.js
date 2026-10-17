@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { SITE } from '../core/assets.js';
 
 export const PHONE = matchMedia('(max-width: 900px)').matches || (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600);
+// reduced motion: camera flights jump instead of swooping (read live, so changing the setting applies at once)
+export const CALM = matchMedia('(prefers-reduced-motion: reduce)');
 
 // every custom shader must carry these, or it fights the logarithmic depth buffer
 export const LOGDEPTH_V = '#include <common>\n#include <logdepthbuf_pars_vertex>\n';

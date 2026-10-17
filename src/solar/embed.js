@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { AU_KM } from '../core/units.js';
 import { byKey } from './world.js';
+import { CALM } from './util.js';
 
 export const EMBED = new URLSearchParams(location.search).has('embed');
 const AU_M = AU_KM * 1000;
@@ -17,7 +18,7 @@ const Z = new THREE.Vector3(0, 0, 1), v = new THREE.Vector3();
  * Returns { api (exposed as OOSS.embed), frame(view) -> true while a hand-over animation owns the camera }.
  */
 export function createEmbed({ camera, controls, nav, clock, loop, update }) {
-  let anim = null, active = false;
+  let anim = null, active = false, armed = false;   // armed: the camera has been out past EXIT_M since the hand-over
   const parentSpace = () => { try { return window.parent !== window && window.parent.OO3D && window.parent.OO3D.space; } catch (e) { return null; } };
 
   const api = {
@@ -34,8 +35,12 @@ export function createEmbed({ camera, controls, nav, clock, loop, update }) {
       camera.up.set(s.up.x, s.up.y, s.up.z).normalize();
       const aim = camera.position.clone().addScaledVector(new THREE.Vector3(s.dir.x, s.dir.y, s.dir.z).normalize(), off.length());
       controls.target.copy(aim); camera.lookAt(aim); controls.minDistance = earth.radius * 1.15;
-      // then, over 1.6 s: aim at Earth's centre and roll "up" to the ecliptic north, the frame the solar view orbits in
-      anim = { t0: performance.now(), dur: 1600, up0: camera.up.clone(), aim0: aim };
+      // then, over 1.6 s: aim at Earth's centre and roll "up" to the ecliptic north, the frame the solar view orbits in.
+      // The roll is Earth-centred (Earth moves ~170,000 km in 1.6 s at the globe's 1 h/s), and ends at least a little
+      // past EXIT_M, so a fast clock can't leave the camera inside it and bounce the view straight back to the globe.
+      const d0 = off.length(), d1 = Math.max(d0, EXIT_M * 1.05 / AU_M);
+      anim = { t0: performance.now(), dur: CALM.matches ? 1 : 1600, up0: camera.up.clone(), dir: off.clone().divideScalar(d0), d0, d1, aimRel: aim.clone().sub(earth.pos) };
+      armed = false;
       controls.enabled = false; active = true; loop.resume();
     },
     pause() { active = false; loop.pause(); },
@@ -45,15 +50,17 @@ export function createEmbed({ camera, controls, nav, clock, loop, update }) {
 
   function frame() {
     if (anim) {
-      const k = Math.min(1, (performance.now() - anim.t0) / anim.dur), e = k * k * (3 - 2 * k);
-      controls.target.lerpVectors(anim.aim0, byKey.earth.pos, e);
+      const k = Math.min(1, (performance.now() - anim.t0) / anim.dur), e = k * k * (3 - 2 * k), earth = byKey.earth.pos;
+      camera.position.copy(earth).addScaledVector(anim.dir, anim.d0 + (anim.d1 - anim.d0) * e);
+      controls.target.copy(earth).add(anim.aimRel).lerp(earth, e);
       camera.up.copy(anim.up0).lerp(Z, e).normalize();
       if (k >= 1) { camera.up.copy(Z); anim = null; controls.enabled = true; }
       return true;
     }
-    const space = parentSpace();
+    const space = parentSpace(), dEarth = camera.position.distanceTo(byKey.earth.pos) * AU_M;
+    if (dEarth >= EXIT_M) armed = true;
     // hand Earth back to the globe: measured to Earth itself, and not mid-flight (a flight's target is still moving)
-    if (active && space && !nav.fly && nav.focus === byKey.earth && camera.position.distanceTo(byKey.earth.pos) * AU_M < EXIT_M) {
+    if (active && armed && space && !nav.fly && nav.focus === byKey.earth && dEarth < EXIT_M) {
       const earth = byKey.earth.pos;
       active = false;
       space.leave({
