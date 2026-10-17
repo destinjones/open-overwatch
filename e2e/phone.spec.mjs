@@ -81,6 +81,11 @@ test('2D map: tapping a quake opens its details in the intel sheet', async ({ pa
 test('globe: the phone dock replaces the band, and its sheets open and close', async ({ page }) => {
   await openGlobe(page);
   await expect(page.locator('body')).toHaveClass(/\bm\b/);
+  // phones start on Low: a 30 fps cap (the battery saver, off for this check, can cap lower), 0.66 render scale, no FXAA
+  await page.evaluate(() => OO3D.Saver.set(false));
+  expect(await page.evaluate(() => [OO3D.viewer.targetFrameRate, OO3D.viewer.resolutionScale, OO3D.viewer.scene.postProcessStages.fxaa.enabled])).toEqual([30, 0.66, false]);
+  await page.evaluate(() => OO3D.Saver.set(true));
+  expect(await page.evaluate(() => OO3D.L.starlink.on)).toBe(false);   // ~8,000 dots: off by default on phones
   const dock = page.locator('#mdock');
   await expect(dock.locator('.m-tab')).toHaveCount(5);
   await expectOnScreen(page, '#mdock');
@@ -100,6 +105,8 @@ test('globe: the phone dock replaces the band, and its sheets open and close', a
   await dock.locator('[data-tab="layers"]').tap();
   await expect(page.locator('#dock')).toHaveClass(/\bopen\b/);
   await expectFitsWidth(page, ['#dock']);
+  await expect(page.locator('#dock [data-ly="starlink"]')).toHaveClass(/\boff\b/);
+  await expect(page.locator('#dock [data-ly="starlink"]')).toContainText('off by default on phones');
   await page.locator('#dock [data-ly="quakes"]').tap();
   expect(await page.evaluate(() => OO3D.L.quakes.on)).toBe(false);
   await dock.locator('[data-tab="layers"]').tap();

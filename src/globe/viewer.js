@@ -22,7 +22,7 @@ export const CALM = matchMedia('(prefers-reduced-motion: reduce)');
 }
 $('#credits').appendChild(viewer.cesiumWidget.creditContainer);
 scene.backgroundColor = C.Color.fromCssColorString('#04060a');
-scene.postProcessStages.fxaa.enabled = true;
+// FXAA and the render resolution follow the graphics level (quality.js)
 if (!scene.moon) scene.moon = new C.Moon();
 if (!scene.sun) scene.sun = new C.Sun();   // Cesium only makes the Sun (and Moon) along with its default sky box, which we skip
 scene.moon.show = true; scene.sun.show = true; scene.sun.glowFactor = 1.6;   // a brilliant star from orbit, not a dull disc

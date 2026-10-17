@@ -21,6 +21,9 @@ test('the globe over Europe at a fixed moment', async ({ page }, testInfo) => {
   // on GitHub's runner this picture comes out two ways from run to run (the day/night shading, or the stand-in tiles evenly
   // lit, whichever layer finishes first), so it can't be a pass/fail check there; it still runs locally and with OO_E2E_ALL=1
   test.skip(!!process.env.CI && !process.env.OO_E2E_ALL, 'flaky on the CI runner: two pictures run to run (see the comment)');
+  // SwiftShader starts the globe on Low. Low now renders at 0.75 scale with no FXAA, limb halo or cloud relief, and no
+  // other level matches the old Low the reference was taken at, so globe-europe.png is to be refreshed (OO_E2E_ALL=1,
+  // OO_E2E_UPDATE=1) on the next GitHub run rather than pinned to a level here
   const jd = jdFromMs(Date.parse(AT));
   await openGlobe(page, `#c=10,30,16000000,0,-90&t=${jd},0&l=stations,quakes,clouds,night`);
   await page.waitForFunction(() => OO3D.viewer.scene.globe.tilesLoaded, null, { timeout: 60000 });

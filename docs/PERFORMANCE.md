@@ -100,7 +100,9 @@ Known left (emulation can't show a real phone's GPU):
 - **Graphics levels** (`src/globe/quality.js`, `src/solar/quality.js`): High, Balanced and Low; phones and software
   renderers start on Low. In Auto, two 3-second windows with a median frame over 40 ms step down one level.
   - Globe levers: tile detail (screen-space error 2/3/4), model counts (aircraft 200/80/30, satellites 40/25/12),
-    cloud noise octaves (4/2/1), 30 fps cap on Low.
+    cloud noise octaves (4/2/1), 30 fps cap on Low; render scale 1/0.9/0.75 (0.66 on phones), FXAA on/on/off, limb
+    halo everywhere/fading out below 1,000 km/off, the cloud relief taps off on Low, coarser shell meshes below High
+    (`src/core/quality.js`). Starlink (~8,000 dots) is off by default on phones.
   - Solar levers: pixel ratio (1.5/1/1; 2× on a Retina laptop was four times the pixels), and all 1.57M asteroids or only
     the brightest 300k.
   - The step-down now triggers on a 3-second window with a median frame over 50 ms, or two in a row over 28 ms.

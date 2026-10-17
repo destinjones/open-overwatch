@@ -30,7 +30,7 @@ is also used by its tests in `test/`.
 - [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `transitfeeds.js`, `gtfsrt.js`, `bikes.js`, `cameras.js`, `cables.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
 - [OpenStreetMap](#openstreetmap): `osmtiles.js`, `overpass.js`
 - [Links, words and the interface](#links-words-and-the-interface): `viewlink.js`, `solarlink.js`, `search.js`, `scene.js`, `voicecmd.js`, `format.js`, `ics.js`, `radio.js`
-- [Network and devices](#network-and-devices): `assets.js`, `relay.js`, `gpu.js`, `poll.js`
+- [Network and devices](#network-and-devices): `assets.js`, `relay.js`, `gpu.js`, `poll.js`, `quality.js`
 - [The app shell](#the-app-shell): `pwa.js`, `whatsnew.js`, `spot.js`, `a11ycheck.js`
 
 ## Time, units and frames
@@ -1112,6 +1112,15 @@ hidden (an armed alert) or stop for the visit on a not-carried error. DOM-free: 
 Used by globe.
 
 - `createPoller`: `add(ms, fn, { keep, permanent, onError, onStop, start })` and `setHidden(hidden)`.
+
+### `quality.js`
+
+The globe's three graphics levels and the rules between them. Used by globe.
+
+- `qualityLevels`: the levels for a phone or not (tile detail, model caps, cloud octaves, frame cap, render scale, FXAA,
+  the limb halo, cloud relief, shell mesh); `ORDER`. `autoLevel`: where 'auto' starts. `limbFade` and
+  `limbShown`: the halo at a height (`LIMB_RIM_M`). `shellPartitions`. `medianFrame`, `slowWindows` and
+  `lowerLevel`: the automatic step-down.
 
 ## The app shell
 
