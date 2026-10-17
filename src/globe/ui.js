@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Globe UI: stats, the altitude band and presets, hover tips, the details card, keyboard, and model lighting.
 import { C, $, esc, fmt } from './env.js';
-import { viewer, scene, camera, airIcons, orbitLines, camHeight } from './viewer.js';
+import { viewer, scene, camera, airPts, airIcons, orbitLines, camHeight } from './viewer.js';
 import { L } from './layers.js';
 import { state, hooks } from './state.js';
 import { Follow, release } from './follow.js';
@@ -41,7 +41,11 @@ export function updateBand() {
   $('#bandName').textContent = name;
   $('#bandAlt').textContent = h > 1e6 ? fmt(h / 1000) + ' km above Earth' : h > 1e4 ? fmt(h / 1000) + ' km' : fmt(h) + ' m';
   showPlaceNames(L.labels.on && h < 3.0e6);
-  airIcons.show = h > 6.0e4 && !state.weather;   // from low down, flat top-down icons near the horizon look like upright cards; models cover it
+  // Air.update writes only the plane collections that can draw from this height: one it skipped stays hidden (its
+  // positions are old), and crossing into its band runs a pass now rather than at the next tick
+  if (!state.weather && ((h > Air.PTS_H && !Air.ptsFresh) || (h < Air.ICON_H && !Air.iconsFresh))) Air.update(Date.now());
+  airPts.show = !state.weather && Air.ptsFresh;
+  airIcons.show = h > 6.0e4 && !state.weather && Air.iconsFresh;   // from low down, flat top-down icons near the horizon look like upright cards; models cover it
 }
 camera.percentageChanged = 0.02; camera.changed.addEventListener(updateBand);
 setInterval(updateBand, 250);   // lookAt/follow moves don't always raise camera.changed
@@ -70,7 +74,16 @@ const handler = new C.ScreenSpaceEventHandler(scene.canvas);
 // points carry the object as their id; model entities carry .sat / .air
 // fingers are wide and dots are a few pixels: touch picks within a 28 px square, the mouse within 3 px
 let touchInput = matchMedia('(pointer: coarse)').matches;
-scene.canvas.addEventListener('pointerdown', e => { touchInput = e.pointerType !== 'mouse'; if (touchInput) $('#hover').style.display = 'none'; }, true);
+// a hover pick draws the whole scene again into the pick buffer and stalls on readPixels, so the mouse picks only once it
+// rests (80 ms after the last move), never while a button is held (a drag) or the camera moves; movement hides the tip
+let held = false, camMoving = false, hoverAt = null, hoverTimer = 0;
+function hideTip() { clearTimeout(hoverTimer); hoverTimer = 0; $('#hover').style.display = 'none'; scene.canvas.style.cursor = ''; }
+scene.canvas.addEventListener('pointerdown', e => { touchInput = e.pointerType !== 'mouse'; held = true; hideTip(); }, true);
+for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => { held = e.buttons !== 0; }, true);   // released anywhere, not just over the canvas
+addEventListener('blur', () => { held = false; });
+scene.canvas.addEventListener('pointerleave', () => { hoverAt = null; hideTip(); });
+camera.moveStart.addEventListener(() => { camMoving = true; hideTip(); });
+camera.moveEnd.addEventListener(() => { camMoving = false; if (hoverAt && !touchInput) hoverTimer = setTimeout(hoverPick, 80); });
 function pickObj(pos, r = touchInput ? 28 : 3) { const p = scene.pick(pos, r, r), id = p && p.id; return id ? (id.kind ? id : id.sat || id.air || id.obj || null) : null; }   // obj: an entity drawn for something (a storm's cone, a fire's perimeter)
 /** The hover tip for anything pickable (voice.js reads it aloud too). */
 export function tipFor(o) {
@@ -83,14 +96,17 @@ export function tipFor(o) {
   if (o.kind === 'lighthouse') return `${o.name || 'Lighthouse'}${o.heightM ? ' · ' + fmt(o.heightM) + ' m' : ''}`;
   return typeof o.tip === 'function' ? o.tip() : '';   // layers in their own modules (transit, radio…) describe themselves
 }
-let hoverRaf = 0;
+function hoverPick() {
+  hoverTimer = 0;
+  if (!hoverAt || touchInput || held || (camMoving && !Follow.obj)) return;   // following moves the camera every frame: still tip then
+  const o = pickObj(hoverAt), t = $('#hover');
+  if (!o) { hideTip(); return; }
+  t.textContent = tipFor(o); t.style.display = 'block'; t.style.left = (hoverAt.x + 14) + 'px'; t.style.top = (hoverAt.y + 12) + 'px'; scene.canvas.style.cursor = 'pointer';
+}
 handler.setInputAction(m => {
-  if (hoverRaf || touchInput) return;   // no hover tips from a finger: they stayed on screen after the touch
-  hoverRaf = requestAnimationFrame(() => {
-    hoverRaf = 0; const o = pickObj(m.endPosition), t = $('#hover');
-    if (!o) { t.style.display = 'none'; scene.canvas.style.cursor = ''; return; }
-    t.textContent = tipFor(o); t.style.display = 'block'; t.style.left = (m.endPosition.x + 14) + 'px'; t.style.top = (m.endPosition.y + 12) + 'px'; scene.canvas.style.cursor = 'pointer';
-  });
+  if (touchInput) return;   // no hover tips from a finger: they stayed on screen after the touch
+  hoverAt = C.Cartesian2.clone(m.endPosition, hoverAt); hideTip();
+  if (!held) hoverTimer = setTimeout(hoverPick, 80);
 }, C.ScreenSpaceEventType.MOUSE_MOVE);
 let clickNo = 0;
 handler.setInputAction(c => {
