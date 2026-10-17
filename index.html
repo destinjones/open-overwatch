@@ -4,14 +4,14 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-Ke4Mv3YFs0ccKh5cQD27WSlKDCoiVrwAagj7T96ie6Q='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-7jiYd0LgdrGI5cHiSQtqfSpbLz1ZDt/9eTcG+SXT25U='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#04060a">
 <title>Open Overwatch · the whole planet, live</title>
 <link rel="canonical" href="https://destinjones.github.io/open-overwatch/">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="author" content="Destin Jones">
-<meta name="description" content="A free live view of the planet: satellites, weather, earthquakes, storms, ships and cameras on a 3D Earth and a dark ops-room map, plus what is in your own sky tonight, straight from open data. No account, no tracking. Live aircraft come with the free download.">
+<meta name="description" content="From your street to the cosmic web, live: every tracked satellite, storms, quakes, tonight's sky and rocket launches on a free 3D Earth in your browser, straight from open data. Live aircraft come with the free download. No account, no tracking.">
 <link rel="icon" href="brand/emblem/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="brand/emblem/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -19,19 +19,19 @@
 <meta property="og:site_name" content="Open Overwatch">
 <meta property="og:url" content="https://destinjones.github.io/open-overwatch/">
 <meta property="og:title" content="Open Overwatch · the whole planet, live">
-<meta property="og:description" content="Satellites, weather, quakes, storms and ships on a live 3D Earth, and what is in your sky tonight. Free, open data, runs in your browser. Live aircraft come with the free download.">
+<meta property="og:description" content="From your street to the cosmic web, live: satellites, storms, quakes and tonight's sky on a free 3D Earth. Open data, runs in your browser.">
 <meta property="og:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Open Overwatch, a live picture from open feeds: the night side of the Earth with satellite orbits arcing over it">
+<meta property="og:image:alt" content="Open Overwatch: the night side of the Earth from orbit, with live tracks arcing over it">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Open Overwatch · the whole planet, live">
-<meta name="twitter:description" content="Satellites, weather, quakes and storms on a live 3D Earth, and a zoom from a street to the Local Group. Free, open source, in your browser. Live aircraft come with the free download.">
+<meta name="twitter:description" content="Satellites, storms, quakes and tonight's sky on a live 3D Earth, and one zoom from a street to the Local Group. Free, open source, in your browser.">
 <meta name="twitter:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
- {"@type":"WebSite","@id":"https://destinjones.github.io/open-overwatch/#site","name":"Open Overwatch","url":"https://destinjones.github.io/open-overwatch/","description":"A free, open source live map of the planet: satellites, weather, quakes, storms, tonight's sky, and a seamless zoom from a street to the Local Group. Live aircraft come with the free download.","inLanguage":"en","publisher":{"@id":"https://destinjones.github.io/open-overwatch/about.html#destin"}},
+ {"@type":"WebSite","@id":"https://destinjones.github.io/open-overwatch/#site","name":"Open Overwatch","url":"https://destinjones.github.io/open-overwatch/","description":"A free, open source live view of the planet: satellites, weather, quakes, tonight's sky, and a seamless zoom from a street to the Local Group.","inLanguage":"en","publisher":{"@id":"https://destinjones.github.io/open-overwatch/about.html#destin"}},
  {"@type":"SoftwareApplication","name":"Open Overwatch","applicationCategory":"EducationalApplication","operatingSystem":"Any (web browser)","url":"https://destinjones.github.io/open-overwatch/","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
-  "description":"Live satellites, weather, earthquakes and storms on open data, a 3D Earth, Tonight above you, and a Solar System view that zooms out to the cosmic web. Free, no account, no tracking. Live aircraft come with the free download.","codeRepository":"https://github.com/destinjones/open-overwatch","license":"https://opensource.org/licenses/MIT","creator":{"@id":"https://destinjones.github.io/open-overwatch/about.html#destin"}},
+  "description":"Live satellites, weather, earthquakes and storms on open data, a 3D Earth, your sky tonight, and a Solar System view that zooms out to the cosmic web. Free, no account, no tracking. Live aircraft come with the free download.","codeRepository":"https://github.com/destinjones/open-overwatch","license":"https://opensource.org/licenses/MIT","creator":{"@id":"https://destinjones.github.io/open-overwatch/about.html#destin"}},
  {"@type":"Person","@id":"https://destinjones.github.io/open-overwatch/about.html#destin","name":"Destin Jones","url":"https://destinjones.github.io/open-overwatch/about.html","sameAs":["https://github.com/destinjones","https://destinjones.github.io/godot-open-rts/about.html","https://destinjones.github.io/carfinder/about.html"]}
 ]}
 </script>
@@ -400,26 +400,26 @@ footer a{color:var(--ink-dim)}
     <picture>
       <source media="(max-width:760px)" srcset="brand/lander/hero-tall.webp" type="image/webp">
       <source srcset="brand/lander/hero-wide.webp" type="image/webp">
-      <img src="brand/lander/hero-wide.jpg" alt="The International Space Station over the night side of Earth, with live flight paths arcing across the Atlantic">
+      <img src="brand/lander/hero-wide.jpg" alt="The International Space Station over the night side of Earth, with live tracks arcing across the Atlantic">
     </picture>
     <video id="heroVid" muted playsinline preload="none" poster="brand/lander/hero-poster.jpg" aria-hidden="true"></video>
   </div>
   <div class="hud"><i></i><i></i><i></i><i></i></div>
   <div class="scan"></div>
   <div class="wrap">
-    <div class="eyebrow rv">Thursday 1 Oct 2026 · 21:13 UTC</div>
-    <h1 class="rv">11,737 planes in the air. <span class="glow">Watch every one.</span></h1>
-    <p class="lede rv">Open Overwatch is a live map of everything moving on Earth: aircraft, satellites, ships, storms and quakes, pulled from public feeds and drawn in your browser.</p>
+    <div class="eyebrow rv">Live · open data · in your browser</div>
+    <h1 class="rv">From your street to the cosmic web. <span class="glow">Live.</span></h1>
+    <p class="lede rv">Open Overwatch is the whole planet as it is right now: every tracked satellite, storms, quakes, rocket launches and tonight's sky over your street, on a 3D Earth that zooms without a cut past the planets to 43,000 galaxies. Pulled from public feeds and drawn in your browser.</p>
     <ul class="trust rv" aria-label="What it doesn't ask for">
       <li>No account</li><li>No install</li><li>No tracking</li><li>Open source, MIT</li>
     </ul>
     <div class="cta rv">
-      <a class="btn primary" href="open-overwatch.html">
+      <a class="btn primary" href="globe.html">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 12 18 6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
-        Launch the live map</a>
-      <a class="btn" href="globe.html">Try the 3D globe</a>
+        Open the live 3D Earth</a>
+      <a class="btn" href="tonight.html">Tonight above you</a>
     </div>
-    <p class="cta-note rv">That count is one real sweep of the map. Satellites, ships, storms and quakes run right here; live planes need the <a href="#get">free download</a>, a tiny helper on your own machine.</p>
+    <p class="cta-note rv">Satellites, storms, quakes, launches and your sky tonight all run right here, on a phone too. Live planes come with the <a href="#get">free download</a>, a tiny helper on your own machine.</p>
 
     <aside class="feed rv" aria-live="polite">
       <header><span><span class="dot"></span>Live feed</span><b id="utc">--:--:-- UTC</b></header>
@@ -436,14 +436,14 @@ footer a{color:var(--ink-dim)}
     <div class="head">
       <div class="eyebrow rv">Not a demo</div>
       <h2 class="rv">That wasn't a mock-up.<br>It was a Thursday night.</h2>
-      <p class="lede rv">Every number below is what the map was actually showing at 21:13 UTC on 1 October 2026. Nothing staged, nothing rounded. Open it now and you get tonight's numbers instead.</p>
+      <p class="lede rv">Every number below is what the app was actually showing at 21:13 UTC on 1 October 2026. Nothing staged, nothing rounded. Open it now and you get tonight's satellites, quakes and storms instead; the aircraft counts come from the free download.</p>
     </div>
     <div class="stats">
-      <div class="stat rv"><b data-n="11737" style="color:var(--civ)">0</b><span>aircraft</span><em>transponders on, every one of them clickable</em></div>
-      <div class="stat rv"><b data-n="248" style="color:var(--mil)">0</b><span>military flights</span><em>tankers, transports and fighters, worldwide</em></div>
       <div class="stat rv"><b data-n="205" style="color:var(--sat)">0</b><span>satellites</span><em>orbits worked out in your browser</em></div>
       <div class="stat rv"><b data-n="44" style="color:var(--qk)">0</b><span>earthquakes</span><em>M2.5 and up, in the past 24 hours</em></div>
       <div class="stat rv"><b data-n="10" style="color:var(--evt)">0</b><span>storms</span><em>tropical systems turning at the same moment</em></div>
+      <div class="stat rv"><b data-n="11737" style="color:var(--civ)">0</b><span>aircraft</span><em>in the free download, every one of them clickable</em></div>
+      <div class="stat rv"><b data-n="248" style="color:var(--mil)">0</b><span>military flights</span><em>in the free download: tankers, transports and fighters</em></div>
     </div>
   </div>
 </section>
@@ -453,18 +453,18 @@ footer a{color:var(--ink-dim)}
     <div>
       <div class="eyebrow rv">What it feels like</div>
       <h2 class="rv">Pick a dot.<br>Follow it.</h2>
-      <p class="lede rv">It feels like sitting in an ops room you weren't meant to find. Click a plane and you get its callsign, altitude and type. Click a satellite and its ground track unrolls across the map. Click a traffic camera in London or Singapore and you see that street's latest frame.</p>
+      <p class="lede rv">It feels like sitting in an ops room you weren't meant to find. Click a satellite and its ground track unrolls across the map. Click a traffic camera in London or Singapore and you see that street's latest frame. In the free download, click a plane for its callsign, altitude and type.</p>
       <div class="tabs" role="tablist">
-        <button class="tab" role="tab" data-clip="air_world" style="--c:var(--civ)"><span class="n">01</span><span class="tx"><b>Every aircraft on Earth</b><span class="d">11,737 transponders in one sweep.</span><span class="bar"><i></i></span></span></button>
-        <button class="tab" role="tab" data-clip="mil" style="--c:var(--mil)"><span class="n">02</span><span class="tx"><b>Military air picture</b><span class="d">Tankers, transports and fighters, worldwide.</span><span class="bar"><i></i></span></span></button>
-        <button class="tab" role="tab" data-clip="space" style="--c:var(--sat)"><span class="n">03</span><span class="tx"><b>The ISS, right now</b><span class="d">Orbit, footprint and ground track at 27,575 km/h.</span><span class="bar"><i></i></span></span></button>
-        <button class="tab" role="tab" data-clip="hazards" style="--c:var(--qk)"><span class="n">04</span><span class="tx"><b>Storms &amp; quakes</b><span class="d">Hurricane tracks over live radar.</span><span class="bar"><i></i></span></span></button>
-        <button class="tab" role="tab" data-clip="ui" style="--c:var(--accent)"><span class="n">05</span><span class="tx"><b>The console</b><span class="d">Counters, search and alerts.</span><span class="bar"><i></i></span></span></button>
+        <button class="tab" role="tab" data-clip="space" style="--c:var(--sat)"><span class="n">01</span><span class="tx"><b>The ISS, right now</b><span class="d">Orbit, footprint and ground track at 27,575 km/h.</span><span class="bar"><i></i></span></span></button>
+        <button class="tab" role="tab" data-clip="hazards" style="--c:var(--qk)"><span class="n">02</span><span class="tx"><b>Storms &amp; quakes</b><span class="d">Hurricane tracks over live radar.</span><span class="bar"><i></i></span></span></button>
+        <button class="tab" role="tab" data-clip="ui" style="--c:var(--accent)"><span class="n">03</span><span class="tx"><b>The console</b><span class="d">Counters, search and alerts.</span><span class="bar"><i></i></span></span></button>
+        <button class="tab" role="tab" data-clip="air_world" style="--c:var(--civ)"><span class="n">04</span><span class="tx"><b>Every aircraft on Earth</b><span class="d">11,737 transponders in one sweep, with the free download.</span><span class="bar"><i></i></span></span></button>
+        <button class="tab" role="tab" data-clip="mil" style="--c:var(--mil)"><span class="n">05</span><span class="tx"><b>Military air picture</b><span class="d">Tankers, transports and fighters, with the free download.</span><span class="bar"><i></i></span></span></button>
       </div>
       <p class="clipnote rv">Recorded from the app, not mocked up. Same screen on your phone and your desktop.</p>
     </div>
     <div class="phone rv"><div class="notch"></div><div class="screen">
-      <video id="phoneVid" muted playsinline preload="none" poster="brand/lander/clips/air_world.jpg"></video>
+      <video id="phoneVid" muted playsinline preload="none" poster="brand/lander/clips/space.jpg"></video>
       <button class="play" id="phonePlay" type="button" aria-label="Play the recordings" hidden><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg></button>
     </div></div>
   </div>
@@ -521,15 +521,14 @@ footer a{color:var(--ink-dim)}
       <p class="lede rv">Switch layers on and off like an air-traffic controller. These six carry the map; the rest are a click away.</p>
     </div>
     <div class="grid">
-      <article class="card rv" style="--c:var(--civ)"><span class="tag">AIR</span><img src="brand/lander/icons/aircraft.webp" alt="" loading="lazy"><h3>Aircraft</h3><p>Every ADS-B transponder the volunteer networks can hear. Civil, military and emergency squawks, each in its own colour, with trails.</p></article>
       <article class="card rv" style="--c:var(--sat)"><span class="tag">SPACE</span><img src="brand/lander/icons/satellite.webp" alt="" loading="lazy"><h3>Satellites</h3><p>The ISS, Tiangong, weather satellites and GPS, their orbits computed in your browser from CelesTrak data, with ground tracks.</p></article>
+      <article class="card rv" style="--c:var(--civ)"><span class="tag">AIR</span><img src="brand/lander/icons/aircraft.webp" alt="" loading="lazy"><h3>Aircraft</h3><p>With the free download: every ADS-B transponder the volunteer networks can hear. Civil, military and emergency squawks, each in its own colour, with trails.</p></article>
       <article class="card rv" style="--c:var(--ship)"><span class="tag">SEA</span><img src="brand/lander/icons/ship.webp" alt="" loading="lazy"><h3>Ships</h3><p>AIS positions for the Baltic out of the box. Add a free aisstream.io key and you get the world's shipping.</p></article>
       <article class="card rv" style="--c:var(--qk)"><span class="tag">GROUND</span><img src="brand/lander/icons/quake.webp" alt="" loading="lazy"><h3>Earthquakes</h3><p>USGS quakes as they're reported, sized by magnitude, plus GDACS disaster alerts and NASA natural events.</p></article>
       <article class="card rv" style="--c:var(--evt)"><span class="tag">WEATHER</span><img src="brand/lander/icons/storm.webp" alt="" loading="lazy"><h3>Storms</h3><p>Hurricanes and typhoons, precipitation radar, severe-weather alerts and the aurora forecast, on the same screen.</p></article>
       <article class="card rv" style="--c:var(--emg)"><span class="tag">EYES</span><img src="brand/lander/icons/camera.webp" alt="" loading="lazy"><h3>Cameras</h3><p>Public traffic cameras in London, New York, California, Singapore and Finland. Click one for its latest frame.</p></article>
     </div>
     <div class="more rv">
-      <span class="chip" style="--c:var(--emg)">Emergency squawk alerts</span>
       <span class="chip" style="--c:var(--civ)">World news (GDELT)</span>
       <span class="chip" style="--c:var(--qk)">Active fires (NASA FIRMS)</span>
       <span class="chip" style="--c:#fff2a8">Weather balloons</span>
@@ -557,6 +556,7 @@ footer a{color:var(--ink-dim)}
       <span class="chip" style="--c:#7dffa6">Directions, then fly the route</span>
       <span class="chip" style="--c:#ff9f5c">Launch replays</span>
       <span class="chip" style="--c:#b48cff">Director for clips</span>
+      <span class="chip" style="--c:var(--emg)">Emergency squawk alerts (free download)</span>
     </div>
     <div class="nope rv">
       <h3>What you don't get</h3>
@@ -594,8 +594,8 @@ footer a{color:var(--ink-dim)}
 <section id="launch" class="build">
   <div class="wrap">
     <div class="eyebrow rv">Built in the open</div>
-    <h2 class="rv">Fourteen releases in six days.</h2>
-    <p class="lede rv">Version 0.5 went live on 1 October. By 6 October it was 0.9.2.5, picking up a 3D globe, a Solar System view out to the cosmic web, Tonight above you, rocket launch countdowns, people in space and flight search along the way. You're not downloading a finished product. You're joining a build, and every step of it is public.</p>
+    <h2 class="rv" id="relHead">Released in the open since 1 October.</h2>
+    <p class="lede rv">Version 0.5 went live on 1 October 2026. <span id="relNow"></span>Along the way it has picked up a 3D globe, a Solar System view out to the cosmic web, Tonight above you, rocket launch countdowns, people in space and flight search. You're not downloading a finished product. You're joining a build, and every step of it is public.</p>
     <div class="launch rv">
       <div>
         <label class="lab" for="verSel">Recent releases stay online, exactly as they shipped</label>
@@ -676,7 +676,7 @@ footer a{color:var(--ink-dim)}
       <p>Data: adsb.lol, adsb.fi, airplanes.live, OpenSky, CelesTrak, USGS, NOAA/NHC/NWS, NASA EONET &amp; FIRMS, GDACS, GDELT, Digitraffic, aisstream.io, SondeHub, RainViewer, TeleGeography, CityBikes, and the transit and road agencies named in the notices. Basemap © Esri. Night lights: NASA Black Marble.</p>
       <p><a href="https://github.com/destinjones/open-overwatch">GitHub</a> · <a href="https://github.com/destinjones/open-overwatch/releases">Releases</a> · <a href="https://github.com/destinjones/open-overwatch/issues">Report a bug</a> · <a href="about.html">About</a> · <a href="#legal">Notices</a></p>
       <p><a href="guide.html">User guide</a>: every view and layer, keyboard shortcuts, voice commands, sharing and privacy.</p>
-      <p><a href="india/" lang="en">In India?</a> <a href="india/?lang=hi" lang="hi">भारत से?</a> ISRO launches, India's satellites, ISS passes over your city, cyclones and air quality, in English and हिन्दी.</p>
+      <p><a href="india/" lang="en">In India?</a> <a href="india/hi/" lang="hi">भारत से?</a> ISRO launches, India's satellites, ISS passes over your city, cyclones and air quality, in English and हिन्दी.</p>
       <p>By <a href="about.html">Destin Jones</a>, vibe coded with Claude. Fork it, build on it, or take it over. Also: <a href="https://destinjones.github.io/godot-open-rts/">Ironbound</a>, a free open source RTS, and <a href="https://destinjones.github.io/carfinder/">CarFinder</a>.</p>
     </div>
   </div>
@@ -876,6 +876,9 @@ fetch('versions.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : Promis
   sel.innerHTML = live.map((v, i) => `<option value="${esc(v.tag)}">${esc(v.tag)}${i ? '' : ' · latest'} · ${esc(fmtDate(v.date))}</option>`).join('');
   const want = new URLSearchParams(location.search).get('v');
   if (want && byTag[want]) sel.value = want;
+  // the release count and the newest release, from the same list, so the heading never goes stale
+  $('#relHead').textContent = `${vs.length} release${vs.length === 1 ? '' : 's'} since ${fmtDate(vs[vs.length - 1].date)}.`;
+  $('#relNow').textContent = `The newest, ${vs[0].tag}, came out on ${fmtDate(vs[0].date)}. `;
   const apply = () => {
     const v = byTag[sel.value];
     $('#goMap').href = v.map;

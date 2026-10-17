@@ -35,7 +35,7 @@ test('?lang=hi opens in Hindi; utm tags leave the address bar and never reach a 
   await expect.poll(() => page.url()).toMatch(/\/india\/\?lang=hi$/);
   await page.locator('#shareBtn').click();
   const shared = await page.evaluate(() => window.__shared);
-  expect(shared.url).toMatch(/\/india\/\?lang=hi$/);
+  expect(shared.url).toMatch(/\/india\/hi\/$/);   // the Hindi page itself, so the preview card is in Hindi too
   expect(shared.url).not.toMatch(/utm_|fbclid/);
   expect(shared.title).toBe('भारत, अंतरिक्ष से लाइव · Open Overwatch');
 });
@@ -66,7 +66,8 @@ test('an Indian launch in the copy shows in the list and the strip', async ({ pa
   await page.goto('india/');
   await expect(page.locator('#inLaunches li')).toHaveCount(1);
   await expect(page.locator('#inLaunches li a')).toHaveText('PSLV XL · TDS-01');
-  await expect(page.locator('#inLaunches li a')).toHaveAttribute('href', '../globe.html#go=launches&id=e2e-shar-1');
+  await expect(page.locator('#inLaunches li a')).toHaveAttribute('href', /^https?:\/\/[^/]+\/(.*\/)?globe\.html#go=launches&id=e2e-shar-1$/);
+  expect(await page.locator('#inLaunches li a').evaluate(a => a.href)).toBe(new URL('globe.html#go=launches&id=e2e-shar-1', new URL('../', page.url())).href);
   await expect(page.locator('#inLaunches li small [lang="en"]')).toHaveText('target: November 2026');
   await expect(page.locator('#lchRow')).toBeVisible();
 });
@@ -77,7 +78,7 @@ test('the phone demo plays the tab that was picked', async ({ page }) => {
   await tab.scrollIntoViewIfNeeded();
   await tab.click();
   await expect(tab).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('#phoneVid')).toHaveAttribute('src', '../brand/india/clips/lookup.mp4');
+  await expect(page.locator('#phoneVid')).toHaveAttribute('src', new URL('../brand/india/clips/lookup.mp4', page.url()).href);
   for (const c of ['india_sats', 'delhi_dive', 'airq', 'lookup']) expect((await page.request.head(`brand/india/clips/${c}.jpg`)).status(), c).toBe(200);
 });
 
@@ -97,4 +98,39 @@ test('every link to this site\'s own pages and files resolves', async ({ page })
   // the main page links here
   await page.goto('index.html');
   await expect(page.locator('footer a[href="india/"]')).toBeVisible();
+});
+
+test('india/hi/ is the same page opening in Hindi, at its own address, with the site files one folder up', async ({ page }) => {
+  await page.goto('india/hi/');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'hi');
+  await expect(page).toHaveTitle('भारत, अंतरिक्ष से लाइव · Open Overwatch');
+  await expect(page.locator('h1 [lang="hi"]').first()).toBeVisible();
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://destinjones.github.io/open-overwatch/india/hi/');
+  await expect(page.locator('.hero-media picture img')).toHaveAttribute('alt', /भारत/);
+  expect(await page.evaluate(() => document.documentElement.dataset.ooPage)).toBe('india');
+  // the live strip and the pass table load the site's copies from ../../
+  await expect(page.locator('#inLaunches')).toContainText('No launch from India is on the list');
+  await page.locator('#iss').scrollIntoViewIfNeeded();
+  await expect(page.locator('.passes tbody tr')).toHaveCount(6, { timeout: 30_000 });
+  // English on the toggle: the address says so, a reload keeps it, and sharing gives the English page
+  await page.addInitScript(() => { Object.defineProperty(navigator, 'share', { value: d => { window.__shared = d; return Promise.resolve(); }, configurable: true }); });
+  await page.locator('#langBtn').click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await expect.poll(() => page.url()).toMatch(/\/india\/hi\/\?lang=en$/);
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await expect(page).toHaveTitle('India, live from space · Open Overwatch');
+  await page.locator('#shareBtn').click();
+  expect((await page.evaluate(() => window.__shared)).url).toMatch(/\/india\/$/);
+  // without ?lang=, india/hi/ is Hindi again even though English was picked
+  await page.goto('india/hi/');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'hi');
+});
+
+test('every link on india/hi/ resolves', async ({ page }) => {
+  await page.goto('india/hi/');
+  const own = (await page.$$eval('a[href], img[src], link[href], script[src]', els => [...new Set(els.map(e => e.href || e.src))]))
+    .filter(h => h.startsWith(new URL(page.url()).origin));
+  expect(own.length).toBeGreaterThan(20);
+  for (const h of own) expect((await page.request.get(new URL(h).pathname)).status(), h).toBe(200);
 });

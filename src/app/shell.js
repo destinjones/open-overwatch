@@ -12,7 +12,10 @@ import { initPwa, Pwa } from './pwa.js';
 /** Which page this is, from its file name (archived /v/<tag>/ copies are the same pages). */
 export function pageOf(pathname) {
   const parts = String(pathname || '').split('/'), f = parts.pop() || 'index.html';
-  if (f === 'index.html' && parts.pop() === 'india') return 'india';   // india/ (the India landing page) is a folder's index
+  if (f === 'index.html') {   // india/ and india/hi/ (the India landing page, in English and Hindi) are folder indexes
+    const d = parts.pop();
+    if (d === 'india' || (d === 'hi' && parts.pop() === 'india')) return 'india';
+  }
   return ({ 'index.html': 'index', 'globe.html': 'globe', 'open-overwatch.html': 'map', 'solar.html': 'solar', 'tonight.html': 'tonight', 'about.html': 'about' })[f] || 'other';
 }
 

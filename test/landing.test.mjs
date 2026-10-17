@@ -1,7 +1,9 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The landing pages (index.html, india/, tonight.html, 404.html, README.md) as people and search engines first meet them:
-// the share and search text promises only what the website shows, phones are spared bytes and frames nobody asked
-// for, the phone nav and the landmarks are there, and the 404 page fixes the obvious typos without looping.
+// the share and search text promises only what the website shows (it leads with the zoom, satellites, storms, quakes
+// and Tonight; live aircraft only come with the free download), no number on them goes stale, phones are spared bytes
+// and frames nobody asked for, the phone nav and the landmarks are there, and the 404 page fixes the obvious typos
+// without looping.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -12,6 +14,7 @@ const root = new URL('../', import.meta.url);
 const read = p => readFileSync(new URL(p, root), 'utf8');
 const head = html => html.slice(0, html.indexOf('</head>'));
 const DOWNLOAD = 'Live aircraft come with the free download.';
+const PLANES = /\b(aircraft|planes?|flights?)\b/i;
 /** The text a search result or a link preview shows: description metas, og/twitter descriptions, the image alt, JSON-LD. */
 function blurbs(html) {
   const out = [];
@@ -37,10 +40,46 @@ test('search and share text leads with what the website shows; aircraft only wit
   }
   const idx = blurbs(read('index.html')).map(([, t]) => t).join(' ');
   for (const w of ['satellites', 'weather', 'storms', '3D Earth']) assert.ok(idx.includes(w), w);
-  const readme = read('README.md'), lead = readme.slice(readme.indexOf('**Everything'), readme.indexOf('**▶'));
+  const readme = read('README.md'), lead = readme.slice(readme.indexOf('**From'), readme.indexOf('**▶'));
   assert.doesNotMatch(lead, /aircraft over your street/);
   assert.ok(lead.includes(DOWNLOAD), 'the README lead says where aircraft are');
   assert.match(readme, /\*\*2D ops map:\*\* ships[^\n]*\n[^\n]*free download/);
+  assert.doesNotMatch(JSON.parse(read('manifest.webmanifest')).description, PLANES, 'the installed app is the website');
+});
+
+test('the hero leads with the zoom, not with planes', () => {
+  const index = read('index.html');
+  const hero = index.slice(index.indexOf('<header class="hero"'), index.indexOf('</header>', index.indexOf('<header class="hero"')));
+  const h1 = hero.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)[1].replace(/<[^>]+>/g, '');
+  assert.match(h1, /cosmic web/i);
+  assert.doesNotMatch(h1, PLANES);
+  const lede = hero.match(/<p class="lede[^"]*">([\s\S]*?)<\/p>/)[1];
+  assert.doesNotMatch(lede, PLANES, 'the lede lists what the browser draws');
+  for (const [, alt] of hero.matchAll(/<img\b[^>]*\balt="([^"]*)"/g)) assert.doesNotMatch(alt, PLANES, `the hero picture promises flights: ${alt}`);
+  const note = hero.match(/<p class="cta-note[^"]*">([\s\S]*?)<\/p>/)[1];
+  assert.match(note, /planes come with the <a href="#get">free download<\/a>/);
+  assert.doesNotMatch(hero, /11,737|data-n="11737"/, 'the old plane count is not the hook');
+  // the first proof numbers and the first clip are things the website shows
+  const firstStat = index.match(/<div class="stat rv"><b data-n="\d+"[^>]*>0<\/b><span>([^<]+)<\/span>/)[1];
+  assert.equal(firstStat, 'satellites');
+  assert.equal(index.match(/<button class="tab" role="tab" data-clip="([^"]+)"/)[1], 'space');
+  for (const m of index.matchAll(/<span class="d">([^<]*)<\/span>/g)) if (PLANES.test(m[1]) || /transponders/.test(m[1])) assert.match(m[1], /download/, m[1]);
+  for (const [, c] of index.matchAll(/<span class="chip"[^>]*>([^<]*)<\/span>/g)) if (PLANES.test(c) || /squawk/i.test(c)) assert.match(c, /free download/, c);
+  // the README says the same on GitHub
+  const readme = read('README.md'), intro = readme.slice(readme.indexOf('**From'), readme.indexOf('\n\n', readme.indexOf('**From')));
+  assert.ok(intro.length > 100, 'the README opens with the zoom');
+  for (const s of intro.split(/(?<=\.)\s/)) if (PLANES.test(s)) assert.match(s, /download/, s);
+});
+
+test('no hand-kept numbers that age: the release count comes from versions.json, the test count is not a number', () => {
+  const index = read('index.html');
+  assert.doesNotMatch(index, /Fourteen releases|By 6 October it was/);
+  const script = index.slice(index.indexOf("fetch('versions.json'"));
+  assert.match(script, /\$\('#relHead'\)\.textContent = `\$\{vs\.length\} release/, 'the heading counts every release, online or zipped');
+  assert.match(script, /\$\('#relNow'\)\.textContent = `The newest, \$\{vs\[0\]\.tag\}/);
+  assert.match(index, /<h2 class="rv" id="relHead">[^<]+<\/h2>/);
+  assert.match(index, /<span id="relNow"><\/span>/);
+  assert.doesNotMatch(read('about.html'), /<b>[\d,]+<\/b><span>automated tests/, 'about.html: the test count changes every week');
 });
 
 test('model-viewer loads only as the fleet comes near, pinned and hashed, and never on Save-Data by itself', () => {

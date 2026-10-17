@@ -10,7 +10,7 @@ import { checkPage, EVAL_OK, cdnTags, importMaps, inlineScripts, withCspHashes, 
 const root = new URL('../', import.meta.url);
 const read = p => readFileSync(new URL(p, root), 'utf8');
 const sha256 = t => createHash('sha256').update(t, 'utf8').digest('base64');
-const PAGES = [...readdirSync(root).filter(f => f.endsWith('.html')).sort(), 'india/index.html'];   // + the folder pages
+const PAGES = [...readdirSync(root).filter(f => f.endsWith('.html')).sort(), 'india/index.html', 'india/hi/index.html'];   // + the folder pages
 const H = 'sha384-' + 'A'.repeat(64);
 const CSP = (s = "script-src 'self' https://cdn.jsdelivr.net") => `<meta http-equiv="Content-Security-Policy" content="default-src 'self'; ${s}; style-src 'self' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'">`;
 const page = (head, csp = CSP()) => `<!doctype html><html><head><meta charset="utf-8">${csp}${head}</head><body></body></html>`;

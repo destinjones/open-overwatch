@@ -22,6 +22,9 @@ test('the version picker re-points the launch buttons', async ({ page }) => {
   await expect(sel.locator('option')).toHaveCount(2);
   await expect(sel.locator('option').first()).toHaveText(/v0\.9\.2\.9 · latest · Oct 13, 2026/);
   await expect(page.locator('#goSolar')).toHaveAttribute('href', 'v/v0.9.2.9/solar.html');
+  // the release count and the newest release come from the same list (the fixture has two)
+  await expect(page.locator('#relHead')).toHaveText(/^2 releases since Oct [12], 2026\.$/);
+  await expect(page.locator('#relNow')).toHaveText(/^The newest, v0\.9\.2\.9, came out on Oct 1[23], 2026\.\s*$/);
   await sel.selectOption('v0.9.1');
   await expect(page.locator('#goMap')).toHaveAttribute('href', 'v/v0.9.1/open-overwatch.html');
   await expect(page.locator('#goGlobe')).toHaveAttribute('href', 'v/v0.9.1/globe.html');

@@ -1,8 +1,10 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
-// The India landing page (india/index.html): the language toggle, the live strip (IST clock, ISS, South Asia quakes, the
-// next launch from Sriharikota), the upcoming Indian launches, the next ISS passes over six cities (worked out here from
-// the site's TLE copy, never CelesTrak), the phone demo and the Share button. Dynamic text is written in both languages
-// (T()), so the toggle is only CSS. utm_* parameters are never read: they are only taken out of the address bar.
+// The India landing page (india/index.html, and india/hi/index.html, the same page opening in Hindi): the language toggle,
+// the live strip (IST clock, ISS, South Asia quakes, the next launch from Sriharikota), the upcoming Indian launches, the
+// next ISS passes over six cities (worked out here from the site's TLE copy, never CelesTrak), the phone demo and the
+// Share button. Dynamic text is written in both languages (T()), so the toggle is only CSS. utm_* parameters are never
+// read: they are only taken out of the address bar. Site files are reached from this module's address (SITE), so both
+// pages, one folder apart, load the same ones.
 import { parseTle } from '../src/core/tle.js';
 import { ecfAt } from '../src/core/passes.js';
 import { fmtIST as fmt, cleanUrl, overIndia, inSouthAsia, indianLaunches, launchWhen as when, CITIES, dir8, cityPasses } from '../src/core/india.js';
@@ -14,10 +16,15 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 /** Both languages, the CSS shows one. */
 const T = (en, hi = en) => `<span lang="en">${esc(en)}</span><span lang="hi">${esc(hi)}</span>`;
 const both = (ms, o) => T(fmt(ms, 'en', o), fmt(ms, 'hi', o));
-const CANONICAL = 'https://destinjones.github.io/open-overwatch/india/';
+const SITE = new URL('../', import.meta.url).href;   // the site root (also inside an archived /v/<tag>/ copy)
+/** Each language's own page: india/ and india/hi/ (both self-canonical, hreflang en-IN and hi-IN). */
+const PAGE = { en: new URL('./', import.meta.url).href, hi: new URL('hi/', import.meta.url).href };
+const CANONICAL = { en: 'https://destinjones.github.io/open-overwatch/india/', hi: 'https://destinjones.github.io/open-overwatch/india/hi/' };
+const HOME = root.dataset.home === 'hi' ? 'hi' : 'en';   // the language this address is for
 
-// ---- language: English by default; the toggle and ?lang= are remembered (the head script applied it before paint)
-const TITLE = { en: document.title, hi: 'भारत, अंतरिक्ष से लाइव · Open Overwatch' };
+// ---- language: the page's own (English on india/, Hindi on india/hi/); the toggle and ?lang= are remembered (the head
+// script applied it before paint; india/hi/ always opens in Hindi unless the address says ?lang=en)
+const TITLE = { en: 'India, live from space · Open Overwatch', hi: 'भारत, अंतरिक्ष से लाइव · Open Overwatch' };
 function setLang(l, remember = true) {
   root.lang = l; root.dataset.lang = l;
   document.title = TITLE[l];
@@ -30,9 +37,9 @@ function setLang(l, remember = true) {
   $('#phonePlay').setAttribute('aria-label', l === 'hi' ? 'रिकॉर्डिंग चलाएँ' : 'Play the recordings');
   if (!remember) return;
   try { localStorage.setItem('oo-lang', l); } catch (e) { /* private mode: the choice lasts this visit */ }
-  try {   // an address that says ?lang= follows the toggle, so a reload (or a shared link) keeps what is on screen
+  try {   // an address that says ?lang= (or a page in the other language) follows the toggle, so a reload keeps what is on screen
     const u = new URL(location.href);
-    if (u.searchParams.has('lang')) { u.searchParams.set('lang', l); history.replaceState(history.state, '', u.href); }
+    if (u.searchParams.has('lang') || l !== HOME) { u.searchParams.set('lang', l); history.replaceState(history.state, '', u.href); }
   } catch (e) { /* leave the address */ }
 }
 setLang(root.dataset.lang === 'hi' ? 'hi' : 'en', false);
@@ -85,13 +92,13 @@ iss(); quakes(); setInterval(iss, 10000); setInterval(quakes, 300000);
 (async () => {
   const box = $('#inLaunches');
   try {
-    const d = await (await fetch('../data/launches.json')).json();
+    const d = await (await fetch(SITE + 'data/launches.json')).json();
     const list = indianLaunches(d.results);
     if (!list.length) { box.innerHTML = `<li class="muted">${T('No launch from India is on the list of the next 40 worldwide right now.', 'दुनिया भर के अगले 40 लॉन्च की सूची में अभी भारत से कोई लॉन्च नहीं है।')}</li>`; return; }
     const name = r => (r.rocket?.configuration?.full_name || r.rocket?.configuration?.name || 'Rocket') + ' · ' + (r.mission?.name || r.name || '');
-    box.innerHTML = list.slice(0, 5).map(r => `<li><a href="../globe.html#go=launches&amp;id=${encodeURIComponent(String(r.id || '').slice(0, 40))}">${esc(name(r))}</a><small>${T(when(r, 'en'), when(r, 'hi'))}</small></li>`).join('');
+    box.innerHTML = list.slice(0, 5).map(r => `<li><a href="${SITE}globe.html#go=launches&amp;id=${encodeURIComponent(String(r.id || '').slice(0, 40))}">${esc(name(r))}</a><small>${T(when(r, 'en'), when(r, 'hi'))}</small></li>`).join('');
     const next = list[0];
-    $('#lch').href = `../globe.html#go=launches&id=${encodeURIComponent(String(next.id || '').slice(0, 40))}`;
+    $('#lch').href = `${SITE}globe.html#go=launches&id=${encodeURIComponent(String(next.id || '').slice(0, 40))}`;
     $('#lch').innerHTML = esc(name(next)) + `<small>${T(when(next, 'en'), when(next, 'hi'))}</small>`;
     $('#lchRow').hidden = false;
   } catch (e) {   // no launch copy here (a local preview): say so instead of a spinner
@@ -108,7 +115,7 @@ const loadSatJs = () => window.satellite ? Promise.resolve(window.satellite) : n
 async function passes() {
   const msg = $('#passMsg');
   try {
-    const [sl, txt] = await Promise.all([loadSatJs(), fetch('../data/tle/stations.txt').then(r => r.ok ? r.text() : Promise.reject(new Error('no copy')))]);
+    const [sl, txt] = await Promise.all([loadSatJs(), fetch(SITE + 'data/tle/stations.txt').then(r => r.ok ? r.text() : Promise.reject(new Error('no copy')))]);
     const tle = parseTle(txt).find(s => s.id === '25544');
     if (!tle) throw new Error('no ISS');
     const pos = ecfAt(sl, sl.twoline2satrec(tle.l1, tle.l2)), now = Date.now();
@@ -142,8 +149,8 @@ function show(i) {
   cur = i; started = true; playBtn.hidden = true;
   tabs.forEach((t, j) => { t.setAttribute('aria-selected', j === i); t.querySelector('.bar i').style.width = '0'; });
   const c = tabs[i].dataset.clip;
-  pv.poster = '../brand/india/clips/' + c + '.jpg';
-  pv.src = '../brand/india/clips/' + c + '.mp4';
+  pv.poster = SITE + 'brand/india/clips/' + c + '.jpg';
+  pv.src = SITE + 'brand/india/clips/' + c + '.mp4';
   if (!reduce) pv.play().catch(() => {});
 }
 pv.addEventListener('timeupdate', () => { if (pv.duration) tabs[cur].querySelector('.bar i').style.width = (pv.currentTime / pv.duration * 100) + '%'; });
@@ -151,10 +158,11 @@ pv.addEventListener('ended', () => auto ? show((cur + 1) % tabs.length) : (pv.cu
 tabs.forEach((t, i) => t.addEventListener('click', () => { auto = false; show(i); }));
 new IntersectionObserver(([e]) => { if (e.isIntersecting) { if (!started) return; if (!pv.getAttribute('src')) show(0); else if (!reduce) pv.play().catch(() => {}); } else pv.pause(); }, { threshold: .3 }).observe(pv);
 
-// ---- share: the clean address, never the ad's tags
+// ---- share: the page in the language on screen (india/ or india/hi/, so the preview card is in that language too),
+// never the ad's tags
 $('#shareBtn').addEventListener('click', async () => {
-  const url = cleanUrl(location.protocol === 'file:' ? CANONICAL : location.href), note = $('#shareNote');
-  const title = root.dataset.lang === 'hi' ? TITLE.hi : TITLE.en;
+  const l = root.dataset.lang === 'hi' ? 'hi' : 'en', note = $('#shareNote');
+  const url = location.protocol === 'file:' ? CANONICAL[l] : PAGE[l], title = TITLE[l];
   try {
     if (navigator.share) { await navigator.share({ title, url }); return; }
     await navigator.clipboard.writeText(url);

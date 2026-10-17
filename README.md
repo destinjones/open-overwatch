@@ -4,10 +4,10 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23348946.svg)](https://doi.org/10.5281/zenodo.23348946)
 
-**Everything that moves, where it really is, right now.** From every tracked satellite over your street to the planets,
-1.57 million asteroids, the planets of other stars and 43,480 galaxies, in **one continuous zoom**, with live weather,
-quakes and storms on a 3D Earth and what is in your own sky tonight. Positions are checked against NASA JPL. It runs in
-your browser (phones too), with no install, no account and no build step. Live aircraft come with the free download.
+**From your street to the cosmic web, live.** Every tracked satellite, storms, quakes and tonight's sky, then the
+planets, 1.57 million asteroids, the planets of other stars and 43,480 galaxies, in **one continuous zoom**. Positions
+are checked against NASA JPL. It runs in your browser (phones too), with no install, no account and no build step.
+Live aircraft come with the free download.
 
 **▶ [Website](https://destinjones.github.io/open-overwatch/) · [3D globe](https://destinjones.github.io/open-overwatch/globe.html) · [Solar System](https://destinjones.github.io/open-overwatch/solar.html) · [2D ops map](https://destinjones.github.io/open-overwatch/open-overwatch.html)** · [the 30 s clip (MP4)](brand/clip/open-overwatch-zoom.mp4)
 
@@ -15,7 +15,7 @@ your browser (phones too), with no install, no account and no build step. Live a
 - **Zoom from a street to the cosmic web without a cut.** The 3D globe hands its camera to the Solar System view past the
   Moon (same pixels, same instant, one clock), and takes it back when you zoom into Earth.
 - **Look up.** On a phone, hold it to the sky: the camera follows the motion sensors and shows what is above you right
-  now. That includes satellites, aircraft, the planets and the bright stars, plus your next ISS pass.
+  now. That includes satellites, the planets and the bright stars (and aircraft with the free download), plus your next ISS pass.
 - **Watch near misses happen.** The closest upcoming conjunctions in orbit (CelesTrak SOCRATES): pick one and the
   clock jumps to 45 s before closest approach, with both objects and their orbits on screen.
 - **See the 2027 eclipse before it happens.** The Moon's shadow crosses the globe for every solar eclipse of 2027–2030,

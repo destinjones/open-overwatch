@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto';
 import { checkPage, EVAL_OK, cdnTags, importMaps, withCspHashes, cdnUrlsIn } from '../../src/core/sricheck.js';
 
 const root = new URL('../../', import.meta.url);
-export const PAGES = [...readdirSync(root).filter(f => f.endsWith('.html')).sort(), 'india/index.html'];   // + the folder pages
+export const PAGES = [...readdirSync(root).filter(f => f.endsWith('.html')).sort(), 'india/index.html', 'india/hi/index.html'];   // + the folder pages
 const sha256 = t => createHash('sha256').update(t, 'utf8').digest('base64');
 const sha384 = b => 'sha384-' + createHash('sha384').update(b).digest('base64');
 const read = p => readFileSync(new URL(p, root), 'utf8');

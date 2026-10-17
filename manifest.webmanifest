@@ -1,7 +1,7 @@
 {
   "name": "Open Overwatch · the 3D Earth, live",
   "short_name": "Overwatch",
-  "description": "A live 3D Earth: satellites, aircraft, weather, your sky tonight, and a zoom out to the Solar System. Open data, no account.",
+  "description": "A live 3D Earth: satellites, weather, quakes, your sky tonight, and a zoom out to the Solar System. Open data, no account.",
   "id": "./globe.html",
   "start_url": "./globe.html",
   "scope": "./",

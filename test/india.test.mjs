@@ -12,6 +12,7 @@ import { LAYERS, WEATHER } from '../mcp/place.mjs';
 import { parseTle } from '../src/core/tle.js';
 import { ecfAt } from '../src/core/passes.js';
 import { cleanUrl, fromIndia, indianLaunches, launchWhen, dir8, CITIES, cityPasses, overIndia, inSouthAsia } from '../src/core/india.js';
+import { build, hindiPage, EN_URL, HI_URL, HI } from '../brand/tools/india_hi.mjs';
 
 const root = new URL('../', import.meta.url);
 const read = p => readFileSync(new URL(p, root), 'utf8');
@@ -150,4 +151,88 @@ test('the six cities, the ISS passes over them, and the directions in two langua
     assert.ok(next.rise < next.peak && next.peak < next.set && next.maxEl >= 10 && next.set - next.rise < 15 * 60e3, name);
     if (visible) assert.ok(visible.visible && visible.rise >= next.rise, name);
   }
+});
+
+// ---- the Hindi page (india/hi/): its own address for search and Hindi ads, made from the English one
+const hiHtml = read('india/hi/index.html');
+const PAGE_OF_URL = { [EN_URL]: html, [HI_URL]: hiHtml };
+const linkTags = h => [...h.slice(0, h.indexOf('</head>')).matchAll(/<link rel="(canonical|alternate)"(?: hreflang="([^"]+)")? href="([^"]+)">/g)].map(m => ({ rel: m[1], lang: m[2], href: m[3] }));
+
+test('india/hi/index.html is india/index.html made Hindi, and up to date (node brand/tools/india_hi.mjs)', () => {
+  assert.equal(hiHtml, build(root), 'india/hi/index.html is out of date: run node brand/tools/india_hi.mjs');
+  const hiBody = hiHtml.slice(hiHtml.indexOf('<body'));
+  // the same page one folder deeper: the body differs only in its paths and the picture's alt text
+  const norm = b => b.replace(/ src="(\.\.\/)?india\.js"/, ' src="INDIA_JS"').replace(/ (href|src|srcset|poster)="(\.\.\/)+/g, ' $1="UP/').replace(/ alt="[^"]*" data-alt-hi="([^"]*)"(?: data-alt-en="[^"]*")?/g, ' data-alt-hi="$1"');
+  assert.equal(norm(hiBody), norm(body));
+  assert.match(hiHtml, /<html lang="hi" data-lang="hi" data-home="hi">/, 'opens in Hindi');
+  assert.match(hiHtml, /<script type="module" src="\.\.\/india\.js"><\/script>/, 'the same india.js');
+  const hiHrefs = [...hiHtml.matchAll(/ (?:href|src|srcset|poster)="([^"#]+)/g)].map(m => m[1]).filter(h => !/^https?:/.test(h));
+  assert.ok(hiHrefs.length > 20, `${hiHrefs.length} links`);
+  for (const h of hiHrefs) {
+    const f = new URL(h, new URL('india/hi/index.html', root));
+    assert.ok(existsSync(f.pathname.endsWith('/') ? new URL('index.html', f) : f), `india/hi/: ${h} does not resolve`);
+  }
+});
+
+test('india_hi.mjs stops rather than ship English alt text on the Hindi page', () => {
+  for (const [, alt] of hiHtml.slice(hiHtml.indexOf('<body')).matchAll(/<img\b[^>]* alt="([^"]*)" data-alt-hi=/g)) assert.match(alt, /[ऀ-ॿ]/, alt);
+  const flipped = html.replace(/ alt="([^"]*)" data-alt-hi="([^"]*)"/, ' data-alt-hi="$2" alt="$1"');
+  assert.notEqual(flipped, html, 'the English page has a data-alt-hi picture');
+  assert.throws(() => hindiPage(flipped, () => ''), /data-alt-hi/);
+});
+
+test('the Hindi head: title, description and share card in Hindi', () => {
+  const head = hiHtml.slice(0, hiHtml.indexOf('</head>')), meta = n => (head.match(new RegExp(`<meta (?:name|property)="${n}" content="([^"]*)">`)) || [])[1];
+  assert.equal(head.match(/<title>([^<]*)<\/title>/)[1], HI.title);
+  assert.ok(read('india/india.js').includes(`hi: '${HI.title}'`), 'india.js names the page the same when the toggle switches back');
+  for (const n of ['description', 'og:title', 'og:description', 'og:image:alt', 'twitter:title', 'twitter:description']) assert.match(meta(n), /[ऀ-ॿ]/, `${n} in Hindi`);
+  assert.equal(meta('og:url'), HI_URL);
+  assert.equal(meta('og:locale'), 'hi_IN'); assert.equal(meta('og:locale:alternate'), 'en_IN');
+  const ld = JSON.parse(head.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+  assert.equal(ld['@id'], HI_URL); assert.equal(ld.inLanguage, 'hi-IN');
+});
+
+test('hreflang: each language has its own self-canonical page, and both pages name the same pair', () => {
+  for (const [url, page] of Object.entries(PAGE_OF_URL)) {
+    const links = linkTags(page);
+    assert.deepEqual(links.filter(l => l.rel === 'canonical').map(l => l.href), [url], `${url} is its own canonical`);
+    assert.deepEqual(links.filter(l => l.rel === 'alternate').map(l => [l.lang, l.href]), [['en-IN', EN_URL], ['hi-IN', HI_URL], ['x-default', EN_URL]]);
+    for (const l of links.filter(l => l.rel === 'alternate')) {   // Google drops an alternate whose page canonicalises elsewhere
+      assert.ok(PAGE_OF_URL[l.href], `${l.href} is one of the two pages`);
+      assert.deepEqual(linkTags(PAGE_OF_URL[l.href]).filter(c => c.rel === 'canonical').map(c => c.href), [l.href], `${l.href} is self-canonical`);
+    }
+  }
+  assert.match(read('sitemap.xml'), /<loc>https:\/\/destinjones\.github\.io\/open-overwatch\/india\/hi\/<\/loc>/);
+  assert.match(read('sw.js'), /const PAGES = \[[^\]]*'india\/hi\/'/, 'the installed app keeps the Hindi page offline');
+  assert.match(read('brand/tools/sri.mjs'), /'india\/hi\/index\.html'/, 'the CSP and SRI check covers it');
+  assert.match(read('index.html'), /<footer>[\s\S]*href="india\/hi\/" lang="hi"/, 'the main page sends Hindi readers to the Hindi page');
+});
+
+test('the head script: india/ follows the remembered choice, india/hi/ opens in Hindi unless ?lang=en', () => {
+  const inline = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  assert.equal(hiHtml.match(/<script>([\s\S]*?)<\/script>/)[1], inline, 'one script (and one CSP hash) for both pages');
+  const run = (home, search, stored) => {
+    const attrs = home ? { 'data-home': home } : {}, store = stored ? { 'oo-lang': stored } : {};
+    const d = { lang: '', getAttribute: k => attrs[k] ?? null, setAttribute: (k, v) => { attrs[k] = v; } };
+    new Function('document', 'location', 'localStorage', inline)({ documentElement: d }, { search }, { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = v; } });
+    assert.equal(attrs['data-lang'], d.lang);
+    return d.lang;
+  };
+  assert.equal(run(null, '', null), 'en');
+  assert.equal(run(null, '', 'hi'), 'hi', 'india/ remembers a Hindi reader');
+  assert.equal(run(null, '?lang=hi', null), 'hi');
+  assert.equal(run('hi', '', null), 'hi');
+  assert.equal(run('hi', '', 'en'), 'hi', 'india/hi/ is Hindi even after English was picked on india/');
+  assert.equal(run('hi', '?lang=en&utm_source=meta', null), 'en', 'the toggle on india/hi/ writes ?lang=en, so a reload keeps English');
+});
+
+test('india.js reaches site files from its own address, so india/ and india/hi/ both work', () => {
+  const js = read('india/india.js').replace(/^import .*$/gm, '').replace(/new URL\('\.\.\/', import\.meta\.url\)/, 'SITE_URL');
+  assert.doesNotMatch(js, /['"`]\.\.\//, 'no document-relative ../ paths (they break one folder deeper)');
+  assert.match(js, /const SITE = SITE_URL/);
+  // the shared shell knows both addresses as the India page (accessibility layer, installable app)
+  const src = read('src/app/shell.js'), at = src.indexOf('export function pageOf');
+  const pageOf = new Function(src.slice(at, src.indexOf('\n}\n', at) + 2).replace('export function pageOf', 'return function pageOf'))();
+  for (const p of ['/open-overwatch/india/', '/open-overwatch/india/index.html', '/open-overwatch/india/hi/', '/open-overwatch/v/v0.9.2.15/india/hi/index.html']) assert.equal(pageOf(p), 'india', p);
+  assert.equal(pageOf('/open-overwatch/'), 'index'); assert.equal(pageOf('/open-overwatch/hi/'), 'index'); assert.equal(pageOf('/open-overwatch/globe.html'), 'globe');
 });

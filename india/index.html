@@ -3,19 +3,21 @@
 <!-- The India landing page (https://destinjones.github.io/open-overwatch/india/): English by default, हिन्दी with the
      toggle or ?lang=hi. Every bit of text is in the page twice, <span lang="en"> and <span lang="hi">, and CSS shows one
      (html[data-lang]). No pixel, no analytics: utm_* parameters on ad links are only removed from the address bar.
+     india/hi/ is this page opening in हिन्दी, with its own address, title and share card for search and Hindi ads: it is
+     made from this file by `node brand/tools/india_hi.mjs` (run it after every edit here; test/india.test.mjs checks).
      The deep links follow docs/LINK_FORMAT.md; test/india.test.mjs checks them, e2e/india.spec.mjs the page. -->
 <html lang="en" data-lang="en">
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-mU9CMD2NergFUVjOU03VyBkXDgWWTnNu6YEcOwvkurc='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' https:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
-<script>(function () { var d = document.documentElement, l = 'en', q = null; try { q = new URLSearchParams(location.search).get('lang'); } catch (e) { } if (q === 'hi' || q === 'en') { l = q; try { localStorage.setItem('oo-lang', q); } catch (e) { } } else { try { if (localStorage.getItem('oo-lang') === 'hi') l = 'hi'; } catch (e) { } } d.lang = l; d.setAttribute('data-lang', l); })();</script>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-5BbyDMtLG90MjhUQBMRjcAw5+KUQP89P8sxKDxosG6Y='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' https:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<script>(function () { var d = document.documentElement, home = d.getAttribute('data-home') === 'hi' ? 'hi' : 'en', l = home, q = null; try { q = new URLSearchParams(location.search).get('lang'); } catch (e) { } if (q === 'hi' || q === 'en') { l = q; try { localStorage.setItem('oo-lang', q); } catch (e) { } } else if (home === 'en') { try { if (localStorage.getItem('oo-lang') === 'hi') l = 'hi'; } catch (e) { } } d.lang = l; d.setAttribute('data-lang', l); })();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#04060a">
 <title>India, live from space · Open Overwatch</title>
 <link rel="canonical" href="https://destinjones.github.io/open-overwatch/india/">
-<link rel="alternate" hreflang="en-IN" href="https://destinjones.github.io/open-overwatch/india/?lang=en">
-<link rel="alternate" hreflang="hi-IN" href="https://destinjones.github.io/open-overwatch/india/?lang=hi">
+<link rel="alternate" hreflang="en-IN" href="https://destinjones.github.io/open-overwatch/india/">
+<link rel="alternate" hreflang="hi-IN" href="https://destinjones.github.io/open-overwatch/india/hi/">
 <link rel="alternate" hreflang="x-default" href="https://destinjones.github.io/open-overwatch/india/">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="author" content="Destin Jones">
