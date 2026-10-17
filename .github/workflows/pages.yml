@@ -19,11 +19,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0   # all tags, for the version archive
       - name: Keep the daily element-set archive between builds (data/tle/history; the live site is the fallback)
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .tle-history
           key: tle-history-${{ github.run_id }}
@@ -32,7 +32,12 @@ jobs:
         run: python3 .github/build_site.py _site
         env:
           OO_TLE_HISTORY: .tle-history
-      - uses: actions/upload-pages-artifact@v3
+      - name: Site size (GitHub Pages refuses a site over 1 GB)
+        run: |
+          du -sh _site
+          mb=$(du -sm _site | cut -f1)
+          if [ "$mb" -gt 900 ]; then echo "::warning::the site is $mb MB, close to the 1 GB GitHub Pages limit"; fi
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: _site
   deploy:
@@ -43,4 +48,4 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

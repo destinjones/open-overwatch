@@ -39,6 +39,8 @@ FILES
   serve.js                   helper, Node 18+ / Bun
   Start Open Overwatch.bat   Windows launcher (console window stays open)
   Start Open Overwatch (minimized).vbs   same, with the console minimized to the taskbar
+  LICENSE, NOTICE            MIT licence (LICENSE); data credits and their own licences in NOTICE
+                             (all sources and terms: docs/DATA_SOURCES.md)
 
 AUDIO
   Press "Enter with audio" on the boot screen, or the audio button in the header. Generated mode

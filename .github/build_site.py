@@ -9,6 +9,7 @@
 - /versions.json: the list the landing page reads for its version picker and version history.
 - /sw.js: the service worker (the installable app), stamped with this build's version and commit so every published
   version is a new worker and the pages offer a reload. Archived versions never get a worker of their own.
+- /sitemap.xml: the repo's list of pages, each <lastmod> set to the day that page last changed in git.
 - /data/tle/<group>.txt: a copy of each CelesTrak satellite group the apps use (the workflow also runs every 6 h to
   refresh it). The website reads these instead of CelesTrak, which firewalls networks that download too often; the
   download version falls back to them when CelesTrak fails.
@@ -93,6 +94,36 @@ def fix_archived_links(root):
                     f.write(fixed)
 
 
+APP_PAGES = ('globe.html', 'solar.html', 'open-overwatch.html', 'tonight.html')
+
+
+def date_sitemap(path, last_change=None):
+    """sitemap.xml's <loc> list stays hand-written; each <lastmod> is rewritten to the day its page last changed in git
+    (a <loc> ending in / is that folder's index.html), so crawlers are never told a page is older than it is. The app pages
+    also count their modules and data, which change far more often than the HTML shell."""
+    last_change = last_change or (lambda page: git('log', '-1', '--format=%cs', '--', page, *(('src', 'data') if page in APP_PAGES else ())))
+    if not os.path.exists(path):
+        return 0
+    with open(path, encoding='utf-8') as f:
+        xml = f.read()
+    n = 0
+
+    def fix(m):
+        nonlocal n
+        page = m.group(2)[len(SITE):] if m.group(2).startswith(SITE) else None
+        if page is None:
+            return m.group(0)
+        day = last_change(page + 'index.html' if page == '' or page.endswith('/') else page)
+        if not re.match(r'^\d{4}-\d\d-\d\d$', day or ''):
+            return m.group(0)
+        n += 1
+        return m.group(1) + day + m.group(3)
+    xml = re.sub(r'(<url><loc>([^<]+)</loc><lastmod>)[^<]*(</lastmod>)', fix, xml)
+    with open(path, 'w', encoding='utf-8', newline='') as f:
+        f.write(xml)
+    return n
+
+
 def last_good(rel, timeout=30):
     """The copy the live site serves right now (bytes), or None. A source that refuses this build (CelesTrak timing out on
     GitHub's runners did that on 2026-10-06: every group FAILED and the deploy wiped the mirror) must not take the
@@ -116,11 +147,34 @@ def keep_last(path, rel, what):
     return True
 
 
+def tle_epoch_ms(l1):
+    """A TLE line 1's element-set epoch (columns 19-32, YYDDD.DDDDDDDD, UTC) in ms since 1970, or None."""
+    try:
+        yy, doy = int(l1[18:20]), float(l1[20:32])
+    except ValueError:
+        return None
+    import calendar
+    year = 2000 + yy if yy < 57 else 1900 + yy
+    return round((calendar.timegm((year, 1, 1, 0, 0, 0)) + (doy - 1) * 86400) * 1000)
+
+
+def newest_epoch(txt):
+    """The newest element-set epoch (ms) in a group's text, or None."""
+    eps = [e for e in (tle_epoch_ms(l) for l in txt.splitlines() if l.startswith('1 ') and len(l) >= 32) if e]
+    return max(eps) if eps else None
+
+
+def iso_utc(ms):
+    return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(ms / 1000))
+
+
 def mirror_tles(dest):
-    """Best effort: a group that fails keeps the copy the live site already has (with its age in index.json); only when
-    there is none either is it missing from this build (the apps then try CelesTrak)."""
+    """Best effort: a group that fails keeps the copy the live site already has; only when there is none either is it
+    missing from this build (the apps then try CelesTrak). index.json: {updated (this build), groups: {g: n}, kept: [g],
+    epochs: {g: the group's newest element-set epoch}, oldest: the stalest group's}, so a kept copy shows its real age."""
     os.makedirs(dest, exist_ok=True)
-    index = {'updated': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'groups': {}, 'kept': []}
+    index = {'updated': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'groups': {}, 'kept': [], 'epochs': {}}
+    epochs = {}
     down = False   # after one timeout, stop waiting 90 s on every other group: CelesTrak is refusing this runner
     for g in TLE_GROUPS:
         url = f'https://celestrak.org/NORAD/elements/gp.php?GROUP={g}&FORMAT=TLE'
@@ -135,21 +189,30 @@ def mirror_tles(dest):
             with open(os.path.join(dest, g + '.txt'), 'w', encoding='utf-8', newline=chr(10)) as f:
                 f.write(txt)
             index['groups'][g] = n
+            epochs[g] = newest_epoch(txt)
             print(f'tle {g}: {n}')
         except Exception as e:
             if isinstance(e, (TimeoutError, socket.timeout)) or 'timed out' in str(e):
                 down = True
             old = last_good(f'data/tle/{g}.txt')
-            n = sum(1 for l in old.decode('utf-8', 'replace').splitlines() if l.startswith('1 ')) if old else 0
+            txt = old.decode('utf-8', 'replace') if old else ''
+            n = sum(1 for l in txt.splitlines() if l.startswith('1 '))
             if n:
                 with open(os.path.join(dest, g + '.txt'), 'wb') as f:
                     f.write(old)
                 index['groups'][g] = n
                 index['kept'].append(g)
+                epochs[g] = newest_epoch(txt)
                 print(f'tle {g}: FAILED {e} -> kept the live site\'s copy ({n})')
             else:
                 print(f'tle {g}: FAILED {e}')
         time.sleep(2)   # be gentle with CelesTrak
+    index['epochs'] = {g: iso_utc(ms) for g, ms in epochs.items() if ms}
+    if index['epochs']:
+        index['oldest'] = min(index['epochs'].values())
+    for g in index['kept']:   # a kept copy is only as fresh as its elements: say so where the maintainer looks
+        if epochs.get(g) and time.time() * 1000 - epochs[g] > 48 * 3600e3:
+            print(f'::warning::tle {g}: the kept copy\'s newest elements are from {iso_utc(epochs[g])}, over 48 h old (CelesTrak refused this build)')
     with open(os.path.join(dest, 'index.json'), 'w', encoding='utf-8') as f:
         json.dump(index, f, indent=1)
     return index
@@ -309,12 +372,13 @@ def mirror_wind(path):
 
 def mirror_news(path, countries_path):
     """Best effort: English-language headlines from news outlets in the ~70 biggest economies (GDELT DOC API, open data), one request
-    every 7 s as GDELT asks, as data/news.json: {t, countries: {ISO2: [{title, url, domain, date}]}}. The globe's country
-    dossier reads this first, so a visitor's click never spends GDELT's one-request-per-few-seconds limit."""
+    every 7 s as GDELT asks, as data/news.json: {t, countries: {ISO2: [{title, url, domain, date}]}, kept?: {ISO2: ms}}. The
+    globe's country dossier reads this first, so a visitor's click never spends GDELT's one-request-per-few-seconds limit.
+    A failed run keeps the live site's copy; a partial one fills the countries that failed from it (`kept`: when those were fetched)."""
     try:
         facts = json.load(open(countries_path, encoding='utf-8'))['countries']
     except Exception as e:
-        print(f'news: no country list ({e})'); return
+        print(f'news: no country list ({e})'); keep_last(path, 'data/news.json', 'news'); return
     top = sorted((iso for iso, f in facts.items() if f.get('gdp')), key=lambda i: -facts[i]['gdp'])[:70]
     out, fails, started = {}, 0, time.time()
     # A hard budget: this runs inside every site build, and GDELT answers 429 to the build servers at times. One 7 s pause between
@@ -336,11 +400,29 @@ def mirror_news(path, countries_path):
         except Exception as e:
             fails += 1; print(f'news {iso}: FAILED {e}')
             if fails >= 3: print('news: three failures in a row, giving up'); break
-    if out:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump({'t': int(time.time() * 1000), 'source': 'GDELT Project (gdeltproject.org)', 'countries': out}, f, ensure_ascii=False, separators=(',', ':'))
     print(f'news: {len(out)} countries, {sum(len(v) for v in out.values())} headlines')
+    if not out:   # GDELT refused the whole run: the live site's copy stays up (data/news.json is not in git)
+        keep_last(path, 'data/news.json', 'news'); return
+    now, kept = int(time.time() * 1000), {}
+    if len(out) < len(top):   # a partial run: the countries that failed keep the live copy's headlines, up to 3 days old
+        try:
+            old = json.loads((last_good('data/news.json') or b'{}').decode('utf-8'))
+        except ValueError:
+            old = {}
+        old = old if isinstance(old, dict) else {}
+        old_t, old_kept = old.get('t') or 0, old.get('kept') if isinstance(old.get('kept'), dict) else {}
+        for iso2, items in (old.get('countries') if isinstance(old.get('countries'), dict) else {}).items():
+            at = old_kept.get(iso2) or old_t   # a country carried over before keeps its first time
+            if iso2 in top and iso2 not in out and isinstance(items, list) and isinstance(at, (int, float)) and now - at < 3 * 86400e3:
+                out[iso2], kept[iso2] = items, at
+        if kept:
+            print(f'news: {len(kept)} countries kept from the live site\'s copy')
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        doc = {'t': now, 'source': 'GDELT Project (gdeltproject.org)', 'countries': out}
+        if kept:
+            doc['kept'] = kept   # ISO2 -> ms of the copy those headlines came from
+        json.dump(doc, f, ensure_ascii=False, separators=(',', ':'))
 
 
 def mirror_flybys(path):
@@ -426,6 +508,7 @@ def main():
     n = extract('HEAD', ['.'], OUT, SKIP_ROOT)
     print(f'root: {n} entries from HEAD')
     print(f'sw.js: build {stamp_worker(OUT)}')
+    print(f'sitemap.xml: {date_sitemap(os.path.join(OUT, "sitemap.xml"))} pages dated from git')
     versions = []
     for tag in git('tag', '-l', 'v*', '--sort=-v:refname').split():
         paths = [p for p in APP_PATHS if exists(tag, p)]

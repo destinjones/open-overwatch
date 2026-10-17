@@ -11,14 +11,15 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Build the download zip
         run: |
           D=dist/open-overwatch
           mkdir -p "$D/brand/hero" "$D/brand/social" "$D/brand/textures" "$D/brand/models"
           cp -r src "$D/"                                                                          # the apps' ES modules
+          mkdir -p "$D/docs" && cp docs/DATA_SOURCES.md "$D/docs/"                                 # the data terms NOTICE points at
           cp open-overwatch.html globe.html solar.html tonight.html manifest.webmanifest sw.js offline.html serve.js serve.py README.txt \
-             "Start Open Overwatch.bat" "Start Open Overwatch (minimized).vbs" "$D/"
+             LICENSE NOTICE "Start Open Overwatch.bat" "Start Open Overwatch (minimized).vbs" "$D/"
           cp -r brand/emblem brand/fonts brand/sprites "$D/brand/"
           rm -rf "$D/brand/sprites/raw"
           cp brand/hero/*.webp "$D/brand/hero/"
@@ -33,7 +34,7 @@ jobs:
           echo "$GITHUB_REF_NAME" > "$D/VERSION.txt"
           (cd dist && zip -qr open-overwatch.zip open-overwatch)
           ls -la dist
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
       - name: Build the Claude Desktop extension (open-overwatch.mcpb, see mcp/README.md)
@@ -46,9 +47,10 @@ jobs:
           (cd "$B" && node mcp/server.mjs --version)                                             # it starts from the bundle
           (cd "$B" && zip -qr ../open-overwatch.mcpb .)
           ls -la dist
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/open-overwatch.zip
-            dist/open-overwatch.mcpb
-          generate_release_notes: true
+      - name: Attach both files to the tag's release (gh is on the runner, so no third-party action holds contents write)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/open-overwatch.zip dist/open-overwatch.mcpb --generate-notes \
+            || gh release upload "$GITHUB_REF_NAME" dist/open-overwatch.zip dist/open-overwatch.mcpb --clobber

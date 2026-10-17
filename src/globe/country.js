@@ -87,7 +87,7 @@ export const Country = {
   /** English-language headlines from outlets in the country (GDELT: one request every few seconds, shared by all clicks). */
   async headlines(o) {
     const slot = () => document.getElementById('cnNews'); if (!slot() || this.current !== o) return;
-    const m = await mirrorNews(); if (m && m.countries[o.iso]) return this.showNews(o, m.countries[o.iso], m.t);
+    const m = await mirrorNews(); if (m && m.countries[o.iso]) return this.showNews(o, m.countries[o.iso], (m.kept && m.kept[o.iso]) || m.t);   // a country the build carried over keeps its own time
     const key = o.iso, hit = news.get(key);
     if (hit && Date.now() - hit.t < 15 * 60e3) return this.showNews(o, hit.items);
     slot().innerHTML = '<h3>Headlines</h3><div class="note">Asking GDELT…</div>';
@@ -103,7 +103,7 @@ export const Country = {
   },
   showNews(o, items, at) {
     const slot = document.getElementById('cnNews'); if (!slot || this.current !== o) return;
-    slot.innerHTML = `<h3>Headlines · English-language outlets, last 24 h</h3>` + (items.length ? items.map(a => `<a class="cn-news" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer"><span>${esc(a.title)}</span><i>${esc(a.domain)}</i></a>`).join('') : '<div class="note">No English-language headlines found for this country in the last day.</div>')
+    slot.innerHTML = `<h3>Headlines · English-language outlets, last ${at && Date.now() - at > 24 * 36e5 ? 'few days' : '24 h'}</h3>` + (items.length ? items.map(a => `<a class="cn-news" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer"><span>${esc(a.title)}</span><i>${esc(a.domain)}</i></a>`).join('') : '<div class="note">No English-language headlines found for this country in the last day.</div>')
       + `<div class="note">Headlines via GDELT${at ? `, collected ${Math.max(1, Math.round((Date.now() - at) / 36e5))} h ago` : ''}; each links to its publisher.</div>`;
   },
 };
