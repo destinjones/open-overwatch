@@ -5,7 +5,8 @@
 import { haversine, destination } from '../src/core/geo.js';
 import { encodeView } from '../src/core/viewlink.js';
 import { jdFromMs } from '../src/core/time.js';
-import { ToolError } from './feeds.mjs';
+import { prepare, inCountry, countryAt, mainBoxWrapped, boxContains, boxCentre as boxMid } from '../src/core/borders.js';
+import { ToolError, derive } from './feeds.mjs';
 
 export const PHOTON = 'https://photon.komoot.io/api/';
 const D2R = Math.PI / 180;
@@ -54,11 +55,17 @@ function placeOf(f, text) {
   const lon = +c[0], lat = +c[1];
   if (!f || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   const e = Array.isArray(p.extent) && p.extent.length === 4 && p.extent.every(Number.isFinite) ? p.extent : null;   // Photon: [west, north, east, south]
-  let bbox = e ? [e[0], e[3], e[2], e[1]] : null;
+  let bbox = e ? [e[0], e[3], e[2], e[1]] : null, wide = null;
+  // Right round the world: Photon writes a place with land on both sides of the antimeridian (the USA, Russia, Fiji, Alaska,
+  // Chukotka) as west -180, east 180, which read flat is a band over every longitude. Its longitudes are unknown: resolveArea
+  // uses the country's own outline, or a circle as tall as the box.
+  if (bbox && (bbox[2] - bbox[0] >= 359 || (bbox[0] <= -179.9 && bbox[2] >= 179.9))) { wide = { s: Math.min(bbox[1], bbox[3]), n: Math.max(bbox[1], bbox[3]) }; bbox = null; }
   if (bbox && ((bbox[2] - bbox[0] + 360) % 360 > 300 || bbox[3] - bbox[1] > 150)) bbox = null;   // wraps most of the world (territories far away): use a circle
-  const name = String(p.name || p.street || text), parts = [name];
+  const name = String(p.name || p.street || text), parts = [name], kind = String(p.osm_value || p.type || '');
   for (const k of ['city', 'state', 'country']) if (p[k] && !parts.includes(p[k])) parts.push(p[k]);
-  return { name, label: parts.join(', '), lat, lon, kind: String(p.osm_value || p.type || ''), country: /^[A-Z]{2}$/.test(p.countrycode || '') ? p.countrycode : null, bbox };
+  const place = { name, label: parts.join(', '), lat, lon, kind, country: /^[A-Z]{2}$/.test(p.countrycode || '') ? p.countrycode : null, bbox };
+  if (wide) Object.defineProperty(place, 'wide', { value: { ...wide, country: kind === 'country' || p.type === 'country' } });   // kept out of answers
+  return place;
 }
 
 const bboxCentre = ([w, s, e, n]) => ({ lat: (s + n) / 2, lon: ((w + ((e - w + 360) % 360) / 2 + 540) % 360) - 180 });
@@ -81,14 +88,40 @@ export async function resolveArea(args, feeds, { need = false, pointKm = 300, si
   if (!a.place) { if (need) throw new ToolError('Say where: a place name, or lat and lon', 'invalid_arguments'); return null; }
   const g = await geocode(feeds, a.place, signal);
   if (r != null) return { ...g, radiusKm: r, bbox: null };
+  if (g.wide) return wideArea(g, feeds, signal);
   if (g.bbox) { const c = bboxCentre(g.bbox); return { ...g, frameLat: c.lat, frameLon: c.lon, radiusKm: Math.max(1, bboxRadiusKm(g.bbox)) }; }
   return { ...g, radiusKm: SIZE_KM[g.kind] ?? 15 };
 }
 
+/** data/borders.json's outlines, prepared for countryAt and inCountry once per isolate (on a copy: the answer stays as sent). */
+export const preparedBorders = b => derive(b, 'borders', x => prepare(Array.isArray(x) ? x.map(y => ({ ...y })) : []));
+
+/**
+ * The area of a place whose outline runs right round the world (placeOf's `wide`). A country: what is inside its own outline
+ * (data/borders.json), or in its main part's box (the antimeridian kept whole: Russia's runs 27°E to 170°W) and at sea, as
+ * country_briefing counts "off its coast"; framed on that box. Anything else, or the outlines not loading: a circle round the
+ * geocoder's point, as tall as the place's box (a state: Alaska, Chukotka).
+ */
+async function wideArea(g, feeds, signal) {
+  if (g.wide.country && g.country) {
+    const all = await feeds.json(feeds.site('data/borders.json'), { ttl: 864e5, timeout: 60e3, signal }).then(preparedBorders, () => null);
+    const b = Array.isArray(all) ? all.find(x => x.iso === g.country) : null, box = b && mainBoxWrapped(b);
+    if (box) {
+      const bbox = [box[0], box[1], box[2] > 180 ? box[2] - 360 : box[2], box[3]], [cLon, cLat] = boxMid(bbox);
+      const area = { ...g, bbox, frameLat: cLat, frameLon: cLon, radiusKm: Math.max(1, bboxRadiusKm(bbox)) };
+      Object.defineProperties(area, { border: { value: b }, borders: { value: all } });   // for inArea; kept out of answers
+      return area;
+    }
+  }
+  return { ...g, radiusKm: Math.round(Math.min(3000, Math.max(SIZE_KM[g.kind] ?? 15, (g.wide.n - g.wide.s) / 2 * 111.32))) };
+}
+
 export const distKm = (a, lat, lon) => haversine(a.lat, a.lon, lat, lon) / 1000;
-/** Is lat/lon inside the area (its box, or its circle)? A box may cross the antimeridian (west > east). */
+/** Is lat/lon inside the area (its box, or its circle; a country round the antimeridian, its outline or its sea)? A box may
+ *  cross the antimeridian (west > east). */
 export function inArea(a, lat, lon) {
   if (!a) return true;
+  if (a.border && a.bbox) return inCountry(a.border, lon, lat) || (boxContains(a.bbox, lat, lon, 1.5) && !countryAt(a.borders, lon, lat));
   if (a.bbox) { const [w, s, e, n] = a.bbox; return lat >= s && lat <= n && (w <= e ? lon >= w && lon <= e : lon >= w || lon <= e); }
   return distKm(a, lat, lon) <= a.radiusKm;
 }

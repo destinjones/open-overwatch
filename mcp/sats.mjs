@@ -21,9 +21,33 @@ const ELSEWHERE = { jwst: 'the James Webb Space Telescope orbits the Sun-Earth L
 
 const norm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
 
+/** feeds.scope (the memo every server of an isolate shares) or feeds -> Map(group -> { txt, list, byId, names }): a group
+ *  parsed once for as long as its text stays the same. The 'active' set is ~16,000 element sets, 6-12 ms to parse, past the
+ *  free Worker's 10 ms on every lookup otherwise. The same satellite objects come back each time, so satrec's memo hits too. */
+const parsed = new WeakMap();
+/** A group's text, parsed (once per text): { txt, list: [{ id, name, l1, l2, group }], byId: Map (both '00005' and '5'), names (normalised) }. */
+export function parseGroup(feeds, group, txt) {
+  const owner = feeds.scope || feeds;
+  let m = parsed.get(owner);
+  if (!m) parsed.set(owner, (m = new Map()));
+  const k = m.get(group);
+  if (k && k.txt === txt) return k;
+  parseGroup.parses++;
+  const list = parseTle(txt).map(t => ({ ...t, group })), byId = new Map(), names = list.map(x => norm(x.name));
+  for (const x of list) {
+    const id = String(x.id); if (!byId.has(id)) byId.set(id, x);
+    if (/^\d+$/.test(id) && !byId.has(String(+id))) byId.set(String(+id), x);
+  }
+  const g = { txt, list, byId, names };
+  m.set(group, g);
+  return g;
+}
+parseGroup.parses = 0;   // the tests check that a second lookup parses nothing
+
+const groupOf = async (feeds, group, signal) => parseGroup(feeds, group, await feeds.text(feeds.site(`data/tle/${encodeURIComponent(group)}.txt`), { ttl: 3 * 3600e3, timeout: 30e3, signal }));
+/** A group's satellites, [{ id, name, l1, l2, group }] (shared between calls: copy one before changing it). */
 export async function loadGroup(feeds, group, signal) {
-  const txt = await feeds.text(feeds.site(`data/tle/${encodeURIComponent(group)}.txt`), { ttl: 3 * 3600e3, timeout: 30e3, signal });
-  return parseTle(txt).map(t => ({ ...t, group }));
+  return (await groupOf(feeds, group, signal)).list;
 }
 
 /**
@@ -37,17 +61,18 @@ export async function findSats(feeds, query, { signal, max = 5 } = {}) {
   const raw = String(query ?? '').trim().slice(0, 80) || 'ISS', key = raw.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
   if (ELSEWHERE[key]) throw new ToolError(`Not an Earth satellite: ${ELSEWHERE[key]}`, 'not_found');
   const id = /^\d{1,9}$/.test(raw) ? String(+raw) : ALIASES[key] || null, q = norm(raw);
-  const out = [];
-  for (const g of [...SEARCH_GROUPS, ...(id ? DEBRIS_GROUPS : [])]) {
-    const list = await loadGroup(feeds, g, signal).catch(e => { if (g === 'active') throw e; return []; });   // a small group missing is no news
-    if (id) { const s = list.find(x => x.id === id); if (s) return [s]; continue; }
+  const out = [], have = new Set();
+  for (const name of [...SEARCH_GROUPS, ...(id ? DEBRIS_GROUPS : [])]) {
+    const g = await groupOf(feeds, name, signal).catch(e => { if (name === 'active') throw e; return null; });   // a small group missing is no news
+    if (!g) continue;
+    if (id) { const s = g.byId.get(id); if (s) return [s]; continue; }
     const scored = [];
-    for (const s of list) {
-      const n = norm(s.name), score = n === q ? 0 : n.startsWith(q + ' ') || n.startsWith(q) ? 1 : (' ' + n + ' ').includes(' ' + q + ' ') ? 2 : n.includes(q) ? 3 : -1;
-      if (score >= 0 && !out.some(o => o.id === s.id)) scored.push([score, n.length, s]);
-    }
-    scored.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-    out.push(...scored.map(x => x[2]));
+    g.list.forEach((s, i) => {
+      const n = g.names[i], score = n === q ? 0 : n.startsWith(q) ? 1 : (' ' + n + ' ').includes(' ' + q + ' ') ? 2 : n.includes(q) ? 3 : -1;
+      if (score >= 0 && !have.has(s.id)) scored.push([score, n.length, s]);
+    });
+    scored.sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+    for (const [, , s] of scored) if (!have.has(s.id)) { have.add(s.id); out.push(s); }
     if (out.length && norm(out[0].name) === q) break;   // an exact name: stop looking
   }
   if (!out.length) throw new ToolError(id ? `No satellite numbered ${id} is in the catalogue the globe uses (working satellites and three debris clouds)` : `No satellite called "${raw}" was found; try its NORAD catalogue number`, 'not_found');

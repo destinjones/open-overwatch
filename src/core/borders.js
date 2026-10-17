@@ -52,3 +52,39 @@ export function mainBox(b) {
   for (const bx of b.box) { const a = (bx[2] - bx[0]) * (bx[3] - bx[1]); if (a > area) { area = a; best = bx; } }
   return best;
 }
+
+/** [west, south, east, north] of a ring set whose longitudes may run past 180 (b.east[k]): east > 180 for a crossing part. */
+function boxOfAny(poly) {
+  let w = Infinity, s = 90, e = -Infinity, n = -90;
+  for (const [lo, la] of poly[0]) { if (lo < w) w = lo; if (lo > e) e = lo; if (la < s) s = la; if (la > n) n = la; }
+  return [w, s, e, n];
+}
+
+/** The biggest part's box with a part that crosses the antimeridian kept whole: west < east always, and east runs past 180
+ *  for such a part (Russia's mainland: about [27.4, 41.2, 190.3, 77.7]). mainBox gives the flat box ([-180 … 179.9] for
+ *  Russia); the fly-to, the outline label and the briefing's "near it" tests want this one (with boxContains/boxCentre). Needs prepare(). */
+export function mainBoxWrapped(b) {
+  let best = null, area = -1;
+  b.poly.forEach((p, k) => {
+    const bx = b.east && b.east[k] ? boxOfAny(b.east[k]) : b.box ? b.box[k] : boxOf(p), a = (bx[2] - bx[0]) * (bx[3] - bx[1]);
+    if (a > area) { area = a; best = bx; }
+  });
+  return best;
+}
+
+/** Is lat/lon inside the box (grown by `pad` degrees on every side)? The box may cross the antimeridian, written either way:
+ *  west > east, or east past 180 (mainBoxWrapped). */
+export function boxContains(box, lat, lon, pad = 0) {
+  const [w, s, e0, n] = box, e = e0 < w ? e0 + 360 : e0;
+  if (lat < s - pad || lat > n + pad) return false;
+  return [lon, lon + 360, lon - 360].some(x => x >= w - pad && x <= e + pad);
+}
+
+/** The middle of a box as [lon, lat], its longitude wrapped to -180…180 (a crossing box's middle is on its own side). */
+export function boxCentre(box) {
+  const [w, s, e0, n] = box, e = e0 < w ? e0 + 360 : e0;
+  return [((((w + e) / 2) + 540) % 360) - 180, (s + n) / 2];
+}
+
+/** How wide a box is in degrees of longitude (a crossing box measured the short way across the antimeridian). */
+export const boxWidth = box => (box[2] < box[0] ? box[2] + 360 : box[2]) - box[0];

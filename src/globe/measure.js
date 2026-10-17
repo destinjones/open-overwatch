@@ -18,7 +18,7 @@ import { findPlaces } from './places.js';
 import { inverse, midpoint, pathLength, polygonArea, multiPolygonArea, centre, selfCrossing, choosePair, groundProfile, lengthText, areaText, bearingText, bearingWords,
   lengthWords, areaWords, toGeoJSON, MAX_POINTS } from '../core/measure.js';
 import { durationText, pointAt, measure as walkable } from '../core/route.js';
-import { mainBox } from '../core/borders.js';
+import { mainBoxWrapped, boxCentre } from '../core/borders.js';
 import { toMgrs } from '../core/mgrs.js';
 import { courseAxis } from '../core/geo.js';
 
@@ -433,7 +433,7 @@ export const Measure = {
         add(sh, { polygon: { hierarchy: new C.PolygonHierarchy(outer, holes), material: gold.withAlpha(0.12), classificationType: BOTH } });
         for (const r of rings) add(sh, { polyline: { positions: r.map(x => cart(x)), clampToGround: true, classificationType: BOTH, width: 2.5, material: gold } });
       }
-      const bx = mainBox(o.border), mid = [(bx[0] + bx[2]) / 2, (bx[1] + bx[3]) / 2];
+      const mid = boxCentre(mainBoxWrapped(o.border));   // Russia's mainland runs past 180: its middle is in Siberia
       add(sh, { position: cart(mid), label: { ...LABEL, text: `${sh.name}\n${area(sh.m.area)}`, verticalOrigin: C.VerticalOrigin.CENTER, pixelOffset: C.Cartesian2.ZERO } }, cart(mid, 10));
       this.shapes.push(sh);
     }
