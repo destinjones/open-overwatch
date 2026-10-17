@@ -24,6 +24,7 @@ const ALLOWED_HOSTS = new Set([
   'kamera.atlas.vegvesen.no', 'atmsqf.iowadot.gov', 'trafficcam.calgary.ca', 'images.data.gov.sg', // camera stills sent without CORS
   'aviationweather.gov',                                                    // METAR and TAF (the globe's airport cards)
   'www.ndbc.noaa.gov',                                                      // NOAA buoys and DART tsunami buoys
+  'www.tsunami.gov',                                                        // the NOAA tsunami warning centres' messages
 ]); // keep in sync with NEEDS_RELAY in src/map/util.js and ALLOWED_HOSTS in serve.py (test/relayhosts.test.mjs checks)
 const FORWARD_HEADERS = ['x-windy-api-key', 'accept'];
 const UA = 'OpenOverwatch/1.0 (local helper; personal use)';

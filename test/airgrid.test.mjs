@@ -45,9 +45,9 @@ test('airgrid: which adsb.lol queries the relay shares, and for how long', () =>
     assert.equal(adsbLolRelayable(u), false, u);
 });
 
-test('relay routing: the website sends adsb.lol\'s shared queries and the listed hosts through the relay, nothing else', () => {
+test('relay routing: the website sends the listed hosts through the relay, and no aircraft feed (adsb.lol refuses Cloudflare)', () => {
   const t = nearestTiles(51.5, -0.1, 1)[0];
-  for (const u of ['https://api.adsb.lol/v2/mil', `https://api.adsb.lol/v2/point/${t.lat}/${t.lon}/250`, 'https://www.nhc.noaa.gov/CurrentStorms.json']) assert.ok(publicRelayable(u), u);
-  for (const u of ['https://opensky-network.org/api/states/all', 'https://opendata.adsb.fi/api/v2/mil', 'https://api.airplanes.live/v2/mil', 'https://api.adsb.lol/v2/hex/abc123', 'https://api.adsb.lol/v2/point/51.5/-0.1/250'])
+  for (const u of ['https://www.nhc.noaa.gov/CurrentStorms.json', 'https://www.ndbc.noaa.gov/activestations.xml']) assert.ok(publicRelayable(u), u);
+  for (const u of ['https://api.adsb.lol/v2/mil', `https://api.adsb.lol/v2/point/${t.lat}/${t.lon}/250`, 'https://opensky-network.org/api/states/all', 'https://opendata.adsb.fi/api/v2/mil', 'https://api.airplanes.live/v2/mil', 'https://api.adsb.lol/v2/hex/abc123', 'https://api.adsb.lol/v2/point/51.5/-0.1/250'])
     assert.equal(publicRelayable(u), false, u);
 });
