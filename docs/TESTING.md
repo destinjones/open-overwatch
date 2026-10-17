@@ -10,12 +10,13 @@ it, and `test/india.test.mjs` reads the real date: from two weeks before an ISRO
 (`python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"`).
 
 ### Fuzz tests
-`test/fuzz.test.mjs` (in `node --test`, about 5 s) feeds tens of thousands of mutated inputs to the decoders that read
-untrusted bytes: GRIB2, CCSDS (AEC), JPEG 2000, vector tiles, GTFS-RT, METAR/TAF, MQTT and the text feeds' parsers
+`test/fuzz.test.mjs` (in `node --test`, a few seconds) feeds tens of thousands of mutated inputs to the decoders that
+read untrusted bytes: GRIB2, CCSDS (AEC), JPEG 2000, vector tiles, GTFS-RT, METAR/TAF, MQTT and the text feeds' parsers
 (the targets, mutators and checks are in `test/helpers/fuzz.mjs`). Each must return a well-formed result (no NaN or
-Infinity where a number is promised) or throw an `Error`, within 250 ms a call and without asking for a buffer of over
-2^25 elements; round trips (AEC, tiles, GTFS-RT, METARs, MQTT frames) are checked as properties. Each target runs in a
-worker, so a hang fails with the case it hung on. Cases come from a fixed seed, so a failure is the same every run.
+Infinity where a number is promised) or throw an `Error`, within 250 ms a call and without asking for a typed array,
+`Array` or `ArrayBuffer` of over 2^25 elements (2^28 bytes); round trips (AEC, tiles, GTFS-RT, METARs, MQTT frames) are
+checked as properties. Each target runs in a worker, so a hang fails with the case it hung on. Cases come from a fixed
+seed, so a failure is the same every run.
 
 ```bash
 OO_FUZZ=1 node --test test/fuzz.test.mjs                     # 50 times the cases, from a new seed each run (a few minutes)

@@ -9,7 +9,7 @@ file was built from.
 ## [Unreleased]
 
 ### Added
-- Fuzz and property tests of every decoder that reads untrusted bytes (`test/fuzz.test.mjs`, about 5 s in
+- Fuzz and property tests of every decoder that reads untrusted bytes (`test/fuzz.test.mjs`, a few seconds in
   `node --test`; `OO_FUZZ=1` for 50 times the cases): GRIB2, CCSDS, JPEG 2000, vector tiles, GTFS-RT, METAR/TAF, MQTT
   and the text feeds, each in a worker with a deadline, from a seeded PRNG and no new dependency.
 
@@ -18,8 +18,11 @@ file was built from.
   interval, a JPEG 2000 stream cut inside a tile-part or packet header, and a vector tile or GTFS-RT feed whose
   declared length runs past the end (it walked billions of missing bytes).
 - No decoder believes a size past its data: GRIB2 grids and value counts, CCSDS sample counts and JPEG 2000 images
-  are capped (2^24 points) and checked against the bytes before anything is allocated; a JPEG 2000 header asking for
-  65,535 layers no longer runs out of memory.
+  are capped (2^24 points) and checked against the bytes before anything is allocated (a GRIB2 JPEG 2000 image more
+  than about twice its field's values is refused); a JPEG 2000 header asking for 65,535 layers no longer runs out of
+  memory. A GRIB2 CCSDS section 5 too short for its parameters is an error.
+- GRIB2: a field with no bitmap after one with a bitmap, in the same message, no longer takes the earlier bitmap; a
+  message cut off after whole ones keeps the whole ones (it threw them all away).
 - No NaN or Infinity where a number is promised: GRIB2 values that overflow float32 or come without a bitmap, CCSDS
   zero runs past their interval, wider-than-declared samples, endless varints, NaN tile values and a tile extent of 0,
   GTFS-RT speeds and headings (and vehicles past the poles), SOCRATES speeds and probabilities, DART modes, `.idx` and

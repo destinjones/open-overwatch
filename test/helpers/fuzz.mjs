@@ -17,7 +17,7 @@ import { parseSocrates } from '../../src/core/socrates.js';
 import { parseNdbcLatest, parseDart } from '../../src/core/ocean.js';
 import { parseEcIndex } from '../../src/core/wxmodels.js';
 import { encodeView, decodeView } from '../../src/core/viewlink.js';
-import { message } from './grib2.mjs';
+import { message, fields } from './grib2.mjs';
 import { layer, tile } from './mvt.mjs';
 
 const FIX = new URL('../fixtures/', import.meta.url);
@@ -91,16 +91,23 @@ const words = (list, path) => { for (const [i, w] of (list || []).entries()) { c
 const first = (...xs) => xs.find(Boolean) || null;
 const isInt = (v, lo = -Infinity, hi = Infinity) => Number.isInteger(v) && v >= lo && v <= hi;
 
-/** A typed array allocation over this many elements is a decoder believing a corrupt length (the largest real field,
- *  core/grib2.js MAX_POINTS, is half this). */
+/** A typed array or Array allocation over this many elements (or an ArrayBuffer over 8 times as many bytes) is a decoder
+ *  believing a corrupt length (the largest real field, core/grib2.js MAX_POINTS, is half this). */
 export const ALLOC_LIMIT = 2 ** 25;
 export class AbsurdAllocation extends Error {}
-/** In the fuzz worker only: typed array constructors refuse absurd lengths, so a decoder that would allocate them is caught
- *  even where the allocation itself would have succeeded (lazily zeroed memory makes a gigabyte cheap to ask for). */
+/** In the fuzz worker only: the typed array, ArrayBuffer and Array constructors refuse absurd lengths (`new Array(n)`,
+ *  `Array(n)` and `Array.from({ length: n })` too), so a decoder that would allocate them is caught even where the
+ *  allocation itself would have succeeded (lazily zeroed memory makes a gigabyte cheap to ask for). Array literals,
+ *  push and the arrays slice or map make are not seen: those grow with work done, which the time budget catches. */
 export function guardAllocations() {
-  for (const name of ['Float64Array', 'Float32Array', 'Int32Array', 'Uint32Array', 'Uint16Array', 'Int16Array', 'Uint8Array', 'Int8Array']) {
-    const T = globalThis[name];
-    globalThis[name] = new Proxy(T, { construct(t, args, nt) { if (typeof args[0] === 'number' && args[0] > ALLOC_LIMIT) throw new AbsurdAllocation(`new ${name}(${args[0]})`); return Reflect.construct(t, args, nt === globalThis[name] ? t : nt); } });
+  const limits = { ArrayBuffer: 8 * ALLOC_LIMIT, Array: ALLOC_LIMIT };
+  for (const name of ['Float64Array', 'Float32Array', 'Int32Array', 'Uint32Array', 'Uint16Array', 'Int16Array', 'Uint8Array', 'Int8Array', 'ArrayBuffer', 'Array']) {
+    const T = globalThis[name], max = limits[name] || ALLOC_LIMIT;
+    const check = args => { if (typeof args[0] === 'number' && args[0] > max) throw new AbsurdAllocation(`new ${name}(${args[0]})`); };
+    globalThis[name] = new Proxy(T, {
+      construct(t, args, nt) { check(args); return Reflect.construct(t, args, nt === globalThis[name] ? t : nt); },
+      apply(t, self, args) { if (name === 'Array' && args.length === 1) check(args); return Reflect.apply(t, self, args); },   // Array(n) without new
+    });
   }
 }
 
@@ -188,6 +195,7 @@ export const TARGETS = {
         message({ ni: 5, nj: 4, ints: ints(20), tmpl: 2, group: 3 }),
         message({ ni: 3, nj: 2, ints: [1, 2, 3, 4], bitmap: [1, 0, 1, 1, 0, 1] }),
         [...message({ ni: 2, nj: 2, ints: [0, 0, 0, 0] }), ...message({ ni: 3, nj: 1, ints: [5, 6, 7], hours: 9 })],
+        fields(message({ ni: 3, nj: 2, ints: [1, 2, 3, 4], bitmap: [1, 0, 1, 1, 0, 1] }), message({ ni: 3, nj: 2, ints: [5, 6, 7, 8, 9, 10], hours: 9 })),
       ].map(m => Uint8Array.from(m))];
     },
     iterations: 1200, sweep: 4096,

@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { Worker } from 'node:worker_threads';
 import { TARGETS, progressLabel } from './helpers/fuzz.mjs';
-import { message } from './helpers/grib2.mjs';
+import { message, fields } from './helpers/grib2.mjs';
 import { decodeGrib2, parseIdx } from '../src/core/grib2.js';
 import { aecDecode, aecEncode, AEC } from '../src/core/aec.js';
 import { jpxDecode } from '../src/core/jpx.js';
@@ -30,13 +30,13 @@ function fuzz(name) {
   return new Promise((resolve, reject) => {
     const sab = new SharedArrayBuffer(12), progress = new Int32Array(sab);
     const w = new Worker(new URL('./helpers/fuzz.mjs', import.meta.url), { workerData: { ooFuzz: true, name, seed: SEED, scale: SCALE, budgetMs: 250, sab } });
-    const timer = setTimeout(() => {
-      const at = progressLabel([0, 1, 2].map(i => Atomics.load(progress, i)));
-      w.terminate();
-      reject(new Error(`${name}: no answer after ${DEADLINE / 1000} s: ${at} hangs (OO_FUZZ_SEED=${SEED}${SCALE > 1 ? ' OO_FUZZ=' + env : ''})`));
-    }, DEADLINE);
-    w.once('message', m => { clearTimeout(timer); w.terminate(); resolve(m); });
-    w.once('error', e => { clearTimeout(timer); reject(e); });
+    const at = () => progressLabel([0, 1, 2].map(i => Atomics.load(progress, i))), replay = `OO_FUZZ_SEED=${SEED}${SCALE > 1 ? ' OO_FUZZ=' + env : ''}`;
+    let done = false;
+    const end = (f, v) => { if (done) return; done = true; clearTimeout(timer); f(v); };
+    const timer = setTimeout(() => { const where = at(); w.terminate(); end(reject, new Error(`${name}: no answer after ${DEADLINE / 1000} s: ${where} hangs (${replay})`)); }, DEADLINE);
+    w.once('message', m => { end(resolve, m); w.terminate(); });
+    w.once('error', e => end(reject, e));
+    w.once('exit', code => end(reject, new Error(`${name}: the worker exited with code ${code} at ${at()} (${replay})`)));   // a target that ended the worker
   });
 }
 
@@ -67,6 +67,12 @@ test('grib2 regressions: no message loops for ever, no size is believed past the
   assert.throws(() => decodeGrib2(put32(small(), section(small(), 3) + 30, 8)), /12 values for 24 grid points/);   // was 12 made-up values with no bitmap
   const wide = small(); wide[section(wide, 5) + 19] = 32;
   assert.throws(() => decodeGrib2(wide), /shorter than its values/);   // was values read from the next section and past the end
+  const ccsds = small(); ccsds[section(ccsds, 5) + 10] = 42;   // a 21-byte section 5 that says CCSDS, whose parameters need 25
+  assert.throws(() => decodeGrib2(ccsds), /section 5 is too short/);   // was flags and block size read from section 6
+  const two = decodeGrib2(Uint8Array.from(fields(message({ ni: 3, nj: 2, ints: [1, 2, 3, 4], bitmap: [1, 0, 1, 1, 0, 1] }), message({ ni: 3, nj: 2, ints: [5, 6, 7, 8, 9, 10] }))));
+  assert.deepEqual([...two[1].values], [5, 6, 7, 8, 9, 10]);   // the second field of a message has no bitmap: it inherited the first's ([5, NaN, 6, 7, NaN, 8])
+  const kept = decodeGrib2(Uint8Array.from([...small(), ...grib('jpeg').slice(0, 298)]));
+  assert.deepEqual(kept.map(m => m.values.length), [12]);   // a cut message after a whole one keeps the whole one
   for (const name of ['ccsds', 'jpeg', 'jpeg-lossy']) assert.equal(decodeGrib2(grib(name))[0].values.length, 5917);   // the real fields still decode
 });
 

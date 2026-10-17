@@ -56,6 +56,7 @@ function unpack(b, s5, s7, n) {
     return out;
   }
   if (tmpl === 42) {   // CCSDS: flags, block size, reference sample interval
+    if (u32(b, s5) < 25) throw new Error('grib2: section 5 is too short');
     if (!nbits) return out;
     return aecDecode(b.subarray(data, s7 + u32(b, s7)), { n, bits: nbits, flags: b[s5 + 21], blockSize: b[s5 + 22], rsi: u16(b, s5 + 23) });
   }
@@ -110,7 +111,10 @@ export function decodeGrib2(buf) {
     if (b[p + 7] !== 2) throw new Error('grib2: edition ' + b[p + 7]);
     const total = u32(b, p + 8) * 4294967296 + u32(b, p + 12), end = p + total, msg = { discipline: b[p + 6] };
     if (total < 20) throw new Error('grib2: a message of ' + total + ' bytes');   // 0 would read the same message forever
-    if (end > b.length) throw new Error('grib2: the message is cut off (' + (b.length - p) + ' of ' + total + ' bytes)');
+    if (end > b.length) {   // a cut download: keep the whole messages before it (a merged .idx range can hold several)
+      if (out.length) break;
+      throw new Error('grib2: the message is cut off (' + (b.length - p) + ' of ' + total + ' bytes)');
+    }
     let q = p + 16, gridDef = null, s5 = 0, bitmap = null, nvals = 0;
     while (q + 4 < end) {
       if (b[q] === 0x37 && b[q + 1] === 0x37 && b[q + 2] === 0x37 && b[q + 3] === 0x37) break;   // "7777"
@@ -119,7 +123,7 @@ export function decodeGrib2(buf) {
       if (sec === 3) gridDef = grid(b, q);
       else if (sec === 4) { if (len < 22) throw new Error('grib2: section 4 is too short'); msg.category = b[q + 9]; msg.number = b[q + 10]; const unit = b[q + 17], t = u32(b, q + 18); msg.hours = unit === 1 ? t : unit === 0 ? t / 60 : unit === 2 ? t * 24 : t; }
       else if (sec === 5) { if (len < 21) throw new Error('grib2: section 5 is too short'); s5 = q; nvals = u32(b, q + 5); }
-      else if (sec === 6) { const ind = b[q + 5]; if (ind === 0) bitmap = { at: q + 6, end: q + len }; else if (ind !== 255) throw new Error('grib2: predefined bitmap ' + ind); }
+      else if (sec === 6) { const ind = b[q + 5]; if (ind === 0) bitmap = { at: q + 6, end: q + len }; else if (ind === 255) bitmap = null; else throw new Error('grib2: predefined bitmap ' + ind); }
       else if (sec === 7) {
         if (!gridDef || !s5) throw new Error('grib2: data before its grid or packing');
         const npts = gridDef.ni * gridDef.nj;

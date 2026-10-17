@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Test helper (no tests of its own): a minimal GRIB2 writer, to build messages for core/grib2.js decodeGrib2 (simple
-// packing, complex packing with first- and second-order spatial differencing, a bitmap). test/grib2.test.mjs and
-// test/fuzz.test.mjs build their messages with it.
+// packing, complex packing with first- and second-order spatial differencing, a bitmap; several fields in one message).
+// test/grib2.test.mjs and test/fuzz.test.mjs build their messages with it.
 class W {
   constructor() { this.bytes = []; this.cur = 0; this.n = 0; }
   bits(v, k) { for (let i = k - 1; i >= 0; i--) { this.cur = (this.cur << 1) | (Math.floor(v / 2 ** i) % 2); if (++this.n === 8) { this.bytes.push(this.cur); this.cur = 0; this.n = 0; } } }
@@ -47,3 +47,12 @@ export function message({ ni, nj, la1 = 90, lo1 = 0, di = 1, dj = 1, scan = 0, i
   const body = [...s1, ...s3, ...s4, ...s5, ...s6, ...s7, 0x37, 0x37, 0x37, 0x37];
   return [0x47, 0x52, 0x49, 0x42, 0, 0, 0, 2, ...be(16 + body.length, 8), ...body];
 }
+
+/** One message holding several fields on the first one's grid, as GRIB2 allows: sections 4 to 7 repeat. Each argument
+ *  is a message() of the same grid; the first gives sections 1 and 3. */
+export function fields(...msgs) {
+  const parts = m => { const o = []; for (let q = 16; q < m.length - 4; ) { const len = be4(m, q); o.push(m.slice(q, q + len)); q += len; } return o; };
+  const [head, ...rest] = msgs.map(parts), body = [...head.flat(), ...rest.flatMap(p => p.filter(s => s[4] >= 4).flat()), 0x37, 0x37, 0x37, 0x37];
+  return [0x47, 0x52, 0x49, 0x42, 0, 0, 0, 2, ...be(16 + body.length, 8), ...body];
+}
+const be4 = (m, q) => ((m[q] << 24) >>> 0) + (m[q + 1] << 16) + (m[q + 2] << 8) + m[q + 3];
