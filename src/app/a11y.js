@@ -295,6 +295,7 @@ const PAGES = {
     skipLink('main, #top h1, h1', 'Skip to the content');
   },
   tonight() { skipLink('main, h1', 'Skip to the content'); },
+  india() { skipLink('main, #top h1, h1', 'Skip to the content'); },
   about() { skipLink('main, h1', 'Skip to the content'); },
 };
 

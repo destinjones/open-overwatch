@@ -49,6 +49,8 @@ header img{width:30px;height:30px} header b{font:900 18px/1 var(--display);lette
 footer{max-width:720px;margin:0 auto;padding:14px 16px calc(30px + env(safe-area-inset-bottom,0px));color:var(--faint);font-size:12px}
 button:focus-visible,a:focus-visible,h3:focus-visible{outline:2px solid #7dffa6;outline-offset:2px}
 @media (max-width:480px){ #card{border-radius:0;border-left:0;border-right:0} #card h2{font-size:28px} }
+/* the page's h1, for screen readers and search: the card (redrawn by the shared renderer) shows its own h2 */
+.vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
 </style>
 </head>
 <body>
@@ -56,7 +58,10 @@ button:focus-visible,a:focus-visible,h3:focus-visible{outline:2px solid #7dffa6;
   <img src="brand/emblem/emblem-256.png" alt=""><b>Open Overwatch</b>
   <nav><a class="chipbtn" href="globe.html" title="The full 3D globe, with look-up mode">3D globe</a><a class="chipbtn" href="index.html">Home</a></nav>
 </header>
+<main id="main">
+<h1 class="vh">Tonight above you</h1>
 <section id="card" class="glass show" aria-live="polite" role="region" aria-label="Tonight above you"><div class="k">Your sky</div><h2>Tonight above you</h2><p class="note">Loading…</p></section>
+</main>
 <footer>Open data: satellite orbits from CelesTrak (US Space Force), planets from JPL elements, aurora from NOAA SWPC, clouds from Open-Meteo.com (CC BY 4.0), launches and crews from The Space Devs, light pollution from Falchi et al. 2016, <a href="https://doi.org/10.5880/GFZ.1.4.2016.001">The New World Atlas of Artificial Night Sky Brightness</a> (CC BY-NC 4.0, non-commercial), deep-sky objects from <a href="https://github.com/mattiaverga/OpenNGC">OpenNGC</a> (CC-BY-SA-4.0). <a href="about.html">About</a> · <a href="globe.html">The 3D globe</a> has look-up mode: hold your phone to the sky.</footer>
 <div id="toast" class="glass"></div>
 <script src="https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/dist/satellite.min.js" integrity="sha384-e6V1JVpc+kVNTxT0gEOla7yL4c92Romsw7itPoipfzHbEjzUwPhTv6oeVDMHHzqT" crossorigin="anonymous"></script>

@@ -1,0 +1,60 @@
+<!doctype html>
+<!-- Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-iCobiKuNWd+OvM4lfrxUuKPBHzvT+5NScAWP+ldvuek='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04060a">
+<meta name="robots" content="noindex">
+<title>Page not found · Open Overwatch</title>
+<link rel="icon" href="/open-overwatch/brand/emblem/favicon.svg">
+<style>
+/* GitHub Pages serves this page for any address on the site that does not exist, at that address and at any depth, so
+   every link here is absolute (/open-overwatch/...). The service worker never saves it (sw.js does not list it). */
+:root{--bg:#04060a;--ink:#e6edf3;--dim:#8b9bab;--accent:#7dffa6;--line:#26343f;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:16px/1.5 "Barlow",system-ui,sans-serif}
+main{max-width:520px;margin:0 auto;padding:calc(48px + env(safe-area-inset-top,0px)) 20px 40px}
+img{width:72px;height:72px}
+h1{margin:14px 0 6px;font:900 34px/1.05 "Big Shoulders Display","Arial Narrow",sans-serif;letter-spacing:.04em;text-transform:uppercase}
+p{color:var(--dim);margin:0 0 18px;overflow-wrap:anywhere}
+code{font:14px "IBM Plex Mono",ui-monospace,Consolas,monospace;color:var(--ink)}
+ul{list-style:none;margin:0 0 22px;padding:0;display:grid;gap:8px}
+li a{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:48px;padding:10px 14px;border-radius:11px;border:1px solid var(--line);
+  background:#080c12;color:var(--ink);text-decoration:none;font:600 15px/1.2 "Barlow",system-ui,sans-serif}
+li a small{color:var(--dim);font-weight:400}
+li a:hover{border-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+  <img src="/open-overwatch/brand/emblem/emblem-256.png" alt="">
+  <h1>Page not found</h1>
+  <p id="what">Nothing lives at this address. It may have been mistyped, cut short when it was copied, or moved.</p>
+  <ul>
+    <li><a href="/open-overwatch/globe.html">3D globe <small>the live Earth</small></a></li>
+    <li><a href="/open-overwatch/tonight.html">Tonight above you <small>what is in your sky</small></a></li>
+    <li><a href="/open-overwatch/india/">India, live from space <small>भारत</small></a></li>
+    <li><a href="/open-overwatch/">Home <small>everything else</small></a></li>
+  </ul>
+</main>
+<script>
+// A link that picked up trailing punctuation (pasted from a chat, an ad or the end of a sentence) or lost the slash of
+// india/ is tried once without it; the fix is idempotent, so a page that is still missing lands back here and stays.
+(() => {
+  const was = location.pathname;
+  let path = was;
+  try { path = decodeURIComponent(was); } catch (e) { /* a broken escape: keep it as it came */ }
+  const typed = path;
+  path = path.replace(/[\s.,;:!?'"`)\]}>*]+$/, '');
+  path = path.replace(/\/india\/?$/i, '/india/');
+  if (path && path !== typed) { location.replace(path.split('/').map(encodeURIComponent).join('/') + location.search + location.hash); return; }
+  const what = document.getElementById('what');
+  if (what) what.textContent = 'Nothing lives at ' + typed + '. It may have been mistyped, cut short when it was copied, or moved.';
+})();
+</script>
+</body>
+</html>
