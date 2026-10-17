@@ -20,7 +20,7 @@ export const RELEASES = Object.freeze([
     go: 'tonight.html',
     lines: [
       'Tonight for any place, not only where you are.',
-      'Sunrise, sunset, moonrise and moonset to the minute.',
+      'Sunrise and moonrise to the minute.',
       'ISRO\'s missions in the Solar System view.',
       'A faster globe, and a lighter low-quality setting for phones.',
       'EMSC confirmations on earthquakes.',

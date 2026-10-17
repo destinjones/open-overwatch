@@ -91,7 +91,8 @@ async function register() {
     w.addEventListener('statechange', () => { if (w.state === 'installed' && sw.controller) offerUpdate(w); });
   });
   sw.addEventListener('controllerchange', () => { if (Pwa.reloading) location.reload(); });
-  ask(sw.controller, { type: 'build' }).then(r => { if (r) { Pwa.build = r.build; whatsNew(r.build); } });
+  // a newer worker already waiting: its Reload (or the next visit) shows the newest card, not this older one's
+  ask(sw.controller, { type: 'build' }).then(r => { if (r) { Pwa.build = r.build; if (!reg.waiting) whatsNew(r.build); } });
   // phones keep tabs for days: look for a new version when the tab comes back, at most every 15 minutes
   let last = Date.now();
   const check = () => { if (document.visibilityState === 'visible' && Date.now() - last > 15 * 60e3) { last = Date.now(); reg.update().catch(() => {}); } };
@@ -153,7 +154,7 @@ function offerUpdate(worker) {
 // ---- "What's new": once after an update, never on a first visit, an archived copy or an embed ----
 
 const UPDATED_KEY = 'oo-updated';   // sessionStorage: the visitor pressed Reload on the new-version bar
-const embedded = () => { try { return window.top !== window || /[#&?]embed\b/.test(location.href); } catch { return true; } };
+const embedded = () => { try { return window.top !== window || /[#&?]embed(?!=0)\b/.test(location.href); } catch { return true; } };
 
 let newDone = false;
 function whatsNew(build) {
@@ -184,7 +185,7 @@ function showWhatsNew(card) {
   if (card.go) link('Try it', new URL(card.go, ROOT).href, true, false);
   link(card.more > 0 ? `Full notes (+${card.more})` : 'Full notes', card.notes, !card.go, true);
   const x = document.createElement('button'); x.type = 'button'; x.className = 'oo-new-x'; x.textContent = '✕'; x.setAttribute('aria-label', 'Close what\'s new');
-  const onKey = e => { if (e.key === 'Escape') close(); };
+  const onKey = e => { if (e.key === 'Escape' && !e.defaultPrevented) close(); };   // not an Escape another panel used
   const close = () => { el.remove(); removeEventListener('keydown', onKey); };
   x.addEventListener('click', close);
   addEventListener('keydown', onKey);

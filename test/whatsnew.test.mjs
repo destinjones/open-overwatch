@@ -75,6 +75,7 @@ test('whatsnew: the notes agree with CHANGELOG.md, and every published version h
     assert.ok(at >= 0, `CHANGELOG.md has a heading for ${r.version} on ${r.date}`);
     assert.equal(log.slice(at).split('\n')[2].replace(/\.$/, ''), r.title, `${r.version}: the title is the changelog's one-liner`);
   }
+  for (const r of RELEASES) if (log.includes(`## [${r.version}]`)) assert.ok(r.date, `${r.version} is in CHANGELOG.md: give it its date in src/core/whatsnew.js`);
   const current = read('src/map/version.js').match(/const OW_VERSION = '([\d.]+)'/)[1];
   assert.ok(compareVersions(RELEASES[0].version, current) >= 0, `src/map/version.js says ${current}: add its notes to RELEASES in src/core/whatsnew.js`);
   assert.ok(releaseFor(current), `${current} has notes`);
@@ -83,18 +84,24 @@ test('whatsnew: the notes agree with CHANGELOG.md, and every published version h
 test('whatsnew: pwa.js shows the card after the build is known and keeps storage in try/catch', () => {
   const src = read('src/app/pwa.js');
   assert.match(src, /import \{ whatsNewDue, SEEN_KEY \} from '\.\.\/core\/whatsnew\.js'/);
-  assert.match(src, /Pwa\.build = r\.build; whatsNew\(r\.build\)/);
+  assert.match(src, /Pwa\.build = r\.build; if \(!reg\.waiting\) whatsNew\(r\.build\)/);
   assert.match(src, /try \{ seen = localStorage\.getItem\(SEEN_KEY\); \} catch/);
   assert.doesNotMatch(src.slice(src.indexOf('function showWhatsNew')), /innerHTML/, 'the card is built with textContent');
 });
 
 // ---- the install sheet: a maskable icon and screenshots ----
 
-/** Width, height and colour type from a PNG's IHDR. */
-function pngInfo(path) {
+/** Width, height and type from a PNG's IHDR (and its colour type) or a JPEG's start-of-frame. */
+function imageInfo(path) {
   const b = readFileSync(new URL(path, root));
-  assert.equal(b.toString('latin1', 1, 4), 'PNG', path);
-  return { w: b.readUInt32BE(16), h: b.readUInt32BE(20), colour: b[25] };
+  if (b.toString('latin1', 1, 4) === 'PNG') return { type: 'image/png', w: b.readUInt32BE(16), h: b.readUInt32BE(20), colour: b[25] };
+  assert.equal(b.readUInt16BE(0), 0xFFD8, `${path} is a PNG or a JPEG`);
+  for (let i = 2; i + 9 < b.length;) {
+    const marker = b[i + 1], len = b.readUInt16BE(i + 2);
+    if (marker >= 0xC0 && marker <= 0xCF && ![0xC4, 0xC8, 0xCC].includes(marker)) return { type: 'image/jpeg', w: b.readUInt16BE(i + 7), h: b.readUInt16BE(i + 5) };
+    i += 2 + len;
+  }
+  assert.fail(`${path}: no JPEG frame header`);
 }
 
 test('manifest: a maskable icon and narrow and wide screenshots, at the sizes they declare', () => {
@@ -103,16 +110,17 @@ test('manifest: a maskable icon and narrow and wide screenshots, at the sizes th
   assert.equal(mask.length, 1, 'one maskable icon');
   assert.ok(m.icons.some(i => (i.purpose || 'any') === 'any'), 'and the plain ones stay');
   for (const i of [...m.icons, ...(m.screenshots || [])]) {
-    const [w, h] = i.sizes.split('x').map(Number), got = pngInfo(i.src);
+    const [w, h] = i.sizes.split('x').map(Number), got = imageInfo(i.src);
     assert.deepEqual([got.w, got.h], [w, h], `${i.src} is ${i.sizes}`);
+    assert.equal(got.type, i.type || 'image/png', `${i.src} is the type it declares`);
   }
-  const icon = pngInfo(mask[0].src);
+  const icon = imageInfo(mask[0].src);
   assert.equal(icon.w, 512);
   assert.equal(icon.colour, 2, 'the maskable icon is opaque RGB (no transparent corners for Android to fill)');
   const shots = m.screenshots || [];
   assert.deepEqual(shots.map(s => s.form_factor).sort(), ['narrow', 'wide']);
   for (const s of shots) {
-    assert.ok(s.label && s.type === 'image/png', s.src);
+    assert.ok(s.label && /^image\/(png|jpeg)$/.test(s.type), s.src);
     const [w, h] = s.sizes.split('x').map(Number);
     assert.ok(s.form_factor === 'wide' ? w > h : h > w, `${s.src}: ${s.form_factor} is the right way round`);
     assert.ok(Math.max(w, h) / Math.min(w, h) <= 2.3 && Math.min(w, h) >= 320, `${s.src}: within Chrome's limits`);

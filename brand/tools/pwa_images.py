@@ -3,8 +3,9 @@
 
   brand/emblem/emblem-maskable-512.png  the emblem inside the central 80% safe zone on the app's #04060a, so Android's
                                         adaptive icon shapes (circle, squircle, teardrop) never cut the radar ring
-  brand/social/screen-narrow.png        720x1280, from brand/hero/hero-tall.jpg  (the manifest's form_factor "narrow")
-  brand/social/screen-wide.png          1280x800, from brand/hero/hero-wide.jpg  (form_factor "wide")
+  brand/social/screen-narrow.jpg        720x1280, from brand/hero/hero-tall.jpg  (the manifest's form_factor "narrow")
+  brand/social/screen-wide.jpg          1280x800, from brand/hero/hero-wide.jpg  (form_factor "wide")
+                                        (JPEG: they are photographs, a third of the PNG size; the install sheet downloads them)
 
 manifest.webmanifest names them; test/whatsnew.test.mjs checks the sizes it declares. Run from the repo root:
   python brand/tools/pwa_images.py
@@ -24,8 +25,12 @@ def p(*parts):
 
 def save(im, path):
     info = PngImagePlugin.PngInfo()
+    info.add_text('Author', 'Destin Jones')
     info.add_text('Copyright', NOTE)
-    im.save(path, optimize=True, pnginfo=info)
+    if path.endswith('.jpg'):
+        im.save(path, quality=85, optimize=True, progressive=True, comment=NOTE.encode())   # the COM segment
+    else:
+        im.save(path, optimize=True, pnginfo=info)
     print(os.path.relpath(path, ROOT), im.size, os.path.getsize(path) // 1024, 'KB')
 
 
@@ -51,5 +56,5 @@ def cover(src, w, h, dest):
 
 if __name__ == '__main__':
     maskable()
-    cover(('brand', 'hero', 'hero-tall.jpg'), 720, 1280, ('brand', 'social', 'screen-narrow.png'))
-    cover(('brand', 'hero', 'hero-wide.jpg'), 1280, 800, ('brand', 'social', 'screen-wide.png'))
+    cover(('brand', 'hero', 'hero-tall.jpg'), 720, 1280, ('brand', 'social', 'screen-narrow.jpg'))
+    cover(('brand', 'hero', 'hero-wide.jpg'), 1280, 800, ('brand', 'social', 'screen-wide.jpg'))
