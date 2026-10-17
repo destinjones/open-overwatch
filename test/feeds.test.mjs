@@ -163,6 +163,43 @@ test('cyclones: a storm without a position is never drawn at NaN or 0,0, and one
   assert.equal(list.length, 1); assert.ok(list.every(s => Number.isFinite(s.lat) && Number.isFinite(s.lon)));   // EONET's storm survives
 });
 
+test('cyclones: only the NOAA tau-0 point moves a storm; a dropped forecast still lets GDACS draw it; a bad field is retried', async () => {
+  const pts = [{ properties: { idp_source: 'al052026-012_5day_pts', stormname: 'Hurricane Erin', tau: 0, maxwind: 105 }, geometry: null },
+    { properties: { idp_source: 'al052026-012_5day_pts', stormname: 'Hurricane Erin', tau: 12, maxwind: 115 }, geometry: { type: 'Point', coordinates: [-64, 24] } }];
+  const known = [{ kind: 'storm', title: 'Hurricane Erin', lat: 21.6, lon: -61.2, kt: 100, track: [], links: [] }];
+  mergeNoaa(known, [...nhcForecasts({ points: pts }).values()]);
+  assert.equal(known.length, 1); assert.equal(known[0].lat, 21.6); assert.equal(known[0].lon, -61.2); assert.equal(known[0].kt, 100);
+  assert.equal(known[0].fc.src, 'NOAA NHC'); assert.equal(known[0].reports, undefined);   // the forecast is drawn, the tau-12 point is no fix
+  assert.deepEqual(mergeNoaa([], [...nhcForecasts({ points: pts }).values()]), []);   // a new storm has no cone corner to start at
+  const asked = [], warns = [];
+  const list = await loadCyclones({ json: async url => {
+    asked.push(url);
+    if (url.startsWith('https://eonet')) return eonetDoc;
+    if (url.includes('/MapServer/5/')) return url.includes('idp_filedate') ? { error: { code: 400, message: 'Invalid field' } } : { features: pts };
+    if (url.includes('/MapServer/')) return { features: [] };
+    if (url.includes('geteventlist')) return gdacsList;
+    if (url.includes('getgeometry')) return gdacsGeom;
+    throw new Error('unexpected ' + url);
+  }, warn: w => warns.push(w) });
+  assert.equal(asked.filter(u => u.includes('/MapServer/5/')).length, 2); assert.deepEqual(warns, []);   // asked again without idp_filedate
+  assert.ok(list.every(s => Number.isFinite(s.lat) && Number.isFinite(s.lon)));
+  const w2 = [];
+  await loadCyclones({ json: async url => (url.startsWith('https://eonet') ? eonetDoc : url.includes('/MapServer/6/') ? { error: { code: 500 } } : { features: [] }), warn: w => w2.push(w) });
+  assert.deepEqual(w2, ['NHC forecast layer 6']);   // an ArcGIS error is said, not drawn as "no storms"
+  const lone = [{ properties: { idp_source: 'wp302026-001_5day_pts', stormname: 'Koguma', tau: 12 }, geometry: { type: 'Point', coordinates: [140, 25] } }];
+  const asked2 = [];
+  await loadCyclones({ json: async url => {
+    asked2.push(url);
+    if (url.startsWith('https://eonet')) return { events: [] };
+    if (url.includes('/MapServer/5/')) return { features: lone };
+    if (url.includes('/MapServer/')) return { features: [] };
+    if (url.includes('geteventlist')) return { features: [{ properties: { iscurrent: 'true', eventid: 9, episodeid: 1, eventname: 'KOGUMA-26' }, geometry: { type: 'Point', coordinates: [140, 25] } }] };
+    if (url.includes('getgeometry')) return gdacsGeom;
+    throw new Error('unexpected ' + url);
+  } });
+  assert.equal(asked2.filter(u => u.includes('getgeometry')).length, 1);   // NOAA placed nothing for Koguma, so GDACS's forecast is fetched
+});
+
 test('cyclones: a NOAA forecast report carries the advisory time, so its provenance has an age', () => {
   const fc = nhcForecasts({ points: [{ properties: { idp_source: 'al052026-012_5day_pts', stormname: 'Hurricane Erin', tau: 0, maxwind: 105, fldatelbl: '2026-10-16 9:00 PM Fri CST' }, geometry: { type: 'Point', coordinates: [-61.2, 21.6] } }] });
   const [erin] = mergeNoaa([], [...fc.values()]);
