@@ -278,6 +278,23 @@ test("mcp: an EMSC outage falls back to that summary's last EMSC answer; FDSN's 
   assert.match((await loadQuakes(feeds, { emsc: true, now: NOW + 22 * 60e3 }))[0].provenance, /^USGS · /, 'an empty answer is no EMSC solutions');
 });
 
+test("mcp: on the Worker (a server per request, one memo) the last EMSC answer outlives the request, and a body is parsed once", async () => {
+  let down = false, t = NOW;
+  const net = pretendInternet([[/seismicportal\.eu/, () => down ? new Error('HTTP 503') : EMSC], ...ROUTES]), memo = new Map();
+  const request = () => createOverwatchServer({ fetchImpl: net.fetchImpl, sgp4: sgp4 || undefined, now: () => t, memo });   // as mcp/worker.mjs does
+  const tokyo = async () => ok(await call(request(), 'earthquakes', {})).structuredContent.earthquakes.find(q => q.magnitude === 5.1).provenance;
+  assert.match(await tokyo(), /^USGS \+ EMSC · 2 of 2 agree · .*confirmed$/);
+  down = true; t = NOW + 11 * 60e3;   // EMSC's address has moved on and EMSC is down
+  assert.match(await tokyo(), /^USGS \+ EMSC · 2 of 2 agree · /, 'the next request still has the last EMSC answer');
+  assert.equal(net.asked.filter(u => /seismicportal/.test(u)).length, 2);
+  // the memo hands every question the same body: it is parsed once, not for every question
+  const body = JSON.stringify(EMSC), feeds = { json: async () => QUAKES, text: async () => body, scope: new Map() }, parse = JSON.parse;
+  let parsed = 0;
+  JSON.parse = (x, ...r) => (x === body && parsed++, parse(x, ...r));
+  try { for (let i = 0; i < 3; i++) await loadQuakes({ ...feeds }, { emsc: true, now: NOW }); } finally { JSON.parse = parse; }
+  assert.equal(parsed, 1);
+});
+
 test('mcp: where is the ISS (SGP4 on the website copy of the elements), and a link that follows it', needsSgp4, async () => {
   const { server, net } = serve(), r = ok(await call(server, 'where_is_satellite', {})), d = r.structuredContent;
   assert.equal(d.satellite.norad, '25544'); assert.ok(d.altitude_km > 380 && d.altitude_km < 440, `${d.altitude_km}`); assert.ok(Math.abs(d.speed_km_s - 7.66) < 0.05);
