@@ -52,10 +52,13 @@ old the data is and a confidence word (confirmed, reported, stale, unknown), the
 (src/core/liveprov.js).
 
 The 38 tools below are what a local server lists. `earthquakes` asks a second catalogue, EMSC's (www.seismicportal.eu),
-next to each USGS feed: a quake both list within 60 s, 100 km and 0.6 of a magnitude reads "confirmed". EMSC's answer is
+next to each USGS feed: a quake both list within 60 s, 100 km and 0.6 of a magnitude reads "confirmed" when EMSC's entry is
+its own solution and both are fresh; an EMSC entry that republishes USGS's solution is listed as "EMSC (USGS solution)"
+and does not count. EMSC's answer is
 kept for 10 minutes; if EMSC fails or takes over 10 s, that feed's last EMSC list is used, else the answer is USGS's
-alone. EMSC is asked for at most 1,000 events (500 for a day at M2.5 and up), so in a busy window (a week or a month,
-or M1 and up over a day) older quakes can read "reported" for want of an EMSC solution.
+alone. EMSC is asked for at most 500 events for a window of a day or less at M2.5 and up, and 1,000 for a longer window or a
+lower floor. A busy window (a week or a month, or M1 and up over a day) can hold more than that; then only the newest
+part comes back, and older quakes can read "reported" for want of an EMSC solution.
 
 | Tool | Answers from | What you get |
 |---|---|---|

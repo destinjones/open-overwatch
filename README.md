@@ -31,7 +31,8 @@ Live aircraft come with the free download.
 - **Light is slow at this scale.** A "ghost" shows where Earth actually sees Jupiter (49 light-minutes ago), and our
   radio bubble (everything broadcast since 1920) lights up the stars it has reached.
 - **Know where each item came from.** Every live card says which sources reported it, how many agree and how old the
-  data is: an earthquake that USGS and EMSC both list reads "confirmed".
+  data is: an earthquake that USGS and EMSC both list, with EMSC's own solution rather than a copy of USGS's, reads
+  "confirmed".
 - **2D ops map:** ships, quakes, storms, radar, cameras and news on one dark map. Live aircraft and military flights
   come with the free download.
 - **Ask Claude about it.** The MCP server in [`mcp/`](mcp/README.md) has 38 tools that answer questions about

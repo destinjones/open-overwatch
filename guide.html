@@ -166,10 +166,10 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <ul>
       <li><b>Base map</b>: <i>Satellite imagery</i> (Esri World Imagery) or <i>Dark map</i> (Esri dark grey canvas). Far out, NASA's Blue Marble and, on the night side, Black Marble city lights are drawn over it.</li>
       <li><b>Graphics</b>: <i>Auto</i>, <i>High</i>, <i>Balanced</i> or <i>Low</i>. Auto starts on Low on phones and where the browser draws without a graphics card, on High elsewhere, and steps down if frames get slow. The lower levels are faster and slightly softer: they draw at a lower resolution (Balanced at 0.9, Low at 0.75, or 0.66 on phones) with fewer cloud details, coarser tiles and fewer aircraft and satellite models. Low also drops the anti-aliasing pass and the glow along the Earth's edge and runs at up to 30 frames a second; Balanced fades that glow out as you come down through about 1,000 km.</li>
-      <li><b>Battery saver</b>: fewer frames (5 to 15 a second) while nothing moves; full speed returns on any touch, key or motion. In a background tab the globe's feeds rest: when you come back, each one that came due is fetched once, a moment apart. A plane you follow or are waiting on to land keeps getting fresh positions.</li>
+      <li><b>Battery saver</b>: fewer frames (5 to 15 a second) while nothing moves; full speed returns on any touch, key or motion.</li>
       <li><b>Under the hood</b> (also the <kbd>`</kbd> key): frame rate and times, draw calls, the GPU, every data source and how old its data is, and the satellite worker's timing.</li>
     </ul>
-    <p>Your layer choices are remembered in this browser.</p>
+    <p>Your layer choices are remembered in this browser. In a background tab the globe's feeds rest, with or without the battery saver: when you come back, each one that came due is fetched once, a moment apart. A plane you follow or are waiting on to land keeps getting fresh positions.</p>
   </div>
 </section>
 
@@ -235,7 +235,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td><span class="dot" style="background:#c9a07a"></span><code>smoke</code></td><td>Smoke and dust seen from space: the UV aerosol index of the current UTC day's orbits so far (places not yet passed over are empty), with a legend. Click the sea to read the value.</td><td>NASA Suomi NPP OMPS via NASA GIBS</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#9fe3ff"></span><code>airports</code></td><td>The world's large and medium airports, with codes close up. Click one for its board: the planes arriving, departing and on the ground right now (see <a href="#aviation">Planes and airports</a>).</td><td>OurAirports (public domain); boards from the live aircraft on the globe</td><td>on (off on phones)</td></tr>
         <tr class="grp"><td colspan="4">Earth</td></tr>
-        <tr><td><span class="dot" style="background:#ff7b4f"></span><code>quakes</code></td><td>Earthquakes of magnitude 2.5 and up in the last 24 hours (with the clock in the past: the 24 hours before the time shown).</td><td>USGS real-time feed, checked against EMSC, a second catalogue (a quake both list reads "confirmed"); the USGS catalogue for the past</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#ff7b4f"></span><code>quakes</code></td><td>Earthquakes of magnitude 2.5 and up in the last 24 hours (with the clock in the past: the 24 hours before the time shown).</td><td>USGS real-time feed, checked against EMSC, a second catalogue (a quake both list, from separate solutions, reads "confirmed"); the USGS catalogue for the past</td><td>on</td></tr>
         <tr><td><span class="dot" style="background:#3ee08f"></span><code>transit</code></td><td>Live buses, trams and trains in Boston, Helsinki, Norway, Austin and Minneapolis-St Paul, moving smoothly between real reports.</td><td>MBTA, HSL, Entur, CapMetro, Metro Transit</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#62e0c8"></span><code>buoys</code></td><td>About 870 ocean buoys and coastal stations with their latest report: wave height and period, wind and gusts, water and air temperature, pressure. Coloured by wave height (grey: no wave sensor).</td><td>NOAA NDBC, refreshed every 10 minutes (the website reads it through its relay)</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#ffd45c"></span><code>dart</code></td><td>The DART tsunami buoys on the deep-sea floor. A card reads the buoy's own file: the water column above the sensor, the last reading, and whether it is in event mode (fast sampling after a quake, a tsunami or a test). Warnings come from tsunami.gov, not from here.</td><td>NOAA NDBC</td><td>off</td></tr>
@@ -292,9 +292,9 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <p>"(copy)" after a source means it reached us through a copy: the website's own mirror (satellite element sets, launches),
       the public relay, or a stored snapshot. Its age is still the age of the data itself. Each layer has its own idea of fresh:
       two minutes for an aircraft position, fifteen for a ship, nine hours for a storm advisory, three days for a satellite's
-      elements. Time travel shows past records, which are never called stale. EMSC is asked about every ten minutes; in a
-      busy window (a week or a month, or the smallest quakes over a day) its answer holds only the newest part, so older
-      quakes there can read "reported" for want of a second solution.</p>
+      elements. Time travel shows past records, which are never called stale. EMSC is asked about every ten minutes, for at most 1,000 events (500 for a day or less at M2.5 and up).
+      A busy window (a week or a month, or the smallest quakes over a day) can hold more than EMSC sends; then only the newest
+      part comes back, and older quakes there can read "reported" for want of a second solution.</p>
     <p><b>Export what's in view</b>: the 2D map's layer list and the globe's Layers dock save the live items in view as
       GeoJSON, CSV or KML, each with these provenance columns. Nothing leaves your browser. The MCP server's answers carry
       the same line as a <code>provenance</code> field.</p>
@@ -407,7 +407,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     </ul>
     <p>Sections fold and stay folded. Your location is saved on your device only, rounded to about 1 km. A place you type is looked up by Photon (only the words you type are sent) and saved on your device the same way; <b>Forget this place</b> removes it.</p>
     <h3>Tonight for any place</h3>
-    <p>A link can name the place: <code>tonight.html#at=18.52,73.86&amp;name=Pune</code>, or <code>globe.html#go=tonight&amp;at=18.52,73.86&amp;name=Pune</code> on the globe. The card then answers for Pune without asking where you are; the place is shown but never saved on your device. A page opened from such a link has no aurora alert button and no pop-up notes about your own location, but reminders you set earlier still come. Coordinates are read to 0.01&deg; (about 1 km). To put the card on your own web page, see <a href="#share">Share and embed</a>.</p>
+    <p>A link can name the place: <code>tonight.html#at=18.52,73.86&amp;name=Pune</code>, or <code>globe.html#go=tonight&amp;at=18.52,73.86&amp;name=Pune</code> on the globe. The card then answers for Pune without asking where you are; the place is shown but never saved on your device. A page opened from such a link has no aurora alert button, and reminders you set earlier still come. On <code>tonight.html</code> it also says nothing about your own location; the globe still gives its &ldquo;look up now&rdquo; notes a minute before a bright ISS or Tiangong pass over the place this device has saved. Coordinates are read to 0.01&deg; (about 1 km). To put the card on your own web page, see <a href="#share">Share and embed</a>.</p>
     <h3>Look up</h3>
     <p>Your sky from where you stand. On a phone, hold it up and the view follows the phone's motion sensors; on a computer, drag. It shows planets, bright stars, constellation figures (<b>Figures</b>), satellites (and, in the download version, aircraft) overhead, a compass ring and the next ISS pass. Things on the ground are hidden so they don't streak across the sky.</p>
     <ul>
