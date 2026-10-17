@@ -71,8 +71,9 @@ export function createComets({ scene, focus: focusOf = () => null }) {
     coma.visible = false; scene.add(coma);
     const dust = ribbon(N_DUST, 0xfff0d2), ion = ribbon(N_ION, 0x6fb7ff); scene.add(dust, ion);
     let orbit;   // drawn relative to the comet (util.js rebasedLine), re-based in frame()
-    if (c.e < 1) { const el = { a: c.q / (1 - c.e), e: c.e, i: c.i, node: c.node, peri: c.peri }; orbit = rebasedLine(1440, orbitMat(), (out, origin) => orbitPath(el, 1440, { origin, out })); }
-    else orbit = rebasedLine(600, orbitMat(), (out, origin) => conicArc(c, c.tp - 20 * 365.25, c.tp + 20 * 365.25, 600, { origin, out }), THREE.Line);
+    // (an open arc is sampled in time, coarse by perihelion: refilled sooner, with a sample at the comet's now)
+    if (c.e < 1) { const el = { a: c.q / (1 - c.e), e: c.e, i: c.i, node: c.node, peri: c.peri }; orbit = rebasedLine(1440, orbitMat(), (out, origin) => orbitPath(el, 1440, { origin, out, through: true })); }
+    else orbit = rebasedLine(600, orbitMat(), (out, origin) => conicArc(c, c.tp - 20 * 365.25, c.tp + 20 * 365.25, 600, { origin, out, at: orbit.userData.jd }), { Line: THREE.Line, reach: 0.02 });
     orbit.userData.opacity = 0.3; orbit.visible = layerOn('comets'); scene.add(orbit);
     const P = cometPeriodYears(c), fact = COMET_FACTS[names.designation] || null;
     const b = addBody({ key, name: names.display, kind: 'comet', color: '#bfe3ff', radius: 5 * KM_AU, pos: new THREE.Vector3(), group, c, coma, dust, ion, orbit, small: true, layer: 'comets', transient,
@@ -82,7 +83,7 @@ export function createComets({ scene, focus: focusOf = () => null }) {
       timeline: () => { const jd = b.jd ?? c.tp, span = Math.min(250, Math.max(10, P * 2.5)) * 365.25, t = perihelionPassages(c, jd - span, jd + span);
         const keep = t.length > 9 ? t.filter(x => Math.abs(x - jd) <= [...t].map(y => Math.abs(y - jd)).sort((a, z) => a - z)[8]) : t;
         return keep.map(x => [x, c.e >= 1 ? 'Perihelion: its one pass by the Sun' : 'Perihelion (two-body estimate)']); },
-      update(jd) { cometPosition(c, jd, b.pos); group.position.copy(b.pos); b.jd = jd; },
+      update(jd) { cometPosition(c, jd, b.pos); group.position.copy(b.pos); b.jd = orbit.userData.jd = jd; },
       info() {
         const jd = b.jd, r = b.pos.length(), dE = b.pos.distanceTo(byKey.earth.pos), out = [['Type', cometClass(c)], ['Designation', names.designation === names.display ? row[0] : names.designation],
           ['From the Sun', distance(r)], ['From Earth', distance(dE)]];

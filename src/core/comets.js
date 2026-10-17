@@ -218,11 +218,13 @@ export function cometsNearNow(rows, jd, earth, { maxR = 3, limit = 12 } = {}) {
 }
 
 /** A drawable stretch of an open (or very long) orbit: n points from jd0 to jd1, flat [x, y, z, ...]. origin and out
- *  as for kepler.js orbitPath (origin subtracted in float64, so a line far out can be drawn relative to its body). */
-export function conicArc(c, jd0, jd1, n = 256, { origin = null, out = null } = {}) {
+ *  as for kepler.js orbitPath (origin subtracted in float64, so a line far out can be drawn relative to its body).
+ *  at: a jd inside the stretch that gets a sample of its own (the body's now), the grid shifted by under one step. */
+export function conicArc(c, jd0, jd1, n = 256, { origin = null, out = null, at = null } = {}) {
   const pts = out || new Float32Array(n * 3), p = {}, ox = origin ? origin.x : 0, oy = origin ? origin.y : 0, oz = origin ? origin.z : 0;
+  const step = (jd1 - jd0) / (n - 1), shift = at != null && step > 0 && at >= jd0 && at <= jd1 ? at - (jd0 + Math.round((at - jd0) / step) * step) : 0;
   for (let k = 0; k < n; k++) {
-    cometPosition(c, jd0 + (jd1 - jd0) * k / (n - 1), p);
+    cometPosition(c, jd0 + shift + (jd1 - jd0) * k / (n - 1), p);
     pts[k * 3] = p.x - ox; pts[k * 3 + 1] = p.y - oy; pts[k * 3 + 2] = p.z - oz;
   }
   return pts;

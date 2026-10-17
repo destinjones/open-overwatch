@@ -146,6 +146,11 @@ test('comets: the ones near the Sun now, and arcs of open orbits', () => {
   // re-based on a point: the same arc, minus that point (in float64, then float32)
   const o = { x: mid[0], y: mid[1], z: mid[2] }, rel = conicArc(cometFromRow(row('C/2025 N1')), 2460977.99, 2460977.99, 2, { origin: o });
   assert.ok(Math.hypot(rel[0], rel[1], rel[2]) < 2e-7 && conicArc(cometFromRow(row('C/2025 N1')), jd - 365, jd + 365, 64, {}).every((v, k) => v === arc[k]));
+  // at: one sample lands on the comet's now (the line passes through it), the rest shift by under a step
+  const c3 = cometFromRow(row('C/2025 N1')), now = jd + 100.3, here = cometPosition(c3, now, {}), at = conicArc(c3, jd - 365, jd + 365, 64, { origin: here, at: now });
+  let nearest = Infinity; for (let k = 0; k < 64; k++) nearest = Math.min(nearest, Math.hypot(at[k * 3], at[k * 3 + 1], at[k * 3 + 2]));
+  assert.ok(nearest < 1e-12, `a sample on the comet: ${nearest}`);
+  assert.ok(conicArc(c3, jd - 365, jd + 365, 64, { at: jd + 1e5 }).every((v, k) => v === arc[k]), 'outside the stretch: no shift');
 });
 
 test('comets: small_bodies.json keeps recent open-orbit comets for the view, elliptic ones for the point cloud', () => {

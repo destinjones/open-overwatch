@@ -6,7 +6,8 @@ import { PLANET_KEYS, PHYSICAL, planetElements, planetPosition, earthPosition, m
 import { bodyAxes } from '../core/rotation.js';
 import { orbitPath, periodDays } from '../core/kepler.js';
 import { distance, lightTime, period } from '../core/format.js';
-import { surfaceMaterial, loadTexture, planetTexture, sharpTexture, swapTexture, Sharpen, glowTexture, STAR_TEXTURE, toVector3, flatTexture, rebasedLine, refill, rebase } from './util.js';
+import { J2000 } from '../core/time.js';
+import { surfaceMaterial, loadTexture, planetTexture, sharpTexture, swapTexture, Sharpen, glowTexture, STAR_TEXTURE, toVector3, flatTexture, rebasedLine, rebase } from './util.js';
 
 const HAS_4K = new Set(['earth', 'venus', 'mars', 'jupiter', 'saturn', 'moon']);
 const SHARP = 0.22;   // a body gets its 4k map once its radius covers this share of the window height
@@ -134,16 +135,16 @@ export function createPlanets({ scene, sunView, renderer }) {
     Sharpen.add(() => Sharpen.px(b) > innerHeight * SHARP, sharpTexture('moon'), t => swapTexture(mesh.material.uniforms.map, t));
   }
 
-  // ---- orbits (rebuilt every ten simulated years: the elements drift slowly), each drawn relative to its planet
+  // ---- orbits, each drawn relative to its planet and refilled from the elements at the time it is refilled: they
+  // drift (Jupiter's by ~1e4 km in ten years), and the planet sits on that jd's ellipse (Earth: the Earth-Moon
+  // barycentre's, within 4,700 km)
   const orbits = new THREE.Group(); scene.add(orbits);
+  let orbitsJd = J2000;
   const orbitOf = Object.fromEntries(PLANET_KEYS.map(key => {
-    const l = rebasedLine(720, new THREE.LineBasicMaterial({ color: STYLE[key][0], transparent: true, opacity: 0.4, depthWrite: false }), () => {}); orbits.add(l); return [key, l];
+    const l = rebasedLine(720, new THREE.LineBasicMaterial({ color: STYLE[key][0], transparent: true, opacity: 0.4, depthWrite: false }),
+      (out, origin) => orbitPath(planetElements(key, orbitsJd), 720, { origin, out, through: true }));
+    orbits.add(l); return [key, l];
   }));
-  let orbitsJd = null;
-  function rebuildOrbits(jd) {
-    orbitsJd = jd;
-    for (const key of PLANET_KEYS) { const el = planetElements(key, jd); refill(orbitOf[key], (out, origin) => orbitPath(el, 720, { origin, out })); }
-  }
   onLayers(() => { orbits.visible = layerOn('orbits'); });
 
   // ---- dots, so planets stay visible when their real disc is under a few pixels
@@ -161,7 +162,7 @@ export function createPlanets({ scene, sunView, renderer }) {
   const ringN = new THREE.Vector3();
   return {
     update(jd) {
-      if (orbitsJd === null || Math.abs(jd - orbitsJd) > 3650) rebuildOrbits(jd);
+      orbitsJd = jd;
       for (const k of PLANET_KEYS) byKey[k].jd = jd;
       orient('sun', jd, sunMesh.quaternion);
     },

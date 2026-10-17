@@ -7,7 +7,7 @@ import { REAL_TIME, formatUtc } from '../core/time.js';
 import { esc, viewWidth } from '../core/format.js';
 import { fetchAsset } from '../core/assets.js';
 import { skyPosition, skyPhrase, nearestConstellation, formatRaDec } from '../core/skyplace.js';
-import { PHONE } from './util.js';
+import { PHONE, Sharpen } from './util.js';
 import { bodies, byKey, layers, layer, layerOn, applyLayers, bodyVisible } from './world.js';
 import { BANDS, RUNGS, RUNG_SHORT } from './story.js';
 
@@ -137,7 +137,9 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
     if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
     let best = null, bd = 18;
     for (const b of bodies) {
-      if (!bodyVisible(b) || (els.get(b.key)?.style.display === 'none' && !(b.mesh && b.mesh.visible))) continue;
+      // a hidden label still picks a body whose globe covers a pixel (every planet has a mesh from the start, so not
+      // the planets far out: from light-years away a click near the Sun picks the Sun)
+      if (!bodyVisible(b) || (els.get(b.key)?.style.display === 'none' && !(b.mesh && b.mesh.visible && Sharpen.px(b) > 1))) continue;
       const s = screenOf(b.pos); if (!s) continue;
       const d = Math.hypot(s[0] - e.clientX, s[1] - e.clientY); if (d < bd) { bd = d; best = b; }
     }
