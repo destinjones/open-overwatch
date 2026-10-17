@@ -3,7 +3,7 @@
 export const C = window.Cesium;
 export const $ = s => document.querySelector(s);
 export { esc } from '../core/format.js';
-import { PUBLIC_RELAY, onPublishedSite, publicRelayable, relayRefused, markNotCarried, carried } from '../core/relay.js';
+import { PUBLIC_RELAY, onPublishedSite, publicRelayable, relayUrl, relayRefused, markNotCarried, carried } from '../core/relay.js';
 export { carried };
 export const fmt = n => n == null || Number.isNaN(n) ? '—' : Math.round(n).toLocaleString('en-US');
 // a narrow window, or a touch screen whose short side is phone-sized (a phone held sideways is wider than 820 px)
@@ -39,12 +39,12 @@ export const bigStore = {
 // the local helper (serve.js / serve.py) relays the few feeds that send no CORS headers; the website has no helper
 export const RELAY = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) && location.protocol.startsWith('http') ? location.origin + '/proxy?url=' : null;
 /** The relayed URL for a feed: the local helper if there is one, else the website's public relay for the feeds it carries
- *  (src/core/relay.js: some cameras and NOAA feeds, adsb.lol's shared queries), else null. */
+ *  (src/core/relay.js: some cameras and NOAA feeds, in the one form it accepts), else null. */
 /** Whether url reaches the page through the public relay, a copy that may be cached (provenance marks it); the local helper only passes it on. */
 export const viaCopy = url => { const r = relayed(url); return !!r && r.startsWith(PUBLIC_RELAY); };
 export function relayed(url) {
   if (RELAY) return RELAY + encodeURIComponent(url);
-  try { if (onPublishedSite(location.hostname) && publicRelayable(url)) return PUBLIC_RELAY + encodeURIComponent(url); } catch (e) { /* not a URL */ }
+  try { if (onPublishedSite(location.hostname) && publicRelayable(url)) return relayUrl(url); } catch (e) { /* not a URL */ }
   return null;
 }
 

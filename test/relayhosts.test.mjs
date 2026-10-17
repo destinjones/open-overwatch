@@ -33,16 +33,19 @@ test('carried: a refused host stops being relayable for the visit, the others st
   markNotCarried('www.ndbc.noaa.gov');
   assert.equal(carried('https://www.ndbc.noaa.gov/data/latest_obs/latest_obs.txt'), false);
   assert.equal(publicRelayable('https://www.ndbc.noaa.gov/activestations.xml'), false);
-  assert.ok(publicRelayable('https://www.nhc.noaa.gov/CurrentStorms.json') && publicRelayable('https://api.adsb.lol/v2/mil'));
+  assert.ok(publicRelayable('https://www.nhc.noaa.gov/CurrentStorms.json') && publicRelayable('https://www.tsunami.gov/events/xml/PAAQAtom.xml'));
+  assert.equal(publicRelayable('https://api.adsb.lol/v2/mil'), false);   // adsb.lol refuses Cloudflare: the download's helper only
   assert.equal(carried('not a url'), false);
 });
 
-test('relay hosts: PUBLIC_RELAY_HOSTS is the Worker\'s TTL and PATHS tables, less the adsb.lol rule', () => {
-  assert.match(ttl, /\[ADSB_LOL_HOST\]/); assert.match(paths, /\[ADSB_LOL_HOST\]/);
+test('relay hosts: PUBLIC_RELAY_HOSTS is exactly the Worker\'s TTL and PATHS tables, with no aircraft feed', () => {
   const sorted = a => [...new Set(a)].sort();
   assert.deepEqual(sorted(hosts(ttl, "'")), sorted(PUBLIC_RELAY_HOSTS));
   assert.deepEqual(sorted(hosts(paths, "'")), sorted(PUBLIC_RELAY_HOSTS));
-  assert.ok(!PUBLIC_RELAY_HOSTS.includes(ADSB_LOL_HOST), 'adsb.lol is carried by its per-path rule (core/airgrid.js), not by host');
+  assert.equal(hosts(ttl, "'").length, PUBLIC_RELAY_HOSTS.length, 'one TTL entry per host');
+  assert.ok(!/ADSB_LOL_HOST|airgrid/.test(worker), 'the Worker carries no adsb.lol rule (adsb.lol answers Cloudflare with 429)');
+  for (const h of [ADSB_LOL_HOST, 'opensky-network.org', 'opendata.adsb.fi', 'api.airplanes.live', 'api.adsb.one']) assert.ok(!PUBLIC_RELAY_HOSTS.includes(h) && !worker.includes(`'${h}':`), h);
+  for (const h of ['www.ndbc.noaa.gov', 'www.tsunami.gov']) assert.ok(PUBLIC_RELAY_HOSTS.includes(h), h);
 });
 
 test('relay hosts: public relay ⊆ NEEDS_RELAY ⊆ both helpers, and the helpers agree', () => {

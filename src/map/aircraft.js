@@ -7,12 +7,12 @@ import { Dyn, Exports, Layers, Sel, UI, airAt, feed, requestDraw } from './engin
 import { Detail, Tracks } from './detail.js';
 import { readsb, openskyState, noteAircraftReport, readsbTime } from '../core/aircraft.js';
 import { AIR_TTL, ROW_DEG, TILE_KM, gridRow, tileAt } from '../core/airgrid.js';
-import { carried, onPublishedSite } from '../core/relay.js';
+import { onPublishedSite, publicRelayable } from '../core/relay.js';
 
-/** The website without a helper or custom relay: adsb.lol only, through the public relay (core/airgrid.js says which queries). */
+/** The website without a helper or custom relay: no aircraft feed is carried by its relay (adsb.lol refuses Cloudflare), so the layers stop as notCarried. */
 const website = () => !Relay.base() && onPublishedSite(location.hostname);
-/** The website, and its relay hasn't refused adsb.lol in this visit (the deployed Worker may not carry it: core/relay.js carried). */
-export const publicAir = () => website() && carried('https://api.adsb.lol/v2/mil');
+/** The website, and its relay carries adsb.lol (it doesn't today: adsb.lol refuses Cloudflare; core/relay.js publicRelayable). */
+export const publicAir = () => website() && publicRelayable('https://api.adsb.lol/v2/mil');
 
 /* ============================================================ AIRCRAFT (ADS-B) */
 export const AIR_SRC = { 'adsb.lol': 'https://api.adsb.lol', 'adsb.fi': 'https://opendata.adsb.fi/api', 'airplanes.live': 'https://api.airplanes.live' };

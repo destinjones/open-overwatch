@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Helpers, settings storage, log + toast + sounds, the network layer with the local relay, the clock.
-import { PUBLIC_RELAY, carried, markNotCarried, onPublishedSite, publicRelayable, relayRefused } from '../core/relay.js';
+import { PUBLIC_RELAY, markNotCarried, onPublishedSite, publicRelayable, relayRefused, relayUrl } from '../core/relay.js';
 import { destination as geoDestination, haversine } from '../core/geo.js';
 import { esc } from '../core/format.js';
 
@@ -96,14 +96,14 @@ export const Log = {
 /* ============================================================ network + relay
    Some sources refuse browser requests (no CORS headers). When the page is served by the bundled
    helper (serve.py / serve.js) those go through its /proxy route; otherwise they are reported as blocked. */
-export const NEEDS_RELAY = ['aviationweather.gov', 'api.adsb.lol', 'api.airplanes.live', 'opendata.adsb.fi', 'www.nhc.noaa.gov', 'webcams.nyctmc.org', 'opensky-network.org', 'firms.modaps.eosdis.nasa.gov', 'api.windy.com', 'www.submarinecablemap.com', 'www.drivebc.ca', 'traveler.modot.org', 'kamera.atlas.vegvesen.no', 'atmsqf.iowadot.gov', 'trafficcam.calgary.ca', 'images.data.gov.sg', 'www.ndbc.noaa.gov'];   // the last six: the globe's cameras
+export const NEEDS_RELAY = ['aviationweather.gov', 'api.adsb.lol', 'api.airplanes.live', 'opendata.adsb.fi', 'www.nhc.noaa.gov', 'webcams.nyctmc.org', 'opensky-network.org', 'firms.modaps.eosdis.nasa.gov', 'api.windy.com', 'www.submarinecablemap.com', 'www.drivebc.ca', 'traveler.modot.org', 'kamera.atlas.vegvesen.no', 'atmsqf.iowadot.gov', 'trafficcam.calgary.ca', 'images.data.gov.sg', 'www.ndbc.noaa.gov', 'www.tsunami.gov'];
 export const Relay = {
   local: /^https?:$/.test(location.protocol) && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname),
   custom: Store.get('proxy', ''), customOk: null, available: false, checked: false, // customOk: null = not tested yet
   base() { return (this.custom && this.customOk !== false) ? this.custom : (this.local ? location.origin + '/proxy?url=' : ''); },
   needs(url) { try { return NEEDS_RELAY.includes(new URL(url).hostname); } catch (e) { return false; } },
   wrap(url, b = this.base()) {
-    if (!b) { try { if (onPublishedSite(location.hostname) && publicRelayable(url)) b = PUBLIC_RELAY; } catch (e) { /* not a URL */ } }   // the website: the public relay, for the feeds it may carry
+    if (!b) { try { if (onPublishedSite(location.hostname) && publicRelayable(url)) return relayUrl(url); } catch (e) { /* not a URL */ } }   // the website: the public relay, for the feeds it may carry, in its one accepted form
     if (!b) return null; return b.includes('{url}') ? b.replace('{url}', encodeURIComponent(url)) : b + encodeURIComponent(url); },
   async check() { // a custom relay is test-fetched with one small file; if it fails, the local helper (if any) takes over
     this.checked = true; this.customOk = null;
@@ -124,7 +124,7 @@ export const Relay = {
   status() {
     if (this.custom && this.customOk !== false) return this.customOk ? 'custom relay answering' : 'custom relay set (not tested yet)';
     return (this.custom ? 'custom relay not answering · ' : '') + (this.available ? 'local helper running' : this.local ? 'helper not answering'
-      : onPublishedSite(location.hostname) ? 'website: the public relay carries NOAA storms, cameras, cables; aircraft, OpenSky, FIRMS and Windy need the download'
+      : onPublishedSite(location.hostname) ? 'website: the public relay carries NOAA storms and buoys, cameras, cables; aircraft, OpenSky, FIRMS and Windy need the download'
       : 'no helper — open the page through serve.py / serve.js / the .bat file');
   },
 };
@@ -140,13 +140,13 @@ export const Net = {
   async fetch(url, { timeout = 25000, headers = {}, throttle = null, gap = 1100, text = false, bytes = false, cache = 'no-store', method = 'GET', body = null } = {}) {
     if (throttle) await this.slot(throttle, gap);
     let target = url, relayed = false;
-    if (Relay.needs(url)) { const w = Relay.wrap(url); if (!w) throw (onPublishedSite(location.hostname) && !carried(url) ? notCarried() : new Error('blocked by browser security (CORS) — ' + Relay.status())); target = w; relayed = true; }
+    if (Relay.needs(url)) { const w = Relay.wrap(url); if (!w) throw (onPublishedSite(location.hostname) ? notCarried() : new Error('blocked by browser security (CORS) — ' + Relay.status())); target = w; relayed = true; }
     const viaPublic = relayed && target.startsWith(PUBLIC_RELAY);
     const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), timeout);
     try {
       const r = await fetch(target, { signal: ctl.signal, headers, method, body, cache, mode: 'cors' });
       if (!r.ok) { let msg = ''; try { msg = (await r.text()).slice(0, 120).replace(/\s+/g, ' '); } catch (e) { }
-        if (viaPublic && relayRefused(r.status, msg)) { markNotCarried(new URL(url).hostname); throw notCarried(); }   // the deployed Worker doesn't carry this host (yet); its 403 reads the same for a refused path, so a path missing from its PATHS would stop the whole host for the visit (today PATHS covers every URL sent)
+        if (viaPublic && relayRefused(r.status, msg)) { markNotCarried(new URL(url).hostname); throw notCarried(); }   // the deployed Worker doesn't carry this host (yet); a refused path on a carried host has its own 403 text, so it doesn't stop the host
         throw new Error('HTTP ' + r.status + (r.status === 429 ? ' rate-limited' : '') + (msg && /^[{\[<]/.test(msg) === false ? ' · ' + msg : '')); }
       return bytes ? new Uint8Array(await r.arrayBuffer()) : text ? await r.text() : await r.json();
     } catch (e) {
