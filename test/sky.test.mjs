@@ -2,7 +2,7 @@
 // Tonight's sky (src/core/sky.js), calendar alerts (src/core/ics.js) and flight queries (src/core/flight.js).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gmst, bodyRaDec, altAz, sunAlt, moonPhase, darkWindow, planetsTonight, auroraAt, describePass, starlinkTrains } from '../src/core/sky.js';
+import { gmst, bodyRaDec, altAz, sunAlt, subsolar, moonPhase, darkWindow, planetsTonight, auroraAt, describePass, starlinkTrains } from '../src/core/sky.js';
 import { makeIcs } from '../src/core/ics.js';
 import { parseFlightQuery, matchesFlight, normCallsign } from '../src/core/flight.js';
 import { jdFromMs } from '../src/core/time.js';
@@ -18,6 +18,9 @@ test('sky: sidereal time and the Sun', () => {
   const t = ms('2024-06-20T12:02:00Z'), a = altAz(bodyRaDec('sun', jdFromMs(t)), 51.48, 0, jdFromMs(t));
   assert.ok(Math.abs(a.alt - 61.96) < 0.6 && Math.abs(a.az - 180) < 2, JSON.stringify(a));
   assert.ok(sunAlt(51.48, 0, ms('2024-06-21T00:00:00Z')) < -10);
+  // the subsolar point of date: at 12:00 UTC on 2026-06-21 the Sun is ~1.8 min (the equation of time) short of Greenwich
+  const ss = subsolar(ms('2026-06-21T12:00:00Z'));
+  assert.ok(Math.abs(ss.lon - 0.44) < 0.1 && Math.abs(ss.lat - 23.44) < 0.02, JSON.stringify(ss));
 });
 
 test('sky: Moon phases (2024-04-08 eclipse = new, 2024-04-23 = full, 2024-04-15 = first quarter)', () => {
@@ -126,8 +129,17 @@ test('sky: sunrise and sunset, moonrise, full Moons and their names', async () =
   const { riseSet, nextFullMoon, craftAt } = await import('../src/core/sky.js');
   // London 2024-06-21: sunrise 03:43 UTC, sunset 20:21 UTC (timeanddate: 04:43 / 21:21 BST)
   const s = riseSet('sun', 51.5072, -0.1276, Date.parse('2024-06-21T00:00:00Z'));
-  assert.ok(Math.abs(s.rise - Date.parse('2024-06-21T03:43:00Z')) < 3 * 60e3, new Date(s.rise).toISOString());
-  assert.ok(Math.abs(s.set - Date.parse('2024-06-21T20:21:00Z')) < 3 * 60e3, new Date(s.set).toISOString());
+  assert.ok(Math.abs(s.rise - Date.parse('2024-06-21T03:43:00Z')) < 60e3, new Date(s.rise).toISOString());
+  assert.ok(Math.abs(s.set - Date.parse('2024-06-21T20:21:00Z')) < 60e3, new Date(s.set).toISOString());
+  // solar noon at Greenwich 2024-02-11: 12:00 UTC minus the equation of time (-14 min 14 s), so 12:14:14 (the Sun due south)
+  const az = t => altAz(bodyRaDec('sun', jdFromMs(t)), 51.4769, 0, jdFromMs(t)).az;
+  let a = Date.parse('2024-02-11T11:50:00Z'), b = Date.parse('2024-02-11T12:40:00Z');
+  for (let k = 0; k < 30; k++) { const m = (a + b) / 2; if (az(m) < 180) a = m; else b = m; }
+  assert.ok(Math.abs(a - Date.parse('2024-02-11T12:14:14Z')) < 60e3, new Date(a).toISOString());
+  // the Moon's own horizon (its parallax) by default: rise ~20:43, ~10 min later than on the Sun's -0.833
+  const m = riseSet('moon', 51.5072, -0.1276, Date.parse('2024-06-21T00:00:00Z'));
+  assert.deepEqual(m, riseSet('moon', 51.5072, -0.1276, Date.parse('2024-06-21T00:00:00Z'), { h0: 0.125 }));
+  assert.ok(Math.abs(m.rise - Date.parse('2024-06-21T20:43:00Z')) < 3 * 60e3, new Date(m.rise).toISOString());
   assert.equal(riseSet('sun', 78.2, 15.6, Date.parse('2024-06-21T00:00:00Z')).up, true);       // midnight Sun
   // full Moons: 2024-09-18 02:34 UTC (Harvest, a supermoon with the partial eclipse), 2024-10-17 11:26 (Hunter's, the year's closest)
   const h = nextFullMoon(Date.parse('2024-09-05T00:00:00Z'));

@@ -3,7 +3,8 @@
 // Saturn's ring-plane crossing, and the brightness the almanacs gave.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planetFromEarth, moonFromEarth, skyEvents, visibility, magnitude, saturnRingTilt, SKY_PLANETS } from '../src/core/solarsys.js';
+import { planetFromEarth, moonFromEarth, skyEvents, visibility, magnitude, saturnRingTilt, saturnDeltaU, SKY_PLANETS } from '../src/core/solarsys.js';
+import { planetPosition } from '../src/core/planets.js';
 import { jdFromMs, msFromJd } from '../src/core/time.js';
 
 const jd = s => jdFromMs(Date.parse(s));
@@ -32,6 +33,15 @@ test('solarsys: Saturn\'s rings edge-on in March 2025, open again by late 2026',
   assert.ok(Math.abs(later.ring_tilt) > 5 && Math.abs(later.ring_tilt) < 10, `${later.ring_tilt}`);
   assert.ok(magnitude('saturn', 9.5, 8.5, 0, 26) < magnitude('saturn', 9.5, 8.5, 0, 0) - 0.8, 'open rings make Saturn brighter');
   near(saturnRingTilt(0, 0, jd('2000-01-01T12:00:00Z')), saturnRingTilt(360, 0, jd('2000-01-01T12:00:00Z')), 1e-9, 'periodic in longitude');
+});
+
+test('solarsys: Saturn\'s dU and its 0.044|dU| magnitude term (Meeus example 45.a, 1992 December 16: B 16.442, dU 4.198)', () => {
+  const t = 2448972.50068, s = planetFromEarth('saturn', t), p = planetPosition('saturn', t), D = Math.PI / 180;
+  const dU = saturnDeltaU(s.lon, s.lat, Math.atan2(p.y, p.x) / D, Math.asin(p.z / Math.hypot(p.x, p.y, p.z)) / D, s.sun_au, t);
+  near(s.ring_tilt, 16.442, 0.03, 'B'); near(dU, 4.198, 0.02, 'dU');
+  near(s.magnitude - magnitude('saturn', s.sun_au, s.earth_au, s.phase_angle, s.ring_tilt), 0.044 * dU, 1e-9, 'the dU term is in');
+  near(magnitude('saturn', 9.5, 8.5, 0, 26, -4) - magnitude('saturn', 9.5, 8.5, 0, 26), 0.044 * 4, 1e-12, '|dU|');
+  assert.ok(saturnDeltaU(179, 0, -179, 0, 9.5, t) < 10, 'wraps across 180');
 });
 
 test('solarsys: the next events land on the dates the almanacs gave', () => {

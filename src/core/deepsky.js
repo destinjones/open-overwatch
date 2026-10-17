@@ -2,7 +2,8 @@
 // Deep-sky objects for "what's up tonight": the Messier list and the brighter NGC/IC objects from data/deepsky.json
 // (brand/tools/make_deepsky.py; CC-BY-SA-4.0, derived from OpenNGC, see data/deepsky.md), filtered by magnitude and
 // type, and placed in the sky for an observer with sky.js's helpers. Read-only and DOM-free; times are ms since 1970.
-// Positions are J2000 against the mean sidereal time of date, like sky.js: "where to look", good to a degree or so.
+// Positions are J2000 catalogue places; sky.js altAz() turns them to the equator and apparent sidereal time of date
+// (eclipselocal.js icrfToFixed), so altitudes are good to well under a degree.
 import { altAz, darkWindow } from './sky.js';
 import { jdFromMs } from './time.js';
 

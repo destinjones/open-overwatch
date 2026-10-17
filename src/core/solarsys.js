@@ -26,17 +26,29 @@ export function saturnRingTilt(lam, beta, jd) {
 }
 
 /**
- * Visual magnitude from the Sun distance r and Earth distance d (AU) and the phase angle i (deg): the Astronomical Almanac
- * formulas in Meeus (ch. 41); Saturn adds its rings (tilt B, deg).
+ * dU (deg, 0-180): the difference of the Saturnicentric longitudes of the Sun and the Earth in the ring plane (Meeus ch. 45),
+ * from Saturn's geocentric (lam, beta) and heliocentric (l0, b0) ecliptic longitude/latitude in degrees and its distance r (AU).
  */
-export function magnitude(key, r, d, i, B = 0) {
+export function saturnDeltaU(lam, beta, l0, b0, r, jd) {
+  const T = julianCenturies(jd), i = (28.075216 - 0.012998 * T + 0.000004 * T * T) * DEG, node = (169.508470 + 1.394681 * T + 0.000412 * T * T) * DEG;
+  const N = (113.6655 + 0.8771 * T) * DEG, l1 = (l0 - 0.01759 / r) * DEG, b1 = (b0 - 0.000764 * Math.cos(l0 * DEG - N) / r) * DEG;   // the Sun's aberration seen from Saturn
+  const U = (l, b) => Math.atan2(Math.sin(i) * Math.sin(b) + Math.cos(i) * Math.cos(b) * Math.sin(l - node), Math.cos(b) * Math.cos(l - node));
+  const d = Math.abs(U(l1, b1) - U(lam * DEG, beta * DEG)) / DEG % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+/**
+ * Visual magnitude from the Sun distance r and Earth distance d (AU) and the phase angle i (deg): the Astronomical Almanac
+ * formulas in Meeus (ch. 41); Saturn adds its rings (tilt B, deg) and its phase as dU (deg, saturnDeltaU).
+ */
+export function magnitude(key, r, d, i, B = 0, dU = 0) {
   const k = 5 * Math.log10(r * d);
   switch (key) {
     case 'mercury': return -0.42 + k + 0.0380 * i - 0.000273 * i * i + 0.000002 * i * i * i;
     case 'venus': return -4.40 + k + 0.0009 * i + 0.000239 * i * i - 0.00000065 * i * i * i;
     case 'mars': return -1.52 + k + 0.016 * i;
     case 'jupiter': return -9.40 + k + 0.005 * i;
-    case 'saturn': { const s = Math.sin(Math.abs(B) * DEG); return -8.88 + k - 2.60 * s + 1.25 * s * s; }
+    case 'saturn': { const s = Math.sin(Math.abs(B) * DEG); return -8.88 + k + 0.044 * Math.abs(dU) - 2.60 * s + 1.25 * s * s; }
     case 'uranus': return -7.19 + k;
     case 'neptune': return -6.87 + k;
     default: return null;
@@ -54,9 +66,9 @@ export function planetFromEarth(key, jd) {
   const phase = angle((r * r + d * d - R * R) / (2 * r * d)), elong = angle((R * R + d * d - r * r) / (2 * R * d));
   const lam = lonOf(g), beta = latOf(g), sunLon = lonOf({ x: -E.x, y: -E.y, z: -E.z });
   const east = ((lam - sunLon + 360) % 360) < 180;   // east of the Sun: in the evening sky
-  const B = key === 'saturn' ? saturnRingTilt(lam, beta, jd) : 0;
+  const B = key === 'saturn' ? saturnRingTilt(lam, beta, jd) : 0, dU = key === 'saturn' ? saturnDeltaU(lam, beta, lonOf(p), latOf(p), r, jd) : 0;
   const out = { key, name: PHYSICAL[key].name, sun_au: r, earth_au: d, earth_km: d * AU_KM, light_min: d * LIGHT_MIN_PER_AU, elongation: elong, side: east ? 'evening' : 'morning',
-    phase_angle: phase, lit: (1 + Math.cos(phase * DEG)) / 2, magnitude: magnitude(key, r, d, phase, B), size_arcsec: 2 * Math.atan(PHYSICAL[key].radiusKm / (d * AU_KM)) / DEG * 3600, lon: lam, lat: beta };
+    phase_angle: phase, lit: (1 + Math.cos(phase * DEG)) / 2, magnitude: magnitude(key, r, d, phase, B, dU), size_arcsec: 2 * Math.atan(PHYSICAL[key].radiusKm / (d * AU_KM)) / DEG * 3600, lon: lam, lat: beta };
   if (key === 'saturn') out.ring_tilt = B;
   return out;
 }
