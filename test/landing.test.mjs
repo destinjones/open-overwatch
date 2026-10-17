@@ -44,7 +44,10 @@ test('search and share text leads with what the website shows; aircraft only wit
   assert.doesNotMatch(lead, /aircraft over your street/);
   assert.ok(lead.includes(DOWNLOAD), 'the README lead says where aircraft are');
   assert.match(readme, /\*\*2D ops map:\*\* ships[^\n]*\n[^\n]*free download/);
-  assert.doesNotMatch(JSON.parse(read('manifest.webmanifest')).description, PLANES, 'the installed app is the website');
+  // the install sheet (description, screenshot labels) and the app's shortcuts: the installed app is the website
+  const app = JSON.parse(read('manifest.webmanifest'));
+  assert.ok(app.screenshots?.length && app.shortcuts?.length, 'the manifest has screenshots and shortcuts to check');
+  for (const t of [app.description, ...app.screenshots.map(s => s.label), ...app.shortcuts.map(s => s.name)]) assert.doesNotMatch(t, PLANES, 'the installed app is the website: ' + t);
 });
 
 test('the hero leads with the zoom, not with planes', () => {
