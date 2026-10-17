@@ -16,7 +16,7 @@ https://destinjones.github.io/open-overwatch/globe.html#c=-0.1278,51.5074,3500,3
 
 - [The parameters at a glance](#the-parameters-at-a-glance)
 - [Two kinds of link](#two-kinds-of-link)
-- [Each parameter](#each-parameter): `c` · `l` · `a` · `x` · `w` · `t` · `k` · `f` · `s` · `o` · `d` · `go` · `id` · `embed` · `scene`
+- [Each parameter](#each-parameter): `c` · `l` · `a` · `x` · `w` · `t` · `k` · `f` · `s` · `o` · `d` · `go` · `id` · `embed` · `at` · `name` · `sections` · `scene`
 - [What happens on arrival](#what-happens-on-arrival)
 - [A hash that changes in an open page](#a-hash-that-changes-in-an-open-page)
 - [Building links from code](#building-links-from-code)
@@ -73,8 +73,8 @@ A hash shorter than 4 characters, or one whose `c` fails the checks below, is no
 | `lon` | degrees east | 4 decimals (~11 m) | −180 to 180 |
 | `lat` | degrees north | 4 decimals | −90 to 90 |
 | `height` | metres above the ellipsoid | whole metres | 0 to 10,000,000,000 (the camera goes no lower than 150 m when applied) |
-| `heading` | degrees clockwise from north | 1 decimal | any number; missing or not a number: 0 |
-| `pitch` | degrees, −90 is straight down | 1 decimal | any number; missing or not a number: −90 |
+| `heading` | degrees clockwise from north | 1 decimal | any number, wrapped to 0 to 360; missing or not a number: 0 |
+| `pitch` | degrees, −90 is straight down | 1 decimal | any number, clamped to −90 to 90; missing or not a number: −90 |
 
 The first three fields must be numbers inside their ranges or the whole link is refused (`decodeView` returns `null`).
 `heading` and `pitch` are optional: `c=10,20,3000` is a straight-down view of that point from 3 km.
@@ -144,7 +144,8 @@ weather mode with every source off.
 
 `t=julianDate,rate`. The Julian Date (UTC, days; 5 decimals ≈ 1 s) must be between 2,000,000 and 3,000,000 or `t` is
 ignored. `rate` is simulated seconds per real second: `1` real time, `0` paused, `60` a minute a second, `-3600` an hour
-a second backwards; missing or not a number: 1. Without `t` the globe is live.
+a second backwards; missing or not a number: 1. A rate beyond ±315,576,000 (ten years a second, the Solar System view's
+fastest, which the globe takes back with it) is clamped to it. Without `t` the globe is live.
 
 A Julian Date from a Unix time in milliseconds: `jd = ms / 86400000 + 2440587.5` (`jdFromMs` in `src/core/time.js`).
 
@@ -354,6 +355,10 @@ const url = 'https://destinjones.github.io/open-overwatch/globe.html#' + hash;
 `mcp/place.mjs` `globeUrl(site, v)` is a worked example on top of it: it keeps only known layer and weather ids, turns
 a Unix time into a Julian Date, and writes `a`/`x` rather than `l`. Its `panelUrl(site, go, id)` writes panel links.
 
+For Tonight at a place, `tonightHash({ lat, lon, name })` in the same module gives `at=18.52,73.86&name=Pune` (rounded
+to 2 decimals, the name cleaned; `''` for a place out of range): put it after `tonight.html#` or
+`globe.html#go=tonight&`.
+
 In another language, build the hash by hand from the table above. Use `encodeURIComponent` on values (or leave commas
 plain; both decode), keep layer ids lower case, and test the result by opening it.
 
@@ -394,8 +399,9 @@ either view opens the same area on the other:
 - `l` with the **2D map's own layer ids** (listed in the [user guide](../guide.html#map2d)) sets exactly those layers. A
   globe link's `l` or `a` instead switches on the 2D counterparts of its globe layers, leaving the others as they are:
   `quakes`, `storms`, `cams`, `transit`, `bikes`, `aurora` (same ids), `ships` → `ships_fi`, `fires` → `hotspots` and
-  `fireperims`, `sun` → `terminator`, `mil` → `air_mil`, `airports` (same id) (`mapLayersFor`; the globe's `air` switches nothing on, as the
-  2D aircraft layers query the area themselves). `x` switches 2D layers off.
+  `fireperims`, `sun` → `terminator`, `mil` → `air_mil`, `airports`, `buoys`, `dart`, `tides`, `sst`, `smoke`, `airq`,
+  `lightpollution` (same ids) (`mapLayersFor`; the globe's `air` switches nothing on, as the 2D aircraft layers query
+  the area themselves). `x` switches 2D layers off.
 - The other way (`globeLayersFor`, the map's 3D globe button): the same pairs, plus `air_local` and `air_opensky` →
   `air` and the keyed 2D `fires` → `fires` (`MAP_TO_GLOBE` in viewlink.js).
 - `w` (the globe's weather mode) switches on the 2D forecast layers: `wind` → `wx_wind`, `temp` → `wx_temp`, `pres` →
