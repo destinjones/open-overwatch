@@ -1,0 +1,105 @@
+{"type":"FeatureCollection","metadata":{"count":4},"features":[{
+  "type": "Feature",
+  "geometry": {
+    "type": "Point",
+    "coordinates": [
+      -81.0035,
+      7.0608,
+      -10.0
+    ]
+  },
+  "id": "20261017_0000194",
+  "properties": {
+    "source_id": "2076229",
+    "source_catalog": "EMSC-RTS",
+    "lastupdate": "2026-10-17T14:43:12.293458Z",
+    "time": "2026-10-17T14:39:36.0Z",
+    "flynn_region": "PANAMA",
+    "lat": 7.0608,
+    "lon": -81.0035,
+    "depth": 10.0,
+    "evtype": "ke",
+    "auth": "IGC",
+    "mag": 4.1,
+    "magtype": "m",
+    "unid": "20261017_0000194"
+  }
+},{
+  "type": "Feature",
+  "geometry": {
+    "type": "Point",
+    "coordinates": [
+      -92.8552,
+      14.0469,
+      -10.0
+    ]
+  },
+  "id": "20261017_0000174",
+  "properties": {
+    "source_id": "2076208",
+    "source_catalog": "EMSC-RTS",
+    "lastupdate": "2026-10-17T14:17:51.344787Z",
+    "time": "2026-10-17T13:59:34.575Z",
+    "flynn_region": "OFFSHORE CHIAPAS, MEXICO",
+    "lat": 14.0469,
+    "lon": -92.8552,
+    "depth": 10.0,
+    "evtype": "ke",
+    "auth": "NEIC",
+    "mag": 5.2,
+    "magtype": "mw",
+    "unid": "20261017_0000174"
+  }
+},{
+  "type": "Feature",
+  "geometry": {
+    "type": "Point",
+    "coordinates": [
+      128.0400,
+      -2.3700,
+      -31.0
+    ]
+  },
+  "id": "20261017_0000149",
+  "properties": {
+    "source_id": "2076174",
+    "source_catalog": "EMSC-RTS",
+    "lastupdate": "2026-10-17T11:56:46.032579Z",
+    "time": "2026-10-17T11:49:05.0Z",
+    "flynn_region": "CERAM SEA, INDONESIA",
+    "lat": -2.3700,
+    "lon": 128.0400,
+    "depth": 31.0,
+    "evtype": "ke",
+    "auth": "BMKG",
+    "mag": 4.1,
+    "magtype": "m",
+    "unid": "20261017_0000149"
+  }
+},{
+  "type": "Feature",
+  "geometry": {
+    "type": "Point",
+    "coordinates": [
+      177.3673,
+      -37.2587,
+      -133.4
+    ]
+  },
+  "id": "20261017_0000153",
+  "properties": {
+    "source_id": "2076169",
+    "source_catalog": "EMSC-RTS",
+    "lastupdate": "2026-10-17T12:18:02.350182Z",
+    "time": "2026-10-17T11:32:25.645Z",
+    "flynn_region": "OFF E. COAST OF N. ISLAND, N.Z.",
+    "lat": -37.2587,
+    "lon": 177.3673,
+    "depth": 133.4,
+    "evtype": "ke",
+    "auth": "NEIC",
+    "mag": 4.3,
+    "magtype": "m",
+    "unid": "20261017_0000153"
+  }
+}]}

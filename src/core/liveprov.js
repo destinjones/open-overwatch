@@ -14,6 +14,7 @@ const MIN = 60e3, H = 3600e3, D = 864e5;
 /** Who the feeds are: the name a card shows, the page it links to, the terms. */
 export const SOURCES = Object.freeze({
   usgs: { name: 'USGS', url: 'https://earthquake.usgs.gov/earthquakes/', licence: 'public domain' },
+  emsc: { name: 'EMSC', url: 'https://www.emsc-csem.org/', licence: 'EMSC terms: credit EMSC' },
   gdacs: { name: 'GDACS', url: 'https://www.gdacs.org/', licence: 'GDACS terms: credit GDACS and the source agency' },
   eonet: { name: 'NASA EONET', url: 'https://eonet.gsfc.nasa.gov/', licence: 'public domain' },
   nhc: { name: 'NOAA NHC', url: 'https://www.nhc.noaa.gov/', licence: 'public domain' },
@@ -56,7 +57,7 @@ export const LAYERS = Object.freeze({
   aircraft: { maxAgeMs: 2 * MIN, dataAt: 'the position\'s own time (readsb now − seen_pos; OpenSky time_position)' },
   satellites: { maxAgeMs: 3 * D, dataAt: 'the element set\'s epoch (SGP4 error grows ~1-3 km a day after it)' },
   reentry: { maxAgeMs: 3 * D, dataAt: 'the element set\'s epoch; each prediction sets its own limit, a fifth of the time it had left (core/decay.js)' },
-  quakes: { maxAgeMs: 30 * MIN, dataAt: 'when USGS generated the summary (it does every minute); a solution\'s own update time without it' },
+  quakes: { maxAgeMs: 30 * MIN, dataAt: 'when USGS generated the summary (it does every minute); a solution\'s own update time without it; EMSC: its answer\'s newest update' },
   events: { maxAgeMs: 7 * D, dataAt: 'the event\'s newest dated geometry' },
   gdacs: { maxAgeMs: 2 * D, dataAt: 'GDACS\'s last change to the event' },
   storms: { maxAgeMs: 9 * H, dataAt: 'the advisory or fix time (NHC advises every 6 h, 3 h with watches out)' },

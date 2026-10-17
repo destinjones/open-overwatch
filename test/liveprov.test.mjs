@@ -1,9 +1,10 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { stamp, stampReports, recordOf, provBlock, provLine, rep, agreeingIds, LAYERS, SOURCES, metresBetween } from '../src/core/liveprov.js';
 import { sameAircraft, readsbTime, AIR_AGREE } from '../src/core/aircraft.js';
-import { sameQuake, usgsDataAt } from '../src/core/quakes.js';
+import { sameQuake, usgsDataAt, parseEmsc, emscUrl, emscAsk, emscSource, emscRepeatsUsgs, matchEmsc, stampQuake } from '../src/core/quakes.js';
 import { stormsFromEonet, mergeNhc, mergeGdacs, stormAgreement, sameStorm, agencyOf } from '../src/core/cyclones.js';
 
 const now = Date.parse('2026-10-14T12:00:00Z'), min = 60e3;
@@ -106,6 +107,76 @@ test('stampQuake: GDACS repeating USGS is listed but does not confirm; an indepe
   g[0].usgs = false;
   assert.equal(recordOf(stampQuake({ ...q }, { dataAt: now - 60e3, gdacs: g }), now).confidence, 'confirmed');
   assert.equal(recordOf(stampQuake({ ...q }), now).ageMs, 600e3);
+});
+
+// EMSC (seismicportal.eu FDSN event service), one real answer captured 2026-10-17 (limit=4, minmag=4)
+const EMSC_DOC = JSON.parse(readFileSync(new URL('./fixtures/emsc-sample.json', import.meta.url), 'utf8'));
+
+test('parseEmsc: the FDSN GeoJSON answer as solutions (ISO times, depth down, agency, event page, the answer\'s data time)', () => {
+  const l = parseEmsc(EMSC_DOC);
+  assert.equal(l.length, 4);
+  const [pan, mex] = l;
+  assert.deepEqual({ ...pan }, { id: '20261017_0000194', mag: 4.1, magType: 'm', place: 'PANAMA', time: Date.parse('2026-10-17T14:39:36Z'), updated: Date.parse('2026-10-17T14:43:12.293Z'),
+    depth: 10, lat: 7.0608, lon: -81.0035, auth: 'IGC', url: 'https://www.seismicportal.eu/eventdetails.html?unid=20261017_0000194', dataAt: Date.parse('2026-10-17T14:43:12.293Z') });
+  assert.equal(mex.auth, 'NEIC'); assert.equal(mex.place, 'OFFSHORE CHIAPAS, MEXICO');
+  assert.ok(l.every(e => e.dataAt === pan.updated), 'the newest update in the answer is its data time');
+  assert.equal(l[3].depth, 133.4, 'properties.depth is km down (the coordinate is negative)');
+  // nothing trusted: no position, no time, a quarry blast, a time without its Z, a link-breaking id
+  const odd = parseEmsc({ features: [{ properties: { lat: 95, lon: 0, time: '2026-10-17T00:00:00Z' } }, { properties: { lat: 1, lon: 2 } },
+    { properties: { lat: 1, lon: 2, time: '2026-10-17T00:00:00Z', evtype: 'qb' } },
+    { id: 'x"><img>', geometry: { coordinates: [20, 40, -12] }, properties: { time: '2026-10-17T01:00:00.5', mag: '3.1', evtype: 'ke' } }] });
+  assert.equal(odd.length, 1); assert.equal(odd[0].time, Date.parse('2026-10-17T01:00:00.5Z')); assert.equal(odd[0].depth, 12); assert.equal(odd[0].mag, 3.1); assert.equal(odd[0].url, '');
+  assert.deepEqual(parseEmsc(null), []); assert.deepEqual(parseEmsc({ features: 'x' }), []);
+});
+
+test('emscUrl / emscAsk: the start floored to 10 minutes (one address, one cache entry), the magnitude floor less the agreement margin', () => {
+  const t = Date.parse('2026-10-17T15:47:10Z');
+  assert.equal(emscUrl({ now: t }), 'https://www.seismicportal.eu/fdsnws/event/1/query?format=json&limit=500&minmag=1.9&starttime=2026-10-16T15:40:00');
+  assert.equal(emscUrl({ now: t + 2 * min }), emscUrl({ now: t }), 'the same address within a 10-minute step'); assert.notEqual(emscUrl({ now: t + 3 * min }), emscUrl({ now: t }));
+  assert.equal(emscUrl({ min: 0, hours: 1, now: t, limit: 5000 }), 'https://www.seismicportal.eu/fdsnws/event/1/query?format=json&limit=1000&starttime=2026-10-17T14:40:00');
+  assert.deepEqual(emscAsk('2.5_day'), { min: 2.5, hours: 24 }); assert.deepEqual(emscAsk('4.5_week'), { min: 4.5, hours: 168 });
+  assert.deepEqual(emscAsk('all_hour'), { min: 0, hours: 1 }); assert.deepEqual(emscAsk('significant_month'), { min: 4.5, hours: 720 }); assert.deepEqual(emscAsk('nonsense'), { min: 2.5, hours: 24 });
+});
+
+test('stampQuake: an EMSC solution of its own confirms a USGS quake; one too far off, or USGS\'s own, does not', () => {
+  const [pan, mex] = parseEmsc(EMSC_DOC), at = Date.parse('2026-10-17T14:50:00Z');
+  const q = { id: 'us7000p001', lat: 7.03, lon: -80.95, time: pan.time + 4e3, mag: 4.4 };   // USGS's solution of the Panama quake
+  assert.equal(provLine(stampQuake({ ...q }, { dataAt: at - 60e3, emsc: [pan, mex] }), at), 'USGS + EMSC · 2 of 2 agree · data 60 s old · confirmed');
+  assert.match(provBlock(stampQuake({ ...q }, { dataAt: at - 60e3, emsc: [pan] }), at), /<a href="https:\/\/www\.seismicportal\.eu\/eventdetails\.html\?unid=20261017_0000194"[^>]*>EMSC<\/a>/, 'the card credits EMSC and links its event');
+  for (const off of [{ time: q.time + 90e3 }, { lat: 8.5 }, { mag: 5.3 }]) {   // past QUAKE_AGREE: 60 s, 100 km, 0.6
+    const r = recordOf(stampQuake({ ...q, ...off }, { dataAt: at - 60e3, emsc: [pan, mex] }), at);
+    assert.equal(r.of, 1, JSON.stringify(off)); assert.equal(r.confidence, 'reported');
+  }
+  // EMSC publishing NEIC's solution repeats USGS: listed, not a second witness
+  const mq = { id: 'us7000p002', lat: 14.05, lon: -92.86, time: mex.time - 2e3, mag: 5.2 };
+  assert.equal(provLine(stampQuake({ ...mq }, { dataAt: at - 60e3, emsc: [pan, mex] }), at), 'USGS + EMSC (USGS solution) · 1 of 2 agree · data 60 s old · reported');
+  assert.ok(emscRepeatsUsgs({ auth: 'AK' }, { id: 'ak0261abcd' }), 'the same network as the USGS quake'); assert.ok(!emscRepeatsUsgs({ auth: 'AK' }, { id: 'us7000abcd' }));
+  assert.ok(!emscRepeatsUsgs({ auth: '' }, { id: 'us7000abcd' })); assert.ok(emscRepeatsUsgs({ auth: 'usgs' }, {}));
+  // stamping again when EMSC answers late replaces the USGS-only stamp; the closest of two candidates is the match
+  const late = stampQuake({ ...q }, { dataAt: at - 60e3 }); assert.equal(recordOf(late, at).of, 1);
+  stampQuake(late, { dataAt: at - 60e3, emsc: [pan] }); assert.equal(recordOf(late, at).confidence, 'confirmed');
+  assert.equal(matchEmsc(q, [{ ...pan, id: 'far', time: q.time + 50e3 }, pan, { ...pan, id: 'near2', time: q.time - 20e3 }]).id, pan.id);
+  // an old answer (EMSC down since) still lists the quake but is no longer fresh: back to reported
+  assert.equal(recordOf(stampQuake({ ...q }, { dataAt: at + 2 * 3600e3, emsc: [pan] }), at + 2 * 3600e3 + 60e3).confidence, 'reported');
+});
+
+test('emscSource: one request per question per 10 minutes, shared while in flight, and an EMSC failure never rejects', async () => {
+  let t = Date.parse('2026-10-17T15:00:00Z'), fail = false; const asked = [];
+  const json = async url => { asked.push(url); if (fail) throw new Error('HTTP 503'); return EMSC_DOC; };
+  const src = emscSource(json, { now: () => t });
+  const a = src.load({ min: 2.5, hours: 24 }), b = src.load({ min: 2.5, hours: 24 });
+  assert.equal(a, b, 'one request in flight at a time');
+  assert.equal((await a).length, 4); assert.equal(asked.length, 1); assert.equal(src.list.length, 4);
+  t += 5 * min; await src.load({ min: 2.5, hours: 24 }); assert.equal(asked.length, 1, 'kept for 10 minutes');
+  t += 6 * min; fail = true;
+  const kept = await src.load({ min: 2.5, hours: 24 });
+  assert.equal(asked.length, 2); assert.equal(kept.length, 4, 'a failure keeps the last list');
+  await src.load({ min: 2.5, hours: 24 }); assert.equal(asked.length, 2, 'and waits the 10 minutes before asking again');
+  await src.load({ min: 1, hours: 24 }); assert.equal(asked.length, 3, 'a different question (another USGS summary) asks at once');
+  const bare = emscSource(async () => { throw new Error('offline'); }, { now: () => t });
+  assert.deepEqual(await bare.load(), [], 'never answered: no EMSC votes, no error');
+  const broken = emscSource(() => { throw new Error('sync throw'); }, { now: () => t });
+  assert.deepEqual(await broken.load(), []);
 });
 
 test('ships: two receivers of the same MMSI agree within 300 m plus its run', async () => {
