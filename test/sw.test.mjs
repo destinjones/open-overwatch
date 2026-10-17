@@ -255,6 +255,51 @@ test('install saves the app; a new version waits, then deletes the old one\'s pa
   assert.ok(names.includes('oo-data-v1') && names.includes('other-app'), 'data copies and other caches survive');
 });
 
+test('a published build serves one version: its own pages and modules even when the site already has newer ones', async () => {
+  const B = '0.9.2.15+ccc', net = {
+    [SCOPE]: '<script type="module" src="src/app/shell.js"></script>', [SCOPE + 'offline.html']: '<p>offline</p>',
+    [SCOPE + 'globe.html']: '<script type="module" src="src/globe/main.js"></script>', [SCOPE + 'src/globe/main.js']: "import { t } from './sats.js';",
+    [SCOPE + 'src/globe/sats.js']: "const lib = new URL('../vendor/satellite.min.js', import.meta.url);", [SCOPE + 'src/vendor/satellite.min.js']: '/* v1 */',
+  };
+  const w = worker({ net, build: B });
+  assert.equal(w.oo.ONE_VERSION, true); assert.equal(worker().oo.ONE_VERSION, false, "'dev' keeps the network first");
+  await w.lifecycle('install');
+  const shell = await w.caches.open(w.oo.SHELL);
+  assert.ok(shell.map.has(SCOPE + 'src/vendor/satellite.min.js'), "the workers' satellite.js is saved too (offline)");
+  // the next version is published: every file on the site changes, but this tab's worker has not been replaced yet
+  for (const k of Object.keys(net)) net[k] = net[k] + ' /* v2 */';
+  const n = w.calls.length;
+  assert.equal(await (await w.request(SCOPE + 'globe.html', page())).res.text(), '<script type="module" src="src/globe/main.js"></script>');
+  assert.equal(await (await w.request(SCOPE + 'src/globe/main.js', { cache: 'no-cache' })).res.text(), "import { t } from './sats.js';", 'a reload too');
+  assert.equal(await (await w.request(SCOPE + 'src/vendor/satellite.min.js')).res.text(), '/* v1 */');
+  assert.equal(w.calls.length, n, 'no network for what this version has');
+  // a file the install missed comes from the network and is kept; offline, a page never saved gets the offline page
+  net[SCOPE + 'src/late.js'] = 'late';
+  assert.equal(await (await w.request(SCOPE + 'src/late.js')).res.text(), 'late');
+  assert.ok(shell.map.has(SCOPE + 'src/late.js'));
+  w.online = false;
+  assert.equal(await (await w.request(SCOPE + 'src/globe/main.js')).res.text(), "import { t } from './sats.js';");
+  assert.equal(await (await w.request(SCOPE + 'solar.html', page())).res.text(), '<p>offline</p>');
+  // data still goes to the network first (a version's copy is about code, not feeds)
+  w.online = true; net[SCOPE + 'data/tle/stations.txt'] = 'ISS';
+  assert.equal(await (await w.request(SCOPE + 'data/tle/stations.txt')).res.text(), 'ISS');
+});
+
+test('navigation preload: on for network first (dev), off for a published build (it would fetch every page for nothing)', async () => {
+  for (const [build, want] of [[null, 'enable'], ['0.9.2.15+ccc', 'disable']]) {
+    const w = worker({ build }); let got = null;
+    w.self.registration.navigationPreload = { enable: async () => { got = 'enable'; }, disable: async () => { got = 'disable'; } };
+    await w.lifecycle('activate');
+    assert.equal(got, want, String(build));
+  }
+});
+
+test('the satellite workers load the vendored satellite.js by a URL the install crawl finds', () => {
+  const { oo } = worker();
+  for (const f of ['src/globe/satellites.js', 'src/map/satellites.js'])
+    assert.ok(oo.references(readFileSync(new URL('../' + f, import.meta.url), 'utf8'), false).includes('../vendor/satellite.min.js'), f);
+});
+
 test('the page can ask for the build and for skipping the wait', async () => {
   const w = worker({ build: '1.2.3+abc' });
   let got; w.listeners.message({ data: { type: 'build' }, ports: [{ postMessage: v => { got = v; } }], waitUntil() {} });
