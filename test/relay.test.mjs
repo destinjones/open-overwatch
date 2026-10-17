@@ -53,12 +53,12 @@ test('relay: hosts, paths, ports and target queries are checked', async () => {
 
 test('relay: camera image hosts only for their stills', async () => {
   upstream = { body: 'jpg', headers: { 'content-type': 'image/jpeg' } };
-  for (const ok of ['https://kamera.atlas.vegvesen.no/api/images/3000063_1', 'https://trafficcam.calgary.ca/loc86.jpg', 'https://atmsqf.iowadot.gov/snapshots/Public/x.JPG',
+  for (const ok of ['https://kamera.atlas.vegvesen.no/api/images/3000063_1', 'https://trafficcam.calgary.ca/loc86.jpg', 'https://atmsqf.iowadot.gov/snapshots/Public/x.JPG', 'https://atmsqf.iowadot.gov/snapshots/Public/DMTV17',
     'https://images.data.gov.sg/api/traffic-images/2026/10/d0f6db57-a294-4132-a3c8-6c37dae56813.jpg', 'https://www.drivebc.ca/images/123.jpg'])
     assert.equal((await call(ok)).status, 200, ok);
   for (const bad of ['https://kamera.atlas.vegvesen.no/not-a-picture/x', 'https://kamera.atlas.vegvesen.no/', 'https://trafficcam.calgary.ca/index.html',
     'https://atmsqf.iowadot.gov/anything', 'https://images.data.gov.sg/other/x.jpg', 'https://trafficcam.calgary.ca/loc86.jpg?x=1'])
-    assert.equal((await call(bad)).status, 403, bad);
+  { const r = await call(bad); assert.equal(r.status, 403, bad); assert.match(await r.text(), /^path not on the relay allowlist/, bad); }   // not the host text: relayRefused would stop the whole host
 });
 
 test('relay: a fixed Accept upstream, HTML never shared, the byte cap holds on a stream', async () => {

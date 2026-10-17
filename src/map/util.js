@@ -146,7 +146,7 @@ export const Net = {
     try {
       const r = await fetch(target, { signal: ctl.signal, headers, method, body, cache, mode: 'cors' });
       if (!r.ok) { let msg = ''; try { msg = (await r.text()).slice(0, 120).replace(/\s+/g, ' '); } catch (e) { }
-        if (viaPublic && relayRefused(r.status, msg)) { markNotCarried(new URL(url).hostname); throw notCarried(); }   // the deployed Worker doesn't carry this host (yet); its 403 reads the same for a refused path, so a path missing from its PATHS would stop the whole host for the visit (today PATHS covers every URL sent)
+        if (viaPublic && relayRefused(r.status, msg)) { markNotCarried(new URL(url).hostname); throw notCarried(); }   // the deployed Worker doesn't carry this host (yet); a refused path on a carried host has its own 403 text, so it doesn't stop the host
         throw new Error('HTTP ' + r.status + (r.status === 429 ? ' rate-limited' : '') + (msg && /^[{\[<]/.test(msg) === false ? ' · ' + msg : '')); }
       return bytes ? new Uint8Array(await r.arrayBuffer()) : text ? await r.text() : await r.json();
     } catch (e) {

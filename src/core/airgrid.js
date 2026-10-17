@@ -1,9 +1,8 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
-// One fixed grid of 250 nm circles over the world, the only area queries the website asks the ADS-B feeds through the
-// public relay. The 2D map sweeps its view in these tiles and the globe asks the few nearest its camera; because every
-// visitor asks for the same few thousand URLs, the relay's edge cache can share one answer among all of them (a free
-// query per visitor would never repeat). The relay (relay/worker.js) imports this file too: what it carries and for how
-// long is decided here, once, for both sides.
+// One fixed grid of 250 nm circles over the world: the shared tiling the 2D map sweeps its view in and the globe asks the
+// few nearest its camera from. Because every visitor asks for the same few thousand URLs, a shared cache can keep one
+// answer for all of them (a free query per visitor would never repeat). The public relay carried these queries until
+// adsb.lol refused Cloudflare's servers (2026-10-15); relay/worker.js no longer imports this file.
 
 export const TILE_NM = 250;                 // adsb.lol /v2/point answers at most 250 nm
 export const TILE_KM = 463;                 // 250 nm
@@ -46,20 +45,21 @@ function gcKm(la1, lo1, la2, lo2) {
   return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(a)));
 }
 
-// adsb.lol through the public relay: seconds an answer is shared at the edge (0 = not carried). Only queries every visitor
-// asks alike: the military list, the three emergency squawks, and area queries on the grid above. Single-plane lookups
-// (hex, callsign, registration) differ per visitor, so they stay with the download's local helper.
+// adsb.lol through a shared relay: seconds an answer may be shared (0 = not shared). Only queries every visitor asks
+// alike: the military list, the three emergency squawks, and area queries on the grid above. Single-plane lookups (hex,
+// callsign, registration) differ per visitor, so they stay with the download's local helper. adsbLolTtl and
+// adsbLolRelayable are kept for a future relay that can reach adsb.lol; today only the tests use them (the map reads AIR_TTL).
 export const ADSB_LOL_HOST = 'api.adsb.lol';
 export const AIR_TTL = Object.freeze({ mil: 60, squawk: 60, point: 45 });
 const POINT = /^\/v2\/point\/(-?\d{1,2}(?:\.\d{1,3})?)\/(-?\d{1,3}(?:\.\d{1,3})?)\/250$/;
-/** How long the relay shares an adsb.lol answer for this path (seconds), or 0 when it doesn't carry it. */
+/** How long a shared relay may keep an adsb.lol answer for this path (seconds), or 0 when it shouldn't carry it. */
 export function adsbLolTtl(path) {
   if (path === '/v2/mil') return AIR_TTL.mil;
   if (/^\/v2\/squawk\/7[567]00$/.test(path)) return AIR_TTL.squawk;
   const m = POINT.exec(path);
   return m && onGrid(+m[1], +m[2]) ? AIR_TTL.point : 0;
 }
-/** Whether the public relay carries this adsb.lol URL (no query string: one URL per answer, so the cache is shared). */
+/** Whether a shared relay may carry this adsb.lol URL (no query string: one URL per answer, so the cache is shared). */
 export function adsbLolRelayable(url) {
   try { const u = new URL(url); return u.protocol === 'https:' && u.hostname === ADSB_LOL_HOST && !u.port && !u.search && adsbLolTtl(u.pathname) > 0; }
   catch (e) { return false; }

@@ -12,7 +12,9 @@
 // keys passed on, a byte cap enforced on the stream. Rate limiting per address is a Cloudflare WAF rule on the route.
 // Two caches share each answer for seconds to minutes, so a thousand visitors cost the volunteer feeds one request per
 // interval, not a thousand: Workers Cache in front (wrangler.toml [cache], keyed by the raw request; its hits never reach
-// this code, so the allowed origin is one fixed value) and caches.default inside, keyed by the canonical target alone.
+// this code, so the allowed origin is one fixed value) and caches.default inside, keyed by the canonical target alone
+// (the Cache API only takes effect on a custom domain or route; on *.workers.dev it is a no-op and the front cache alone
+// shares, so a still asked with each minute's t costs one upstream fetch per camera per minute, as before).
 // Not carried: adsb.lol (it answers Cloudflare's servers with 429, checked 2026-10-15; the download's helper asks it from
 // the visitor's own address; don't disguise the relay to get past that), OpenSky (its terms forbid passing the data on, and
 // a live service needs its written licence), adsb.fi (personal use only), airplanes.live and adsb.one (written permission).
@@ -34,7 +36,8 @@ const TTL = {
   'www.tsunami.gov': 300,             // the NOAA tsunami warning centres' message feeds (NTWC, PTWC)
 };
 // what each host may be asked for: path prefixes, or a pattern for the camera stills the feeds name (seen 2026-10-17:
-// vegvesen /api/images/<id>, Calgary /loc<n>.jpg, Singapore /api/traffic-images/<y>/<m>/<uuid>.jpg; Iowa's list was empty)
+// vegvesen /api/images/<id>, Calgary /loc<n>.jpg, Singapore /api/traffic-images/<y>/<m>/<uuid>.jpg; Iowa's list was empty
+// on 2026-10-17, so its rule takes both its known /snapshots/ folder and any image name until a live ImageURL is seen)
 const STILL = /\.(?:jpe?g|png|webp|gif)$/i;
 const PATHS = {
   'www.nhc.noaa.gov': ['/CurrentStorms.json'],
@@ -42,7 +45,7 @@ const PATHS = {
   'www.submarinecablemap.com': ['/api/v3/'],
   'www.drivebc.ca': ['/api/webcams/', '/images/'],
   'traveler.modot.org': ['/timconfig/feed/'],
-  'kamera.atlas.vegvesen.no': ['/api/images/'], 'atmsqf.iowadot.gov': [STILL], 'trafficcam.calgary.ca': [STILL], 'images.data.gov.sg': ['/api/traffic-images/'],
+  'kamera.atlas.vegvesen.no': ['/api/images/'], 'atmsqf.iowadot.gov': ['/snapshots/', STILL], 'trafficcam.calgary.ca': [STILL], 'images.data.gov.sg': ['/api/traffic-images/'],
   'www.ndbc.noaa.gov': ['/data/latest_obs/latest_obs.txt', '/activestations.xml', '/data/realtime2/'],
   'www.tsunami.gov': ['/events/xml/'],
 };
@@ -75,7 +78,8 @@ export default {
     const t = u.searchParams.get('t') || '';
     if (keys.length !== (t ? 2 : 1) || (t && !/^\d{1,12}$/.test(t)) || u.href !== canonical(target, u.origin, t))
       return reply(400, 'one form only: /?url=' + encodeURIComponent(target.href) + ' (encodeURIComponent of the normalised URL; &t=<digits> may follow)');
-    if (!allowed(target)) return reply(403, 'host not on the relay allowlist: ' + target.hostname);
+    // a carried host asked for a path it doesn't carry gets its own text: only a refused host reads as core/relay.js relayRefused
+    if (!allowed(target)) return reply(403, (Object.hasOwn(TTL, target.hostname) ? 'path not on the relay allowlist: ' : 'host not on the relay allowlist: ') + target.hostname);
 
     // the inner cache: one copy per target whatever t says (the cache in front keys by the raw URL, t included)
     const cache = req.method === 'GET' && typeof caches !== 'undefined' && caches.default, key = cache && new Request(canonical(target, u.origin));

@@ -9,7 +9,7 @@ import { readsb, openskyState, noteAircraftReport, readsbTime } from '../core/ai
 import { AIR_TTL, ROW_DEG, TILE_KM, gridRow, tileAt } from '../core/airgrid.js';
 import { onPublishedSite, publicRelayable } from '../core/relay.js';
 
-/** The website without a helper or custom relay: adsb.lol only, through the public relay (core/airgrid.js says which queries). */
+/** The website without a helper or custom relay: no aircraft feed is carried by its relay (adsb.lol refuses Cloudflare), so the layers stop as notCarried. */
 const website = () => !Relay.base() && onPublishedSite(location.hostname);
 /** The website, and its relay carries adsb.lol (it doesn't today: adsb.lol refuses Cloudflare; core/relay.js publicRelayable). */
 export const publicAir = () => website() && publicRelayable('https://api.adsb.lol/v2/mil');
