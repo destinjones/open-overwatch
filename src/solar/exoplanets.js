@@ -13,16 +13,17 @@ import { globeMaterial } from './planets.js';
 import { addBody, removeBody, byKey, layerOn, onLayers } from './world.js';
 
 const R_SUN = 695700 * KM_AU, R_EARTH = 6371 * KM_AU;
-// systems that get a label from the start (host, RA, Dec, light-years, fact); all others are found by search or flying
+// systems that get a label from the start (host, RA, Dec, light-years, fact, and the name to show when the archive's
+// host name is not the common one); all others are found by search or flying
 export const FAMOUS = [
   ['TRAPPIST-1', 346.6223, -5.0414, 40.5, 'Seven Earth-sized planets around a small red star, three of them in the habitable zone. A "year" on the closest one lasts 36 hours.'],
-  ['Proxima Cen', 217.4289, -62.6795, 4.24, 'The nearest star to the Sun, with a planet in its habitable zone: about 4.2 light-years away.'],
+  ['Proxima Cen', 217.4289, -62.6795, 4.24, 'The nearest star to the Sun, with a planet in its habitable zone: about 4.2 light-years away.', 'Proxima Centauri'],
   ['TOI-700', 97.0969, -65.5786, 101.5, 'An Earth-sized planet, TOI-700 d, in the habitable zone, found by NASA\'s TESS.'],
   ['Kepler-186', 298.6545, 43.9545, 579, 'Kepler-186 f was the first Earth-sized planet found in a habitable zone (2014).'],
   ['Kepler-452', 296.0119, 44.2778, 1799, 'Kepler-452 b: a "cousin" of Earth, around a Sun-like star, with a year of 385 days.'],
   ['51 Peg', 344.3668, 20.7688, 50.4, 'The first planet found around a Sun-like star (1995, Nobel Prize 2019): a hot Jupiter with a 4-day year.'],
   ['HD 209458', 330.7948, 18.8843, 157, 'The first planet seen passing in front of its star (2000), and the first with a detected atmosphere.'],
-  ['Kepler-90', 284.4334, 49.3071, 2790, 'Eight planets, as many as our own Solar System.'],
+  ['KOI-351', 284.4334, 49.3071, 2790, 'Eight planets, as many as our own Solar System.', 'Kepler-90'],   // the NASA archive lists Kepler-90 as KOI-351
   ['HR 8799', 346.8696, 21.1342, 133, 'Four giant planets photographed directly, orbiting far from their young star.'],
   ['K2-18', 172.5602, 7.5884, 124, 'A sub-Neptune in the habitable zone where JWST found methane and carbon dioxide.'],
   ['TOI-178', 7.2994, -30.4544, 205, 'Six planets locked in a chain of orbital resonances.'],
@@ -49,19 +50,19 @@ function starColour(T = 5772) {
 const hash = s => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0) / 4294967296; };
 
 export function createExoplanets({ scene, camera, renderer }) {
-  const X = { data: null, loading: null, systems: [], hostPos: null, built: null };
+  const X = { data: null, loading: null, failedAt: -Infinity, systems: [], hostPos: null, built: null };
   const uniforms = { uPR: { value: renderer.getPixelRatio() }, uFade: { value: 0 } };
   let markers = null;
 
   // ---- labelled famous systems (positions from RA/Dec until the catalogue is in)
-  for (const [host, ra, dec, ly, fact] of FAMOUS) {
-    addBody({ key: 'exo:' + host, name: host === 'Proxima Cen' ? 'Proxima Centauri' : host, kind: 'exoplanet system', color: '#6fe0ff', radius: R_SUN * 0.5,
+  for (const [host, ra, dec, ly, fact, name] of FAMOUS) {
+    addBody({ key: 'exo:' + host, name: name || host, aliases: name ? [host] : undefined, kind: 'exoplanet system', color: '#6fe0ff', radius: R_SUN * 0.5,
       pos: radecToEcl(ra, dec, new THREE.Vector3()).multiplyScalar(ly * LY_AU), fixed: true, exo: true, layer: 'exo', fact, host,
       info: () => systemInfo(host, ly) });
   }
   function systemInfo(host, lyFallback) {
     const s = X.systems.find(x => x.host === host);
-    if (!s) return [['Distance', lyFallback + ' light-years'], ['Planets', 'loading…']];
+    if (!s) return [['Distance', lyFallback + ' light-years'], ['Planets', X.data ? 'not in the catalogue' : 'loading…']];
     const hz = s.hz ? `${s.hz[0].toFixed(3)}–${s.hz[1].toFixed(3)} AU` : '—';
     return [['Distance', s.ly.toLocaleString('en-US', { maximumFractionDigits: 1 }) + ' light-years'], ['Star', s.teff ? Math.round(s.teff) + ' K, ' + (s.rs ? s.rs.toFixed(2) + ' × the Sun\'s radius' : '') : '—'],
       ['Planets', String(s.pl.length) + (s.pl.some(p => p[11]) ? ` (${s.pl.filter(p => p[11]).length} in the habitable zone)` : '')], ['Habitable zone', hz],
@@ -91,7 +92,7 @@ export function createExoplanets({ scene, camera, renderer }) {
           }` }));
       markers.frustumCulled = false; markers.visible = layerOn('exo'); scene.add(markers);
       onChange();
-    })().catch(e => { X.loading = null; throw e; }));
+    })().catch(e => { X.loading = null; X.failedAt = performance.now(); throw e; }));
   }
   let onChange = () => {};
 
@@ -141,7 +142,8 @@ export function createExoplanets({ scene, camera, renderer }) {
     return { s, group, objs, bodies, hostPos, outer: Math.max(...s.pl.map(p => p[1])) };
   }
   function unbuild(B) {
-    scene.remove(B.group); for (const o of B.objs) { o.parent?.remove(o); o.traverse(x => { x.geometry?.dispose(); x.material?.dispose(); }); }
+    // a planet's 1x1 colour texture sits in a uniform, which Material.dispose() leaves alone (the star's glow map is shared and has no uniforms)
+    scene.remove(B.group); for (const o of B.objs) { o.parent?.remove(o); o.traverse(x => { x.material?.uniforms?.map?.value?.dispose?.(); x.geometry?.dispose(); x.material?.dispose(); }); }
     B.group.traverse(x => { x.geometry?.dispose(); x.material?.dispose(); });
     for (const b of B.bodies) removeBody(b);
   }
@@ -164,7 +166,8 @@ export function createExoplanets({ scene, camera, renderer }) {
     update(jd) { if (X.built) for (const b of X.built.bodies) b.update(jd); },
     frame({ camSun, fade, jd }) {
       uniforms.uPR.value = renderer.getPixelRatio();
-      if (camSun > 0.2 * LY_AU && !X.loading) load().catch(e => console.warn('exoplanets', e));   // once out among the stars
+      // once out among the stars; after a failure (offline, say) try again a minute later, not every frame
+      if (camSun > 0.2 * LY_AU && !X.loading && !X.data && performance.now() - X.failedAt > 60e3) load().catch(e => console.warn('exoplanets', e));
       uniforms.uFade.value = layerOn('exo') ? fade(0.3, 3, camSun, 'ly') * (1 - fade(3e4, 1.5e5, camSun, 'ly')) : 0;
       if (markers) markers.visible = uniforms.uFade.value > 0.002;
       // build the system the camera is in (checked twice a second)

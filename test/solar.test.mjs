@@ -447,3 +447,41 @@ test('craft: a planet-centred track rides the planet the caller draws; never car
   }
   assert.equal(trackPosition(juno, t, {}, () => null) && true, true, 'no centre: back to the heliocentric samples');
 });
+
+// ---------------------------------------------------------------- the page's own modules (three.js comes from the CDN
+// import map, so these read the source text rather than import it)
+const src = p => readFileSync(new URL(p, root), 'utf8').replace(/\r\n/g, '\n');
+
+test('exoplanets: every labelled famous system is in the catalogue (Kepler-90 is the archive\'s KOI-351)', () => {
+  const text = src('src/solar/exoplanets.js'), FAMOUS = Function(`return ${text.match(/export const FAMOUS = (\[[\s\S]*?\n\]);/)[1]}`)();
+  const E = read('data/solar/exoplanets.json');
+  assert.ok(FAMOUS.length >= 10);
+  assert.deepEqual(FAMOUS.map(f => f[0]).filter(h => !E.list.some(s => s.host === h)), [], 'hosts with no system to fly to');
+  const k90 = FAMOUS.find(f => f[5] === 'Kepler-90');
+  assert.ok(k90, 'Kepler-90 is still labelled by its common name');
+  assert.equal(E.list.find(s => s.host === k90[0]).pl.length, 8);
+  assert.match(text, /'not in the catalogue'/, 'a host missing from a loaded catalogue says so, instead of "loading…" forever');
+});
+
+test('solar view: reduced motion turns camera flights and the globe hand-over roll into jumps', () => {
+  assert.match(src('src/solar/util.js'), /export const CALM = matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
+  const main = src('src/solar/main.js');
+  for (const fn of ['focusOn', 'flyDist']) {
+    const at = main.indexOf(`  ${fn}(`), body = main.slice(at, main.indexOf('this.fly = {', at));
+    assert.ok(at > 0, fn); assert.match(body, /CALM\.matches/, fn);
+  }
+  assert.match(src('src/solar/embed.js'), /dur: CALM\.matches \?/);
+});
+
+test('solar view: the hand-over roll stays Earth-centred and cannot end inside the hand-back distance', () => {
+  const embed = src('src/solar/embed.js'), roll = embed.slice(embed.indexOf('if (anim) {'), embed.indexOf('return true;'));
+  assert.match(roll, /camera\.position\.copy\(earth\)/, 'the camera moves with Earth during the roll');
+  assert.match(embed, /EXIT_M \* 1\.05/);
+  assert.match(embed, /active && armed &&/);
+});
+
+test('solar view: the per-frame UI does no forced layout', () => {
+  const ui = src('src/solar/ui.js'), start = ui.indexOf('  function frame({'), body = ui.slice(start, ui.indexOf('\n  }\n', start));
+  assert.ok(start > 0 && body.length > 200);
+  assert.doesNotMatch(body, /getBoundingClientRect/);
+});
