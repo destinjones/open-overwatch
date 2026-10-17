@@ -51,6 +51,17 @@ test('the 2D map, Solar System and Tonight links', () => {
     assert.ok(c && c.agency === 'ISRO', v.focus);
     const jd = v.jd ?? jdFromMs(Date.UTC(2026, 9, 17));
     assert.ok(trackPosition(c, jd, {}, moonCenterAt), `${v.focus}: a position at ${v.jd ?? 'today'}`);
+    // a "now" link (no &t=) breaks when the published track runs out (Chandrayaan-2 2026-11-08, Aditya-L1 2027-01-19):
+    // fail two weeks ahead, on the real date, so the data gets refreshed before the page's main button opens an empty card
+    if (v.jd == null) assert.ok(trackPosition(c, jdFromMs(Date.now()) + 14, {}, moonCenterAt),
+      `${v.focus}: its track ends ${new Date((c.end_jd - 2440587.5) * 864e5).toISOString().slice(0, 10)}; rerun python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"`);
+  }
+  // the Hindi page (/india/hi/, one folder deeper) carries the same missions and none of the old "not drawn" copy
+  if (existsSync(new URL('india/hi/index.html', root))) {
+    const hi = read('india/hi/index.html');
+    assert.doesNotMatch(hi, /not drawn|ख़ुद नहीं/, 'india/hi/: the missions are drawn now');
+    const hiFocus = new Set([...hi.matchAll(/href="\.\.\/\.\.\/solar\.html(#[^"]*)"/g)].map(m => decodeSolarView(m[1].replace(/&amp;/g, '&')).focus));
+    for (const f of new Set(views.map(v => v.focus))) assert.ok(hiFocus.has(f), `india/hi/: links ${f} (as ../../solar.html#…)`);
   }
   assert.match(read('src/solar/spacecraft.js'), /'L1', 'Sun-Earth L1', '[^']*Aditya-L1/, 'the L1 card names Aditya-L1');
   assert.doesNotMatch(body, /not drawn|ख़ुद नहीं/, 'the page no longer says the missions are missing');

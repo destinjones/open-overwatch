@@ -36,6 +36,8 @@ LIMIT_JD = None              # set in main(): 2035-01-01 00:00 TDB
 CHECK_DATE = '2026-10-02'
 MAX_POINTS = 7000
 
+# status: shown on the card at any clock time the craft is drawn, so it must hold then too ('Ended 2017' and
+# 'Silent since 2009' read 'In flight' in the missions list before that year)
 # events: (date 'YYYY-MM-DD[ HH:MM]' | 'auto', text, body for the closest-approach check or None)
 # 'auto' events take the closest approach to `body` in the window (date range) given as the 4th item;
 # 'end' events sit on the last sample of the track, 'start' events on the first.
@@ -215,7 +217,7 @@ CRAFT = [
                  ('2019-09-06 20:23', 'Vikram lost 2 km above the surface in its landing attempt', None),
                  ('end', 'End of the published trajectory', None)]),
     dict(name='Chandrayaan-3 propulsion module', id=-169, launch='2023-07-14 09:05', step=0.25, since='2023-08-01 06:00',
-         agency='ISRO', status='Back in Earth orbit since 2023', alias=['Chandrayaan-3', 'CH-3 PM', 'Chandrayaan 3'],
+         agency='ISRO', status='Lunar mission 2023; in Earth orbit since November 2023', alias=['Chandrayaan-3', 'CH-3 PM', 'Chandrayaan 3'],
          local=dict(center='301', key='moon', since='2023-08-05 18:00', until='2023-10-13 00:00', step=0.25),
          desc="Carried the Vikram lander and Pragyan rover to the Moon, then left lunar orbit for a high Earth orbit, where its SHAPE instrument studies Earth as a distant planet.",
          events=[('2023-08-01', 'Left Earth orbit for the Moon', None),
@@ -225,7 +227,7 @@ CRAFT = [
                  ('2023-10-13', 'Left low lunar orbit, looping past the Moon four times on its way out', None),
                  ('end', 'Back in Earth orbit: the published trajectory ends', None)]),
     dict(name='Vikram lander (Chandrayaan-3)', id=-158, launch='2023-07-14 09:05', step=0.25, since='2023-08-01 06:00',
-         until='2023-08-23 06:00', agency='ISRO', status='Landed 2023 near the lunar south pole',
+         until='2023-08-23 06:00', agency='ISRO', status='Landing mission 2023 (landed 23 Aug at Shiv Shakti Point)',
          alias=['Vikram', 'Chandrayaan-3 lander', 'Pragyan'],
          local=dict(center='301', key='moon', since='2023-08-05 18:00', until='2023-08-23 06:00', step=0.25),
          desc="India's first soft landing on the Moon, and the first anywhere near its south pole; the Pragyan rover drove off it to study the soil.",
@@ -518,6 +520,8 @@ def closest(rows, body_rows, lo, hi):
 def main():
     global LIMIT_JD
     LIMIT_JD = jd_of('2035-01-01')
+    if '--only' in sys.argv and sys.argv.index('--only') + 1 >= len(sys.argv):
+        sys.exit('--only needs a comma-separated list of craft names')
     only = set(sys.argv[sys.argv.index('--only') + 1].split(',')) if '--only' in sys.argv else None
     if only and only - {c['name'] for c in CRAFT}:
         sys.exit(f"--only: no craft called {', '.join(sorted(only - {c['name'] for c in CRAFT}))}")

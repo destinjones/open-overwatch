@@ -70,7 +70,7 @@ export function createSpacecraft({ scene }) {
               centerAt(s.local.center, jd, localLine.position);
             }
           }
-          if (p) c.vel = trackSpeed(s, jd) ?? c.vel;
+          if (p) c.vel = trackSpeed(s, jd, centerAt) ?? c.vel;   // on the orbit it rides around a planet or the Moon
           // the path flown so far (unfocused: the last year, or the whole way out for craft leaving the Sun) and the path
           // still planned (unfocused: the next half year); a mission that has ended keeps its dot but not its lines
           const i = sampleIndex(s, jd), before = jd < s.t0_jd, focused = c === marked;

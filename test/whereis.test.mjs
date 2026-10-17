@@ -74,7 +74,7 @@ test('whereis: the IAU names cover every constellation figure, and Pluto by its 
 });
 
 // ---------------------------------------------------------------- ISRO's missions (JPL Horizons, brand/tools/make_spacecraft.py)
-import { trackPosition, localPosition, inLocal, missionPhase, missionsNow, moonCenterAt, lagrangeL1L2 } from '../src/core/craft.js';
+import { trackPosition, localPosition, inLocal, missionPhase, missionsNow, trackSpeed, moonCenterAt, lagrangeL1L2 } from '../src/core/craft.js';
 import { AU_KM } from '../src/core/units.js';
 import { moonGeocentric } from '../src/core/planets.js';
 import { jdFromMs } from '../src/core/time.js';
@@ -126,5 +126,15 @@ test('whereis: Aditya-L1 rides near Sun-Earth L1; the ended missions have honest
   const vik = by['Vikram lander (Chandrayaan-3)'], landed = jdFromMs(Date.UTC(2023, 7, 23, 12, 32));
   assert.ok(vik.end_jd < landed && trackPosition(vik, landed, {}, moonCenterAt) === null, 'never drawn flying after it landed');
   assert.ok(vik.events.some(e => Math.abs(e[0] - landed) < 1e-3 && /Shiv Shakti/.test(e[1])));
+  // the Moon-centred stretch stops where the track does: no orbit drawn while the card says 'beyond the data'
+  for (const c of [vik, by['Chandrayaan-2']]) {
+    const after = c.end_jd + 0.1;
+    assert.equal(missionPhase(c, after), 'beyond the data'); assert.equal(inLocal(c, after), false, c.name);
+    assert.equal(trackPosition(c, after, {}, moonCenterAt), null, c.name);
+  }
+  // speed on the orbit the dot rides: Chandrayaan-2's ~1.6 km/s around the Moon shows (the 2-day samples smooth it out)
+  const ch2 = by['Chandrayaan-2'], vm = trackSpeed(ch2, jd, moonCenterAt), vs = trackSpeed(ch2, jd);
+  assert.ok(vm != null && Math.abs(vm - vs) > 0.3 && Math.abs(vm - vs) < 2, `${vm.toFixed(2)} vs ${vs.toFixed(2)} km/s`);
+  for (const c of craft.filter(x => x.agency === 'ISRO')) assert.doesNotMatch(c.status, /^(Back in|Landed)/, `${c.name}: a status that holds while it is drawn`);
   for (const c of craft.filter(x => x.agency === 'ISRO')) assert.ok(c.launch_jd < c.t0_jd && c.events[0][1] === 'Launch', c.name);
 });

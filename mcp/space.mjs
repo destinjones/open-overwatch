@@ -1,9 +1,9 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // where_in_space: "where is it now?" for anything in the Solar System the website's 3D view knows by name: the planets,
 // the Moon, the major moons, deep-space missions (Voyager, JWST, Parker, Juno, Europa Clipper, ISRO's Chandrayaan and
-// Aditya-L1…), every comet and the 26,000 named asteroids and dwarf planets. How far it is from the Sun and from us, how long its light (or its radio
-// signal) takes, how fast it moves, which way to look (RA/Dec, constellation, evening or morning sky, how bright), and,
-// for a place, how high it is there now. The site's own data copies (JPL Horizons tracks, SBDB elements) and core
+// Aditya-L1…), every comet and the 26,000 named asteroids and dwarf planets. How far it is from the Sun and from us,
+// how long its light (or its radio signal) takes, how fast it moves, which way to look (RA/Dec, constellation, evening
+// or morning sky, how bright), and, for a place, how high it is there now. The site's own data copies (JPL Horizons tracks, SBDB elements) and core
 // maths; an asteroid's elements come out of the packed files by byte range. Links open the Solar System view on it.
 import { catalogue, indexCatalogue, findBody, quickIndex, findQuick, recordRanges, elementsFromBytes, fileRecords, hgMagnitude, stateAt, lightWords, distanceWords, IAU_NAMES, seeingWords, CLASS_WORDS } from '../src/core/whereis.js';
 import { planetPosition, earthPosition, moonGeocentric, PHYSICAL } from '../src/core/planets.js';
