@@ -26,7 +26,7 @@ import { explainSat } from '../core/explain.js';
 import { moonGeocentric } from '../core/planets.js';
 
 const D = Math.PI / 180, FAR = 1.0e9;   // planets and stars are drawn 1 million km out: beyond every satellite
-const FALLBACK = { lat: 51.4769, lon: -0.0005, name: 'Greenwich (allow location to see your own sky)' };
+const FALLBACK = { lat: 51.4769, lon: -0.0005, name: 'Greenwich (example)' };   // #luInfo says why, in full (noLocation)
 // the brightest stars (J2000 RA, Dec in degrees)
 const STARS = [['Sirius', 101.287, -16.716], ['Canopus', 95.988, -52.696], ['Arcturus', 213.915, 19.182], ['Vega', 279.234, 38.784], ['Capella', 79.172, 45.998],
   ['Rigel', 78.634, -8.202], ['Procyon', 114.825, 5.225], ['Betelgeuse', 88.793, 7.407], ['Achernar', 24.429, -57.237], ['Hadar', 210.956, -60.373],
@@ -55,7 +55,7 @@ function placeConstellations() {
 }
 function dropConstellations() { for (const c of [CON.lines, CON.names]) if (c) scene.primitives.remove(c); CON.lines = CON.names = null; }
 
-const S = { find: '', targets: new Map(), startId: 0, starting: false, cancel: false, active: false, obs: null, saved: null, labels: null, points: null, ring: null, sensor: false, dir: null, up: null, heading: 180, pitch: 25, fov: 65, timer: 0, pass: null, onDown: null };
+const S = { find: '', targets: new Map(), startId: 0, starting: false, geoErr: 0, cancel: false, active: false, obs: null, saved: null, labels: null, points: null, ring: null, sensor: false, dir: null, up: null, heading: 180, pitch: 25, fov: 65, timer: 0, pass: null, onDown: null };
 
 export function observerAt(lat, lon, h = 2) {   // h: eye height above the ellipsoid (the terrain's + 2 m where it's on)
   const pos = C.Cartesian3.fromDegrees(lon, lat, h), m = C.Transforms.eastNorthUpToFixedFrame(pos);
@@ -178,7 +178,7 @@ function nextPass() {
 async function enter(target = null) {   // target: a deep-sky object from Tonight ({ name, ra, dec, text }) to point at
   if (S.active || S.starting) return;
   S.extra = target && Number.isFinite(target.ra) && Number.isFinite(target.dec) ? target : null;   // a second call while the first waits on permissions would double everything
-  const token = ++S.startId; S.starting = true; S.cancel = false;
+  const token = ++S.startId; S.starting = true; S.cancel = false; S.geoErr = 0;
   state.lookup = true; hooks.applyVisibility();   // from the first moment: clicks, double-clicks and ground layers stand aside while we wait on permissions
   hooks.closeWeather?.();                           // weather mode freezes the satellite dots and aircraft that look-up counts and labels
   // iOS asks for motion permission, and only from inside a tap: ask first, before anything awaits
@@ -192,7 +192,7 @@ async function enter(target = null) {   // target: a deep-sky object from Tonigh
   $('#lookup').classList.add('on'); document.body.classList.add('lookup'); $('#luWhere').textContent = 'Finding where you are…';
   const loc = await new Promise(res => {
     if (!navigator.geolocation) return res(null);
-    navigator.geolocation.getCurrentPosition(p => res(p.coords), () => res(null), { timeout: 9000, maximumAge: 600e3 });
+    navigator.geolocation.getCurrentPosition(p => res(p.coords), e => { S.geoErr = e && e.code; res(null); }, { timeout: 9000, maximumAge: 600e3 });
   });
   const at = loc ? [loc.latitude, loc.longitude] : [FALLBACK.lat, FALLBACK.lon];
   const [ground] = await Terrain.heights([{ lat: at[0], lon: at[1] }]);   // stand on the 3D terrain (0 while it's off)
@@ -200,20 +200,16 @@ async function enter(target = null) {   // target: a deep-sky object from Tonigh
   S.starting = false;
   if (S.cancel) { state.lookup = false; hooks.applyVisibility(); $('#lookup').classList.remove('on'); document.body.classList.remove('lookup'); return; }   // "Done" (or Esc) while it was starting
   S.obs = observerAt(at[0], at[1], ground + 2);
-  $('#luWhere').textContent = loc ? `Your sky · ${loc.latitude.toFixed(2)}, ${loc.longitude.toFixed(2)} (stays on this device)` : FALLBACK.name;
+  $('#luWhere').textContent = whereText(loc);
   S.active = true; state.lookup = true; hooks.applyVisibility(); S.sensor = false; S.dir = S.up = null;
   Earth.hidden = true; Earth.apply(); globe.baseColor = C.Color.fromCssColorString('#0b0f14');
   ctrl.enableInputs = false; camera.frustum.fov = S.fov * D;
   S.labels = scene.primitives.add(new C.LabelCollection()); S.points = scene.primitives.add(new C.PointPrimitiveCollection());
-  // compass ring on the horizon
-  S.ring = new C.LabelCollection(); scene.primitives.add(S.ring);
-  for (let az = 0; az < 360; az += 45) {
-    const p = C.Cartesian3.add(S.obs.pos, C.Cartesian3.multiplyByScalar(enuToFixed(Math.sin(az * D), Math.cos(az * D), 0.02), 3e4, new C.Cartesian3()), new C.Cartesian3());
-    S.ring.add({ position: p, text: compass(az), font: az % 90 ? '600 13px system-ui' : '800 17px system-ui', fillColor: C.Color.fromCssColorString(az === 0 ? '#ff6b6b' : '#e6edf3'), horizontalOrigin: C.HorizontalOrigin.CENTER });
-  }
+  S.ring = new C.LabelCollection(); scene.primitives.add(S.ring); placeRing();
   if (motionOk) { addEventListener('deviceorientationabsolute', onOrientation); addEventListener('deviceorientation', onOrientation); }
   $('#luHint').textContent = PHONE && motionOk ? 'Hold your phone up to the sky. (No movement? Drag to look around.) Tap anything to find out what it is.' : 'Drag to look around · pinch or scroll to zoom · tap a planet, star or satellite to find out what it is';
-  $('#luInfo').textContent = S.extra ? `${S.extra.name}: ${S.extra.text}. Follow the arrow.` : ''; S.find = S.extra ? S.extra.name : ''; $('#luGo').textContent = '';
+  $('#luInfo').textContent = extraText(); S.find = S.extra ? S.extra.name : ''; $('#luGo').textContent = '';
+  if (!loc) noLocation(S.geoErr);
   $('#luFind').onchange = e => { S.find = e.target.value; if (!S.find) { $('#luGo').textContent = ''; $('#luArrow').classList.remove('on'); } };
   // drag / zoom when there are no sensors (or as an override)
   const cv = scene.canvas; let last = null;
@@ -243,6 +239,43 @@ async function enter(target = null) {   // target: a deep-sky object from Tonigh
   $('#luCon').classList.toggle('on', CON.on);
   $('#luCon').onclick = () => { CON.on = !CON.on; $('#luCon').classList.toggle('on', CON.on); placeConstellations(); };
   refresh(); S.timer = setInterval(refresh, 1000); nextPass(); S.passTimer = setInterval(nextPass, 600e3); constellations();
+}
+
+const whereText = loc => loc ? `Your sky · ${loc.latitude.toFixed(2)}, ${loc.longitude.toFixed(2)} (stays on this device)` : FALLBACK.name;
+const extraText = () => S.extra ? `${S.extra.name}: ${S.extra.text}. Follow the arrow.` : '';
+function placeRing() {   // the compass ring on the horizon, around wherever you stand
+  S.ring.removeAll();
+  for (let az = 0; az < 360; az += 45) {
+    const p = C.Cartesian3.add(S.obs.pos, C.Cartesian3.multiplyByScalar(enuToFixed(Math.sin(az * D), Math.cos(az * D), 0.02), 3e4, new C.Cartesian3()), new C.Cartesian3());
+    S.ring.add({ position: p, text: compass(az), font: az % 90 ? '600 13px system-ui' : '800 17px system-ui', fillColor: C.Color.fromCssColorString(az === 0 ? '#ff6b6b' : '#e6edf3'), horizontalOrigin: C.HorizontalOrigin.CENTER });
+  }
+}
+
+// No location (refused, blocked or timed out): say so in full under the direction line, not only in the header, with a
+// way to try again that moves you in place (a fresh start would ask for motion again outside a tap, which iOS refuses).
+async function noLocation(code) {
+  const id = S.startId, info = $('#luInfo');
+  let blocked = code === 1;   // GeolocationPositionError.PERMISSION_DENIED
+  try { blocked = blocked || (await navigator.permissions?.query({ name: 'geolocation' }))?.state === 'denied'; } catch (e) { /* no Permissions API (older Safari) */ }
+  if (!S.active || id !== S.startId) return;
+  const msg = !navigator.geolocation ? 'This browser gives no location, so this is the sky over Greenwich, London, as an example.'
+    : blocked ? "Location is blocked for this site, so this is the sky over Greenwich, London, as an example. To see your own sky, allow location for this site in the browser's site settings (the icon by the address), then tap Allow location."
+    : "Your location wasn't available, so this is the sky over Greenwich, London, as an example.";
+  info.textContent = [extraText(), msg].filter(Boolean).join(' ');
+  if (!navigator.geolocation) return;
+  const b = document.createElement('button'); b.className = 'chipbtn'; b.id = 'luAllow'; b.type = 'button'; b.textContent = 'Allow location';
+  b.onclick = () => {
+    b.textContent = 'Finding you…'; b.disabled = true;
+    navigator.geolocation.getCurrentPosition(p => relocate(p.coords, id), e => { if (S.active && id === S.startId) noLocation(e && e.code); }, { timeout: 9000, maximumAge: 0 });
+  };
+  info.append(' ', b);
+}
+async function relocate(loc, id) {   // "Allow location" worked: stand there instead of Greenwich
+  const [ground] = await Terrain.heights([{ lat: loc.latitude, lon: loc.longitude }]);
+  if (!S.active || id !== S.startId) return;
+  S.obs = observerAt(loc.latitude, loc.longitude, ground + 2); placeRing(); placeConstellations();
+  $('#luWhere').textContent = whereText(loc); $('#luInfo').textContent = extraText();
+  refresh(); nextPass(); toast('Your sky, from where you are');
 }
 
 function leave() {
