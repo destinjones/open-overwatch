@@ -69,7 +69,7 @@ export function parseDart(text, { max = 400 } = {}) {
   for (const l of String(text).split(/\r?\n/)) {
     if (!l || l[0] === '#') continue;
     const c = l.trim().split(/\s+/); if (c.length < 8) continue;
-    const t = Date.UTC(+c[0], +c[1] - 1, +c[2], +c[3], +c[4], +c[5]), h = fin(c[7]), mode = +c[6];
+    const t = Date.UTC(+c[0], +c[1] - 1, +c[2], +c[3], +c[4], +c[5]), h = fin(c[7]), mode = fin(c[6]);
     if (!Number.isFinite(t) || h == null || h > 9000) continue;   // 9999.000 = missing
     rows.push({ t, heightM: h, mode });
     if (rows.length >= max) break;

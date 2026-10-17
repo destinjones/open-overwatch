@@ -86,6 +86,7 @@ export function parseWind(tok) {
   const k = m[4] === 'MPS' ? KT_PER_MPS : m[4] === 'KMH' ? KT_PER_KMH : 1;
   const sp = m[2] === '//' ? null : Math.round(+m[2] * k), g = m[3] ? Math.round(+m[3] * k) : null;
   const dir = /^\d{3}$/.test(m[1]) ? +m[1] : null;   // 360 stays 360 (north), as written
+  if (dir > 360) return null;   // "97802KT" is no wind: a garbled group, kept in unparsed
   return { dir: sp === 0 ? null : dir, vrb: m[1] === 'VRB', speedKt: sp, gustKt: g, calm: sp === 0, unit: m[4] };
 }
 
@@ -93,7 +94,7 @@ export function parseWind(tok) {
 function miles(s) {
   const parts = s.trim().split(/\s+/); let v = 0;
   for (const p of parts) { const f = /^(\d+)\/(\d+)$/.exec(p); if (f) { if (+f[2] === 0) return null; v += +f[1] / +f[2]; } else if (/^\d+$/.test(p)) v += +p; else return null; }
-  return v;
+  return Number.isFinite(v) ? v : null;   // 400 nines are Infinity, not a visibility
 }
 
 /** Visibility from one or two tokens at `i` -> { visSM, visM, plus, minus, used } or null. "9999" is 10 km or more; "CAVOK"
@@ -116,7 +117,7 @@ const temp = s => (s == null || s === '' || /\//.test(s) ? null : s[0] === 'M' ?
  *  would be more than a day in the future. */
 export function reportTime(ddhhmm, now = Date.now()) {
   const m = /^(\d{2})(\d{2})(\d{2})Z$/.exec(ddhhmm || '');
-  if (!m) return null;
+  if (!m || !dayHour(m[1], m[2], 23) || +m[3] > 59) return null;   // "911597Z" would roll over into another month
   const n = new Date(now);
   let t = Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), +m[1], +m[2], +m[3]);
   if (t - now > 86400e3) t = Date.UTC(n.getUTCFullYear(), n.getUTCMonth() - 1, +m[1], +m[2], +m[3]);
@@ -127,10 +128,13 @@ export function reportTime(ddhhmm, now = Date.now()) {
 /** A TAF validity "1315/1418" (day+hour / day+hour) -> [from, to] ms near `ref`. Hour 24 is midnight. */
 export function tafPeriod(s, ref) {
   const m = /^(\d{2})(\d{2})\/(\d{2})(\d{2})$/.exec(s || '');
-  if (!m) return null;
+  if (!m || !dayHour(m[1], m[2]) || !dayHour(m[3], m[4])) return null;
   const at = (d, h) => { const n = new Date(ref); let t = Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), +d, +h); if (t < ref - 15 * 86400e3) t = Date.UTC(n.getUTCFullYear(), n.getUTCMonth() + 1, +d, +h); return t; };
   return [at(m[1], m[2]), at(m[3], m[4])];
 }
+
+/** A day of the month (01-31) and an hour (00 to `maxH`; a TAF's 24 is midnight), as written. */
+const dayHour = (d, h, maxH = 24) => +d >= 1 && +d <= 31 && +h <= maxH;
 
 // ---- METAR ----
 
@@ -162,7 +166,7 @@ export function parseMetar(raw, { now = Date.now() } = {}) {
     if (t === 'NOSIG' || t === 'TEMPO' || t === 'BECMG') { out.trend = toks.slice(i).join(' '); break; }
     let g;
     if (!out.wind && (g = parseWind(t))) { out.wind = g; continue; }
-    if (out.wind && !out.windVar && (g = /^(\d{3})V(\d{3})$/.exec(t))) { out.windVar = [+g[1], +g[2]]; continue; }
+    if (out.wind && !out.windVar && (g = /^(\d{3})V(\d{3})$/.exec(t)) && +g[1] <= 360 && +g[2] <= 360) { out.windVar = [+g[1], +g[2]]; continue; }
     if (t === 'CAVOK') { out.cavok = true; out.clear = 'CAVOK'; out.visM = 10000; out.visSM = 10000 / M_PER_SM; out.visPlus = true; continue; }
     if (out.visSM == null && (g = readVis(toks, i))) { out.visSM = g.visSM; out.visM = g.visM; out.visPlus = g.plus; out.visMinus = g.minus; out.visUnit = g.unit; i += g.used - 1; continue; }
     if (out.visSM != null && /^\d{4}(N|NE|E|SE|S|SW|W|NW)$/.test(t)) continue;   // the lowest sector's visibility
@@ -313,7 +317,7 @@ function parseTafChanges(toks, i, taf, ref = Date.now()) {
   const fresh = (kind, extra = {}) => ({ kind, prob: null, from: null, to: null, wind: null, visSM: null, visM: null, visPlus: false, cavok: false, weather: [], clouds: [], clear: '', vvFt: null, nsw: false, temps: [], ...extra });
   for (; i < toks.length; i++) {
     const t = toks[i]; let g;
-    if ((g = /^FM(\d{2})(\d{2})(\d{2})$/.exec(t))) {
+    if ((g = /^FM(\d{2})(\d{2})(\d{2})$/.exec(t)) && dayHour(g[1], g[2], 23) && +g[3] <= 59) {
       push(); const n = new Date(ref); let at = Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), +g[1], +g[2], +g[3]); if (at < ref - 15 * 86400e3) at = Date.UTC(n.getUTCFullYear(), n.getUTCMonth() + 1, +g[1], +g[2], +g[3]);
       p = fresh('FM', { from: at }); continue;
     }

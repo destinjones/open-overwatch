@@ -8,6 +8,26 @@ file was built from.
 
 ## [Unreleased]
 
+### Added
+- Fuzz and property tests of every decoder that reads untrusted bytes (`test/fuzz.test.mjs`, about 5 s in
+  `node --test`; `OO_FUZZ=1` for 50 times the cases): GRIB2, CCSDS, JPEG 2000, vector tiles, GTFS-RT, METAR/TAF, MQTT
+  and the text feeds, each in a worker with a deadline, from a seeded PRNG and no new dependency.
+
+### Fixed
+- Hangs on corrupt or cut-off data: a GRIB2 message of length 0 or cut short, a CCSDS stream with 0 blocks per
+  interval, a JPEG 2000 stream cut inside a tile-part or packet header, and a vector tile or GTFS-RT feed whose
+  declared length runs past the end (it walked billions of missing bytes).
+- No decoder believes a size past its data: GRIB2 grids and value counts, CCSDS sample counts and JPEG 2000 images
+  are capped (2^24 points) and checked against the bytes before anything is allocated; a JPEG 2000 header asking for
+  65,535 layers no longer runs out of memory.
+- No NaN or Infinity where a number is promised: GRIB2 values that overflow float32 or come without a bitmap, CCSDS
+  zero runs past their interval, wider-than-declared samples, endless varints, NaN tile values and a tile extent of 0,
+  GTFS-RT speeds and headings (and vehicles past the poles), SOCRATES speeds and probabilities, DART modes, `.idx` and
+  ECMWF index offsets that are not offsets.
+- METAR and TAF: a wind direction past 360°, a variable range past 360°, impossible days, hours and minutes (which
+  rolled into another month) and a visibility of 400 nines are left unread instead of believed. A short SOCRATES row
+  no longer throws away the whole list.
+
 ## [0.9.2.15] - 2026-10-17
 
 Tonight for any place, and honest about what is live.

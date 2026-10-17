@@ -28,9 +28,12 @@ export function parseSocrates(text) {
   for (const k of need) if (col(k) < 0) throw new Error('SOCRATES CSV: missing column ' + k);
   const out = [];
   for (const line of lines.slice(1)) {
-    const f = csvFields(line), obj = n => { const [name, status] = splitName(f[col('OBJECT_NAME_' + n)]); return { id: String(+f[col('NORAD_CAT_ID_' + n)]), name, status, dse: +f[col('DSE_' + n)] || null }; };
+    const f = csvFields(line);
+    if (f[col('TCA')] == null) continue;   // a short row (cut off, or a quote that swallowed the commas) is skipped, not thrown on
+    const obj = n => { const [name, status] = splitName(f[col('OBJECT_NAME_' + n)]); return { id: String(+f[col('NORAD_CAT_ID_' + n)]), name, status, dse: +f[col('DSE_' + n)] || null }; };
     const tca = Date.parse(f[col('TCA')].trim().replace(' ', 'T') + (/[zZ]|[+-]\d\d:?\d\d$/.test(f[col('TCA')]) ? '' : 'Z'));
-    const r = { a: obj(1), b: obj(2), tca, rangeKm: +f[col('TCA_RANGE')], speedKmS: +f[col('TCA_RELATIVE_SPEED')], maxProb: col('MAX_PROB') >= 0 ? +f[col('MAX_PROB')] : null };
+    const num = k => { const v = col(k) >= 0 ? +f[col(k)] : NaN; return Number.isFinite(v) ? v : null; };   // a garbled number is no number, not NaN
+    const r = { a: obj(1), b: obj(2), tca, rangeKm: +f[col('TCA_RANGE')], speedKmS: num('TCA_RELATIVE_SPEED'), maxProb: num('MAX_PROB') };
     if (Number.isFinite(r.tca) && Number.isFinite(r.rangeKm) && r.a.id !== 'NaN' && r.b.id !== 'NaN') out.push(r);
   }
   return out;

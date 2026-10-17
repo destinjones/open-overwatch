@@ -562,7 +562,8 @@ simply, with complex packing and spatial differencing (as NCEP writes it), as JP
 fields it wants. Matched to eccodes. Used by core (`wxload.js`, the model worker).
 
 - `decodeGrib2`: every message in a buffer → its parameter, forecast hour, grid and a `Float32Array` of values.
-  `sampleGrid`: a value at a point, bilinear, wrapping in longitude.
+  `sampleGrid`: a value at a point, bilinear, wrapping in longitude. `MAX_POINTS`: the most grid points a field may
+  declare (2^24); a size or length past the data is an error, never a giant buffer.
 - `parseIdx`: an inventory → byte offsets. `idxRanges`: byte ranges for wanted fields, neighbours merged.
 
 ### `wxmodels.js`
@@ -608,7 +609,7 @@ CCSDS 121.0 lossless decompression (adaptive entropy coding, the Rice coder liba
 JPEG 2000 codestreams, just enough for GRIB2 data template 5.40 (one grey component), as NOAA's WAVEWATCH III files are
 packed. Checked against eccodes on real wave fields. Used by core (`grib2.js`).
 
-- `jpxDecode`: a codestream to `{ width, height, data }`. `decodeBlock`, `synth`: a code block and the inverse wavelet
+- `jpxDecode`: a codestream to `{ width, height, data }` (a `maxSamples` option refuses a bigger image than the caller can use). `decodeBlock`, `synth`: a code block and the inverse wavelet
   step.
 
 ### `fields.js`

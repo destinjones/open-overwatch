@@ -69,8 +69,9 @@ export function parseVehiclePositions(buf) {
       else if (ef === 4 && ew === 2) { const [va, vb] = m.bytes(); vp = vehiclePosition(new Pbf(buf, va, vb), vb); } else m.skip(ew);
     }
     const p = vp?.pos;
-    if (deleted || !p || !Number.isFinite(p.lat) || !Number.isFinite(p.lon) || (p.lat === 0 && p.lon === 0)) continue;
-    out.vehicles.push({ id: vp.veh?.id || id, lat: p.lat, lon: p.lon, t: vp.t ? vp.t * 1000 : null, spd: p.spd, hdg: p.hdg,
+    if (deleted || !p || !(Math.abs(p.lat) <= 90) || !(Math.abs(p.lon) <= 180) || (p.lat === 0 && p.lon === 0)) continue;   // also drops NaN
+    const fin = v => (Number.isFinite(v) ? v : null);   // a float32 field can hold NaN or Infinity
+    out.vehicles.push({ id: vp.veh?.id || id, lat: p.lat, lon: p.lon, t: vp.t ? vp.t * 1000 : null, spd: fin(p.spd), hdg: fin(p.hdg),
       tripId: vp.trip?.tripId || '', routeId: vp.trip?.routeId || '', dir: vp.trip?.dir ?? null, vehicleId: vp.veh?.id || '', label: vp.veh?.label || '',
       plate: vp.veh?.plate || '', status: vp.status, stop: vp.stop, occupancy: vp.occupancy });
   }

@@ -9,6 +9,21 @@ it, and `test/india.test.mjs` reads the real date: from two weeks before an ISRO
 2026-11-08, Aditya-L1 on 2027-01-19) it prints a `WARNING` diagnostic, without failing, that names the refresh
 (`python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"`).
 
+### Fuzz tests
+`test/fuzz.test.mjs` (in `node --test`, about 5 s) feeds tens of thousands of mutated inputs to the decoders that read
+untrusted bytes: GRIB2, CCSDS (AEC), JPEG 2000, vector tiles, GTFS-RT, METAR/TAF, MQTT and the text feeds' parsers
+(the targets, mutators and checks are in `test/helpers/fuzz.mjs`). Each must return a well-formed result (no NaN or
+Infinity where a number is promised) or throw an `Error`, within 250 ms a call and without asking for a buffer of over
+2^25 elements; round trips (AEC, tiles, GTFS-RT, METARs, MQTT frames) are checked as properties. Each target runs in a
+worker, so a hang fails with the case it hung on. Cases come from a fixed seed, so a failure is the same every run.
+
+```bash
+OO_FUZZ=1 node --test test/fuzz.test.mjs                     # 50 times the cases, from a new seed each run (a few minutes)
+OO_FUZZ=1 OO_FUZZ_SEED=31337 node --test test/fuzz.test.mjs  # replay the seed a failure names (OO_FUZZ=n: n times the cases)
+```
+
+A bug it finds gets fixed in the decoder and its input added as a regression at the bottom of `test/fuzz.test.mjs`.
+
 ## End-to-end browser tests (Playwright, in CI)
 `npm run e2e` (or `npx playwright test`) opens every page in headless Chromium against `serve.js` and drives it like a
 visitor. It starts its own helper on **port 8805** (`OO_E2E_PORT` to change; an already running one there is reused
