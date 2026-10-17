@@ -15,7 +15,9 @@ let regP = null, timer = 0, poll = 0, wired = false;
  *  a reminder due the moment the page loads waits for the worker instead of missing it. */
 function worker() {
   if (!regP && navigator.serviceWorker) {
-    regP = navigator.serviceWorker.register(new URL('./notify-sw.js', import.meta.url).href).then(async r => {
+    const reg = navigator.serviceWorker.register(new URL('./notify-sw.js', import.meta.url).href);
+    regP = Promise.race([reg, new Promise(ok => setTimeout(() => ok(null), 8000))]).then(async r => {   // a stalled fetch: on without it
+      if (!r) return null;
       const w = !r.active && (r.installing || r.waiting);
       if (w) await new Promise(ok => { const t = setTimeout(ok, 5000); w.addEventListener('statechange', () => { if (w.state === 'activated' || w.state === 'redundant') { clearTimeout(t); ok(); } }); });
       return r.active ? r : null;
@@ -46,7 +48,7 @@ function check() {
   clearTimeout(timer); timer = 0;
   const { due, pending, next } = reminderPlan(store.get('alerts', []), Date.now());
   store.set('alerts', pending);   // claimed before shown: another tab, or a late timer, finds nothing to repeat
-  for (const a of due) show(a.title, a.late ? `${a.body} (due ${hm(a.at)}: missed while the page slept)` : a.body, a.tag);
+  for (const a of due) show(a.title, a.late ? `${a.body} (due ${hm(a.at)}: missed while the page was asleep or closed)` : a.body, a.tag);
   if (next != null) timer = setTimeout(check, Math.min(next, MAX_WAIT));
   if (pending.length && !poll) poll = setInterval(check, LOOK); else if (!pending.length && poll) { clearInterval(poll); poll = 0; }
 }

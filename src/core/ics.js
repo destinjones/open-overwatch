@@ -29,19 +29,20 @@ export function makeIcs(events, { now = Date.now() } = {}) {
 }
 
 /**
- * Tab reminders [{ tag, at (ms), title, body }] at `now` → { due, pending, next }: what to show now, what is still to
- * come (soonest first) and the ms until the first of those (null for none). Each fires once: the caller stores
+ * Tab reminders [{ tag, at (ms), title, body, until? }] at `now` → { due, pending, next }: what to show now, what is
+ * still to come (soonest first) and the ms until the first of those (null for none). Each fires once: the caller stores
  * `pending` (so `due` is gone) before it shows `due`, and a second tab or a late timer then finds nothing to repeat.
- * One that came due while the tab slept (timers stall; a phone may reload the page) is still due up to `grace` ms
- * late, with `late` (ms) when it is over a minute late; older ones are dropped. A tag listed twice keeps the last.
+ * One that came due while the tab slept (timers stall; a phone may reload the page) is still due until `until` (ms,
+ * when the event is over: the pass sets) or else up to `grace` ms late, with `late` (ms) when it is over 3 minutes late
+ * (a background tab's throttled timer can run a minute or so behind); older ones are dropped. A tag listed twice keeps the last.
  */
-export function reminderPlan(list, now, { grace = 12 * 3600e3 } = {}) {
+export function reminderPlan(list, now, { grace = 2 * 3600e3 } = {}) {
   const byTag = new Map();
   for (const a of Array.isArray(list) ? list : []) if (a && a.tag != null && Number.isFinite(a.at)) { byTag.delete(String(a.tag)); byTag.set(String(a.tag), a); }
   const due = [], pending = [];
   for (const a of byTag.values()) {
     if (a.at > now) pending.push(a);
-    else if (now - a.at <= grace) due.push(now - a.at > 60e3 ? { ...a, late: now - a.at } : a);
+    else if (now <= (Number.isFinite(a.until) ? a.until : a.at + grace)) due.push(now - a.at > 3 * 60e3 ? { ...a, late: now - a.at } : a);
   }
   pending.sort((x, y) => x.at - y.at);
   return { due, pending, next: pending.length ? pending[0].at - now : null };

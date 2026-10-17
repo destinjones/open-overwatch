@@ -55,6 +55,9 @@ test('Hindi: go to a place, in the order Hindi says it, with the name in Latin l
   assert.deepEqual(parse('काठमांडू जाओ'), { act: 'go', place: 'kathmandu' });
   assert.deepEqual(parse('चाँद दिखाओ'), { act: 'go', place: 'the moon' });
   assert.deepEqual(parse('Tokyo ले चलो'), { act: 'go', place: 'tokyo' }, 'a Latin word in a Hindi sentence');
+  assert.deepEqual(parse('ज़िम्बाब्वे जाओ'), { act: 'go', place: 'zimbabwe' }, 'the place keeps its nukta: z, not j');
+  assert.deepEqual(parse('मुझे क़तर ले चलो'), { act: 'go', place: 'qatar' });
+  assert.deepEqual(parse('ग़ज़ा में मौसम कैसा है'), { act: 'weather', place: 'gaza' });
 });
 
 test('Hindi: layers on and off (satellites, quakes, storms, planes, ships)', () => {
@@ -97,7 +100,7 @@ test('Hindi does not change English', () => {
 
 test('romanize: Devanagari names in the letters English writes them with', () => {
   for (const [d, l] of [['टोक्यो', 'tokyo'], ['मुंबई', 'mumbai'], ['कोलकाता', 'kolkata'], ['दुबई', 'dubai'], ['कमल', 'kamal'], ['चंडीगढ़', 'chandigarh'],
-    ['भोपाल', 'bhopal'], ['ज़िम्बाब्वे', 'zimbabve'], ['काठमांडू', 'kathmandu'], ['नई दिल्ली', 'nai dilli']]) assert.equal(romanize(d), l, d);
+    ['भोपाल', 'bhopal'], ['ज़िम्बाब्वे', 'zimbabwe'], ['द्वारका', 'dwarka'], ['क़तर', 'qatar'], ['काठमांडू', 'kathmandu'], ['नई दिल्ली', 'nai dilli']]) assert.equal(romanize(d), l, d);
   assert.equal(romanize('Tokyo'), 'tokyo');
 });
 

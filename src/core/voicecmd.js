@@ -118,9 +118,10 @@ function airCommand(s) {
 // (earthquakes off). The actions are the English ones; places come out in Latin letters (romanize) for the search.
 const DEV = /[ऀ-ॿ]/;
 /** Hindi text folded for matching: no nukta (ज़ → ज), chandrabindu as anusvara (ँ → ं), no punctuation, wake word or politeness. */
+const HI_PUNCT = /[।॥?!.,;:"“”‘’'()]+/g;
 function foldHi(text) {
   return String(text || '').normalize('NFD').replace(/़/g, '').replace(/ँ/g, 'ं').normalize('NFC').toLowerCase()
-    .replace(/[।॥?!.,;:"“”‘’'()]+/g, ' ')
+    .replace(HI_PUNCT, ' ')
     .replace(/^\s*(?:हे |ओके |hey |ok )?(?:ओपन ओवरवॉच|ओवरवॉच|open overwatch|overwatch)(?= |$)/, '')
     .replace(/(?:^| )(?:कृपया|प्लीज|please|जरा|जी|अब)(?= |$)/g, ' ')
     .replace(/\s+/g, ' ').trim();
@@ -148,7 +149,15 @@ const HI_TERMS = {
   'एवरेस्ट': 'mount everest', 'माउंट एवरेस्ट': 'mount everest', 'ताजमहल': 'taj mahal', 'ताज महल': 'taj mahal',
 };
 const HI_ISS = 'आईएसएस|आई एस एस|इंटरनेशनल स्पेस स्टेशन|अंतरराष्ट्रीय अंतरिक्ष स्टेशन|अंतरिक्ष स्टेशन|स्पेस स्टेशन|iss';
-const placeOf = x => { x = x.trim(); return HI_TERMS[x] || (DEV.test(x) ? romanize(x) : x); };
+/** The words as said, nukta kept (ज़िम्बाब्वे, not जिम्बाब्वे): placeOf takes a name's letters from these, since the folding drops them. */
+const saidWords = text => String(text || '').normalize('NFD').replace(/ँ/g, 'ं').normalize('NFC').toLowerCase().replace(HI_PUNCT, ' ').split(/\s+/).filter(Boolean);
+/** A place matched in the folded text `x` → its search name, spelled from the same words in `said` (saidWords). */
+function placeOf(x, said = []) {
+  x = x.trim(); const xs = x.split(' '), f = said.map(w => w.normalize('NFD').replace(/़/g, '').normalize('NFC'));
+  let k = x;
+  for (let j = 0; j + xs.length <= f.length; j++) if (xs.every((w, i) => f[j + i] === w)) { k = said.slice(j, j + xs.length).join(' '); break; }
+  return HI_TERMS[x] || (DEV.test(k) ? romanize(k) : k);
+}
 
 // ---- Devanagari in Latin letters, the way names are written in English: consonants carry an "a" that Hindi drops at
 // the end of a word and between a vowel-ended syllable and a consonant-vowel one (जयपुर → jaypur, कोलकाता → kolkata).
@@ -161,8 +170,8 @@ function romanWord(w) {
   const u = [], ch = [...w.normalize('NFD')];
   for (let i = 0; i < ch.length; i++) {
     const c = ch[i], last = u[u.length - 1];
-    if (CONS[c]) { const nk = ch[i + 1] === '़'; if (nk) i++; u.push({ c: nk ? NUKTA[c] || CONS[c] : CONS[c], v: 'a', auto: true, coda: '' }); }
-    else if (c === '्') { if (last) { last.v = ''; last.auto = false; } }   // virama: no vowel
+    if (CONS[c]) { const nk = ch[i + 1] === '़'; if (nk) i++; u.push({ c: nk ? NUKTA[c] || CONS[c] : c === 'व' && last && last.hal ? 'w' : CONS[c], v: 'a', auto: true, coda: '' }); }   // व after a cluster: w (द्वारका → dwarka)
+    else if (c === '्') { if (last) { last.v = ''; last.auto = false; last.hal = true; } }   // virama: no vowel
     else if (SIGN[c]) { if (last) { last.v = SIGN[c]; last.auto = false; } }
     else if (VOWEL[c]) u.push({ c: '', v: VOWEL[c], auto: false, coda: '' });
     else if (c === 'ं' || c === 'ँ') { if (last) last.coda += 'N'; }   // anusvara: n, or m before p, b, m (मुंबई → mumbai)
@@ -184,23 +193,23 @@ export function romanize(text) {
 
 /** A Hindi sentence → the same actions parse() gives for English, or null when it is none of the Hindi commands. */
 function parseHindi(text) {
-  const h = foldHi(text); let m;
+  const h = foldHi(text), said = saidWords(text), place = x => placeOf(x, said); let m;
   if (!h) return null;
   if (/^(?:मदद|सहायता|हेल्प)(?: (?:करो|करें|कीजिए|चाहिए))?$|^(?:मैं )?क्या (?:बोल|कह) (?:सकता|सकती) हूं$/.test(h)) return { act: 'help' };
   if (/^(?:जूम इन|zoom in)(?: (?:करो|करें|कीजिए|कर दो))?$|^(?:और )?(?:पास|नजदीक|करीब) (?:लाओ|जाओ|ले चलो|करो|आओ|दिखाओ)$|^बडा करो$/.test(h)) return { act: 'zoom', dir: 'in' };
   if (/^(?:जूम आउट|zoom out)(?: (?:करो|करें|कीजिए|कर दो))?$|^(?:और )?दूर (?:ले जाओ|जाओ|करो|हटो|से दिखाओ)$|^पीछे (?:जाओ|हटो)$|^छोटा करो$/.test(h)) return { act: 'zoom', dir: 'out' };
   // the weather: a question ("पेरिस में मौसम कैसा है?") is the weather there; "मौसम दिखाओ" opens weather mode
   if ((m = h.match(/^(?:(.+?) (?:में|का|की|के) )?(?:आज(?: रात)? )?मौसम (?:कैसा|क्या|बताओ|बताइए|बताएं)(?: (?:है|हे|रहेगा|हाल है))?$/))) {
-    const place = m[1] && !HI_HERE.test(m[1]) ? placeOf(m[1]) : null; return place ? { act: 'weather', place } : { act: 'weather' };
+    const at = m[1] && !HI_HERE.test(m[1]) ? place(m[1]) : null; return at ? { act: 'weather', place: at } : { act: 'weather' };
   }
   if (new RegExp(`^(?:(?:मुझे|हमें) )?(?:मौसम|वेदर|बादल|बारिश|रडार)(?: (?:का नक्शा|मोड|मैप))?(?: को)?(?: (?:${HI_SHOW}))?$`).test(h)) return { act: 'view', go: 'weather' };
   if (/(?:^| )(?:आज रात|टुनाइट|tonight|मेरे ऊपर)(?: |$)/.test(h)) return { act: 'view', go: 'tonight' };
   if (/^(?:ऊपर|आसमान(?: में| की ओर| की तरफ)?|आकाश(?: में| की ओर| की तरफ)?) (?:देखो|देखें|देखिए|देखना)$|^(?:लुक अप|look up|स्काई मोड)(?: (?:करो|करें))?$/.test(h)) return { act: 'view', go: 'lookup' };
   for (const [name, re] of HI_LAYERS) if ((m = h.match(re))) return { act: 'layer', name, on: HI_ON.test(m[1]) };
-  if ((m = h.match(/^(.+?)(?: को| का)? (?:ट्रैक|फॉलो|फोलो|track|follow)(?: (?:करो|करें|कीजिए|कर दो))?$/) || h.match(/^(.+?) का पीछा (?:करो|करें|कीजिए)$/))) return { act: 'track', what: placeOf(m[1]) };
+  if ((m = h.match(/^(.+?)(?: को| का)? (?:ट्रैक|फॉलो|फोलो|track|follow)(?: (?:करो|करें|कीजिए|कर दो))?$/) || h.match(/^(.+?) का पीछा (?:करो|करें|कीजिए)$/))) return { act: 'track', what: place(m[1]) };
   if (new RegExp(`^(?:${HI_ISS})(?: को)? (?:${HI_SHOW})$`).test(h)) return { act: 'go', place: 'iss' };
   if ((m = h.match(/^(?:(?:मुझे|हमें) )?(.+?)(?: (?:पर|में|तक|की ओर|की तरफ|के पास))? (?:ले चलो|ले चलिए|ले चलें|ले जाओ|ले जाइए|ले जाएं|जाओ|जाइए|जाएं|चलो|चलिए|चलें|दिखाओ|दिखाइए|दिखाएं|दिखा दो|दिखाना|दिखा|ढूंढो|ढूंढें|खोजो|खोजें)$/)
-    || h.match(/^(.+?) (?:कहां|किधर) (?:है|हैं)$/))) return { act: 'go', place: placeOf(m[1]) };
+    || h.match(/^(.+?) (?:कहां|किधर) (?:है|हैं)$/))) return { act: 'go', place: place(m[1]) };
   return null;
 }
 
@@ -219,8 +228,7 @@ export function voiceLangs(langs) {
   const list = (Array.isArray(langs) ? langs : [langs]).map(l => String(l || '').trim().replace('_', '-')).filter(Boolean);
   for (const l of list) {
     const base = l.split('-')[0].toLowerCase();
-    if (base === 'en') return { listen: l, speak: l, words: 'en' };
-    if (base === 'hi') return { listen: 'hi-IN', speak: 'en-IN', words: 'hi' };
+    if (COMMAND_LANGS.includes(base)) return base === 'hi' ? { listen: 'hi-IN', speak: 'en-IN', words: 'hi' } : { listen: l, speak: l, words: base };
   }
   const r = ((list[0] || '').split('-')[1] || '').toUpperCase(), en = EN_REGIONS.has(r) ? `en-${r}` : 'en-US';
   return { listen: en, speak: en, words: 'en' };

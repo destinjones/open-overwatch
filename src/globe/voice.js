@@ -350,7 +350,7 @@ async function run(cmd, heard) {
     }
     case 'trails': Trails.setOn(cmd.on); return say(cmd.on ? 'Trails on: the plane you follow or open draws where it has been.' : 'Trails off.', heard);
     case 'help': return say(LANG.words === 'hi' ? `बोलकर देखिए: ${EXAMPLES_HI.slice(0, 5).join(' · ')}.` : `Try: ${EXAMPLES.slice(0, 5).join(' · ')}.`, heard);
-    default: return say(LANG.words === 'hi' ? `Didn't catch a command. Try "${EXAMPLES_HI[0]}" or "${EXAMPLES_HI[1]}".` : `Didn't catch a command. Try "take me to Tokyo" or "night vision".`, heard);
+    default: return say(LANG.words === 'hi' ? `समझ नहीं आया। बोलकर देखिए: "${EXAMPLES_HI[0]}" या "${EXAMPLES_HI[1]}"।` : `Didn't catch a command. Try "take me to Tokyo" or "night vision".`, heard);
   }
 }
 

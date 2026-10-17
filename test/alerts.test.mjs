@@ -19,11 +19,20 @@ test('reminders: due now, still to come (soonest first) and the wait to the next
 });
 
 test('reminders: one that came due while the tab slept fires when it wakes, marked late; a stale one is dropped', () => {
-  const p = reminderPlan([r('slept', T - 2 * HOUR), r('yesterday', T - 20 * HOUR), r('just', T - 30e3)], T);
-  assert.deepEqual(p.due.map(a => a.tag), ['slept', 'just'], 'two hours late still fires (it used to be dropped after a minute)');
-  assert.equal(p.due[0].late, 2 * HOUR); assert.equal(p.due[1].late, undefined, 'under a minute is on time');
+  const p = reminderPlan([r('slept', T - 90 * MIN), r('yesterday', T - 20 * HOUR), r('throttled', T - 70e3), r('just', T - 30e3)], T);
+  assert.deepEqual(p.due.map(a => a.tag), ['slept', 'throttled', 'just'], 'an hour and a half late still fires (it used to be dropped after a minute)');
+  assert.equal(p.due[0].late, 90 * MIN);
+  assert.equal(p.due[1].late, undefined, 'a background tab\'s throttled timer a minute behind is not "missed"');
+  assert.equal(p.due[2].late, undefined, 'under a minute is on time');
   assert.equal(p.pending.length, 0, 'yesterday\'s is gone, not kept forever');
+  assert.equal(reminderPlan([r('x', T - 3 * HOUR)], T).due.length, 0, 'two hours is the default grace');
   assert.equal(reminderPlan([r('x', T - 2 * HOUR)], T, { grace: HOUR }).due.length, 0, 'grace is the limit');
+});
+
+test('reminders: one with an end (`until`: the pass sets) is dropped once that is past, whatever the grace', () => {
+  const pass = { ...r('pass', T - 10 * MIN), until: T - 2 * MIN }, launch = { ...r('launch', T - 50 * MIN), until: T + 10 * MIN };
+  assert.deepEqual(reminderPlan([pass, launch], T).due.map(a => a.tag), ['launch'], 'the pass is over: no "in 10 minutes" for it');
+  assert.equal(reminderPlan([{ ...r('long', T - 5 * HOUR), until: T + MIN }], T).due.length, 1, 'until can also reach past the grace');
 });
 
 test('reminders: fire once, as alerts.js runs them (store what is pending, then show what is due), across two tabs', () => {
