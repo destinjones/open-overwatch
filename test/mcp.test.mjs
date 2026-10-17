@@ -962,7 +962,7 @@ const serve3 = (extra = []) => serve(pretendInternet(withFns([...extra, ...NEW_R
 
 test('mcp: weather details: pressure falling quickly, the storm ahead, fog, thunder energy, the sea and the models disagreeing', async () => {
   const { server, net } = serve3(), r = ok(await call(server, 'weather_details', { place: 'Helsinki' })), t = r.content[0].text, d = r.structuredContent;
-  assert.match(t, /Pressure 1008 hPa, falling quickly \(-4\.5 hPa in 3 h\)/);
+  assert.match(t, /Pressure 1008 hPa, falling quickly \(-4\.1 hPa in 3 h\)/);   // 21:15 against 18:15 (between the hourly 18:00 and 19:00), three hours exactly
   assert.match(t, /Wind force 6 \(strong breeze\), 40 km\/h from the SW, gusts 70 km\/h/);
   assert.match(t, /pressure 972 hPa \(Fri 21:00\) to 1008 hPa \(Thu 21:00\)/, 'the lowest pressure and when, from the hour now on');
   assert.match(t, /strongest gust 112 km\/h Fri 21:00/); assert.match(t, /energy for strong thunderstorms Fri 04:00/); assert.match(t, /fog likely Thu 23:00/);

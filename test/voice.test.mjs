@@ -3,7 +3,7 @@
 // the main commands in Hindi, and which language the recogniser listens in.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse, weatherSentence, skyWords, romanize, voiceLangs, EXAMPLES_HI } from '../src/core/voicecmd.js';
+import { parse, weatherSentence, skyWords, romanize, voiceLangs, EXAMPLES_HI, weatherSource, weatherReply } from '../src/core/voicecmd.js';
 
 test('the second one: picks from what the last answer listed', () => {
   for (const [t, n] of [['the second one', 2], ['number three', 3], ['open the first one', 1], ['two', 2], ['select the 4th', 4], ['pick 5', 5]]) assert.deepEqual(parse(t), { act: 'pick', n }, t);
@@ -113,4 +113,18 @@ test('the recogniser listens in a language parse() reads: English as the browser
   assert.deepEqual(voiceLangs(['de-DE', 'en-GB']), { listen: 'en-GB', speak: 'en-GB', words: 'en' }, 'the first language it reads');
   assert.deepEqual(voiceLangs(['mr-IN', 'hi-IN']), { listen: 'hi-IN', speak: 'en-IN', words: 'hi' });
   assert.deepEqual(voiceLangs([]), { listen: 'en-US', speak: 'en-US', words: 'en' });
+});
+
+test('spoken weather: the model only for a point on a forecast frame, Open-Meteo now otherwise, and the answer says which', () => {
+  const fc = { t: 0, fcst: true }, obs = { t: 0, fcst: false };
+  assert.equal(weatherSource({ frame: fc, loaded: true }), 'model');
+  assert.equal(weatherSource({ frame: fc, loaded: true, named: true }), 'now', 'a named place: its own weather now, not a 1° cell');
+  assert.equal(weatherSource({ frame: obs, loaded: true }), 'now', 'an observed frame is about now: the model\'s guess at it is not');
+  assert.equal(weatherSource({ frame: fc, loaded: false }), 'now', 'the model has not loaded this frame: never another moment\'s fields');
+  assert.equal(weatherSource({ frame: null }), 'now'); assert.equal(weatherSource(), 'now');
+  const r = { temp: 14.2, speed: 5, from: 225, cloud: 70, rain: 0.5 };
+  assert.equal(weatherReply('Paris', { ...r, source: 'Open-Meteo' }), 'Paris, now: 14 degrees Celsius, light rain, wind 18 kilometres an hour from the south-west.');
+  assert.equal(weatherReply('Paris', { ...r, fcst: true, source: 'NOAA GFS' }, false, 'Thursday 3 PM'),
+    'Paris, NOAA GFS forecast for Thursday 3 PM: 14 degrees Celsius, light rain, wind 18 kilometres an hour from the south-west.');
+  assert.equal(weatherReply('Lima', { fcst: true }, true), 'Lima, the model forecast: no reading for this point.');
 });

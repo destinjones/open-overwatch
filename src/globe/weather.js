@@ -24,6 +24,7 @@ import { Wind, legendFor } from './wind.js';
 import { Models, MAX_H } from './model.js';
 import { Time } from './time.js';
 import { timeline, relTime, windFrom, compass } from '../core/gfs.js';
+import { runEnd, gustNote, clockWords } from '../core/wxmodels.js';
 import { jdFromMs } from '../core/time.js';
 
 const GIBS = 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/';
@@ -55,8 +56,7 @@ class CompositeProvider {
 const SATS = [['GOES-East_ABI_Band13_Clean_Infrared'], ['GOES-West_ABI_Band13_Clean_Infrared'], ['Himawari_AHI_Band13_Clean_Infrared']];
 const FRAMES = PHONE ? 4 : 6, STEP = 30 * 60e3, PLAY_MS = 900, PLAY_FCST_MS = 700;
 const iso = ms => new Date(ms).toISOString().slice(0, 19) + 'Z';
-const hhmm = ms => new Date(ms).toISOString().slice(11, 16) + ' UTC';
-const dayTime = ms => new Date(ms).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+const H = 3600e3;
 const IMPERIAL = /^en-(us|lr)$|^my\b/i.test(navigator.language || '');
 const MODEL_SETS = ['wind', 'temp', 'pres', 'gust', 'wave'];   // the model's layers that run along the whole timeline
 
@@ -97,7 +97,7 @@ export const Weather = {
       if (!this.end) { await runFound; if (run) this.end = Math.floor(now / STEP) * STEP; }   // no pictures at all: the forecast still works
       if (!this.end) throw new Error('no weather data reachable');
       this.run = run;
-      this.frames = timeline({ obsEnd: this.end, obs: FRAMES, obsStep: STEP, run, until: now + MAX_H * 3600e3 });
+      this.frames = timeline({ obsEnd: this.end, obs: FRAMES, obsStep: STEP, run, until: this.until(run, now) });
       if (!found) runFound.then(r => this.adoptRun(r, ready)).catch(e => console.warn('weather forecast', e));
     })().catch(e => { if (this.ready === ready) this.ready = null; throw e; });
     return ready;
@@ -111,9 +111,13 @@ export const Weather = {
   /** The timeline again on this.run (a new run, another model), staying on the moment shown. */
   retime() {
     const f = this.frames[this.frame];
-    this.frames = timeline({ obsEnd: this.end, obs: FRAMES, obsStep: STEP, run: this.run, until: Date.now() + MAX_H * 3600e3 });
+    this.frames = timeline({ obsEnd: this.end, obs: FRAMES, obsStep: STEP, run: this.run, until: this.until(this.run, Date.now()) });
     this.frame = f ? this.nearest(f.t) : FRAMES - 1; this.build(); this.show();
   },
+  /** Where the forecast part of the timeline stops: MAX_H from now, but never past the last hour run reaches (a later
+   *  frame would repeat that hour under a later label). The models are read a day past MAX_H (model.js), so this only
+   *  bites on an old fallback run. */
+  until(run, now) { return run ? Math.min(now + MAX_H * H, runEnd(this.model.def, run, this.model.maxH)) : now; },
   /** The model choice in a share link, beside the layer ids: 'ecmwf' (GFS is the default), 'compare'. */
   shareTokens() { return [...(this.modelId !== 'gfs' ? [this.modelId] : []), ...(this.compare ? ['compare'] : [])]; },
   fromTokens(list) { this.modelId = Object.keys(Models).find(id => id !== 'gfs' && list.includes(id)) || 'gfs'; this.compare = list.includes('compare'); },
@@ -177,7 +181,9 @@ export const Weather = {
     const S = this.sets, cloud = this.on && fc && S.ir.on, rain = this.on && fc && S.radar.on;
     const kinds = [...MODEL_SETS.filter(k => S[k].on), ...(cloud ? ['cloud'] : []), ...(rain ? ['rain'] : [])];
     if (this.on && kinds.length) {
-      Wind.moment(f.t, kinds).then(model => { if (!model && fc && (cloud || rain)) toast('The weather model is not reachable right now: no forecast pictures', 3500); this.label(); }).catch(() => this.label());
+      // a forecast frame the model can't give is left empty (wind.js never stands the snapshot of now in for it): say so,
+      // whichever layers are on
+      Wind.moment(f.t, kinds, fc).then(model => { if (!model && fc) toast('The weather model is not reachable for this moment: nothing is drawn for it', 3500); this.label(); }).catch(() => this.label());
       if (this.playing && next) { this.model.prefetch(next.t, kinds); if (this.compare) this.other.prefetch(next.t, kinds); }
     }
     const field = (on, set) => (on ? set(true) : set(false)).catch(() => { toast('Weather model data is not reachable right now'); });
@@ -210,13 +216,13 @@ export const Weather = {
   label() {
     const f = this.frames[this.frame]; if (!f) return;
     const rel = relTime(f.t, Date.now());
-    $('#wxTime').textContent = f.fcst ? `${dayTime(f.t)} · ${rel} · forecast` : `${hhmm(f.t)} · ${rel === 'now' ? 'just now' : rel.replace('−', '') + ' ago'} · observed`;
+    $('#wxTime').textContent = f.fcst ? `${clockWords(f.t)} · ${rel} · forecast` : `${clockWords(f.t)} · ${rel === 'now' ? 'just now' : rel.replace('−', '') + ' ago'} · observed`;   // one clock, with its zone, both sides of now
     $('#wxSlider').value = this.frame; $('#wxPlay').textContent = this.playing ? '❚❚' : '▶';
     const any = MODEL_SETS.some(k => this.sets[k].on) || f.fcst;
     const model = any && Wind.note() ? (this.compare ? ` Left: ${Wind.note()}. Right: ${Wind.note('cmp')}.` : ` Model: ${Wind.note()}.`) : '';
     const obs = f.fcst ? (this.run ? 'Forecast: clouds and rain from the model, every 3 hours.' : 'No forecast reachable.')
       : (this.ir.length ? `Infrared: ${this.ir.length} of 3 satellites reached.` : 'No infrared images reachable.') + (this.sets.radar.on && !this.radar.length ? ' Radar unreachable.' : '')
-        + (this.sets.rain.on && this.rainAt ? ` Rain from space: ${hhmm(this.rainAt)}.` : '');
+        + (this.sets.rain.on && this.rainAt ? ` Rain from space: ${clockWords(this.rainAt)}.` : '');
     $('#wxNote').textContent = obs + model;
   },
   set(frame) { this.frame = Math.max(0, Math.min(this.frames.length - 1, frame)); this.show(); },
@@ -272,13 +278,15 @@ export const Weather = {
     const kinds = [...MODEL_SETS.filter(k => S[k].on), ...(f && f.fcst && S.radar.on ? ['rain'] : [])];
     el.innerHTML = kinds.map(k => legendFor(k, IMPERIAL)).filter(Boolean).map(l => l.gradient
       ? `<div class="wx-leg"><span class="wx-leg-t">${l.title}</span><span class="wx-leg-bar" style="background:${l.gradient}"></span><span class="wx-leg-ticks">${l.ticks.map(([p, t]) => `<i style="left:${p.toFixed(1)}%">${t}</i>`).join('')}</span></div>`
-      : `<div class="wx-leg"><span class="wx-leg-t">${l.title}</span></div>`).join('');
+      : `<div class="wx-leg"><span class="wx-leg-t">${l.title}</span></div>`).join('')
+      + (S.gust.on ? `<div class="wx-leg-n">${gustNote(this.compare ? [this.model.def, this.other.def] : [this.model.def])}</div>` : '');   // GFS's gust is at the hour, ECMWF's the hour's strongest
   },
   /** Every loaded field at a point, in a line per model (two side by side). `at` null clears it. */
   readout(at) {
     const el = $('#wxRead'); if (!el) return;
     if (!at || !this.on) { el.textContent = ''; el.hidden = true; return; }
-    const { lat, lon } = at, rows = [];
+    const { lat, lon } = at, rows = [], f = this.frames[this.frame];
+    if (!f || Wind.t !== f.t) { el.textContent = ''; el.hidden = true; return; }   // nothing loaded for this frame: not another moment's fields
     const spd = v => IMPERIAL ? `${Math.round(v * 2.23694)} mph` : `${Math.round(v * 3.6)} km/h`;
     for (const side of this.compare ? ['main', 'cmp'] : ['main']) {
       const r = Wind.reading(lat, lon, side); if (!r) continue;
@@ -327,7 +335,7 @@ export const Weather = {
     const n = this.frames.length, obs = this.frames.filter(f => !f.fcst).length;
     $('#wxSlider').max = Math.max(0, n - 1);
     const split = n > 1 ? (obs - 0.5) / (n - 1) * 100 : 100, last = this.frames[n - 1];
-    $('#wxScale').innerHTML = `<span style="flex:0 0 ${split.toFixed(1)}%">◀ past</span><span class="fc">${last && last.fcst ? `forecast to ${dayTime(last.t)} ▶` : 'no forecast reachable'}</span>`;
+    $('#wxScale').innerHTML = `<span style="flex:0 0 ${split.toFixed(1)}%">◀ past</span><span class="fc">${last && last.fcst ? `forecast to ${clockWords(last.t)} ▶` : 'no forecast reachable'}</span>`;
   },
 };
 const compassShort = deg => ({ north: 'N', 'north-east': 'NE', east: 'E', 'south-east': 'SE', south: 'S', 'south-west': 'SW', west: 'W', 'north-west': 'NW' })[compass(deg)];

@@ -66,7 +66,7 @@ export const MODELS = Object.freeze({
       gust: { stream: 'atmos', wants: [['GUST', 'surface']] },
       wave: { stream: 'wave', wants: [['HTSGW', 'surface'], ['DIRPW', 'surface']] },
     },
-    notes: { gust: 'gusts at the surface, at the hour', wave: 'significant wave height and the main swell direction' },
+    notes: { gust: 'at the hour', wave: 'significant wave height and the main swell direction' },
   },
   ecmwf: {
     id: 'ecmwf', name: 'ECMWF IFS', short: 'ECMWF', grid: '0.25°', every: 3, maxH: 144, index: 'json',
@@ -84,7 +84,7 @@ export const MODELS = Object.freeze({
       gust: { stream: 'oper', wants: [['10fg', 'sfc']] },
       wave: { stream: 'wave', wants: [['swh', 'sfc'], ['mwd', 'sfc']] },
     },
-    notes: { gust: 'the strongest gust in the hour before', wave: 'significant wave height and the mean wave direction' },
+    notes: { gust: 'strongest in the hour before', wave: 'significant wave height and the mean wave direction' },
   },
 });
 
@@ -100,6 +100,35 @@ export function bracketFor(model, c, t, maxH) {
   const step = model.every, top = Math.min(maxH, model.maxH);
   const h = Math.max(0, Math.min(top, (t - c.t) / H)), h0 = Math.min(top - step, Math.floor(h / step) * step);
   return { h0, h1: h0 + step, w: (h - h0) / step };
+}
+
+/** Hours past the last one shown that every model is asked to reach: a run is 3.5-9.5 h old when GFS is read and
+ *  7.5-19.5 h for ECMWF, and a timeline counted from now must not run past the run's last file (bracketFor would
+ *  quietly repeat that hour under later labels). makeModels({ maxH: reachH(MAX_H) }); GFS files go to 384 h, ECMWF's
+ *  00 and 12 UTC runs to 144. */
+export const RUN_SLACK_H = 24;
+export const reachH = shownH => shownH + RUN_SLACK_H;
+/** The last moment (ms) run c of a model really covers, read to hour maxH: past it, bracketFor holds the last hour. */
+export const runEnd = (model, c, maxH) => c.t + Math.min(maxH, model.maxH) * H;
+
+/** In compare mode the two gust fields are not the same quantity: "Gusts: GFS at the hour · ECMWF strongest in the
+ *  hour before" (each model's notes.gust; '' for none). */
+export const gustNote = defs => {
+  const list = defs.filter(d => d && d.notes && d.notes.gust);
+  return list.length ? 'Gusts: ' + list.map(d => `${d.short} ${d.notes.gust}`).join(' · ') : '';
+};
+
+/** A moment on a weather timeline, in the viewer's own clock with its zone ("Sat 9:20 AM GMT+1"): one clock for the
+ *  observed and the forecast frames alike (the run itself is named in UTC, as its files are). */
+export const clockWords = ms => new Date(ms).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+
+/** May a snapshot of now (the globe's Open-Meteo fallback grid, { t ms fetched, at 'YYYY-MM-DDTHH:MM' UTC }) stand in
+ *  for moment t? Never on a forecast frame, and only within SNAP_SPAN of the snapshot's own time. */
+export const SNAP_SPAN = H;
+export function snapFits(grid, t, fcst = false) {
+  if (!grid || fcst) return false;
+  const at = Date.parse(String(grid.at || '') + 'Z'), when = Number.isFinite(at) ? at : grid.t;
+  return Number.isFinite(when) && Math.abs(t - when) <= SNAP_SPAN;
 }
 
 /** "the 12:00 UTC run of 11/10": a run in words for the panel. */

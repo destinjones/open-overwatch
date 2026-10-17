@@ -3,9 +3,9 @@
 // (src/core/voicecmd.js: gusts, pressure, waves).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MODELS, ecmwfCycles, ecmwfFile, gfsWaveFile, parseEcIndex, paramKey, bracketFor, partsOf, runWords } from '../src/core/wxmodels.js';
+import { MODELS, ecmwfCycles, ecmwfFile, gfsWaveFile, parseEcIndex, paramKey, bracketFor, partsOf, runWords, reachH, runEnd, gustNote, clockWords, snapFits, SNAP_SPAN } from '../src/core/wxmodels.js';
 import { idxRanges, parseIdx } from '../src/core/grib2.js';
-import { cycleAt } from '../src/core/gfs.js';
+import { cycleAt, gfsCycles, timeline } from '../src/core/gfs.js';
 import { weatherSentence, seaWords } from '../src/core/voicecmd.js';
 
 const H = 3600e3;
@@ -87,4 +87,54 @@ test('weather in words: gusts, pressure and its trend, the sea', () => {
     'wind 18 miles an hour from the east, gusting 43, pressure 29.92 inches and rising, a slight sea, waves 4 feet from the north');
   assert.equal(weatherSentence({ temp: 20, wave: NaN, pres: NaN }), '20 degrees Celsius');
   assert.equal(seaWords(0.7), 'slight'); assert.equal(seaWords(15), 'phenomenal'); assert.equal(seaWords(undefined), '');
+});
+
+test('the forecast horizon: every frame of a timeline counted from now shows its own forecast hour, never the last one again', () => {
+  const now = Date.UTC(2026, 9, 17, 9, 20);
+  for (const shown of [120, 72]) {   // desktop, phones
+    const runs = [[MODELS.gfs, gfsCycles(now, 1)[0]], [MODELS.gfs, gfsCycles(now, 2)[1]], [MODELS.ecmwf, ecmwfCycles(now, 1)[0]], [MODELS.ecmwf, ecmwfCycles(now, 2)[1]]];
+    for (const [def, run] of runs) {   // GFS 00Z (9.3 h old) and 18Z; ECMWF 00Z and the 12Z before it (21.3 h old)
+      const maxH = reachH(shown), top = Math.min(maxH, def.maxH);
+      const until = Math.min(now + shown * H, runEnd(def, run, maxH));   // as globe/weather.js until() has it
+      const frames = timeline({ obsEnd: now - 50 * 60e3, run, until }).filter(f => f.fcst);
+      assert.ok(frames.length > 20, `${def.id} ${run.hour}Z`);
+      for (const f of frames) {
+        const b = bracketFor(def, run, f.t, maxH);
+        assert.ok(!(b.w === 1 && b.h1 === top) || f.t === run.t + top * H, `${def.id} ${run.hour}Z +${f.h} h shows +${top} h`);
+        assert.deepEqual([b.h0, b.w], [f.h === top ? top - def.every : f.h, f.h === top ? 1 : 0], `${def.id} ${run.hour}Z +${f.h} h`);
+      }
+      assert.ok(frames[frames.length - 1].t >= now + (shown - def.every) * H, `${def.id} ${run.hour}Z reaches about ${shown} h from now`);
+    }
+  }
+  // the 4th GFS run tried (27.5 h old) is past a day's slack: the timeline stops at its last hour instead
+  const old = gfsCycles(now, 4)[3], end = runEnd(MODELS.gfs, old, reachH(120));
+  assert.equal(end, old.t + 144 * H);
+  const last = timeline({ obsEnd: now, run: old, until: Math.min(now + 120 * H, end) }).pop();
+  assert.equal(last.h, 144); assert.ok(last.t < now + 120 * H);
+  assert.equal(runEnd(MODELS.ecmwf, old, 200), old.t + 144 * H, 'ECMWF files stop at 144 h');
+});
+
+test("gust notes: what each model's gust is, side by side", () => {
+  assert.equal(gustNote([MODELS.gfs, MODELS.ecmwf]), 'Gusts: GFS at the hour · ECMWF strongest in the hour before');
+  assert.equal(gustNote([MODELS.ecmwf]), 'Gusts: ECMWF strongest in the hour before');
+  assert.equal(gustNote([]), ''); assert.equal(gustNote([null, { short: 'X', notes: {} }]), '');
+});
+
+test('one clock on the weather timeline, with its zone', () => {
+  const t = Date.UTC(2026, 9, 17, 9, 20), words = clockWords(t);
+  assert.match(words, /\d/);
+  assert.match(words, /(UTC|GMT|[A-Z]{2,5}|[+−-]\d)\s*$/, 'the zone is named: an observed frame and a forecast frame read on the same clock');
+  assert.equal(words, clockWords(t + 30e3 - 30e3));
+});
+
+test('the Open-Meteo snapshot stands in only for an observed moment near its own time', () => {
+  const at = Date.UTC(2026, 9, 17, 9, 15), grid = { t: at + 40 * 60e3, at: '2026-10-17T09:15' };
+  assert.equal(snapFits(grid, at - 50 * 60e3), true, 'the newest observed frame');
+  assert.equal(snapFits(grid, at + SNAP_SPAN), true);
+  assert.equal(snapFits(grid, at - 2.5 * H), false, 'the oldest observed frame: not now');
+  assert.equal(snapFits(grid, at, true), false, 'never a forecast frame');
+  assert.equal(snapFits(grid, at + 2 * 86400e3), false);
+  assert.equal(snapFits({ t: at, at: 'test fixture' }, at + 30 * 60e3), true, 'no readable time: when it was fetched');
+  assert.equal(snapFits({ t: at - 5 * H, at: '2026-10-17T04:15' }, at), false, 'an old mirror is not now');
+  assert.equal(snapFits(null, at), false); assert.equal(snapFits({}, at), false);
 });

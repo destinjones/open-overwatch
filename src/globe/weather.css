@@ -8,6 +8,7 @@
 .wx-leg-bar{height:7px;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
 .wx-leg-ticks{position:relative;height:11px;margin:0 6px;font:500 9px/1 var(--mono);color:var(--faint)}
 .wx-leg-ticks i{position:absolute;top:1px;transform:translateX(-50%);font-style:normal;white-space:nowrap}
+.wx-leg-n{font:500 9.5px/1.3 var(--mono);color:var(--faint)}
 .wx-read{display:grid;gap:2px;margin-top:8px;padding:6px 8px;border-radius:8px;background:rgba(127,208,255,.07);font:500 11px/1.35 var(--mono);color:var(--text,#dfe9f5)}
 .wx-read .wx-at{color:var(--faint);font-size:10px} .wx-read b{color:#ffc46b;font-weight:700}
 #wxSplit{position:fixed;top:0;bottom:0;width:0;z-index:4;display:none;pointer-events:none}

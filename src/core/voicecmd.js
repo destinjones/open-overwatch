@@ -338,3 +338,24 @@ export function weatherSentence(r, imperial = false) {
   }
   return out.join(', ');
 }
+
+/**
+ * Where a spoken weather answer comes from. The weather model (1°/0.25°, blended between 3-hourly steps) answers only
+ * for a point on a forecast frame of weather mode whose fields are loaded (`loaded`: the model's moment is that
+ * frame's); a named place, an observed frame, or weather mode closed is answered from Open-Meteo's conditions now, at
+ * the point itself. → 'model' | 'now'
+ * @param {{ named?: boolean, frame?: { fcst?: boolean } | null, loaded?: boolean }} q
+ */
+export function weatherSource({ named = false, frame = null, loaded = false } = {}) {
+  return !named && frame && frame.fcst && loaded ? 'model' : 'now';
+}
+/**
+ * The spoken answer, naming its source: "Paris, now: 14 degrees Celsius, …" (Open-Meteo), or "Paris, NOAA GFS forecast
+ * for Thursday 3 pm: …" (a reading with fcst and source, `when` its moment in words).
+ * @param {string} name
+ * @param {{ fcst?: boolean, source?: string }} r
+ */
+export function weatherReply(name, r, imperial = false, when = '') {
+  const words = weatherSentence(r, imperial) || 'no reading for this point';
+  return r.fcst ? `${name}, ${r.source || 'the model'} forecast${when ? ' for ' + when : ''}: ${words}.` : `${name}, now: ${words}.`;
+}

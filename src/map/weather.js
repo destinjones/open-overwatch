@@ -12,14 +12,15 @@ import { $, Store, PHONE, esc, throttle, debounce, late } from './util.js';
 import { map } from './mapview.js';
 import { Layers, feed, runFeed } from './engine.js';
 import { makeModels, momentOf, momentValue, momentWind, momentReading } from '../core/wxload.js';
-import { WASH_ALPHA, WIND_COLORS, paintWash, waveDarts, pressureChart, splitJumps, windBucket, legendFor } from '../core/wxpaint.js';
-import { runWords } from '../core/wxmodels.js';
-import { windFrom, compass } from '../core/gfs.js';
+import { WASH_ALPHA, WIND_COLORS, paintMercatorTile, waveDarts, pressureChart, splitJumps, windBucket, legendFor } from '../core/wxpaint.js';
+import { runWords, reachH, runEnd, gustNote, clockWords } from '../core/wxmodels.js';
+import { windFrom, compass, relTime } from '../core/gfs.js';
 
 const SMALL = PHONE.matches, H = 3600e3, RAD = Math.PI / 180;
 export const MAX_H = SMALL ? 72 : 120;
-/** The models, as the globe has them (same cache names, so a forecast hour the globe fetched costs nothing here). */
-export const Models = makeModels({ maxH: MAX_H, keep: SMALL ? 6 : 12, res: SMALL ? 1 : 0.5 });
+/** The models, as the globe has them (same cache names, so a forecast hour the globe fetched costs nothing here); read a
+ *  day past MAX_H, since the slider counts from now and the run from hours ago (core/wxmodels.js reachH). */
+export const Models = makeModels({ maxH: reachH(MAX_H), keep: SMALL ? 6 : 12, res: SMALL ? 1 : 0.5 });
 const IMPERIAL = /^en-(us|lr)$|^my\b/i.test(navigator.language || '');
 /** The 2D map's layer ids → the model field each draws (the order is the legend's). */
 export const KINDS = { wx_wind: 'wind', wx_temp: 'temp', wx_pres: 'pres', wx_gust: 'gust', wx_cloud: 'cloud', wx_rain: 'rain', wx_wave: 'wave' };
@@ -40,7 +41,7 @@ for (const [p, z] of [['wxWash', 330], ['wxWashR', 331], ['wxTop', 390], ['wxTop
 export const Wx = {
   modelId: (id => id in Models ? id : 'gfs')(Store.get('wx.model', 'gfs')),
   get model() { return Models[this.modelId]; },
-  t0: Math.floor(Date.now() / H) * H,   // the timeline starts at the current hour
+  t0: Math.floor(Date.now() / H) * H,   // the timeline starts at the current hour (advance() keeps it there)
   h: 0,                                  // hours ahead of t0 shown
   cur: null,                             // the moment shown: { a, b, w, h0, h1, run, model } (core/wxload.js)
   key: '', loading: null, playing: false, timer: 0, checked: 0, charts: new Map(),
@@ -50,16 +51,38 @@ export const Wx = {
   get other() { return Object.values(Models).find(m => m !== this.model); },
   data(side) { return side === 'cmp' ? this.cmp : this.cur; },
   t() { return this.t0 + this.h * H; },
+  /** "Now" is the current hour: as the clock passes an hour, t0 moves up and h down by as much, so the moment shown
+   *  stays put (a bar left open said "now" over a moment hours old). */
+  advance(now = Date.now()) {
+    const t0 = Math.floor(now / H) * H; if (t0 <= this.t0) return;
+    this.h = Math.max(0, this.h - Math.round((t0 - this.t0) / H)); this.t0 = t0;
+    if (Bar.slider) Bar.slider.value = String(this.h);
+  },
+  /** The last hour after t0 the slider reaches: MAX_H, or less where a run shown ends sooner (an older run: past its
+   *  last file the same hour would repeat under later labels). */
+  top() {
+    let end = this.t0 + MAX_H * H;
+    for (const m of this.compare ? [this.model, this.other] : [this.model]) if (m.run) end = Math.min(end, runEnd(m.def, m.run, m.maxH));
+    return Math.max(0, Math.floor((end - this.t0) / H));
+  },
+  /** Every 20 minutes, a newer run? Then the moment shown is fetched again from it. Outside load()'s answer for the
+   *  same moment, so an idle bar finds it too. */
+  checkRun() {
+    if (Date.now() - this.checked < 20 * 60e3) return;
+    this.checked = Date.now();
+    Promise.all((this.compare ? [this.model, this.other] : [this.model]).map(m => m.refresh().catch(() => false)))
+      .then(got => { if (got.some(Boolean)) { this.key = ''; this.reload(); } });
+  },
   /** The fields the switched-on layers need. */
   kinds() { return Object.entries(KINDS).filter(([id]) => Layers.on(id)).map(([, k]) => k); },
   any() { return Object.keys(KINDS).some(id => Layers.on(id)); },
   /** The moment with every field the layers on need (one load shared by all of them; a newer request wins). */
   load() {
+    this.advance(); this.checkRun();
     const kinds = this.kinds(), t = this.t(), model = this.model, other = this.compare ? this.other : null, key = `${model.id}|${other ? other.id : '-'}|${t}|${kinds.join(',')}`;
     if (this.key === key && this.loading) return this.loading;
     this.key = key;
     this.loading = (async () => {
-      if (Date.now() - this.checked > 20 * 60e3) { this.checked = Date.now(); if (await model.refresh().catch(() => false)) this.t0 = Math.floor(Date.now() / H) * H; }   // a newer run is out
       const still = () => this.key === key;
       const [c, d] = await Promise.all([momentOf(model, t, kinds, { still }), other ? momentOf(other, t, kinds, { still }) : null]);
       if (this.key !== key) return this.cur;   // a later moment was asked for meanwhile
@@ -73,7 +96,7 @@ export const Wx = {
   /** Every switched-on layer reloads (its feed shows loading / ok / the error). */
   reload() { for (const id of Object.keys(KINDS)) { const d = Layers.byId[id]; if (d && d.on && d.feed) runFeed(d.feed, true); } },
   reloadSoon: debounce(() => Wx.reload(), 160),
-  setHour(h) { this.h = Math.max(0, Math.min(MAX_H, h)); Bar.label(); this.reloadSoon(); },
+  setHour(h) { this.advance(); this.h = Math.max(0, Math.min(this.top(), h)); Bar.label(); this.reloadSoon(); },
   setModel(id) {
     if (!(id in Models) || id === this.modelId) return;
     this.modelId = id; Store.set('wx.model', id); this.cur = this.cmp = null; this.charts.clear(); this.key = '';
@@ -87,7 +110,8 @@ export const Wx = {
     Divider.sync(); credit(); this.repaint(); this.reload();
   },
   repaint() {
-    for (const side of SIDES) { for (const l of Object.values(washes[side])) if (l._map) l.redraw(); if (isobars[side]._map) isobars[side].redraw(); }
+    Painter.all(SIDES.flatMap(side => Object.values(washes[side]).filter(l => l._map)));   // in place, a few tiles a frame
+    for (const side of SIDES) if (isobars[side]._map) isobars[side].redraw();
     streaks.fresh();
     Bar.label(); Bar.legend(); Bar.read();
   },
@@ -115,8 +139,9 @@ export const Wx = {
     this.timer = setInterval(() => {
       if (document.hidden) return;
       if (this.loading && this.key && !this.cur) return;
-      const next = this.h + 3 > MAX_H ? 0 : Math.floor(this.h / 3) * 3 + 3;
-      this.setHour(next); Bar.slider.value = String(next);
+      if (Painter.busy()) return;   // the last step is still painting: wait for it rather than pile another on
+      const next = this.h + 3 > this.top() ? 0 : Math.floor(this.h / 3) * 3 + 3;
+      this.setHour(next); Bar.slider.value = String(this.h);
       this.model.prefetch(this.t0 + (next + 3) * H, this.kinds());   // the hour after, quietly
       if (this.compare) this.other.prefetch(this.t0 + (next + 3) * H, this.kinds());
     }, SMALL ? 1400 : 1000);
@@ -124,22 +149,69 @@ export const Wx = {
 };
 
 /* ============================================================ washes: one grid layer per field, painted per tile */
+// Playing the forecast used to redraw every tile of every wash in one task (Leaflet's redraw() builds them all at once:
+// ~0.4 s a step on a phone with three washes on, longer than the step). Now:
+//  - a tile is painted at the size it is sampled at (one value per 2 px, 4 px from zoom 7 and on phones) and scaled up
+//    without smoothing: the same picture, a quarter (or a sixteenth) of the pixel writes and memory;
+//  - each is kept per (field, model moment, tile), so scrubbing back and a second loop cost a draw, not a paint;
+//  - tiles are painted in place a few per frame (Painter): the old picture stays until its new one is ready, and play
+//    waits for a step to finish painting before it takes the next.
+const STEP_AT = z => SMALL || z >= 7 ? 4 : 2;
+const TILE_KEEP = SMALL ? 600 : 320;   // 16 KB a tile at step 4, 64 KB at step 2: ~10 MB on a phone, ~20 MB on a desktop
+const tileCache = new Map();           // `${kind}|${moment}|${z}/${x}/${y}` → a small canvas (oldest first)
+/** One wash tile of moment c as a small canvas, from the cache or painted now (core/wxpaint.js paintMercatorTile). */
+function washTile(kind, c, coords) {
+  const key = `${kind}|${c.model.id}|${c.run.t}|${c.h0}|${c.h1}|${c.w.toFixed(3)}|${coords.z}/${coords.x}/${coords.y}`;
+  let cv = tileCache.get(key);
+  if (cv) { tileCache.delete(key); tileCache.set(key, cv); return cv; }   // most recently used last
+  const step = STEP_AT(coords.z), n = 256 / step;
+  cv = document.createElement('canvas'); cv.width = cv.height = n;
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(n, n);
+  // cloud and rain are nearly all-or-nothing from one grid cell to the next: plain bilinear shows the cells as squares
+  // under their steep colour ramps, so those two average four samples half a cell apart (a tent blur over one cell)
+  paintMercatorTile(kind, img.data, coords, step, (la, lo) => momentValue(c, kind, la, lo), kind === 'cloud' || kind === 'rain' ? c.a[kind].grid.di / 2 : 0);
+  ctx.putImageData(img, 0, 0);
+  tileCache.set(key, cv); if (tileCache.size > TILE_KEEP) tileCache.delete(tileCache.keys().next().value);
+  return cv;
+}
+/** Tiles waiting to be painted, a frame's budget at a time. A new tile (pan, zoom) tells Leaflet when it is ready, so
+ *  the last zoom's tiles stay until then; a new moment repaints the tiles in place. */
+const Painter = {
+  queue: new Map(), raf: 0, budget: SMALL ? 6 : 10,   // tile canvas → { layer, coords (wrapped), done }
+  busy() { return this.queue.size > 0; },
+  add(layer, tile, coords, done) { this.queue.set(tile, { layer, coords, done }); this.kick(); },
+  /** Every tile these layers hold, again (Leaflet's own _tiles: { el, coords }; a tile still waiting keeps its done). */
+  all(layers) {
+    for (const l of layers) for (const t of Object.values(l._tiles || {})) {
+      const q = this.queue.get(t.el); this.queue.set(t.el, { layer: l, coords: l._wrapCoords ? l._wrapCoords(t.coords) : t.coords, done: q && q.done });
+    }
+    this.kick();
+  },
+  kick() { if (!this.raf && this.queue.size) this.raf = requestAnimationFrame(() => this.run()); },
+  run() {
+    this.raf = 0; const end = performance.now() + this.budget;
+    for (const [tile, q] of this.queue) {
+      this.queue.delete(tile);
+      if (q.layer._map) q.layer.paint(tile, q.coords);
+      if (q.done) q.done(null, tile);
+      if (performance.now() > end) break;
+    }
+    this.kick();
+  },
+};
 const WashLayer = L.GridLayer.extend({
   initialize(kind, side = 'main') { L.GridLayer.prototype.initialize.call(this, { pane: side === 'cmp' ? 'wxWashR' : 'wxWash', opacity: WASH_ALPHA[kind], tileSize: 256, updateWhenZooming: false, keepBuffer: 1, className: 'wx-' + kind }); this.kind = kind; this.side = side; },
-  createTile(coords) {
+  createTile(coords, done) {
     const tile = document.createElement('canvas'); tile.width = tile.height = 256;
-    const c = Wx.data(this.side), kind = this.kind; if (!c || !c.a[kind]) return tile;
-    const ctx = tile.getContext('2d'), img = ctx.createImageData(256, 256), z = coords.z, x0 = coords.x * 256, y0 = coords.y * 256;
-    const lat = new Float64Array(256); for (let y = 0; y < 256; y++) lat[y] = latAt(y0 + y + 0.5, z);   // Mercator: latitude by row, longitude by column
-    // cloud and rain are nearly all-or-nothing from one grid cell to the next: plain bilinear shows the cells as squares
-    // under their steep colour ramps, so those two average four samples half a cell apart (a tent blur over one cell)
-    const d = kind === 'cloud' || kind === 'rain' ? c.a[kind].grid.di / 2 : 0;
-    const at = d ? (la, lo) => (momentValue(c, kind, la + d, lo + d) + momentValue(c, kind, la + d, lo - d) + momentValue(c, kind, la - d, lo + d) + momentValue(c, kind, la - d, lo - d)) / 4
-      : (la, lo) => momentValue(c, kind, la, lo);
-    paintWash(kind, img.data, 256, 256, (x, y) => at(lat[Math.min(255, Math.round(y))], lonAt(x0 + x + 0.5, z)), z >= 7 ? 4 : 2);
-    ctx.putImageData(img, 0, 0);
+    Painter.add(this, tile, coords, done); return tile;
+  },
+  /** Paint one tile with the moment shown (again, in place, when the moment changes). */
+  paint(tile, coords) {
+    const ctx = tile.getContext('2d'), c = Wx.data(this.side), kind = this.kind;
+    ctx.clearRect(0, 0, 256, 256);
+    if (!c || !c.a[kind]) return;
+    ctx.imageSmoothingEnabled = false; ctx.drawImage(washTile(kind, c, coords), 0, 0, 256, 256);
     if (kind === 'wave') darts(ctx, c, coords);
-    return tile;
   },
 });
 /** Which way the waves run: white darts on open sea, denser as the map zooms in (on a grid fixed to the world). */
@@ -278,7 +350,9 @@ const Divider = {
 map.on('move zoom resize viewreset zoomend', () => { if (Divider.el && !Divider.el.hidden) Divider.place(); });
 
 /* ============================================================ the timeline bar */
-const when = t => new Date(t).toLocaleString([], { weekday: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+/** The moment's place on the bar, counted from the clock (not from when the bar opened): "now" for the current hour,
+ *  else "+20 min", "+3 h", "−2 h". */
+const relNow = () => Wx.t() === Math.floor(Date.now() / H) * H ? 'now' : relTime(Wx.t(), Date.now());
 const Bar = {
   el: null, slider: null,
   build() {
@@ -303,14 +377,15 @@ const Bar = {
   },
   sync() {
     this.build(); const on = Wx.any();
-    if (this.el.hidden === on) { this.el.hidden = !on; document.body.classList.toggle('wx-on', on); if (on && !Wx.h) Wx.t0 = Math.floor(Date.now() / H) * H; }   // opened: "now" is this hour
+    if (this.el.hidden === on) { this.el.hidden = !on; document.body.classList.toggle('wx-on', on); if (on) Wx.advance(); }   // opened: "now" is this hour
     if (!on) Wx.play(false);
     this.label(); this.legend(); this.read();
   },
   label() {
     if (!this.el) return;
     $('.wx-play', this.el).textContent = Wx.playing ? '❚❚' : '▶'; $('.wx-play', this.el).setAttribute('aria-label', Wx.playing ? 'Pause' : 'Play the forecast');
-    $('.wx-when', this.el).textContent = `${when(Wx.t())} · ${Wx.h ? '+' + Wx.h + ' h' : 'now'}`;
+    this.slider.max = String(Wx.top());
+    $('.wx-when', this.el).textContent = `${clockWords(Wx.t())} · ${relNow()}`;   // the viewer's clock, with its zone
     const c = Wx.cur, d = Wx.cmp, cmpB = $('.wx-cmp', this.el);
     cmpB.setAttribute('aria-pressed', String(Wx.compare)); cmpB.classList.toggle('on', Wx.compare);
     const run = (x, m) => x ? `${x.model.def.name}, ${runWords(x.run)}` : `${m.def.name}: looking for its newest run…`;
@@ -321,7 +396,8 @@ const Bar = {
     const kinds = Object.entries(KINDS).filter(([id]) => Layers.on(id)).map(([, k]) => k);
     $('.wx-legend', this.el).innerHTML = kinds.map(k => legendFor(k, IMPERIAL)).filter(Boolean).map(l => l.gradient
       ? `<div class="wx-lg"><span>${esc(l.title)}</span><i style="background:${l.gradient}"></i><small>${l.ticks.map(([p, v]) => `<em style="left:${p.toFixed(1)}%">${esc(String(v))}</em>`).join('')}</small></div>`
-      : `<div class="wx-lg"><span>${esc(l.title)}</span></div>`).join('');
+      : `<div class="wx-lg"><span>${esc(l.title)}</span></div>`).join('')
+      + (kinds.includes('gust') ? `<div class="wx-lg"><span>${esc(gustNote(Wx.compare ? [Wx.model.def, Wx.other.def] : [Wx.model.def]))}</span></div>` : '');   // GFS's gust is at the hour, ECMWF's the hour's strongest
   },
   at: null,
   /** Every field at the pointer (or the map's centre on touch screens). */
@@ -366,11 +442,11 @@ function showKind(kind, on) {
 function wxLayer(ly) {
   const kind = KINDS[ly.id], base = ly.desc;
   ly.enable = () => { Bar.sync(); credit(); showKind(kind, true); Divider.sync(); };
-  ly.disable = () => { showKind(kind, false); Bar.sync(); credit(); Divider.sync(); if (!Wx.any()) { Wx.cur = Wx.cmp = null; Wx.key = ''; } };
+  ly.disable = () => { showKind(kind, false); Bar.sync(); credit(); Divider.sync(); if (!Wx.any()) { Wx.cur = Wx.cmp = null; Wx.key = ''; tileCache.clear(); } };
   feed(ly, { interval: 900, errorInterval: 60, fetch: async () => {
     const c = await Wx.load();
     if (!c || !c.a[kind]) throw new Error(`${Wx.model.def.short} has no ${kind === 'pres' ? 'pressure' : kind} for this hour`);
-    ly.desc = `${c.model.def.short} · ${Wx.h ? '+' + Wx.h + ' h' : 'now'} · ${base}`;
+    ly.desc = `${c.model.def.short} · ${relNow()} · ${base}`;
     ly.feed.count = 0;
   } });
   return ly;
