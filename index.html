@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-28OTQu2NLBNKeqGLKpceRJkFkr9AviLzPa2qOzxZNmE='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-THwjsLsA5VP1APunjwL4TfyEjzOP6vOOtmDUdz7mC9Q='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#04060a">
 <title>Open Overwatch · the whole planet, live</title>
@@ -148,6 +148,7 @@ nav .links a:hover{color:var(--ink)}
   .brand img{width:28px;height:28px}
 }
 @media (max-width:400px){nav .wrap{gap:8px} nav .btn.small{padding:11px 12px;letter-spacing:.06em} .menu-btn{width:40px;height:40px}}
+@media (max-width:380px){.brand{font-size:15px;gap:7px;letter-spacing:.05em} .brand img{width:24px;height:24px}}   /* 360px phones: the bar fits */
 
 /* ---- proof: the real sweep */
 .proof{padding-bottom:clamp(60px,9vw,110px)}
@@ -372,9 +373,10 @@ footer a{color:var(--ink-dim)}
   color:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3;box-shadow:0 0 40px rgba(125,255,166,.25)}
 .phone .play[hidden]{display:none}
 .phone .play svg{width:28px;height:28px;margin-left:4px}
-/* phones: no grain overlay and no backdrop blurs (solid panels instead): both cost frames on low-end Android */
+/* phones: no grain overlay, no backdrop blurs (solid panels instead) and a steady live dot: they cost frames on low-end Android */
 @media (max-width:760px){
   body::after{display:none}
+  .dot{animation:none}
   nav.solid,.feed,.ways article{backdrop-filter:none}
   nav.solid{background:rgba(4,6,10,.96)}
   .feed,.ways article{background:rgba(6,9,14,.95)}
@@ -729,9 +731,10 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 // nav background once scrolled
 const nav = $('#nav');
 addEventListener('scroll', () => nav.classList.toggle('solid', scrollY > 40), { passive: true });
-// the phone menu (under 860px the links fold away behind #menuBtn): a link, Escape or a tap elsewhere closes it
+// the phone menu (under 860px the links fold away behind #menuBtn; opening it moves focus to the first link, as the button
+// comes after them in tab order): a link, Escape or a tap elsewhere closes it
 const menuBtn = $('#menuBtn');
-const setMenu = open => { nav.classList.toggle('open', open); menuBtn.setAttribute('aria-expanded', String(open)); };
+const setMenu = open => { nav.classList.toggle('open', open); menuBtn.setAttribute('aria-expanded', String(open)); if (open) $('#navLinks a').focus({ preventScroll: true }); };
 menuBtn.addEventListener('click', () => setMenu(!nav.classList.contains('open')));
 $('#navLinks').addEventListener('click', e => { if (e.target.closest('a')) setMenu(false); });
 addEventListener('keydown', e => { if (e.key === 'Escape' && nav.classList.contains('open')) { setMenu(false); menuBtn.focus(); } });

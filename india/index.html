@@ -243,9 +243,10 @@ footer a{color:var(--ink-dim)}
   color:var(--saffron);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3;box-shadow:0 0 40px rgba(255,159,63,.25)}
 .phone .play[hidden]{display:none}
 .phone .play svg{width:28px;height:28px;margin-left:4px}
-/* phones: no backdrop blurs (solid panels instead), they cost frames on low-end Android */
+/* phones: no backdrop blurs (solid panels instead) and a steady live dot, they cost frames on low-end Android */
 @media (max-width:760px){
   nav.solid,.feed{backdrop-filter:none}
+  .dot{animation:none}
   nav.solid{background:rgba(4,6,10,.96)}
   .feed{background:rgba(6,9,14,.95)}
 }

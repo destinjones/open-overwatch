@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-iCobiKuNWd+OvM4lfrxUuKPBHzvT+5NScAWP+ldvuek='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-IdidGhotwKXsnR5ZkRkLLiDSqbAU5RwGZAYs6AFbkRY='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#04060a">
 <meta name="robots" content="noindex">
@@ -42,14 +42,15 @@ li a:hover{border-color:var(--accent)}
   </ul>
 </main>
 <script>
-// A link that picked up trailing punctuation (pasted from a chat, an ad or the end of a sentence) or lost the slash of
-// india/ is tried once without it; the fix is idempotent, so a page that is still missing lands back here and stays.
+// A link that picked up trailing punctuation (pasted from a chat, an ad or the end of a sentence, curly quotes, an
+// ellipsis and zero-width spaces included) or lost the slash of india/ is tried once without it;
+// the fix is idempotent, so a page that is still missing lands back here and stays.
 (() => {
   const was = location.pathname;
   let path = was;
   try { path = decodeURIComponent(was); } catch (e) { /* a broken escape: keep it as it came */ }
   const typed = path;
-  path = path.replace(/[\s.,;:!?'"`)\]}>*]+$/, '');
+  path = path.replace(/[\s.,;:!?'"`)\]}>*\u2019\u201D\u2026\u200B]+$/, '');
   path = path.replace(/\/india\/?$/i, '/india/');
   if (path && path !== typed) { location.replace(path.split('/').map(encodeURIComponent).join('/') + location.search + location.hash); return; }
   const what = document.getElementById('what');

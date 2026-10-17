@@ -47,9 +47,10 @@ try {
 // ---- nav background once scrolled; reveal on scroll
 const nav = $('#nav');
 addEventListener('scroll', () => nav.classList.toggle('solid', scrollY > 40), { passive: true });
-// the phone menu (under 1020px the section links fold away behind #menuBtn): a link, Escape or a tap elsewhere closes it
+// the phone menu (under 1020px the section links fold away behind #menuBtn; opening it moves focus to the first link, as
+// the button comes after them in tab order): a link, Escape or a tap elsewhere closes it
 const menuBtn = $('#menuBtn');
-const setMenu = open => { nav.classList.toggle('open', open); menuBtn.setAttribute('aria-expanded', String(open)); };
+const setMenu = open => { nav.classList.toggle('open', open); menuBtn.setAttribute('aria-expanded', String(open)); if (open) $('#navLinks a').focus({ preventScroll: true }); };
 menuBtn.addEventListener('click', () => setMenu(!nav.classList.contains('open')));
 $('#navLinks').addEventListener('click', e => { if (e.target.closest('a')) setMenu(false); });
 addEventListener('keydown', e => { if (e.key === 'Escape' && nav.classList.contains('open')) { setMenu(false); menuBtn.focus(); } });

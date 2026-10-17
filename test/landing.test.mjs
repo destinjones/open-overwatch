@@ -118,6 +118,8 @@ test('404.html: trailing punctuation and /india are fixed once, other paths stay
   assert.equal(notFound('/open-overwatch/tonight.html),').to, '/open-overwatch/tonight.html');
   assert.equal(notFound('/open-overwatch/globe.html%22').to, '/open-overwatch/globe.html');
   assert.equal(notFound('/open-overwatch/globe.html%20', '?embed=1', '#c=1,2').to, '/open-overwatch/globe.html?embed=1#c=1,2');
+  assert.equal(notFound('/open-overwatch/globe.html%E2%80%9D').to, '/open-overwatch/globe.html', 'a curly quote from a phone keyboard');
+  assert.equal(notFound('/open-overwatch/tonight.html%E2%80%A6%E2%80%8B').to, '/open-overwatch/tonight.html', 'an ellipsis and a zero-width space');
   assert.equal(notFound('/open-overwatch/India').to, '/open-overwatch/india/');
   assert.equal(notFound('/open-overwatch/india!').to, '/open-overwatch/india/');
   for (const p of ['/open-overwatch/globe.html', '/open-overwatch/india/', '/open-overwatch/nothing-here.html', '/open-overwatch/', '/']) {
