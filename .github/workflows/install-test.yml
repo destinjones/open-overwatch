@@ -1,0 +1,140 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
+# The clean-machine install test: what a new user downloads, on fresh Linux, Windows and macOS runners.
+#  - site: the download zip (the release's open-overwatch.zip, or one built from this branch exactly as release.yml
+#    builds it), unzipped as a person would (Expand-Archive on Windows, unzip elsewhere), then `node serve.js` with no
+#    npm install. test/helpers/installsmoke.mjs starts it (no browser), fetches every page and every local file the pages
+#    load (scripts and the modules they import, stylesheets and fonts, images, the manifest's icons) plus a few data
+#    files, fails on anything but 200, and stops it.
+#  - mcp: `npm pack` of this repository (the tarball that would go to npm), installed into an empty folder from the
+#    tarball, then `open-overwatch-mcp --version` through the bin and an initialize + tools/list round trip over stdio.
+# Runs when a release is published (a release made by release.yml's GITHUB_TOKEN starts no workflows, so the Release
+# workflow finishing counts too), by hand from the Actions tab, and on pushes to ci-e2e (which builds the zip instead).
+name: Install test
+on:
+  release:
+    types: [published]
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "latest: the newest release's zip; build: build the zip from this branch as release.yml does"
+        type: choice
+        options: [latest, build]
+        default: latest
+  push:
+    branches: [ci-e2e]
+permissions:
+  contents: read
+concurrency:
+  group: install-test-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
+jobs:
+  zip:
+    name: The download zip
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: The release's open-overwatch.zip (gh is on the runner)
+        if: github.event_name == 'release' || github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.source != 'build')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name || github.event.workflow_run.head_branch || '' }}
+        run: |
+          mkdir -p dist
+          for i in 1 2 3 4 5 6; do   # the zip is attached right after the release is created
+            if [ -n "$TAG" ]; then gh release download "$TAG" --pattern open-overwatch.zip --dir dist --clobber && break
+            else gh release download --pattern open-overwatch.zip --dir dist --clobber && break; fi
+            echo "open-overwatch.zip is not attached yet; waiting"; sleep 20
+          done
+          test -s dist/open-overwatch.zip
+      - name: Build open-overwatch.zip with release.yml's own "Build the download zip" step (ci-e2e, or source build)
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.source == 'build')
+        run: |
+          node test/helpers/installsmoke.mjs zip-script > "$RUNNER_TEMP/build-zip.sh"
+          GITHUB_REF_NAME="$GITHUB_REF_NAME-${GITHUB_SHA::7}" bash "$RUNNER_TEMP/build-zip.sh"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: open-overwatch-zip
+          path: dist/open-overwatch.zip
+          retention-days: 3
+          if-no-files-found: error
+
+  site:
+    name: Unzip and run (${{ matrix.os }})
+    needs: zip
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4   (only for test/helpers/installsmoke.mjs)
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: open-overwatch-zip
+          path: ${{ runner.temp }}/zip
+      - name: Unzip as Windows' Extract all does
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Expand-Archive -Path "$env:RUNNER_TEMP/zip/open-overwatch.zip" -DestinationPath "$env:RUNNER_TEMP/clean"
+      - name: Unzip
+        if: runner.os != 'Windows'
+        run: unzip -q "$RUNNER_TEMP/zip/open-overwatch.zip" -d "$RUNNER_TEMP/clean"
+      - name: The folder is complete and needs no npm install
+        run: |
+          D="$RUNNER_TEMP/clean/open-overwatch"
+          cat "$D/VERSION.txt"
+          for f in serve.js serve.py open-overwatch.html globe.html solar.html tonight.html index.html README.txt LICENSE NOTICE "Start Open Overwatch.bat"; do
+            test -f "$D/$f" || { echo "::error::$f is not in the zip"; exit 1; }
+          done
+          test ! -e "$D/package.json" && test ! -e "$D/node_modules"
+      - name: node serve.js, then every page and every file they load answers 200, then stop it
+        run: node test/helpers/installsmoke.mjs site "$RUNNER_TEMP/clean/open-overwatch"
+
+  mcp:
+    name: npm pack, install, MCP round trip (${{ matrix.os }})
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: npm pack (the tarball that would go to npm), then install it into an empty folder
+        run: |
+          F=$(npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP" | tail -n 1)
+          mkdir "$RUNNER_TEMP/empty" && cd "$RUNNER_TEMP/empty"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund "../$F"
+          test ! -e node_modules/open-overwatch-mcp/test
+      - name: open-overwatch-mcp --version through the installed bin
+        run: |
+          want=$(node -p "require('./package.json').version")
+          cd "$RUNNER_TEMP/empty"
+          got=$(npx --no-install open-overwatch-mcp --version)
+          echo "installed $got, package.json $want"
+          test "$got" = "$want"
+      - name: initialize and tools/list over stdio against the installed server
+        run: node test/helpers/installsmoke.mjs mcp "$RUNNER_TEMP/empty/node_modules/open-overwatch-mcp/mcp/server.mjs"
