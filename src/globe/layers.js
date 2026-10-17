@@ -9,7 +9,8 @@ export const LAYERS = [
   { id: 'gnss', group: 'Space', name: 'Navigation (GPS · Galileo · GLONASS · BeiDou)', color: '#ffd45c', on: true, sat: ['gps-ops', 'galileo', 'glo-ops', 'beidou'], size: 4 },
   { id: 'geo', group: 'Space', name: 'Geostationary belt', color: '#b48cff', on: true, sat: ['geo'], size: 3.5 },
   { id: 'weather', group: 'Space', name: 'Weather satellites', color: '#62e0c8', on: true, sat: ['weather'], size: 4 },
-  { id: 'starlink', group: 'Space', name: 'Starlink', color: '#d9ccff', on: true, sat: ['starlink'], size: 1.6, alpha: 0.55 },
+  // Off by default on phones (~8,000 dots, the most of any layer; the dock says so): one tap shows them
+  { id: 'starlink', group: 'Space', name: PHONE ? 'Starlink (off by default on phones: ~8,000 dots; tap to show)' : 'Starlink', color: '#d9ccff', on: !PHONE, sat: ['starlink'], size: 1.6, alpha: 0.55 },
   // last, so the groups above keep their own objects: every other active satellite CelesTrak lists, then the debris
   // clouds of the 2007 Fengyun-1C test and the 2009 Iridium 33 / Cosmos 2251 collision. (The full catalogue, with every
   // rocket body and fragment, is Space-Track's and may not be redistributed.) Off by default on phones: ~5,000 more dots.

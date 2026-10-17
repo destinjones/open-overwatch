@@ -16,6 +16,8 @@ import { C, PHONE, store, loadImage } from './env.js';
 import { viewer, scene, globe } from './viewer.js';
 import { L } from './layers.js';
 import { state } from './state.js';
+import { Quality, LEVELS } from './quality.js';
+import { limbShown, shellPartitions } from '../core/quality.js';
 
 export const R_EQ = 6378137, R_PO = 6356752.3142;
 globe.baseColor = C.Color.fromCssColorString('#0b1622');
@@ -102,7 +104,7 @@ czm_material czm_getMaterial(czm_materialInput mi) {
   return m;
 }`;
 const CLOUD_GLSL = `
-uniform sampler2D fx; uniform float fade; uniform float octaves;
+uniform sampler2D fx; uniform float fade; uniform float octaves; uniform float bumps;
 float hash3(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); } // float-safe at Earth-scale coordinates
 float vnoise(vec3 x) {
   vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
@@ -127,12 +129,15 @@ czm_material czm_getMaterial(czm_materialInput mi) {
   n /= wsum;
   float d = mix(t.r, t.b, 0.35 + 0.35 * k);                    // the blurred density kills speckle (and jpeg ringing up close)
   d = clamp(d + n * 4.0 * d * (1.0 - d), 0.0, 1.0);            // erodes soft edges into ragged ones; thick cores stay whole
-  // relief: dense cores stand taller, so slopes facing the sun are brighter and the far side darker
-  vec2 tx = vec2(5.0 / 8192.0, 5.0 / 4096.0);
-  float gx = texture(fx, mi.st + vec2(tx.x, 0.0)).b - texture(fx, mi.st - vec2(tx.x, 0.0)).b;
-  float gy = texture(fx, mi.st + vec2(0.0, tx.y)).b - texture(fx, mi.st - vec2(0.0, tx.y)).b;
-  vec3 east = normalize(cross(vec3(0.0, 0.0, 1.0), nW)), north = cross(nW, east);
-  float relief = clamp(1.0 + 1.7 * (gx * dot(lW, east) + gy * dot(lW, north)), 0.6, 1.35);
+  // relief: dense cores stand taller, so slopes facing the sun are brighter and the far side darker (four taps: off on 'low')
+  float relief = 1.0;
+  if (bumps > 0.5) {
+    vec2 tx = vec2(5.0 / 8192.0, 5.0 / 4096.0);
+    float gx = texture(fx, mi.st + vec2(tx.x, 0.0)).b - texture(fx, mi.st - vec2(tx.x, 0.0)).b;
+    float gy = texture(fx, mi.st + vec2(0.0, tx.y)).b - texture(fx, mi.st - vec2(0.0, tx.y)).b;
+    vec3 east = normalize(cross(vec3(0.0, 0.0, 1.0), nW)), north = cross(nW, east);
+    relief = clamp(1.0 + 1.7 * (gx * dot(lW, east) + gy * dot(lW, north)), 0.6, 1.35);
+  }
   float day = smoothstep(-0.05, 0.10, ndl), lit = 0.42 + 0.56 * clamp(ndl * 1.6, 0.0, 1.0), puff = 1.0 + n * 0.9 * k;
   vec3 dayCol = vec3(1.0, 0.99, 0.97) * lit * relief * puff * (0.9 + 0.3 * (1.0 - k) * clamp(t.r - t.b, -0.15, 0.35));
   dayCol *= mix(vec3(1.0), vec3(1.0, 0.64, 0.40), exp(-pow((ndl - 0.015) / 0.05, 2.0)) * 0.85);   // the last minutes of sun
@@ -166,6 +171,9 @@ czm_material czm_getMaterial(czm_materialInput mi) {
   m.diffuse = col * smoothstep(-1500.0, 500.0, h) * fade; m.alpha = 0.0;
   return m;
 }`;
+// the shells' mesh follows the level the page starts on (128x256 below 'high' and on phones); rebuilding a shell when
+// the level changes later would be a stall of its own, and the fill rate, not the vertex count, is what the levels cut
+const MESH = shellPartitions(LEVELS[Quality.level].mesh);
 function earthShell(lift, source, blending, extra = {}) {
   const material = new C.Material({ fabric: { uniforms: { fx: C.Material.DefaultImageId, fade: 1.0, ocean: 0.0, cshadow: 1.0, ...extra }, source }, translucent: true });
   const appearance = new C.MaterialAppearance({ material, flat: true, translucent: true, closed: true, faceForward: false,
@@ -173,7 +181,7 @@ function earthShell(lift, source, blending, extra = {}) {
     renderState: { depthTest: { enabled: true }, depthMask: false, cull: { enabled: true, face: C.CullFace.BACK }, blending } });
   // Appearance.getRenderState() forces ALPHA_BLEND on anything translucent; keep the requested blending
   appearance.getRenderState = function () { const rs = C.clone(this.renderState, false); rs.depthMask = false; rs.blending = blending; return rs; };
-  const geometry = new C.EllipsoidGeometry({ radii: new C.Cartesian3(R_EQ + lift, R_EQ + lift, R_PO + lift), stackPartitions: PHONE ? 128 : 256, slicePartitions: PHONE ? 256 : 512,
+  const geometry = new C.EllipsoidGeometry({ radii: new C.Cartesian3(R_EQ + lift, R_EQ + lift, R_PO + lift), stackPartitions: MESH.stacks, slicePartitions: MESH.slices,
     vertexFormat: C.MaterialAppearance.MaterialSupport.TEXTURED.vertexFormat });
   const primitive = scene.primitives.add(new C.Primitive({ geometryInstances: new C.GeometryInstance({ geometry }), appearance, asynchronous: false, compressVertices: false, allowPicking: false }));   // taps go through to the satellites
   return { primitive, material };
@@ -183,7 +191,7 @@ const PREMULTIPLIED = { enabled: true, equationRgb: C.BlendEquation.ADD, equatio
   functionDestinationRgb: C.BlendFunction.ONE_MINUS_SOURCE_ALPHA, functionDestinationAlpha: C.BlendFunction.ONE_MINUS_SOURCE_ALPHA };
 export const fxShell = earthShell(1500, FX_GLSL, PREMULTIPLIED);   // 1.5 km up: thinner shells z-fight with the coarse far-zoom globe mesh
 export const limbShell = earthShell(1.15e5, LIMB_GLSL, PREMULTIPLIED);
-export const cloudShell = earthShell(9000, CLOUD_GLSL, C.BlendingState.ALPHA_BLEND, { octaves: 4.0 });
+export const cloudShell = earthShell(9000, CLOUD_GLSL, C.BlendingState.ALPHA_BLEND, { octaves: 4.0, bumps: 1.0 });
 export const Fx = { ok: false };   // the glint/shadow and cloud shells stay hidden until earth_fx is in
 loadImage(FX_TEX).then(img => { fxShell.material.uniforms.fx = img; cloudShell.material.uniforms.fx = img; Fx.ok = true; Earth.apply(); })
   .catch(e => console.warn('Clouds and sun glint unavailable:', e.message));
@@ -192,6 +200,10 @@ const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a
 export const Earth = {
   h: Infinity,
   update(h) { this.h = h; this.apply(); },
+  q: null,         // the graphics level's settings (quality.js, through main.js): cloud octaves and relief, the limb halo
+  setQuality(q) {
+    this.q = q; Object.assign(cloudShell.material.uniforms, { octaves: q.octaves, bumps: q.relief ? 1.0 : 0.0 }); this.apply();
+  },
   hidden: false,   // look-up mode: no map tiles or shells, a plain dark ground (set by lookup.js)
   covered: false,  // Photoreal 3D is the ground close up (photoreal.js): no imagery or shells under it
   apply() {
@@ -205,7 +217,7 @@ export const Earth = {
     // globe shader variant per combination (each new variant is a compile stall mid-flight): switch those off
     marbleLayer.show = marbleLayer.alpha > 0.001;
     if (baseLayer) { baseLayer.nightAlpha = 1 - real; baseLayer.show = marbleLayer.alpha < 0.999; }   // close in, the map stays visible on the night side
-    limbShell.primitive.show = true;   // (look-up mode hides it)
+    limbShell.primitive.show = limbShown(this.q, h);   // a full-disc pass for a thin rim: none on 'low', only from high up on 'balanced' (look-up mode hides it)
     marbleLayer.nightAlpha = 1 - real;
     nightLayer.show = L.night.on && real > 0.001; nightLayer.alpha = real;
     // the globe dims its night side to 0.3 only at full lighting (linear in height between the two lighting fade

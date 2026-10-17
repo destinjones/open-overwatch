@@ -88,7 +88,7 @@ function applyAll() {
 hooks.applyVisibility = applyVisibility;
 hooks.updateStats = updateStats;
 initDock({ bases: BASES, currentBase, onBase: setBase, quality: { levels: LEVELS, chosen: () => Quality.chosen, current: () => Quality.level, choose: id => Quality.choose(id) }, saver: { on: () => Saver.on, set: on => Saver.set(on) } });
-Quality.follow(q => { AirModels.max = q.air; SatModels.max = q.sat; cloudShell.material.uniforms.octaves = q.octaves; });
+Quality.follow(q => { AirModels.max = q.air; SatModels.max = q.sat; Earth.setQuality(q); });
 
 // before each frame: follow camera, model lighting; before rendering: sun direction, satellite dots, Earth fades
 scene.preUpdate.addEventListener((sc, time) => { Follow.track(time); Ops.ride(time); Lighting.update(); });   // the cockpit sits on the followed position of this frame, so it rides after track
