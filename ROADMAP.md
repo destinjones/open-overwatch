@@ -450,6 +450,12 @@ Round 2 (2026-10-10, local):
       Horizons fetch)
 - [ ] test/localpaths.test.mjs scans chosen folders; scanning every tracked .md/.html/.json would need its own allowlist
 - [ ] A public page (and an MCP tool) saying which feeds are stale or failing (deferred from the audit, product-6)
+- [x] Credits, licence lists, privacy notices and claims brought into line with the code and the upstream terms
+      (attribution and docs package: Esri, OSM links, OpenSky's paper, non-commercial list, NOTICE, home-page a11y)
+- [ ] Left from that package (files owned elsewhere that round): a file:// boot message on open-overwatch.html like
+      globe.html's; the OSM link in src/globe/osmbuildings.js's credit and the 2D map's Setup "Base maps" row; OpenSky's
+      paper in the 2D map's Setup sources panel; an a11ycheck rule for Devanagari text without `lang="hi"`
+      (test/attribution.test.mjs checks four pages only)
 
 ## Rules of thumb
 - One clear goal per session; read this file first, tick boxes as they land.

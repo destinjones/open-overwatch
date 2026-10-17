@@ -171,7 +171,7 @@ refreshes every 6 hours, so visitors never hit CelesTrak directly.
 
 ## Rendering notes (solar)
 
-- One three.js scene in AU with a **logarithmic depth buffer** (near 1e-9 AU, far 1e15 AU): 26 orders of magnitude.
+- One three.js scene in AU with a **logarithmic depth buffer** (near 1e-9 AU, far 1e15 AU): 24 orders of magnitude.
 - The camera rides along with its focus body; model-view matrices are composed in double precision on the CPU, so
   objects stay steady even 1e11 AU from the origin.
 - 1.57M asteroids: one `Points` draw per file; each vertex solves Kepler's equation in the shader from packed

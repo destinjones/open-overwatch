@@ -57,7 +57,7 @@ async function build(key) {
     const prim = inst.length ? scene.primitives.add(new C.Primitive({ geometryInstances: inst, appearance: new C.PerInstanceColorAppearance({ translucent: false, closed: true }), asynchronous: true, show: false })) : null;
     tiles.set(key, { prim, used: Date.now(), n: inst.length });
     fails = 0;
-    if (!credited) { credited = true; viewer.creditDisplay.addStaticCredit(new C.Credit('Buildings: OpenFreeMap © OpenMapTiles, data © OpenStreetMap contributors')); }
+    if (!credited) { credited = true; viewer.creditDisplay.addStaticCredit(new C.Credit('Buildings: <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a>, data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors')); }
     tick();
   } catch (e) {
     tiles.set(key, { failed: Date.now() }); fails++; console.warn('buildings (OpenFreeMap)', e.message);

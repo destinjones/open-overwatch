@@ -139,10 +139,12 @@ OK; the steps are in [mcp-worker/README.md](../mcp-worker/README.md).
 Nothing is stored and nothing is sent to this project: the server runs on your computer and asks the public sources
 directly. What each one sees is your IP address and what the question needs: place names go to Photon, coordinates to
 Open-Meteo (weather, marine and model forecasts, time zones), adsbdb (the registration or callsign you ask about), Fintraffic (ships), CityBikes (stations near a point), Entur (vehicles in a box around
-the place), NIFC (fires in a box around a US place) Photon again (the place nearest a fire), the map tiles around a place
-to OpenFreeMap and FlockHopper (military areas, plate readers), and the other tools fetch
-whole public feeds (USGS, EMSC, NOAA, NASA, transit operators, camera agencies and their pictures, TeleGeography, the website's
-data copies on GitHub Pages) without anything about you. The globe in
+the place), NIFC (fires in a box around a US place), NASA GIBS (the fire tiles around the place asked about), Photon
+again (the place nearest a fire), the map tiles around a place to OpenFreeMap and FlockHopper (military areas, plate
+readers), the two ends of a road, bike or foot route to the FOSSGIS OSRM servers (routing.openstreetmap.de), and the
+airport code to NOAA's Aviation Weather Center (METAR and TAF); the other tools fetch whole public feeds (USGS, EMSC,
+NOAA, NASA, transit operators, camera agencies and their pictures, TeleGeography, the website's data copies on GitHub
+Pages) without anything about you. The globe in
 the chat is the public website, loaded by your Claude app, under the same privacy notice as the website. Each source's
 own policy and licence applies; see [docs/DATA_SOURCES.md](../docs/DATA_SOURCES.md). The remote Worker
 asks the same sources from Cloudflare's network instead of your computer, keeps shared copies of their answers and of

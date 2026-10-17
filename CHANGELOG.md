@@ -29,8 +29,31 @@ file was built from.
 - The npm package ships 105 files instead of 154: only the 62 `src/core/` modules the server imports (not the
   website's other core modules) and no `mcp/worker.mjs` (the Cloudflare Worker entry); `mcpName`, `publishConfig`
   and more keywords in `package.json`.
+- Credits and licences follow the sources' own terms: "Powered by Esri" with each Esri service's own source line
+  (Vantor, not Maxar; the 2D map's label overlays are credited too); OpenStreetMap credits link to its copyright page
+  and OpenMapTiles to its site; OpenSky's paper (Schäfer et al., IPSN 2014) on every OpenSky card and credit; the home
+  page's licence table adds TeleGeography, the Falchi atlas, OpenNGC, ECMWF, EMSC, OpenFreeMap, Re:Earth, Google's 3D
+  Tiles, hls.js and d3-celestial, and RainViewer gets its personal-and-educational terms; docs/DATA_SOURCES.md and the
+  about page list every source a commercial fork must drop, not only the light-pollution grid; NOTICE adds the planet,
+  Phobos (CC BY-SA 3.0 IGO) and star-field textures and `data/countries.json`; `data/wind.json` carries its source
+  and licence.
+- The privacy notices (home page, guide, MCP README) say what each service is sent: your location comes only from
+  your device and only when you ask, with no lookup by IP address; Tonight's forecast gets it rounded to ~10 km; the
+  relay's buoy, DART and tsunami.gov hosts; ECMWF beside GFS; Google's geocoder while Photoreal is on; worldwide ships
+  only in the download, through the helper (aisstream.io does not permit browser connections); the MCP tools' routes
+  to FOSSGIS OSRM, fire tiles to NASA GIBS and airport codes to the Aviation Weather Center.
 
 ### Fixed
+- Claims that overstated: "18,000+ satellites (every active one plus three debris clouds)", not "every tracked
+  satellite"; the log depth buffer spans 24 orders of magnitude, not 26; the download is about 85 MB; the forecast
+  reaches 5 days ahead (3 on phones); the README's accuracy table is measured on 2 Oct 2026, within looser test
+  limits, and says Uranus is not checked.
+- Home page accessibility: the live feed no longer reads its seconds clock and countdown aloud; the demo clips play
+  through once, with a pause button over the screen, and the clip tabs are a full tab pattern (a label, a panel,
+  arrow keys, Home and End); Hindi words on the English pages are marked `lang="hi"` (home, guide, 404).
+- The download's README.txt and `Start Open Overwatch.bat` no longer say the map works opened as a file (its ES
+  modules cannot load from file://); the helper's host list points at `ALLOWED_HOSTS` in serve.js; ADS-B is paced at
+  one request every 2.5 s.
 - Hangs on corrupt or cut-off data: a GRIB2 message of length 0 or cut short, a CCSDS stream with 0 blocks per
   interval, a JPEG 2000 stream cut inside a tile-part or packet header, and a vector tile or GTFS-RT feed whose
   declared length runs past the end (it walked billions of missing bytes).

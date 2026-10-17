@@ -394,7 +394,7 @@ def mirror_socrates(path):
 
 def mirror_wind(path):
     """Best effort: a wind + temperature snapshot (Open-Meteo, CC BY 4.0, non-commercial) on the 10-degree grid src/globe/wind.js
-    uses, as data/wind.json: {t, at, u, v, temp} (m/s east, m/s north, deg C; latitudes -80..80 south to north, then longitudes
+    uses, as data/wind.json: {source, licence, t, at, u, v, temp} (m/s east, m/s north, deg C; latitudes -80..80 south to north, then longitudes
     -180..170). The browser reads this file first, so visitors never spend Open-Meteo's per-IP quota (612 locations per open)."""
     import math
     try:
@@ -415,7 +415,9 @@ def mirror_wind(path):
             time.sleep(2)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, 'w', encoding='utf-8') as f:
-            json.dump({'t': int(time.time() * 1000), 'at': when, 'u': u, 'v': v, 'temp': t}, f, separators=(',', ':'))
+            json.dump({'source': 'Open-Meteo.com (https://open-meteo.com), CC BY 4.0, free for non-commercial use',
+                       'licence': 'https://creativecommons.org/licenses/by/4.0/',
+                       't': int(time.time() * 1000), 'at': when, 'u': u, 'v': v, 'temp': t}, f, separators=(',', ':'))
         print(f'wind: {len(pts)} points at {when}')
     except Exception as e:
         print(f'wind: FAILED {e}')

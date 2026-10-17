@@ -135,11 +135,11 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <div class="eyebrow">Start here</div>
     <h2 id="views-h">The views</h2>
     <div class="cols">
-      <div><h3>3D globe</h3><p><a href="globe.html">globe.html</a>, built on CesiumJS. The Earth with real day and night, clouds and city lights, every satellite CelesTrak publishes at its real height, ships, storms and many more layers (live aircraft in the <a href="#download">download version</a>). Fly from orbit down to a street. It is the main view and most of this guide is about it.</p></div>
+      <div><h3>3D globe</h3><p><a href="globe.html">globe.html</a>, built on CesiumJS. The Earth with real day and night, clouds and city lights, 18,000+ satellites at their real height (every active one CelesTrak publishes, plus three debris clouds), ships, storms and many more layers (live aircraft in the <a href="#download">download version</a>). Fly from orbit down to a street. It is the main view and most of this guide is about it.</p></div>
       <div><h3>Solar System</h3><p><a href="solar.html">solar.html</a>, built on three.js. The planets and 20 major moons at their real positions, 1.57 million asteroids, comets, spacecraft, nearby stars, 6,339 exoplanets, the Milky Way and 43,480 galaxies. Zoom out far enough on the globe and it takes over by itself.</p></div>
       <div><h3>2D map</h3><p><a href="open-overwatch.html">open-overwatch.html</a>, built on Leaflet. The original situation map: satellites, earthquakes, disaster alerts, news, radar, cables, cameras and ships on a flat map, with a daily brief, a feed log and a setup tab for optional keys. Its aircraft layers need the download version.</p></div>
       <div><h3>Tonight</h3><p><a href="tonight.html">tonight.html</a>. The globe's "Tonight above you" card on its own page, without the 3D globe, so it opens fast on a phone: what you can see in your sky tonight and when, where you are or at any place you type or link to. It also comes as a small card for other web pages (see <a href="#share">Share and embed</a>).</p></div>
-      <div><h3>India</h3><p><a href="india/">india/</a>, in English and हिन्दी. A starting page for visitors in India: ISRO launches from Sriharikota, India's satellites, the next space station passes over six cities, the night sky from Hanle, cyclones, Himalayan quakes and air quality, each a link that opens the globe already set up over India.</p></div>
+      <div><h3>India</h3><p><a href="india/">india/</a>, in English and <span lang="hi">हिन्दी</span>. A starting page for visitors in India: ISRO launches from Sriharikota, India's satellites, the next space station passes over six cities, the night sky from Hanle, cyclones, Himalayan quakes and air quality, each a link that opens the globe already set up over India.</p></div>
     </div>
     <figure class="shot"><img src="brand/hero/hero-wide.webp" alt="The 3D globe: the Earth from orbit with satellites" loading="lazy" width="2560" height="1600"><figcaption>The 3D globe</figcaption></figure>
   </div>
@@ -229,7 +229,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td><span class="dot" style="background:#ff9f5c"></span><code>launches</code></td><td>The next 40 rocket launches as markers on their pads, with countdowns. Pads at one site share one label.</td><td>Launch Library 2 (The Space Devs), copied by the site build every 6 hours</td><td>on</td></tr>
         <tr><td><span class="dot" style="background:#ff5a4f"></span><code>reentry</code></td><td>Re-entry corridors: the ground track of every object predicted to come down in the next 30 days, around its likeliest time. See <a href="#reentry">Falling soon</a>.</td><td>Predicted here from CelesTrak element sets</td><td>off</td></tr>
         <tr class="grp"><td colspan="4">Air</td></tr>
-        <tr><td><span class="dot" style="background:#5fd3ff"></span><code>air</code></td><td>Civil aircraft, dead-reckoned between reports so they keep moving; the nearest ones become 3D models that bank and climb.</td><td>OpenSky Network snapshot every 15 minutes (download version: the website can't reach it, see <a href="#download">Download version</a>)</td><td>on</td></tr>
+        <tr><td><span class="dot" style="background:#5fd3ff"></span><code>air</code></td><td>Civil aircraft, dead-reckoned between reports so they keep moving; the nearest ones become 3D models that bank and climb.</td><td>OpenSky Network snapshot every 15 minutes (download version: the website can't reach it, see <a href="#download">Download version</a>; data: Schäfer et al., “Bringing Up OpenSky”, IPSN 2014)</td><td>on</td></tr>
         <tr><td><span class="dot" style="background:#ffb44d"></span><code>mil</code></td><td>Military aircraft.</td><td>adsb.lol every 60 seconds (download version)</td><td>on</td></tr>
         <tr><td><span class="dot" style="background:#ffe066"></span><code>airq</code></td><td>Air quality on a grid over the view: the US AQI colour, PM2.5, PM10, ozone, nitrogen dioxide. A forecast model's value for the current hour (about 11 km over Europe, 45 km elsewhere), not a sensor's; the card says so.</td><td>Copernicus CAMS via Open-Meteo (OpenAQ's stations need a key since its v3)</td><td>off</td></tr>
         <tr><td><span class="dot" style="background:#c9a07a"></span><code>smoke</code></td><td>Smoke and dust seen from space: the UV aerosol index of the current UTC day's orbits so far (places not yet passed over are empty), with a legend. Click the sea to read the value.</td><td>NASA Suomi NPP OMPS via NASA GIBS</td><td>off</td></tr>
@@ -538,8 +538,8 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td>Outlines</td><td>"outline France", "show the border of Japan", "how big is Brazil"</td></tr>
       </tbody>
     </table></div>
-    <h3>In Hindi (हिन्दी)</h3>
-    <p>When Hindi comes before English in your browser's languages, the mic listens in Hindi (hi-IN) for the main commands: going to a place, following a satellite, zooming, switching satellites, planes, ships, earthquakes or storms on and off, the weather, Tonight and Look up. Answers are spoken in English with an Indian English voice, except that "मदद" (help), and a sentence it didn't catch, get Hindi phrases to try, read in Hindi. Places come out in Latin letters for the search, so "टोक्यो" finds Tokyo.</p>
+    <h3>In Hindi (<span lang="hi">हिन्दी</span>)</h3>
+    <p>When Hindi comes before English in your browser's languages, the mic listens in Hindi (hi-IN) for the main commands: going to a place, following a satellite, zooming, switching satellites, planes, ships, earthquakes or storms on and off, the weather, Tonight and Look up. Answers are spoken in English with an Indian English voice, except that "<span lang="hi">मदद</span>" (help), and a sentence it didn't catch, get Hindi phrases to try, read in Hindi. Places come out in Latin letters for the search, so "<span lang="hi">टोक्यो</span>" finds Tokyo.</p>
     <ul class="say" lang="hi">
       <li>मुझे टोक्यो ले चलो</li><li>सैटेलाइट दिखाओ</li><li>भूकंप बंद करो</li><li>आईएसएस ट्रैक करो</li><li>आज रात क्या दिखेगा</li><li>पेरिस में मौसम कैसा है</li><li>ज़ूम इन</li>
     </ul>
@@ -634,7 +634,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td><code>air_local</code></td><td>All aircraft in view (ADS-B from adsb.lol, adsb.fi, or airplanes.live with their permission), swept across the visible area.</td><td>on</td></tr>
         <tr><td><code>air_mil</code></td><td>Military aircraft, worldwide.</td><td>on</td></tr>
         <tr><td><code>air_emg</code></td><td>Emergency squawks worldwide: 7700 emergency, 7600 radio failure, 7500 unlawful interference.</td><td>on</td></tr>
-        <tr><td><code>air_opensky</code></td><td>A global civil snapshot from OpenSky every 15 minutes.</td><td>off</td></tr>
+        <tr><td><code>air_opensky</code></td><td>A global civil snapshot from OpenSky every 15 minutes (Schäfer et al., “Bringing Up OpenSky”, IPSN 2014).</td><td>off</td></tr>
         <tr><td><code>airports</code></td><td>The world's large and medium airports (OurAirports), with codes as you zoom in and runways from zoom 11. Click one (or search "LHR", "Heathrow", "Denver") for its board, made from the aircraft on the map: arriving, departing, just landed or took off, on the ground; the weather at the field with a VFR/IFR category, the runway in use and the wind along and across every runway. The aircraft card says what a plane is (adsbdb: type, registration, owner), what it is doing ("On final for 13L") and the route its callsign flies, flagged when the plane is not on it; the weather at its height (wind and what it does to the plane, the temperature against the standard atmosphere, true airspeed and Mach); and its trail coloured by altitude, which you can pin or copy as GeoJSON.</td><td>off</td></tr>
         <tr class="grp"><td colspan="3">Space</td></tr>
         <tr><td><code>sats</code></td><td>Satellites from CelesTrak element sets, propagated live with SGP4; pick groups, and an automatic ground track and footprint for the selected one.</td><td>on</td></tr>
@@ -642,7 +642,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr class="grp"><td colspan="3">Sea &amp; sky</td></tr>
         <tr><td><code>lightpollution</code></td><td>How bright the night sky is, by Bortle class, clear where it is dark (Falchi et al. 2016 atlas, CC BY-NC 4.0, non-commercial; drawn in your browser).</td><td>off</td></tr>
         <tr><td><code>ships_fi</code></td><td>Ships around Finland (Fintraffic Digitraffic AIS); zoom in past level 5 for individual ships.</td><td>off</td></tr>
-        <tr><td><code>ships_ws</code></td><td>Global ships from aisstream.io (needs a free key).</td><td>off</td></tr>
+        <tr><td><code>ships_ws</code></td><td>Global ships from aisstream.io, in the <a href="#download">download version</a> only, with a free key: aisstream.io does not permit browser connections, so the helper on your computer opens the stream and passes the positions on.</td><td>off</td></tr>
         <tr><td><code>buoys</code></td><td>NOAA NDBC ocean buoys and coastal stations: waves, wind, water temperature (the helper or the website's relay).</td><td>off</td></tr>
         <tr><td><code>dart</code></td><td>NOAA DART tsunami buoys; tap one for its water column and event mode.</td><td>off</td></tr>
         <tr><td><code>tides</code></td><td>NOAA CO-OPS tide gauges (US): the level now and the next high and low.</td><td>off</td></tr>
@@ -684,7 +684,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
         <tr><td><code>osm_scan</code></td><td>Results of an area scan: military areas, airfields, nuclear sites and harbours from OpenStreetMap, run from a map probe.</td><td>on</td></tr>
       </tbody>
     </table></div>
-    <p>Keys are optional and stored only in your browser, sent only to the provider that issued them: Windy (webcams anywhere), aisstream.io (global ships) and NASA FIRMS (fires). Setup → <b>Test all feeds</b> lists every source with ok, blocked or error and its response time.</p>
+    <p>Keys are optional and stored only in your browser, sent only to the provider that issued them: Windy (webcams anywhere), aisstream.io (global ships, download version only, through the helper) and NASA FIRMS (fires). Setup → <b>Test all feeds</b> lists every source with ok, blocked or error and its response time.</p>
   </div>
 </section>
 
@@ -723,9 +723,9 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   <div class="wrap">
     <div class="eyebrow">On your machine</div>
     <h2 id="download-h">The download version</h2>
-    <p>The website works with nothing installed. The download adds what a website can't reach: <b>live aircraft and military flights</b>. The ADS-B networks and OpenSky send no permission for web pages to read them and refuse cloud servers, so a small helper on your own computer asks them for you.</p>
+    <p>The website works with nothing installed. The download adds what a website can't reach: <b>live aircraft and military flights</b>, and worldwide ships from aisstream.io with a free key. The ADS-B networks and OpenSky send no permission for web pages to read them and refuse cloud servers, so a small helper on your own computer asks them for you.</p>
     <ol>
-      <li>Get <code>open-overwatch.zip</code> from the <a href="https://github.com/destinjones/open-overwatch/releases/latest">latest release</a> (about 70 MB) and unzip it into one folder.</li>
+      <li>Get <code>open-overwatch.zip</code> from the <a href="https://github.com/destinjones/open-overwatch/releases/latest">latest release</a> (about 85 MB) and unzip it into one folder.</li>
       <li>On Windows, double-click <b>Start Open Overwatch.bat</b>. On Mac or Linux, run <code>python3 serve.py</code> or <code>node serve.js</code> in that folder. It needs Python 3 or Node 18 or newer.</li>
       <li>Your browser opens the map at <code>http://127.0.0.1:8787/open-overwatch.html</code>; the globe is at <code>/globe.html</code>.</li>
     </ol>
@@ -739,7 +739,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <h2 id="app-h">App, offline and accessibility</h2>
     <ul>
       <li><b>Install it.</b> Where the browser allows (Chrome, Edge, Android) an <b>Install</b> button appears; on an iPhone use Safari's Share menu → Add to Home Screen. It opens full screen with shortcuts to Tonight, Earth now and the 2D map.</li>
-      <li><b>Offline.</b> Every page and its code is kept once visited, so the app opens with no connection. A banner says when you are offline and how old the saved data is; live feeds are never passed off as fresh. Map tiles you have seen are kept for 30 days.</li>
+      <li><b>Offline.</b> Every page and its code is kept once visited, so the app opens with no connection. A banner says when you are offline and how old the saved data is; live feeds are never passed off as fresh. Map tiles you have seen are kept for 30 days, except Esri's satellite imagery, which is only streamed: offline, the globe falls back to NASA's Blue Marble.</li>
       <li><b>Updates.</b> When a new version is published the page offers a reload; nothing changes under you mid-visit.</li>
       <li><b>What's new.</b> Once after each update, a small card in a corner says what changed (up to three lines), with <b>Try it</b> and <b>Full notes</b>. It never shows on a first visit, in an embed or in an archived copy, and <kbd>Esc</kbd> or ✕ closes it.</li>
       <li><b>Long press</b> (phones) on the globe or the 2D map opens that spot: its coordinates (decimal, degrees-minutes-seconds, MGRS), Copy, a link that opens the globe there with a pin, and on the globe the country and a pin in your drawing. A first-visit card shows the touch gestures once (<code>?hints=1</code> shows it again).</li>
@@ -762,17 +762,18 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <div class="eyebrow">Your data</div>
     <h2 id="privacy-h">Privacy</h2>
     <ul>
-      <li><b>No accounts, ads, cookies or analytics.</b> Your settings (layers, keys, folded sections, a rounded location for Tonight) stay in your browser's own storage.</li>
+      <li><b>No accounts, ads, cookies or analytics.</b> Your settings (layers, keys, folded sections, the place Tonight or Around me last used) stay in your browser's own storage.</li>
       <li><b>Your browser talks to the data providers directly</b> to load the map and the data, and to a code CDN (jsDelivr, cdnjs). The fonts are served from this site. Those services can see your IP address under their own policies, and the map area you look at is requested from them.</li>
-      <li><b>Your location</b> (Tonight, Look up, Around me) is used on your device. The cloud forecast for Tonight sends it to Open-Meteo rounded to about 10 km.</li>
-      <li><b>Searches and spoken places</b> send only the words to Photon (komoot). Directions go to the FOSSGIS routing servers; mapped cameras to the public Overpass API; buildings, military areas and plate readers come as map tiles from OpenFreeMap and FlockHopper.</li>
+      <li><b>Your location</b> (Tonight, Look up, Around me) comes only from your device and only when you ask, and is never sent to this project. There is no lookup by IP address: if the device gives no position, you pick a place. The cloud forecast for Tonight sends it to Open-Meteo rounded to about 10 km.</li>
+      <li><b>Searches and spoken places</b> send only the words to Photon (komoot), or to Google's geocoder through Cesium ion while Photoreal 3D is on. Directions go to the FOSSGIS routing servers; mapped cameras to the public Overpass API; buildings, military areas and plate readers come as map tiles from OpenFreeMap and FlockHopper.</li>
       <li><b>Aircraft details</b> (type, owner, photo, route) are asked of adsbdb for the plane you open, and cockpit and airport weather of Open-Meteo for the plane's or the field's position. The offline copy lives in your browser's storage only.</li>
       <li><b>Voice</b> uses your browser's speech recognition: Chrome and Edge send the audio to Google or Microsoft, Safari to Apple. This site receives none of it, and the microphone listens for one command each time you press the mic or <kbd>V</kbd>, or while you hold <kbd>Space</kbd>.</li>
-      <li><b>The public relay</b> on Cloudflare carries a few feeds a browser can't read directly (NOAA hurricanes, NOAA ocean and DART buoys, the tsunami warning centres' feeds, NYC cameras, some camera lists and pictures, cable routes). It carries only those, no live aircraft, and runs no logging code of its own.</li>
+      <li><b>The public relay</b> on Cloudflare carries a few feeds a browser can't read directly (NOAA hurricanes, NOAA ocean and DART buoys, the tsunami warning centres' feeds, NYC cameras, the British Columbia and Missouri camera lists, a few agencies' camera pictures, cable routes). It carries only those, no live aircraft, and runs no logging code of its own.</li>
       <li><b>Weather forecasts</b> come straight from NOAA's and ECMWF's public files on Amazon Web Services; a spoken weather question sends the place it is about to Open-Meteo.</li>
       <li><b>Photoreal 3D</b>, if you turn it on, uses your own Cesium ion token and sends it only to Cesium. <b>Radio</b> reports each station you start to radio-browser.info.</li>
+      <li><b>Worldwide ships</b> (download version only) come from aisstream.io through the helper on your own computer; your key stays there and goes only to aisstream.io. The website never connects to aisstream.io.</li>
     </ul>
-    <p>The full notice, with every service named, is on the <a href="index.html#legal">landing page</a>.</p>
+    <p>The longer notice, with the camera, transit and other agencies named, is on the <a href="index.html#legal">landing page</a>.</p>
   </div>
 </section>
 

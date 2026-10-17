@@ -64,7 +64,7 @@ function load(src, key) {
   const [z, x, y] = key.split('/').map(Number);
   vtile(src, key, ['cameras']).then(dec => {
     tiles.set(id, { list: tileCameras(dec.cameras, z, x, y), used: Date.now(), heat: z <= 8 });
-    if (!credited) { credited = true; viewer.creditDisplay.addStaticCredit(new C.Credit('Plate readers: © OpenStreetMap contributors, via DeFlock and FlockHopper (dontgetflocked.com)')); }
+    if (!credited) { credited = true; viewer.creditDisplay.addStaticCredit(new C.Credit('Plate readers: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors, via DeFlock and FlockHopper (dontgetflocked.com)')); }
     tick();
   }, e => { tiles.set(id, { failed: Date.now() }); console.warn('plate readers', e.message); });
 }

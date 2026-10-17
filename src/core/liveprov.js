@@ -22,7 +22,7 @@ export const SOURCES = Object.freeze({
   adsbfi: { name: 'adsb.fi', url: 'https://adsb.fi/', licence: 'adsb.fi open-data terms' },
   adsbone: { name: 'adsb.one', url: 'https://adsb.one/', licence: 'community feed' },
   airplaneslive: { name: 'airplanes.live', url: 'https://airplanes.live/', licence: 'by permission' },
-  opensky: { name: 'OpenSky', url: 'https://opensky-network.org/', licence: 'OpenSky terms (non-commercial)' },
+  opensky: { name: 'OpenSky', url: 'https://opensky-network.org/', licence: 'OpenSky terms (non-commercial) · Schäfer et al. 2014' },
   celestrak: { name: 'CelesTrak', url: 'https://celestrak.org/', licence: 'free, credit CelesTrak' },
   firms: { name: 'NASA FIRMS', url: 'https://firms.modaps.eosdis.nasa.gov/', licence: 'NASA open data' },
   viirs: { name: 'NASA VIIRS (GIBS)', url: 'https://nasa-gibs.github.io/gibs-api-docs/', licence: 'NASA open data' },

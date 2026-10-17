@@ -451,8 +451,10 @@ for buoys and DART, and tsunami.gov), each host limited to its feed paths (PATHS
 (the website, or localhost:8787 / 127.0.0.1:8787 for testing), GET only, redirects re-checked, a fixed Accept (a
 forwarded one let anyone poison the shared cache with DriveBC's HTML rendering: 2026-10-11 review), HTML and error
 answers never cached, a 30 MB cap counted on the stream, `Access-Control-Allow-Origin` fixed to the published site,
-test/relay.test.mjs exercises it with a stand-in upstream. Add the free-plan WAF rate-limiting rule on the route (e.g. 60
-req/min per address), Workers Cache in front (works on the free plan: `CF-Cache-Status: HIT`; per-host max-age in TTL).
+test/relay.test.mjs exercises it with a stand-in upstream. Rate limiting per address: not a WAF rule (the relay lives
+only on workers.dev, which has no zone for one) but a Workers Rate Limiting binding in relay/wrangler.toml
+(`[[ratelimits]]`, as mcp-worker/ has), checked per `cf-connecting-ip` after the allowlist; its deploy waits for the
+owner. Workers Cache in front (works on the free plan: `CF-Cache-Status: HIT`; per-host max-age in TTL).
 The ADS-B networks and OpenSky refused Cloudflare's servers on 2026-10-10 (adsb.lol 429, airplanes.live / adsb.fi /
 adsb.one 403, OpenSky timeout); don't disguise the relay to get past that. adsb.lol's API terms say a key (given to feeders)
 is coming.

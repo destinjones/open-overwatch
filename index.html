@@ -4,14 +4,14 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-7jiYd0LgdrGI5cHiSQtqfSpbLz1ZDt/9eTcG+SXT25U='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-mb2gfKSl1cWMIeXSi/nNVh0CFC6IPwwTbK1PPE4c7go='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#04060a">
 <title>Open Overwatch · the whole planet, live</title>
 <link rel="canonical" href="https://destinjones.github.io/open-overwatch/">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="author" content="Destin Jones">
-<meta name="description" content="From your street to the cosmic web, live: every tracked satellite, storms, quakes, tonight's sky and rocket launches on a free 3D Earth in your browser, straight from open data. Live aircraft come with the free download. No account, no tracking.">
+<meta name="description" content="From your street to the cosmic web, live: 18,000+ satellites, storms, quakes, tonight's sky and rocket launches on a free 3D Earth in your browser, straight from open data. Live aircraft come with the free download. No account, no tracking.">
 <link rel="icon" href="brand/emblem/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="brand/emblem/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -372,6 +372,10 @@ footer a{color:var(--ink-dim)}
 .phone .play{position:absolute;inset:0;margin:auto;width:76px;height:76px;border-radius:50%;border:1px solid rgba(125,255,166,.6);background:rgba(4,6,10,.72);
   color:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3;box-shadow:0 0 40px rgba(125,255,166,.25)}
 .phone .play[hidden]{display:none}
+.phone .play .i-pause,.phone .play.on .i-play{display:none}
+.phone .play.on .i-pause{display:inline}
+.phone .play.on{inset:auto 14px 14px auto;margin:0;width:44px;height:44px;opacity:.8}
+.phone .play.on svg{width:18px;height:18px;margin-left:0}
 .phone .play svg{width:28px;height:28px;margin-left:4px}
 /* phones: no grain overlay, no backdrop blurs (solid panels instead) and a steady live dot: they cost frames on low-end Android */
 @media (max-width:760px){
@@ -409,7 +413,7 @@ footer a{color:var(--ink-dim)}
   <div class="wrap">
     <div class="eyebrow rv">Live · open data · in your browser</div>
     <h1 class="rv">From your street to the cosmic web. <span class="glow">Live.</span></h1>
-    <p class="lede rv">Open Overwatch is the whole planet as it is right now: every tracked satellite, storms, quakes, rocket launches and tonight's sky over your street, on a 3D Earth that zooms without a cut past the planets to 43,000 galaxies. Pulled from public feeds and drawn in your browser.</p>
+    <p class="lede rv">Open Overwatch is the whole planet as it is right now: 18,000+ satellites (every active one plus three debris clouds), storms, quakes, rocket launches and tonight's sky over your street, on a 3D Earth that zooms without a cut past the planets to 43,000 galaxies. Pulled from public feeds and drawn in your browser.</p>
     <ul class="trust rv" aria-label="What it doesn't ask for">
       <li>No account</li><li>No install</li><li>No tracking</li><li>Open source, MIT</li>
     </ul>
@@ -421,7 +425,7 @@ footer a{color:var(--ink-dim)}
     </div>
     <p class="cta-note rv">Satellites, storms, quakes, launches and your sky tonight all run right here, on a phone too. Live planes come with the <a href="#get">free download</a>, a tiny helper on your own machine.</p>
 
-    <aside class="feed rv" aria-live="polite">
+    <aside class="feed rv" aria-label="Live feed">
       <header><span><span class="dot"></span>Live feed</span><b id="utc">--:--:-- UTC</b></header>
       <div class="row"><span class="k">ISS</span><span class="v sat" id="iss">acquiring…<small>wheretheiss.at</small></span></div>
       <div class="row"><span class="k">QUAKES</span><span class="v qk" id="qk">listening…<small>USGS, M2.5+, last 24 h</small></span></div>
@@ -454,18 +458,18 @@ footer a{color:var(--ink-dim)}
       <div class="eyebrow rv">What it feels like</div>
       <h2 class="rv">Pick a dot.<br>Follow it.</h2>
       <p class="lede rv">It feels like sitting in an ops room you weren't meant to find. Click a satellite and its ground track unrolls across the map. Click a traffic camera in London or Singapore and you see that street's latest frame. In the free download, click a plane for its callsign, altitude and type.</p>
-      <div class="tabs" role="tablist">
-        <button class="tab" role="tab" data-clip="space" style="--c:var(--sat)"><span class="n">01</span><span class="tx"><b>The ISS, right now</b><span class="d">Orbit, footprint and ground track at 27,575 km/h.</span><span class="bar"><i></i></span></span></button>
-        <button class="tab" role="tab" data-clip="hazards" style="--c:var(--qk)"><span class="n">02</span><span class="tx"><b>Storms &amp; quakes</b><span class="d">Hurricane tracks over live radar.</span><span class="bar"><i></i></span></span></button>
-        <button class="tab" role="tab" data-clip="ui" style="--c:var(--accent)"><span class="n">03</span><span class="tx"><b>The console</b><span class="d">Counters, search and alerts.</span><span class="bar"><i></i></span></span></button>
-        <button class="tab" role="tab" data-clip="air_world" style="--c:var(--civ)"><span class="n">04</span><span class="tx"><b>Every aircraft on Earth</b><span class="d">11,737 transponders in one sweep, with the free download.</span><span class="bar"><i></i></span></span></button>
-        <button class="tab" role="tab" data-clip="mil" style="--c:var(--mil)"><span class="n">05</span><span class="tx"><b>Military air picture</b><span class="d">Tankers, transports and fighters, with the free download.</span><span class="bar"><i></i></span></span></button>
+      <div class="tabs" role="tablist" aria-label="Recordings">
+        <button class="tab" role="tab" data-clip="space" style="--c:var(--sat)" aria-controls="phoneScreen" aria-selected="true" tabindex="0"><span class="n">01</span><span class="tx"><b>The ISS, right now</b><span class="d">Orbit, footprint and ground track at 27,575 km/h.</span><span class="bar"><i></i></span></span></button>
+        <button class="tab" role="tab" data-clip="hazards" style="--c:var(--qk)" aria-controls="phoneScreen" aria-selected="false" tabindex="-1"><span class="n">02</span><span class="tx"><b>Storms &amp; quakes</b><span class="d">Hurricane tracks over live radar.</span><span class="bar"><i></i></span></span></button>
+        <button class="tab" role="tab" data-clip="ui" style="--c:var(--accent)" aria-controls="phoneScreen" aria-selected="false" tabindex="-1"><span class="n">03</span><span class="tx"><b>The console</b><span class="d">Counters, search and alerts.</span><span class="bar"><i></i></span></span></button>
+        <button class="tab" role="tab" data-clip="air_world" style="--c:var(--civ)" aria-controls="phoneScreen" aria-selected="false" tabindex="-1"><span class="n">04</span><span class="tx"><b>Every aircraft on Earth</b><span class="d">11,737 transponders in one sweep, with the free download.</span><span class="bar"><i></i></span></span></button>
+        <button class="tab" role="tab" data-clip="mil" style="--c:var(--mil)" aria-controls="phoneScreen" aria-selected="false" tabindex="-1"><span class="n">05</span><span class="tx"><b>Military air picture</b><span class="d">Tankers, transports and fighters, with the free download.</span><span class="bar"><i></i></span></span></button>
       </div>
       <p class="clipnote rv">Recorded from the app, not mocked up. Same screen on your phone and your desktop.</p>
     </div>
-    <div class="phone rv"><div class="notch"></div><div class="screen">
-      <video id="phoneVid" muted playsinline preload="none" poster="brand/lander/clips/space.jpg"></video>
-      <button class="play" id="phonePlay" type="button" aria-label="Play the recordings" hidden><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg></button>
+    <div class="phone rv"><div class="notch"></div><div class="screen" id="phoneScreen" role="tabpanel" aria-label="The recording">
+      <video id="phoneVid" muted playsinline preload="none" poster="brand/lander/clips/space.jpg" aria-label="A recording of the app"></video>
+      <button class="play" id="phonePlay" type="button" aria-label="Play the recordings" hidden><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path class="i-play" d="M7 4.5v15l12.5-7.5z"/><path class="i-pause" d="M6.5 4.5h4v15h-4zm7 0h4v15h-4z"/></svg></button>
     </div></div>
   </div>
   <div class="wrap duo">
@@ -509,7 +513,7 @@ footer a{color:var(--ink-dim)}
       <div class="rv"><b>Code you can read</b><p>No build step, MIT licence. Plain HTML and JavaScript: read it, fork it, host it anywhere.</p></div>
       <div class="rv"><b>Open data only</b><p>USGS, NOAA, NASA, CelesTrak, GDACS, adsb.lol and other public and volunteer feeds. Nothing scraped, nothing secret.</p></div>
     </div>
-    <p class="polite rv">It's polite to those feeds too: it rate-limits itself, caches orbits for two hours and backs off when a source struggles. And the <a href="#legal">notices</a> list exactly which services your browser talks to.</p>
+    <p class="polite rv">It's polite to those feeds too: it rate-limits itself, caches orbits for two hours and backs off when a source struggles. And the <a href="#legal">notices</a> name the services your browser talks to, and what each one is sent.</p>
   </div>
 </section>
 
@@ -523,7 +527,7 @@ footer a{color:var(--ink-dim)}
     <div class="grid">
       <article class="card rv" style="--c:var(--sat)"><span class="tag">SPACE</span><img src="brand/lander/icons/satellite.webp" alt="" loading="lazy"><h3>Satellites</h3><p>The ISS, Tiangong, weather satellites and GPS, their orbits computed in your browser from CelesTrak data, with ground tracks.</p></article>
       <article class="card rv" style="--c:var(--civ)"><span class="tag">AIR</span><img src="brand/lander/icons/aircraft.webp" alt="" loading="lazy"><h3>Aircraft</h3><p>With the free download: every ADS-B transponder the volunteer networks can hear. Civil, military and emergency squawks, each in its own colour, with trails.</p></article>
-      <article class="card rv" style="--c:var(--ship)"><span class="tag">SEA</span><img src="brand/lander/icons/ship.webp" alt="" loading="lazy"><h3>Ships</h3><p>AIS positions for the Baltic out of the box. Add a free aisstream.io key and you get the world's shipping.</p></article>
+      <article class="card rv" style="--c:var(--ship)"><span class="tag">SEA</span><img src="brand/lander/icons/ship.webp" alt="" loading="lazy"><h3>Ships</h3><p>AIS positions for the Baltic out of the box. The world's shipping comes with the <a href="#get">free download</a> and a free aisstream.io key.</p></article>
       <article class="card rv" style="--c:var(--qk)"><span class="tag">GROUND</span><img src="brand/lander/icons/quake.webp" alt="" loading="lazy"><h3>Earthquakes</h3><p>USGS quakes as they're reported, sized by magnitude, plus GDACS disaster alerts and NASA natural events.</p></article>
       <article class="card rv" style="--c:var(--evt)"><span class="tag">WEATHER</span><img src="brand/lander/icons/storm.webp" alt="" loading="lazy"><h3>Storms</h3><p>Hurricanes and typhoons, precipitation radar, severe-weather alerts and the aurora forecast, on the same screen.</p></article>
       <article class="card rv" style="--c:var(--emg)"><span class="tag">EYES</span><img src="brand/lander/icons/camera.webp" alt="" loading="lazy"><h3>Cameras</h3><p>Public traffic cameras in London, New York, California, Singapore and Finland. Click one for its latest frame.</p></article>
@@ -541,7 +545,7 @@ footer a{color:var(--ink-dim)}
       <span class="chip" style="--c:#3ee08f">Live buses, trams and trains</span>
       <span class="chip" style="--c:#5fb0ff">Live ships with wakes (Baltic AIS)</span>
       <span class="chip" style="--c:#7dffb0">Bike share, worldwide</span>
-      <span class="chip" style="--c:#7fd0ff">Weather: 2 hours back to 5 days ahead</span>
+      <span class="chip" style="--c:#7fd0ff">Weather: 2 hours back to 5 days ahead (3 on phones)</span>
       <span class="chip" style="--c:#7dffa6">Battery saver when nothing moves</span>
       <span class="chip" style="--c:#ffd27a">“What's this?” and spoken answers</span>
       <span class="chip" style="--c:#c9a0ff">Ask Claude: the globe in the chat (MCP)</span>
@@ -644,7 +648,7 @@ footer a{color:var(--ink-dim)}
       <article class="rv">
         <h3>On your machine</h3>
         <p class="sub" id="ver">Latest release · Windows · macOS · Linux</p>
-        <p>Adds live aircraft and military flights. About 70 MB. Unzip it, then double-click <code>Start Open Overwatch.bat</code> on Windows, or run <code>python3 serve.py</code> or <code>node serve.js</code> on Mac and Linux. Your browser opens the map at <code>127.0.0.1:8787</code> and every layer lights up.</p>
+        <p>The download adds live aircraft, military flights and, with a free aisstream.io key, the world's shipping. About 85 MB. Unzip it, then double-click <code>Start Open Overwatch.bat</code> on Windows, or run <code>python3 serve.py</code> or <code>node serve.js</code> on Mac and Linux. Your browser opens the map at <code>127.0.0.1:8787</code> and every layer lights up.</p>
         <div class="stack">
           <a class="btn primary" id="dlBtn" href="https://github.com/destinjones/open-overwatch/releases/latest/download/open-overwatch.zip">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0 5-5m-5 5-5-5M4 20h16"/></svg>Download .zip</a>
@@ -673,10 +677,10 @@ footer a{color:var(--ink-dim)}
       <p>A hobby project built on public data. For awareness and curiosity, not for navigation, safety or operational decisions.</p>
     </div>
     <div>
-      <p>Data: adsb.lol, adsb.fi, airplanes.live, OpenSky, CelesTrak, USGS, NOAA/NHC/NWS, NASA EONET &amp; FIRMS, GDACS, GDELT, Digitraffic, aisstream.io, SondeHub, RainViewer, TeleGeography, CityBikes, and the transit and road agencies named in the notices. Basemap © Esri. Night lights: NASA Black Marble.</p>
+      <p>Data: adsb.lol, adsb.fi, airplanes.live, OpenSky (Schäfer et al., IPSN 2014), CelesTrak, USGS, NOAA/NHC/NWS, NASA EONET &amp; FIRMS, GDACS, GDELT, Digitraffic, aisstream.io, SondeHub, RainViewer, TeleGeography, CityBikes, and the transit and road agencies named in the notices. Basemap: Powered by Esri (Esri, Vantor, Earthstar Geographics, and the GIS User Community). Night lights: NASA Black Marble.</p>
       <p><a href="https://github.com/destinjones/open-overwatch">GitHub</a> · <a href="https://github.com/destinjones/open-overwatch/releases">Releases</a> · <a href="https://github.com/destinjones/open-overwatch/issues">Report a bug</a> · <a href="about.html">About</a> · <a href="#legal">Notices</a></p>
       <p><a href="guide.html">User guide</a>: every view and layer, keyboard shortcuts, voice commands, sharing and privacy.</p>
-      <p><a href="india/" lang="en">In India?</a> <a href="india/hi/" lang="hi">भारत से?</a> ISRO launches, India's satellites, ISS passes over your city, cyclones and air quality, in English and हिन्दी.</p>
+      <p><a href="india/" lang="en">In India?</a> <a href="india/hi/" lang="hi">भारत से?</a> ISRO launches, India's satellites, ISS passes over your city, cyclones and air quality, in English and <span lang="hi">हिन्दी</span>.</p>
       <p>By <a href="about.html">Destin Jones</a>, vibe coded with Claude. Fork it, build on it, or take it over. Also: <a href="https://destinjones.github.io/godot-open-rts/">Ironbound</a>, a free open source RTS, and <a href="https://destinjones.github.io/carfinder/">CarFinder</a>.</p>
     </div>
   </div>
@@ -689,7 +693,7 @@ footer a{color:var(--ink-dim)}
       <div><h3>Not for safety or decisions that matter</h3><p>Use it for curiosity and awareness only. Do not use it for navigation, flying, sailing, driving, emergency response, search and rescue, evacuation, trading, or anything where a late, wrong or missing position could hurt someone or cost money. Always use official, authorised sources for those.</p></div>
       <div><h3>Other people's data can be wrong or faked</h3><p>Everything shown comes from third parties: public agencies, volunteer networks and open datasets. It can be late, incomplete, out of date or simply wrong. Positions that are broadcast by the transmitter itself (aircraft ADS-B, ship AIS, weather balloons) can be spoofed or entered falsely by anyone. Treat every dot as unverified.</p></div>
       <div id="balloons" class="warn"><h3>Weather balloons: a specific warning</h3><p>Balloon (radiosonde) tracks on the 2D map come from <a href="https://sondehub.org">SondeHub</a>, an open community service where anyone can upload a balloon's position, name and details, with no check. A balloon on the map can therefore be fake, misplaced, or carry text written to look official or to attack a web page (a script “injection”). The balloon layer is <b>off by default</b> and shows this warning before it can be switched on; the app displays every balloon field as plain text, never runs it as code, and links only to SondeHub. Even so: do not click links or follow instructions found in balloon details elsewhere, and never go looking for a landed balloon because of this map. Switching the layer on sends the centre of your map view to SondeHub.</p></div>
-      <div><h3>Privacy</h3><p>This project runs no accounts, ads, cookies or analytics. Your browser does, however, talk directly to the data providers, and a code CDN (jsDelivr, cdnjs; the browser checks each pinned library against its fingerprint) to load the page and the data, and those services can see your IP address under their own policies. Preferences are saved only in your browser's own storage. Playing a radio station reports that one start to radio-browser.info, the community directory the stations come from (it counts listens per station and address, as its terms ask). “Look up” and “Around me” use your device's location on your device; the app does not send it anywhere, though the map area you view is requested from the data providers. Place search on the 3D globe (and spoken place names) sends only the words you type or say to Photon, a free OpenStreetMap geocoder run by komoot. Directions go to the FOSSGIS routing servers, mapped cameras (and a projected camera's street) to the public Overpass API, live traffic camera pictures and video load straight from the agencies (TfL, Caltrans, Fintraffic, DelDOT, Iowa DOT, MoDOT, Statens vegvesen, DriveBC, the City of Calgary, Hong Kong's Transport Department, Singapore's LTA; the video player from jsDelivr), live transit straight from MBTA, HSL, Entur, CapMetro (through the Texas open data portal) and Metro Transit, ships from Fintraffic's Digitraffic, bike share from CityBikes, simulated traffic its roads from OpenFreeMap's map tiles and measured road speeds from NYC DOT and Fintraffic, 3D terrain from Re:Earth, hurricane forecasts from NOAA and GDACS, fire data from NASA and NIFC, satellite pictures from NASA, and a few feeds the browser can't read directly pass through this project's relay on Cloudflare (NOAA hurricanes, NYC cameras, the British Columbia and Missouri camera lists, a few agencies' camera pictures, cable routes), which carries only those and runs no logging code of its own (Cloudflare's usual request analytics still apply). Photoreal 3D, if you turn it on, uses your own Cesium ion token and sends it only to Cesium. Weather forecasts come straight from NOAA's GFS files on Amazon Web Services. Voice control uses your browser's own speech recognition: Chrome and Edge send the audio to Google or Microsoft, Safari to Apple, under their policies; this site receives none of it, and the microphone listens for one command each time you press the mic button or V, or while you hold Space. A spoken weather question sends the place it is about to Open-Meteo.</p></div>
+      <div><h3>Privacy</h3><p>This project runs no accounts, ads, cookies or analytics. Your browser does, however, talk directly to the data providers, and a code CDN (jsDelivr, cdnjs; the browser checks each pinned library against its fingerprint) to load the page and the data, and those services can see your IP address under their own policies. Preferences are saved only in your browser's own storage. Playing a radio station reports that one start to radio-browser.info, the community directory the stations come from (it counts listens per station and address, as its terms ask). Your location comes only from your device and only when you ask (“Around me”, “Center on me”, “Look up”, Tonight); there is no lookup by IP address, and if the device gives no position you pick a place instead. It is never sent to this project. Tonight's cloud forecast sends it to Open-Meteo rounded to about 10 km, and the map area you view is requested from the data providers. Place search on the 3D globe (and spoken place names) sends only the words you type or say to Photon, a free OpenStreetMap geocoder run by komoot; while Photoreal 3D is on, it goes to Google's geocoder through Cesium ion instead. Directions go to the FOSSGIS routing servers, mapped cameras (and a projected camera's street) to the public Overpass API, live traffic camera pictures and video load straight from the agencies (TfL, Caltrans, Fintraffic, DelDOT, Iowa DOT, MoDOT, Statens vegvesen, DriveBC, the City of Calgary, Hong Kong's Transport Department, Singapore's LTA; the video player from jsDelivr), live transit straight from MBTA, HSL, Entur, CapMetro (through the Texas open data portal) and Metro Transit, ships from Fintraffic's Digitraffic, bike share from CityBikes, simulated traffic its roads from OpenFreeMap's map tiles and measured road speeds from NYC DOT and Fintraffic, 3D terrain from Re:Earth, hurricane forecasts from NOAA and GDACS, fire data from NASA and NIFC, satellite pictures from NASA, point, cockpit and airport weather and air quality from Open-Meteo for the point or area shown, and a few feeds the browser can't read directly pass through this project's relay on Cloudflare (NOAA hurricanes, NOAA's ocean and DART tsunami buoys, the tsunami warning centres' message feeds at tsunami.gov, NYC cameras, the British Columbia and Missouri camera lists, a few agencies' camera pictures, cable routes), which carries only those and runs no logging code of its own (Cloudflare's usual request analytics still apply). Photoreal 3D, if you turn it on, uses your own Cesium ion token and sends it only to Cesium. Weather forecasts come straight from NOAA's GFS and ECMWF's open-data files on Amazon Web Services. In the download version, worldwide ships come from aisstream.io through the helper on your own computer, with your own key; the website never connects to aisstream.io. Voice control uses your browser's own speech recognition: Chrome and Edge send the audio to Google or Microsoft, Safari to Apple, under their policies; this site receives none of it, and the microphone listens for one command each time you press the mic button or V, or while you hold Space. A spoken weather question sends the place it is about to Open-Meteo.</p></div>
       <div><h3>Links and names</h3><p>Links lead to other sites that this project does not control or endorse. Names such as NASA, NOAA, USGS, Cesium, Esri, OpenStreetMap, Wikidata and SondeHub belong to their owners; this project is not affiliated with or endorsed by any of them. If something here is wrong, or a source wants it changed or removed, please <a href="https://github.com/destinjones/open-overwatch/issues">open an issue</a>.</p></div>
       <div><h3>Build on it, or take it over</h3><p>Made by <a href="about.html">Destin Jones</a>, who vibe codes with Claude (an AI) and would be glad for anyone to download it, fork it and build anything they like. If you can take the whole project further than he can, a hand-off is welcome: <a href="https://github.com/destinjones/open-overwatch/issues">say so in an issue</a>.</p></div>
     </div>
@@ -704,17 +708,29 @@ footer a{color:var(--ink-dim)}
           <tr><td><a href="https://leafletjs.com/">Leaflet</a> (the 2D map)</td><td>Open source, <a href="https://github.com/Leaflet/Leaflet/blob/main/LICENSE">BSD 2-Clause</a></td></tr>
           <tr><td><a href="https://github.com/shashwatak/satellite-js">satellite.js</a> (satellite orbits)</td><td>Open source, <a href="https://github.com/shashwatak/satellite-js/blob/develop/LICENSE">MIT</a></td></tr>
           <tr><td><a href="https://modelviewer.dev/">&lt;model-viewer&gt;</a> (3D models on this page)</td><td>Open source, <a href="https://github.com/google/model-viewer/blob/master/LICENSE">Apache 2.0</a></td></tr>
+          <tr><td><a href="https://github.com/video-dev/hls.js">hls.js</a> (live camera video)</td><td>Open source, <a href="https://github.com/video-dev/hls.js/blob/master/LICENSE">Apache 2.0</a></td></tr>
           <tr><td>Fonts: <a href="https://fonts.google.com/specimen/Big+Shoulders+Display">Big Shoulders Display</a>, <a href="https://fonts.google.com/specimen/Barlow">Barlow</a>, <a href="https://fonts.google.com/specimen/IBM+Plex+Mono">IBM Plex Mono</a></td><td>Free and open, <a href="https://openfontlicense.org/">SIL Open Font Licence 1.1</a>; served from this site, no Google request</td></tr>
           <tr><td>NASA, NOAA and USGS data and imagery (Blue Marble, Black Marble, GIBS, JPL Horizons and close approaches, EONET, earthquakes, aurora, storms, the GFS weather model)</td><td>US government works: free to use, credit the source (see each agency's media and data policy)</td></tr>
+          <tr><td><a href="https://www.ecmwf.int/en/forecasts/datasets/open-data">ECMWF</a> IFS open data (the second weather model)</td><td>Open data, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>: credit ECMWF</td></tr>
+          <tr><td><a href="https://www.emsc-csem.org/">EMSC</a> earthquakes (the second catalogue)</td><td>Free to use with credit to EMSC</td></tr>
           <tr><td><a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> (3D buildings, place names, lighthouses)</td><td>Open data, <a href="https://opendatacommons.org/licenses/odbl/">ODbL</a>: © OpenStreetMap contributors</td></tr>
+          <tr><td><a href="https://openfreemap.org/">OpenFreeMap</a> map tiles (buildings, roads, military areas)</td><td>Free, no key: <a href="https://www.openmaptiles.org/">© OpenMapTiles</a>, data © OpenStreetMap contributors</td></tr>
+          <tr><td><a href="https://terrain.reearth.land/">Re:Earth Terrain</a> (3D terrain, from the Mapterhorn elevation data)</td><td>Free, no key; credit Re:Earth, Mapterhorn and the sources the tiles name</td></tr>
           <tr><td><a href="https://www.wikidata.org/">Wikidata</a> (companies, volcanoes, country facts)</td><td>Open data, <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>; volunteer-edited, so it can be wrong</td></tr>
           <tr><td><a href="https://data.worldbank.org/">World Bank</a> open data; <a href="https://open-meteo.com/">Open-Meteo</a> weather; <a href="https://digitraffic.fi/">Digitraffic</a> ships</td><td>Open data, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> (Open-Meteo is free for non-commercial use only)</td></tr>
           <tr><td><a href="https://www.naturalearthdata.com/">Natural Earth</a> borders</td><td>Public domain</td></tr>
           <tr><td>Transit and road agencies: MBTA, HSL, Entur, CapMetro, Metro Transit; TfL, NYC DOT, Caltrans, Fintraffic, DelDOT, Iowa DOT, MoDOT, Statens vegvesen, DriveBC, City of Calgary, Hong Kong Transport Department, Singapore LTA; bike share via <a href="https://citybik.es">CityBikes</a></td><td>Each agency's open data terms (TfL: Powered by TfL Open Data; HSL and Fintraffic CC BY 4.0; Entur and Statens vegvesen NLOD; the rest public agency data with credit); bike numbers under each operator's terms</td></tr>
           <tr><td><a href="https://www.solarsystemscope.com/textures/">Solar System Scope</a> planet maps; <a href="https://github.com/astronexus/HYG-Database">HYG</a> star database</td><td>Open, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> and <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> (credit required)</td></tr>
+          <tr><td><a href="https://github.com/mattiaverga/OpenNGC">OpenNGC</a> deep-sky catalogue (Mattia Verga and contributors)</td><td>Open, <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>: credit, share changes alike</td></tr>
+          <tr><td><a href="https://github.com/ofrohn/d3-celestial">d3-celestial</a> constellation figures (Olaf Frohn)</td><td>Open source, BSD 3-Clause</td></tr>
+          <tr><td>Light pollution: Falchi et al. 2016, <a href="https://doi.org/10.5880/GFZ.1.4.2016.001">The New World Atlas of Artificial Night Sky Brightness</a> (<a href="https://doi.org/10.1126/sciadv.1600377">paper</a>)</td><td><a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>: <b>non-commercial use only</b></td></tr>
+          <tr><td><a href="https://www.submarinecablemap.com/">TeleGeography</a> submarine cable map</td><td><a href="https://creativecommons.org/licenses/by-nc-sa/3.0/">CC BY-NC-SA 3.0</a>: <b>non-commercial</b>, credit, share alike</td></tr>
           <tr><td><a href="https://www.gdeltproject.org/">GDELT</a> headlines; <a href="https://celestrak.org/">CelesTrak</a> orbits</td><td>Free to use with credit and polite rates; see their terms</td></tr>
-          <tr><td>Volunteer networks: adsb.lol, adsb.fi, airplanes.live, OpenSky, SondeHub, aisstream.io, RainViewer</td><td>Free to view; <b>each has its own terms</b> (some are non-commercial or need credit): read them before reusing the data</td></tr>
-          <tr><td>Esri basemap imagery</td><td>Free to view with Esri's credit; <b>not open source</b></td></tr>
+          <tr><td>Volunteer networks: adsb.lol, adsb.fi, airplanes.live, SondeHub; aisstream.io (download version only)</td><td>Free to view; <b>each has its own terms</b> (some are non-commercial or need credit): read them before reusing the data</td></tr>
+          <tr><td><a href="https://opensky-network.org/">OpenSky Network</a> (download version only)</td><td>Non-commercial research terms; cite Schäfer, Strohmeier, Lenders, Martinovic and Wilhelm, “Bringing Up OpenSky: A Large-scale ADS-B Sensor Network for Research”, IPSN 2014</td></tr>
+          <tr><td><a href="https://www.rainviewer.com/">RainViewer</a> radar</td><td><b>Personal and educational use only</b>, credit with a link (Radar © RainViewer.com)</td></tr>
+          <tr><td>Google Photorealistic 3D Tiles through <a href="https://ion.cesium.com/">Cesium ion</a> (Photoreal 3D, off unless you add your own token)</td><td>Google's and Cesium's terms: personal, <b>non-commercial</b> use</td></tr>
+          <tr><td>Esri basemap imagery: Powered by Esri; imagery Esri, Vantor, Earthstar Geographics, and the GIS User Community</td><td>Free to view with Esri's credit, streamed live and never stored by the offline copy; <b>not open source</b></td></tr>
         </tbody>
       </table>
       <p class="tiny">Every source, its licence, its age and its limits are listed in <a href="https://github.com/destinjones/open-overwatch/blob/main/docs/DATA_SOURCES.md">docs/DATA_SOURCES.md</a>. A licence listed here is a summary, not legal advice: check the source's own terms before relying on it, especially for commercial use.</p>
@@ -801,26 +817,46 @@ iss(); quakes(); setInterval(iss, 5000); setInterval(quakes, 120000);
   } catch (e) { /* no launch copy here (local preview): leave the row out */ }
 })();
 
-// phone demo: tabs cycle through the recorded clips. On a phone, or on a slow or Save-Data connection, nothing downloads
-// before a tap: the poster shows with a play button, and the clips cycle from that tap on
+// phone demo: the tabs play the recorded clips through once, then hold the last frame (a picked clip plays once); the
+// button over the screen pauses and plays them, so no motion runs past 5 s without a way to stop it (WCAG 2.2.2). On a
+// phone, or on a slow or Save-Data connection, nothing downloads before a tap: the poster shows with a play button, and
+// the clips play from that tap on. The tabs are a tablist: arrow keys, Home and End move between them, Enter or Space
+// plays one (manual activation, so moving through them downloads nothing)
 const conn = navigator.connection;
 const slowNet = !!(conn && (conn.saveData || /2g|3g/.test(conn.effectiveType || '')));
 const pv = $('#phoneVid'), tabs = [...document.querySelectorAll('.tab')], playBtn = $('#phonePlay');
-let cur = 0, auto = true, started = !(slowNet || matchMedia('(max-width:760px)').matches);
+let cur = 0, auto = true, held = false, started = !(slowNet || matchMedia('(max-width:760px)').matches);
 playBtn.hidden = started;
-playBtn.addEventListener('click', () => { show(cur); pv.play().catch(() => {}); });
+const playing = () => started && !pv.paused && !pv.ended;
+const ui = () => playBtn.setAttribute('aria-label', playing() ? 'Pause the recordings' : 'Play the recordings');
+playBtn.addEventListener('click', () => {
+  if (playing()) { held = true; pv.pause(); return; }
+  held = false;
+  if (!pv.getAttribute('src')) show(cur); else if (pv.ended) show(auto && cur === tabs.length - 1 ? 0 : cur);
+  pv.play().catch(() => {});
+});
 function show(i) {
-  cur = i; started = true; playBtn.hidden = true;
-  tabs.forEach((t, j) => { t.setAttribute('aria-selected', j === i); t.querySelector('.bar i').style.width = '0'; });
+  cur = i; started = true; playBtn.hidden = false; playBtn.classList.add('on');
+  tabs.forEach((t, j) => { t.setAttribute('aria-selected', String(j === i)); t.tabIndex = j === i ? 0 : -1; t.querySelector('.bar i').style.width = '0'; });
   const c = tabs[i].dataset.clip;
   pv.poster = 'brand/lander/clips/' + c + '.jpg';
   pv.src = 'brand/lander/clips/' + c + '.mp4';
-  if (!reduce) pv.play().catch(() => {});
+  if (!reduce && !held) pv.play().catch(() => {});
+  ui();
 }
+for (const ev of ['play', 'pause', 'ended']) pv.addEventListener(ev, ui);
 pv.addEventListener('timeupdate', () => { if (pv.duration) tabs[cur].querySelector('.bar i').style.width = (pv.currentTime / pv.duration * 100) + '%'; });
-pv.addEventListener('ended', () => auto ? show((cur + 1) % tabs.length) : (pv.currentTime = 0, pv.play()));
-tabs.forEach((t, i) => t.addEventListener('click', () => { auto = false; show(i); }));
-new IntersectionObserver(([e]) => { if (e.isIntersecting) { if (!started) return; if (!pv.src) show(0); else if (!reduce) pv.play().catch(() => {}); } else pv.pause(); },
+pv.addEventListener('ended', () => { if (auto && cur + 1 < tabs.length) show(cur + 1); });   // one pass, then the last frame stays
+tabs.forEach((t, i) => t.addEventListener('click', () => { auto = false; held = false; show(i); }));
+$('.tabs').addEventListener('keydown', e => {
+  const at = tabs.indexOf(e.target), step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+  const to = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : step && at >= 0 ? (at + step + tabs.length) % tabs.length : -1;
+  if (to < 0) return;
+  e.preventDefault();
+  tabs.forEach((t, j) => { t.tabIndex = j === to ? 0 : -1; });
+  tabs[to].focus();
+});
+new IntersectionObserver(([e]) => { if (e.isIntersecting) { if (!started) return; if (held) return; if (!pv.src) show(0); else if (!reduce && !pv.ended) pv.play().catch(() => {}); } else pv.pause(); },
   { threshold: .3 }).observe(pv);
 
 // fleet viewer

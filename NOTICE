@@ -25,6 +25,20 @@ Third-party data in this repository with its own licence (not MIT):
   (https://github.com/astronexus/HYG-Database, David Nash / astronexus), converted by brand/tools/make_stars.py.
 - data/lighthouses.json: (c) OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright), queried
   through the Overpass API and trimmed by brand/tools/make_lighthouses.py.
+- data/countries.json: population, GDP, GDP per person and life expectancy from the World Bank's open data
+  (https://data.worldbank.org/, CC BY 4.0: credit the World Bank); capitals, regions, languages and currencies from
+  Wikidata (CC0). Built by brand/tools/make_countries.py.
+- brand/textures/planets/ (the planet, Sun, Moon and Saturn ring maps): Solar System Scope
+  (https://www.solarsystemscope.com/textures/), CC BY 4.0, resized by brand/tools/make_planet_textures.py; except
+  brand/textures/planets/milkyway*.jpg: NASA/JPL-Caltech/R. Hurt (SSC/Caltech), ssc2008-10a1, under NASA's image use
+  policy (credit NASA/JPL-Caltech).
+- brand/textures/moons/phobos.jpg and brand/textures/moons/phobos_1k.jpg: ESA/DLR/FU Berlin (Mars Express HRSC-SRC
+  mosaic, K. Willner et al., via USGS Astrogeology), CC BY-SA 3.0 IGO: credit required, and changed copies must be
+  shared under the same licence. The other moon maps in brand/textures/moons/ are public domain (NASA/USGS and the
+  mission teams); each map's source, credit and licence are in brand/textures/moons/maps.json.
+- brand/textures/sky/, brand/textures/sky_1k/ and brand/textures/sky_equirect*.jpg (the star background): NASA/Goddard
+  Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020 (https://svs.gsfc.nasa.gov/4851); Gaia DR2:
+  ESA/Gaia/DPAC. Converted by brand/tools/make_skybox.py.
 - data/constellations.json: BSD 3-Clause, Copyright (c) 2015, Olaf Frohn, from d3-celestial
   (https://github.com/ofrohn/d3-celestial), reformatted by brand/tools/make_constellations.py. Its licence terms:
 

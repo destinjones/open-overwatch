@@ -10,8 +10,8 @@ bun -e "1" >nul 2>nul && ( bun serve.js & goto :done )
 echo Neither Python nor Node.js was found on this PC.
 echo Install one of them (https://www.python.org/downloads/ or https://nodejs.org/) and run this file again.
 echo.
-echo Until then you can still open open-overwatch.html directly; only the aircraft, OpenSky, NYC camera,
-echo NHC, live cable map, FIRMS and Windy feeds need the helper.
+echo The map and the globe need this helper (or another local web server): browsers do not load
+echo their code from a file opened directly. The feeds it relays are listed in README.txt.
 :done
 echo.
 pause

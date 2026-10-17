@@ -34,7 +34,15 @@ scene.skyAtmosphere.perFragmentAtmosphere = true;
 
 // ---- imagery
 const ESRI = 'https://services.arcgisonline.com/ArcGIS/rest/services/';
-const esriCredit = new C.Credit('Imagery © Esri, Maxar, Earthstar Geographics · Esri, HERE, Garmin, © OpenStreetMap contributors');
+// Esri's attribution rules: "Powered by Esri" plus each service's own copyrightText (World_Imagery names Vantor, the
+// reference and dark-canvas services HERE, Garmin and OpenStreetMap); OpenStreetMap's credit links to its licence page
+const OSM = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
+const POWERED = 'Powered by <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>';
+const esriLabels = `Esri, HERE, Garmin, ${OSM}, and the GIS User Community`;
+const esriCredits = {
+  imagery: new C.Credit(`${POWERED} · Imagery: Esri, Vantor, Earthstar Geographics, and the GIS User Community · Labels: ${esriLabels}`),
+  dark: new C.Credit(`${POWERED} · ${esriLabels}`),
+};
 const nasaCredit = new C.Credit('Blue Marble Next Generation & VIIRS Black Marble: NASA Earth Observatory, via NASA GIBS');
 // GIBS's geographic (EPSG:4326) set runs pole to pole (web-mercator stops at 85.05 deg and left holes over the poles).
 // Its 512 px tiles start at 288 deg wide (2x1) and halve from there, so a geographic tiling scheme over a 576 x 288 deg
@@ -62,7 +70,7 @@ export function setBase(id) {
   const b = BASES[id] || BASES.imagery; store.set('base', id); baseId = BASES[id] ? id : 'imagery';
   if (baseLayer) viewer.imageryLayers.remove(baseLayer, true);
   if (labelLayer) viewer.imageryLayers.remove(labelLayer, true);
-  baseLayer = viewer.imageryLayers.addImageryProvider(new C.UrlTemplateImageryProvider({ url: b.url, maximumLevel: b.max, credit: esriCredit }), 0);
+  baseLayer = viewer.imageryLayers.addImageryProvider(new C.UrlTemplateImageryProvider({ url: b.url, maximumLevel: b.max, credit: esriCredits[baseId] }), 0);
   Object.assign(baseLayer, b.look);
   labelLayer = viewer.imageryLayers.addImageryProvider(new C.UrlTemplateImageryProvider({ url: b.labels, maximumLevel: Math.min(b.max, 16) }));
   labelLayer.alpha = 0.7; labelLayer.show = false;

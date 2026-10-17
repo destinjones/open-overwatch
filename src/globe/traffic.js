@@ -257,7 +257,7 @@ async function loadTile(key) {
     const r = await fetch(await tileUrl(x, y)); if (!r.ok) throw new Error('HTTP ' + r.status);
     const prep = prepareTile(decodeTile(new Uint8Array(await r.arrayBuffer()), WANT), Z, x, y);
     tiles.set(key, { prep, used: Date.now() }); dirty = true;
-    if (!credited) { credited = true; viewer.creditDisplay.addStaticCredit(new C.Credit('Traffic: simulated cars on roads from OpenFreeMap © OpenMapTiles, data © OpenStreetMap contributors')); }
+    if (!credited) { credited = true; viewer.creditDisplay.addStaticCredit(new C.Credit('Traffic: simulated cars on roads from <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a>, data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors')); }
   } catch (e) {
     tiles.set(key, { failed: Date.now() }); console.warn('traffic roads', e.message);
     if (!told) { told = true; toast('Road data is unavailable right now: traffic will fill in as it retries', 4000); }
