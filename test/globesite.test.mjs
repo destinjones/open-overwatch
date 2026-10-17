@@ -81,15 +81,26 @@ test('globe: feeds rest in a hidden tab, and a not-carried aircraft feed stops w
   assert.match(main, /every\(60e3, \(\) => Air\.military\(\), 'Military aircraft', \{ keep: airKeep, onStop: noAir \}\)/);
   assert.match(main, /every\(10 \* 60e3, \(\) => Quakes\.load\(\), 'Earthquakes'\)/, 'quakes keep the ordinary retry');
   assert.match(main, /const airKeep = \(\) => LandWatch\.map\.size > 0/, 'a plane watched for its landing keeps its feeds');
-  const toasts = main.match(/toast\('No live aircraft on the website[^']*'/g) || [];
-  assert.equal(toasts.length, 1); assert.match(main, /if \(Air\.offSite\) return; Air\.offSite = true;/, 'once per visit');
+  const lines = main.match(/'No live aircraft on the website[^']*'/g) || [];
+  assert.equal(lines.length, 1); assert.match(main, /if \(Air\.offSite\) return; Air\.offSite = true;/, 'once per visit');
+  assert.match(main, /ON_SITE \? 'No live aircraft on the website: they come with the free download' : 'No live aircraft here: they need the local helper/, 'the website\'s wording only on the website');
+  // the line waits for the globe: the feeds stop long before the boot screen (above #toast) lifts
+  assert.match(main, /function later\(msg, ms, cond = \(\) => true\) \{\n  if \(EMBED\) return;\n  const tell = \(\) => \{ if \(!Share\.booted\) return setTimeout\(tell, 1000\);/);
+  assert.match(main, /setTimeout\(\(\) => cond\(\) && toast\(msg, ms\), wait\)/, 'a beat after boot, after any line already showing');
+  assert.doesNotMatch(main.slice(main.indexOf('function noAir'), main.indexOf('const airKeep')), /\btoast\(/, 'noAir says it through later()');
+  assert.match(main, /onStop \? onStop\(e\) : later\(`\$\{label\}: \$\{HERE\}`, 4000\)/, 'any other stopped feed says so once too');
+  assert.match(main, /hooks\.airKeep = airKeep;/);
+  assert.match(read('src/globe/trails.js'), /\(document\.hidden && !hooks\.airKeep\?\.\(\)\)/, 'a watched plane\'s own fixes keep coming in a hidden tab');
+  assert.match(read('src/globe/voice.js'), /Air\.offSite \? 'Live aircraft come with the free download; the website has none\.'/);
+  assert.match(read('src/globe/nerd.js'), /Air\.offSite \? '<dt>Live aircraft<\/dt><dd>download version<\/dd>'/);
 });
 
 test('globe and map: the website\'s dock and search text promise no live aircraft', () => {
   const layers = read('src/globe/layers.js');
-  assert.match(layers, /const AIR_HERE = !\(ON_SITE && !RELAY\);/);
-  assert.match(layers, /AIR_HERE \? 'Civil aircraft \(OpenSky, every 15 min\)' : 'Civil aircraft \(download version\)'/);
-  assert.match(layers, /AIR_HERE \? 'Military aircraft \(adsb\.lol, every 60 s\)' : 'Military aircraft \(download version\)'/);
+  assert.match(layers, /const AIR_HERE = !!RELAY, AIR_WHERE = ON_SITE \? 'download version' : 'needs the local helper';/, 'the same test as main.js noAir');
+  assert.match(layers, /AIR_HERE \? 'Civil aircraft \(OpenSky, every 15 min\)' : `Civil aircraft \(\$\{AIR_WHERE\}\)`/);
+  assert.match(layers, /AIR_HERE \? 'Military aircraft \(adsb\.lol, every 60 s\)' : `Military aircraft \(\$\{AIR_WHERE\}\)`/);
+  assert.match(read('open-overwatch.html'), /<p class="sub">A live picture of what is moving right now — satellites, ships, storms and quakes \(live aircraft in the free download\)/);
   for (const page of ['globe.html', 'open-overwatch.html']) {
     const html = read(page);
     for (const m of html.matchAll(/<meta (?:name="(?:twitter:)?description"|property="og:description") content="([^"]*)"/g)) {

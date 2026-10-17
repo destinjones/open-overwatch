@@ -234,7 +234,7 @@ async function run(cmd, heard) {
     case 'faster': { const r = Time.live ? 60 : Time.rate >= 600 ? 3600 : Time.rate >= 60 ? 600 : 60; Time.setRate(r); return say(r >= 3600 ? 'One hour a second.' : r >= 600 ? 'Ten minutes a second.' : 'One minute a second.', heard); }
     case 'count': {
       const word = WORD[cmd.what] || WORD.all;
-      if ((cmd.what === 'air' || cmd.what === 'mil') && !Air.map.size) return say('No aircraft loaded yet.', heard);
+      if ((cmd.what === 'air' || cmd.what === 'mil') && !Air.map.size) return say(Air.offSite ? 'Live aircraft come with the free download; the website has none.' : 'No aircraft loaded yet.', heard);
       if (!cmd.place) {
         if (['sat', 'air', 'mil', 'quake', 'all'].includes(cmd.what)) { const n = Ops.countInView(cmd.what); return say(`${fmt(n)} ${n === 1 ? word.replace(/s$/, '') : word} in view.`, heard); }
         const n = things(cmd.what).length; return say(`${fmt(n)} ${word} loaded right now.`, heard);

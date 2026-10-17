@@ -33,7 +33,7 @@ function render() {
     <h3>Satellites</h3><dl><dt>Propagated</dt><dd>${fmt(Sats.list.length)} with SGP4 in a web worker · ${Sats.tickMs ? Sats.tickMs.toFixed(0) + ' ms per pass' : '—'}</dd>
     <dt>Element sets</dt><dd>median ${tleAge != null ? (tleAge * 24).toFixed(0) + ' h' : '—'} old</dd></dl>
     <table><tr><th>group</th><th>from</th><th>age</th></tr>${groups}</table>
-    <h3>Aircraft</h3><dl><dt>Tracked</dt><dd>${fmt(Air.map.size)}</dd>${Air.areaAt ? `<dt>adsb.lol near the camera</dt><dd>${ago(Date.now() - Air.areaAt)} old</dd>` : `<dt>OpenSky snapshot</dt><dd>${Air.snapshotAt ? ago(Date.now() - Air.snapshotAt) + ' old' : '—'}</dd>`}<dt>Military feed</dt><dd>${Air.milAt ? ago(Date.now() - Air.milAt) + ' old' : '—'}</dd></dl>
+    <h3>Aircraft</h3><dl>${Air.offSite ? '<dt>Live aircraft</dt><dd>download version</dd>' : `<dt>Tracked</dt><dd>${fmt(Air.map.size)}</dd>${Air.areaAt ? `<dt>adsb.lol near the camera</dt><dd>${ago(Date.now() - Air.areaAt)} old</dd>` : `<dt>OpenSky snapshot</dt><dd>${Air.snapshotAt ? ago(Date.now() - Air.snapshotAt) + ' old' : '—'}</dd>`}<dt>Military feed</dt><dd>${Air.milAt ? ago(Date.now() - Air.milAt) + ' old' : '—'}</dd>`}</dl>
     <h3>How far to trust it</h3><dl>
     <dt>Satellites</dt><dd>SGP4 from public element sets: ~1 km at their epoch, growing 1–3 km a day</dd>
     <dt>Aircraft</dt><dd>last reported fix, dead-reckoned for up to 15 min</dd>

@@ -80,7 +80,7 @@ export const Trails = {
   /** Fresh fixes for the watched planes (download version): every 10 s for the followed one, 20 s for the rest. */
   backoff: 0,
   async poll() {
-    if (!RELAY || !this.on || document.hidden || this.busy || Date.now() < this.backoff) return;
+    if (!RELAY || !this.on || (document.hidden && !hooks.airKeep?.()) || this.busy || Date.now() < this.backoff) return;
     this.busy = true; try { await this._poll(); } finally { this.busy = false; }
   },
   async _poll() {

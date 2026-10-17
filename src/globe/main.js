@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // 3D globe: wiring, the frame hooks, feeds on timers, and boot.
-import { C, $, toast, PHONE, EMBED } from './env.js';
+import { C, $, toast, PHONE, EMBED, ON_SITE } from './env.js';
 import { viewer, scene, globe, camera, satPts, airPts, airIcons, qkPts, camHeight } from './viewer.js';
 import { L, initDock } from './layers.js';
 import { hooks, state } from './state.js';
@@ -145,17 +145,28 @@ const poller = createPoller();
 document.addEventListener('visibilitychange', () => poller.setHidden(document.hidden));
 poller.setHidden(document.hidden);
 function every(ms, fn, label, { keep, onStop } = {}) {
-  return poller.add(ms, fn, { keep, onStop: e => { console.warn(label, e.message); onStop?.(e); },
+  return poller.add(ms, fn, { keep, onStop: e => { console.warn(label, e.message); onStop ? onStop(e) : later(`${label}: ${HERE}`, 4000); },
     onError: (e, fails) => { console.warn(label, e); if (fails === 3) toast(`${label} is unavailable right now; retrying`, 3500); } });
 }
-// the website carries no aircraft feed (layers.js names them "download version"): one line, once, and the header's AIR
-// and MIL give way to SAT and QK on phones (globe.html: body.no-air)
+// why a feed can't answer on this page: the website's relay doesn't carry it, anywhere else only the local helper relays it
+const HERE = ON_SITE ? 'not on the website for now; they come with the free download' : 'they need the local helper (serve.js or serve.py, on localhost)';
+// a line for the visitor once the globe is showing: a feed stops long before the boot screen lifts, and #toast sits under
+// it; two such lines take turns instead of the second hiding the first
+let laterFree = 0;
+function later(msg, ms, cond = () => true) {
+  if (EMBED) return;
+  const tell = () => { if (!Share.booted) return setTimeout(tell, 1000); const now = Date.now(), wait = Math.max(1500, laterFree - now); laterFree = now + wait + ms; setTimeout(() => cond() && toast(msg, ms), wait); };
+  tell();
+}
+// no aircraft feed answers here (layers.js names them "download version" / "needs the local helper"): one line, once,
+// and the header's AIR and MIL give way to SAT and QK on phones (globe.html: body.no-air)
 function noAir() {
   if (Air.offSite) return; Air.offSite = true; document.body.classList.add('no-air'); updateStats();
-  if (!EMBED && (L.air.on || L.mil.on)) toast('No live aircraft on the website: they come with the free download', 6000);
+  later(ON_SITE ? 'No live aircraft on the website: they come with the free download' : 'No live aircraft here: they need the local helper (serve.js or serve.py, on localhost)', 6000, () => L.air.on || L.mil.on);
 }
-// a plane being watched for its landing (landwatch.js) or followed keeps its feeds running in a hidden tab
+// a plane being watched for its landing (landwatch.js) or followed keeps its feeds running in a hidden tab (trails.js too)
 const airKeep = () => LandWatch.map.size > 0 || Follow.obj?.kind === 'air';
+hooks.airKeep = airKeep;
 
 // boot: a mostly sunlit Earth, held behind the boot screen until the globe has something to show. Behind that screen the
 // camera first dips to 600 km for a moment: below ~800 km Cesium switches on fog and atmosphere in the globe's and the
