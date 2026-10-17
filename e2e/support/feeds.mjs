@@ -4,6 +4,7 @@
 // the moment of the request, so "the last 24 hours" and "the next launch" always hold something.
 import { readFileSync } from 'node:fs';
 import { windFixture } from '../../brand/tools/wind_fixture.mjs';
+import { parseSocrates, upcoming } from '../../src/core/socrates.js';
 
 const ROOT = new URL('../../', import.meta.url);
 const iso = ms => new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z');
@@ -157,6 +158,23 @@ export function openMeteoClouds(href, now = Date.now()) {
   const u = new URL(href), t0 = Math.floor(now / H) * 3600 - 24 * 3600, time = [], cloud_cover = [], precipitation_probability = [];
   for (let i = 0; i < 120; i++) { const t = t0 + i * 3600, h = new Date(t * 1000).getUTCHours(); time.push(t); cloud_cover.push(h >= 18 || h < 5 ? 12 : 85); precipitation_probability.push(h >= 18 || h < 5 ? 0 : 40); }
   return { latitude: +u.searchParams.get('latitude'), longitude: +u.searchParams.get('longitude'), utc_offset_seconds: 0, timezone: 'GMT', hourly_units: { time: 'unixtime', cloud_cover: '%', precipitation_probability: '%' }, hourly: { time, cloud_cover, precipitation_probability } };
+}
+
+/** RainViewer's frame list (weather mode's radar, the 2D map's radar layer): two hours of past frames every 10 minutes,
+ *  the newest 10 minutes ago. Its tiles get the flat stand-ins (net.mjs), so weather mode opens on radar alone. */
+export function rainviewer(now = Date.now()) {
+  const t1 = Math.floor(now / 600e3) * 600 - 600;   // seconds, like the real list
+  const past = Array.from({ length: 13 }, (_, i) => { const time = t1 - (12 - i) * 600; return { time, path: `/v2/radar/${time}` }; });
+  return { version: '2.0', generated: Math.floor(now / 1000), host: 'https://tilecache.rainviewer.com', radar: { past, nowcast: [] }, satellite: { infrared: [] } };
+}
+
+/** CelesTrak SOCRATES close approaches (data/socrates.json, the site build's copy): test/fixtures/socrates-small.csv read
+ *  with the core parser, moved so its moment (SOCRATES_AT) is now, and kept as the build keeps them (upcoming, closest
+ *  first). Two involve the TLE fixture's stations (ISS, Tiangong), one neither, and one is already past. */
+export const SOCRATES_AT = Date.UTC(2026, 9, 13, 19);
+export function socrates(now = Date.now()) {
+  const rows = parseSocrates(readFileSync(new URL('test/fixtures/socrates-small.csv', ROOT), 'utf8')).map(r => ({ ...r, tca: r.tca - SOCRATES_AT + now }));
+  return { updated: iso(now - 2 * H), source: 'CelesTrak SOCRATES (e2e fixture)', screened: rows.length, rows: upcoming(rows, now) };
 }
 
 /** The ISS over the English Channel. */
