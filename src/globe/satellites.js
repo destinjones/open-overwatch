@@ -11,27 +11,32 @@ import { createTleSource, parseTle, tleEpochJd, stampTle } from '../core/tle.js'
 import { fetchAsset } from '../core/assets.js';
 import { chooseElements, nearestSnapshot, parseHistoryIndex, archiveMap, historyFileUrl, TLE_HISTORY, DAY_MS } from '../core/history.js';
 import { Time } from './time.js';
+import { eciVelToEcf } from '../core/ecfvel.js';
 
 const satellite = window.satellite;
 const tles = createTleSource({ fetchText: (url, o) => getText(url, o), cache: bigStore, onSite: ON_SITE });
 
-// The worker propagates every satellite once a second (position + 1 s velocity, Earth-fixed km); the page extrapolates.
+// The worker propagates every satellite once a second (position and velocity, Earth-fixed km and km/s; one SGP4 run each,
+// core/ecfvel.js turns the velocity); the page extrapolates. satellite.js is the site's own copy (src/vendor/, the same
+// bytes the pages pin by hash): importScripts has no integrity check, and a blob worker needs the URL whole.
+const SAT_LIB = new URL('../vendor/satellite.min.js', import.meta.url).href;
 const WORKER_SRC = `
-importScripts('https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/dist/satellite.min.js');
+importScripts(${JSON.stringify(SAT_LIB)});
+${eciVelToEcf}
 let recs = [];
 onmessage = e => {
   const m = e.data;
   if (m.type === 'load') { recs = m.tles.map(t => { try { return t ? satellite.twoline2satrec(t[0], t[1]) : null; } catch (err) { return null; } }); return; }   // null: no elements for the time shown (hidden)
   if (m.type === 'tick') {
-    const t0 = new Date(m.t), t1 = new Date(m.t + 1000), g0 = satellite.gstime(t0), g1 = satellite.gstime(t1);
+    const t0 = new Date(m.t), g0 = satellite.gstime(t0), v = {};
     const out = new Float32Array(recs.length * 6), w0 = performance.now();
     for (let i = 0; i < recs.length; i++) {
       const r = recs[i]; let ok = false;
       if (r) {
-        const a = satellite.propagate(r, t0), b = satellite.propagate(r, t1);
-        if (a.position && b.position && !isNaN(a.position.x)) {
-          const p = satellite.eciToEcf(a.position, g0), q = satellite.eciToEcf(b.position, g1);
-          out.set([p.x, p.y, p.z, q.x - p.x, q.y - p.y, q.z - p.z], i * 6); ok = true;
+        const a = satellite.propagate(r, t0);
+        if (a.position && a.velocity && !isNaN(a.position.x)) {
+          const p = satellite.eciToEcf(a.position, g0); eciVelToEcf(p, a.velocity, g0, v);
+          const k = i * 6; out[k] = p.x; out[k + 1] = p.y; out[k + 2] = p.z; out[k + 3] = v.x; out[k + 4] = v.y; out[k + 5] = v.z; ok = true;
         }
       }
       if (!ok) out[i * 6] = NaN;
@@ -170,6 +175,9 @@ const Archive = {
 // ambient fill for satellite models in Earth's shadow (otherwise they render black)
 export const SHADOW_FILL = new C.CustomShader({ fragmentShaderText: 'void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) { material.emissive += material.diffuse * 0.42; }' });
 
+// SatModels.state's temporaries (it runs per modelled satellite per frame; nothing it returns points into these)
+const SCRATCH = { Z: new C.Cartesian3(), V: new C.Cartesian3(), X: new C.Cartesian3(), Y: new C.Cartesian3(), T: new C.Cartesian3(), R: new C.Matrix3() };
+
 /* Satellites near the camera swap their point for a glTF model at real size, flying nose-first (+X along velocity, +Z
    to zenith), with solar arrays (nodes solar_*) turned toward the real sun about the model's Y axis. Modelled
    satellites get exact SGP4 every frame (the worker's 1 s linear extrapolation drifts ~4 m, visible up close). */
@@ -207,24 +215,23 @@ export const SatModels = {
     const key = time.dayNumber * 86400 + time.secondsOfDay;
     if (s._k === key && s._st) return s._st;
     s.rec = s.rec || satellite.twoline2satrec(s.l1, s.l2);
-    const now = C.JulianDate.toDate(time).getTime(), d0 = new Date(now), d1 = new Date(now + 1000);
-    const a = satellite.propagate(s.rec, d0), b = satellite.propagate(s.rec, d1);
     const st = s._st || (s._st = { pos: new C.Cartesian3(), quat: new C.Quaternion(), solar: new C.Quaternion(), ok: false });
     s._k = key;
     if (s.gone) { st.ok = false; return st; }   // no element set near the time shown
-    if (!a.position || !b.position || Number.isNaN(a.position.x)) { st.ok = false; return st; }
-    const p = satellite.eciToEcf(a.position, satellite.gstime(d0)), q = satellite.eciToEcf(b.position, satellite.gstime(d1));
+    const d0 = C.JulianDate.toDate(time), a = satellite.propagate(s.rec, d0);   // one SGP4 run: position and velocity
+    if (!a.position || !a.velocity || Number.isNaN(a.position.x)) { st.ok = false; return st; }
+    const g = satellite.gstime(d0), p = satellite.eciToEcf(a.position, g), { Z, V, X, Y, T, R } = SCRATCH;
     C.Cartesian3.fromElements(p.x * 1000, p.y * 1000, p.z * 1000, st.pos);
-    const Z = C.Cartesian3.normalize(st.pos, new C.Cartesian3());
-    const v = new C.Cartesian3((q.x - p.x) * 1000, (q.y - p.y) * 1000, (q.z - p.z) * 1000);
-    const X = C.Cartesian3.normalize(C.Cartesian3.subtract(v, C.Cartesian3.multiplyByScalar(Z, C.Cartesian3.dot(v, Z), new C.Cartesian3()), new C.Cartesian3()), new C.Cartesian3());
-    const Y = C.Cartesian3.cross(Z, X, new C.Cartesian3());
-    const R = new C.Matrix3(X.x, Y.x, Z.x, X.y, Y.y, Z.y, X.z, Y.z, Z.z);   // columns = body axes in Earth-fixed coordinates
+    C.Cartesian3.normalize(st.pos, Z);
+    eciVelToEcf(p, a.velocity, g, V);   // Earth-fixed velocity (km/s; only its direction is used)
+    C.Cartesian3.normalize(C.Cartesian3.subtract(V, C.Cartesian3.multiplyByScalar(Z, C.Cartesian3.dot(V, Z), T), X), X);
+    C.Cartesian3.cross(Z, X, Y);
+    R[0] = X.x; R[1] = X.y; R[2] = X.z; R[3] = Y.x; R[4] = Y.y; R[5] = Y.z; R[6] = Z.x; R[7] = Z.y; R[8] = Z.z;   // columns = body axes in Earth-fixed coordinates
     C.Quaternion.multiply(C.Quaternion.fromRotationMatrix(R, st.quat), MODEL_FIX, st.quat);
     // arrays: rotate about body +Y so their +Z normal points at the sun: theta = atan2(sun.x, sun.z) in body axes
     C.Quaternion.fromAxisAngle(SOLAR_AXIS, Math.atan2(C.Cartesian3.dot(this.sunEcf, X), C.Cartesian3.dot(this.sunEcf, Z)), st.solar);
     const sd = C.Cartesian3.dot(st.pos, this.sunEcf);    // in Earth's shadow: behind the Earth and inside its cylinder
-    st.shadow = sd < 0 && C.Cartesian3.magnitude(C.Cartesian3.subtract(st.pos, C.Cartesian3.multiplyByScalar(this.sunEcf, sd, new C.Cartesian3()), new C.Cartesian3())) < 6371000;
+    st.shadow = sd < 0 && C.Cartesian3.magnitude(C.Cartesian3.subtract(st.pos, C.Cartesian3.multiplyByScalar(this.sunEcf, sd, T), T)) < 6371000;
     st.ok = true; return st;
   },
   async ensure(s) {

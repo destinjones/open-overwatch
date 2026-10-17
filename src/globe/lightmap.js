@@ -12,15 +12,18 @@ import { paintAtlas, ATLAS_CREDIT } from '../core/darksky.js';
 export const LightMap = {
   layer: null, loading: false, failed: 0,
   async load() {
-    if (this.loading || Date.now() - this.failed < 60e3) return; this.loading = true;
+    if (this.loading || Date.now() - this.failed < 60e3) return; this.loading = true; let url = null;
     try {
       const g = await DarkSky.atlas(), w = PHONE ? 1800 : 3600, h = Math.round(w * g.rows / g.cols);   // 1/10 or 1/5 degree: the brightest cell under each pixel
       const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
       const cx = cv.getContext('2d'), img = cx.createImageData(w, h); img.data.set(paintAtlas(g, w, h)); cx.putImageData(img, 0, 0);
       const south = g.lat0 - g.rows * g.step;
-      const provider = await C.SingleTileImageryProvider.fromUrl(cv.toDataURL(), { rectangle: C.Rectangle.fromDegrees(g.lon0, south, g.lon0 + g.cols * g.step, g.lat0), credit: new C.Credit(ATLAS_CREDIT) });
+      // toBlob encodes off the main thread; toDataURL froze a phone for a few hundred ms (PNG + base64 of ~5 Mpx, then decoded back)
+      const blob = await new Promise((res, rej) => cv.toBlob(b => (b ? res(b) : rej(new Error('canvas.toBlob gave nothing'))), 'image/png'));
+      url = URL.createObjectURL(blob);
+      const provider = await C.SingleTileImageryProvider.fromUrl(url, { rectangle: C.Rectangle.fromDegrees(g.lon0, south, g.lon0 + g.cols * g.step, g.lat0), credit: new C.Credit(ATLAS_CREDIT) });
       this.layer = viewer.imageryLayers.addImageryProvider(provider); this.layer.alpha = 0.85; this.apply();
-    } catch (e) { console.warn('light pollution', e); this.failed = Date.now(); } finally { this.loading = false; }
+    } catch (e) { console.warn('light pollution', e); this.failed = Date.now(); } finally { this.loading = false; if (url) URL.revokeObjectURL(url); }   // fromUrl has read the picture by now
   },
   apply() {
     if (this.layer) { this.layer.show = L.lightpollution.on; if (L.lightpollution.on) viewer.imageryLayers.raiseToTop(this.layer); viewer.scene.requestRender(); }

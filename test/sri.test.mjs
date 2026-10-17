@@ -77,9 +77,27 @@ test('every page: CDN tags pinned and hashed, the same hash everywhere, a CSP th
     for (const m of importMaps(html)) for (const [u, h] of Object.entries(m.integrity)) if (!sri.has(u)) sri.set(u, h);
   }
   for (const p of PAGES) assert.deepEqual(checkPage(read(p), { sha256, sri, evalOk: EVAL_OK.has(p) }).map(e => `${p}:${e.line} [${e.rule}] ${e.what}`), []);
-  // every library URL in the code (hls.js's dynamic import, satellite.js in the worker source) is hashed on some page
+  // every library URL in the code (hls.js's dynamic import, India's satellite.js tag) is hashed on some page
   const walk = d => readdirSync(new URL(d, root), { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(`${d}${e.name}/`) : e.name.endsWith('.js') ? [`${d}${e.name}`] : []);
   for (const f of walk('src/')) for (const u of cdnUrlsIn(read(f))) assert.ok(sri.has(u), `${f}: ${u} is not pinned with integrity on any page`);
+});
+
+test('workers load no library from another site: importScripts has no integrity check, so they use src/vendor/', () => {
+  const walk = d => readdirSync(new URL(d, root), { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(`${d}${e.name}/`) : /\.m?js$/.test(e.name) ? [`${d}${e.name}`] : []);
+  for (const f of [...walk('src/'), ...walk('mcp/'), 'sw.js']) assert.doesNotMatch(read(f), /importScripts\(\s*['"`](https?:)?\/\//, f);
+  for (const f of ['src/globe/satellites.js', 'src/map/satellites.js']) assert.match(read(f), /new URL\('\.\.\/vendor\/satellite\.min\.js', import\.meta\.url\)/, f);
+});
+
+test('src/vendor/satellite.min.js is byte for byte the satellite.js the pages pin, and NOTICE names it', () => {
+  const url = 'https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/dist/satellite.min.js';
+  const pinned = new Set(PAGES.flatMap(p => cdnTags(read(p)).filter(t => t.url === url).map(t => t.attrs.integrity)));
+  assert.equal(pinned.size, 1, `one hash for ${url} on every page: ${[...pinned]}`);
+  const bytes = readFileSync(new URL('src/vendor/satellite.min.js', root));
+  assert.equal('sha384-' + createHash('sha384').update(bytes).digest('base64'), [...pinned][0], 'a changed copy: re-copy it from node_modules/satellite.js/dist, or move the pages to the new version too');
+  assert.ok(!bytes.includes(13), 'no CR bytes (.gitattributes keeps src/vendor/ untouched)');
+  const notice = read('NOTICE');
+  for (const f of readdirSync(new URL('src/vendor/', root))) if (!/LICENSE/.test(f)) assert.ok(notice.includes(`src/vendor/${f}`), `NOTICE: ${f}`);
+  assert.match(read('src/vendor/satellite.js-LICENSE.md'), /MIT License[\s\S]*Shashwat Kandadai/);
 });
 
 test('no page asks Google Fonts; fonts come from brand/fonts', () => {
