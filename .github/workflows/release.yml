@@ -18,9 +18,10 @@ jobs:
           mkdir -p "$D/brand/hero" "$D/brand/social" "$D/brand/textures" "$D/brand/models"
           cp -r src "$D/"                                                                          # the apps' ES modules
           cp open-overwatch.html globe.html solar.html tonight.html manifest.webmanifest sw.js offline.html serve.js serve.py README.txt \
-             "Start Open Overwatch.bat" "Start Open Overwatch (minimized).vbs" "$D/"
-          cp -r brand/emblem brand/fonts brand/sprites "$D/brand/"
-          rm -rf "$D/brand/sprites/raw"
+             "Start Open Overwatch.bat" "Start Open Overwatch (minimized).vbs" LICENSE NOTICE "$D/"
+          cp index.html about.html guide.html "$D/" && cp -r india "$D/"                           # the pages the views link to
+          cp -r brand/emblem brand/fonts brand/sprites brand/lander brand/about brand/india "$D/brand/"
+          rm -rf "$D/brand/sprites/raw" "$D/brand/lander/icons/"*.png "$D/brand/india/og-card.html"   # sources, not served
           cp brand/hero/*.webp "$D/brand/hero/"
           cp brand/social/og-1200x630.png "$D/brand/social/"
           cp -r brand/textures/night "$D/brand/textures/"
@@ -28,6 +29,7 @@ jobs:
           cp -r brand/textures/sky brand/textures/sky_1k "$D/brand/textures/"                     # globe star field
           cp -r brand/textures/planets brand/textures/moons brand/textures/sky_equirect.jpg brand/textures/sky_equirect_2k.jpg "$D/brand/textures/"  # solar system
           mkdir -p "$D/data" && cp -r data/solar data/eclipses.json data/lighthouses.json data/countries.json data/borders.json data/companies.json data/volcanoes.json data/constellations.json "$D/data/"                    # orbits, stars, spacecraft, exoplanets; eclipses; lighthouses
+          cp data/airports.json data/runways.json data/deepsky.json data/deepsky.md data/lightpollution.bin data/lightpollution.md "$D/data/"   # airports, deep sky, dark sky; lightpollution.md is its CC BY-NC licence and must go with the .bin
           cp -r brand/models/. "$D/brand/models/"   # satellites, aircraft/ and test/ (3D planes need aircraft/)
           rm -rf "$D/brand/models/previews"
           echo "$GITHUB_REF_NAME" > "$D/VERSION.txt"
