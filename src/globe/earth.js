@@ -118,7 +118,7 @@ czm_material czm_getMaterial(czm_materialInput mi) {
   vec3 N = normalize(mi.normalEC), V = normalize(mi.positionToEyeEC), L = normalize(czm_lightDirectionEC);
   float ndl = dot(N, L), ndv = max(dot(N, V), 0.0);
   vec3 nW = normalize(czm_inverseViewRotation * N), lW = normalize(czm_inverseViewRotation * L);
-  // fractal detail below the texture's ~5 km texels: each octave fades in once it is bigger than a few pixels (no shimmer from orbit)
+  // fractal detail below the texture's texels (~5 km at 8k, ~10 km at 4k): each octave fades in once it is bigger than a few pixels (no shimmer from orbit)
   vec3 pW = (czm_inverseView * vec4(-mi.positionToEyeEC, 1.0)).xyz;
   float px = length(fwidth(pW)), n = 0.0, wsum = 0.0, lam = 16000.0, k = 0.0;
   for (int o = 0; o < 4; o++) {

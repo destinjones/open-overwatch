@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Globe UI: stats, the altitude band and presets, hover tips, the details card, keyboard, and model lighting.
 import { C, $, esc, fmt } from './env.js';
-import { viewer, scene, camera, airPts, airIcons, orbitLines, camHeight } from './viewer.js';
+import { viewer, scene, camera, ctrl, airPts, airIcons, orbitLines, camHeight } from './viewer.js';
 import { L } from './layers.js';
 import { state, hooks } from './state.js';
 import { Follow, release } from './follow.js';
@@ -79,11 +79,14 @@ let touchInput = matchMedia('(pointer: coarse)').matches;
 let held = false, camMoving = false, hoverAt = null, hoverTimer = 0;
 function hideTip() { clearTimeout(hoverTimer); hoverTimer = 0; $('#hover').style.display = 'none'; scene.canvas.style.cursor = ''; }
 scene.canvas.addEventListener('pointerdown', e => { touchInput = e.pointerType !== 'mouse'; held = true; hideTip(); }, true);
-for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => { held = e.buttons !== 0; }, true);   // released anywhere, not just over the canvas
+for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => {   // released anywhere, not just over the canvas
+  held = e.buttons !== 0;
+  if (!held && hoverAt && !touchInput) { clearTimeout(hoverTimer); hoverTimer = setTimeout(hoverPick, 80); }   // a click with no move or camera motion: tip again
+}, true);
 addEventListener('blur', () => { held = false; });
 scene.canvas.addEventListener('pointerleave', () => { hoverAt = null; hideTip(); });
 camera.moveStart.addEventListener(() => { camMoving = true; hideTip(); });
-camera.moveEnd.addEventListener(() => { camMoving = false; if (hoverAt && !touchInput) hoverTimer = setTimeout(hoverPick, 80); });
+camera.moveEnd.addEventListener(() => { camMoving = false; clearTimeout(hoverTimer); if (hoverAt && !touchInput) hoverTimer = setTimeout(hoverPick, 80); });
 function pickObj(pos, r = touchInput ? 28 : 3) { const p = scene.pick(pos, r, r), id = p && p.id; return id ? (id.kind ? id : id.sat || id.air || id.obj || null) : null; }   // obj: an entity drawn for something (a storm's cone, a fire's perimeter)
 /** The hover tip for anything pickable (voice.js reads it aloud too). */
 export function tipFor(o) {
@@ -98,7 +101,7 @@ export function tipFor(o) {
 }
 function hoverPick() {
   hoverTimer = 0;
-  if (!hoverAt || touchInput || held || (camMoving && !Follow.obj)) return;   // following moves the camera every frame: still tip then
+  if (!hoverAt || touchInput || held || (camMoving && !Follow.obj && ctrl.enableInputs)) return;   // following and scripted cameras (tower, chase, fly-through) move every frame: still tip then
   const o = pickObj(hoverAt), t = $('#hover');
   if (!o) { hideTip(); return; }
   t.textContent = tipFor(o); t.style.display = 'block'; t.style.left = (hoverAt.x + 14) + 'px'; t.style.top = (hoverAt.y + 12) + 'px'; scene.canvas.style.cursor = 'pointer';
