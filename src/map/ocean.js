@@ -20,6 +20,16 @@ const foot = t => `<p style="font-size:11.5px;color:var(--ink-faint)">${esc(t)}<
 let stationsP = null;
 const stations = () => stationsP || (stationsP = Net.text(NDBC_STATIONS, { timeout: 60000 }).then(parseNdbcStations).catch(e => { stationsP = null; throw e; }));
 const reshow = o => { if (Sel.obj === o) Detail.render(); };   // a card whose fetch landed while it is still shown
+/** Whether a card should read its buoy or gauge (again): never read, its reading older than `maxAge` ms, or a failed read
+ *  more than 15 s ago (the next opening retries; the re-render right after the failure doesn't loop). The globe re-reads
+ *  on every opening; the map keeps a fresh reading a few minutes. */
+export const readDue = (o, maxAge, now = Date.now()) => !o.reading && (o.failAt ? now - o.failAt > 15e3 : !o.readAt || now - o.readAt > maxAge);
+/** Read a station for its card: `read(o)` fills it in; a failure is kept in o.err until a later read works. */
+function reread(o, read) {
+  o.reading = read(o).then(() => { o.readAt = Date.now(); o.failAt = 0; o.err = null; o.notCarried = false; }, e => { o.failAt = Date.now(); o.err = e.message; o.notCarried = !!e.notCarried; })
+    .finally(() => { o.reading = null; reshow(o); });
+}
+const DART_MAX_AGE = 5 * 60e3, TIDE_MAX_AGE = 10 * 60e3;
 
 /* ---------- buoys and coastal stations */
 export const lyBuoys = Layers.add({ id: 'buoys', group: G, name: 'Ocean buoys', desc: 'NOAA NDBC · ~870 buoys and coastal stations · waves, wind, water temperature · latest report, every 10 min', color: '#62e0c8', shape: 'round', default: false, points: 'buoys' });
@@ -39,10 +49,10 @@ export const lyDart = Layers.add({ id: 'dart', group: G, name: 'Tsunami buoys (D
 Points.define('dart', 'dart');
 const DART_LOOK = { event: '#ff4d6d', standard: '#ffd45c', late: '#c9a35a', silent: '#8b9bab' };
 Detail.renderers.dart = o => {
-  if (!o.read) { o.read = Net.text(dartUrl(o.id), { timeout: 60000 }).then(t => { o.d = parseDart(t, { max: 200 }); stamp(o, 'dart', [rep('ndbc', { dataAt: o.d.latest?.t, cached: Relay.viaCopy(NDBC_LATEST) })]); }, e => { o.err = e.message; o.notCarried = !!e.notCarried; }).finally(() => reshow(o)); }
+  if (readDue(o, DART_MAX_AGE)) reread(o, async b => { b.d = parseDart(await Net.text(dartUrl(b.id), { timeout: 60000 }), { max: 200 }); stamp(b, 'dart', [rep('ndbc', { dataAt: b.d.latest?.t, cached: Relay.viaCopy(NDBC_LATEST) })]); });   // a buoy can switch into event mode at any time
   const s = o.d && dartStatus(o.d), l = o.d?.latest;
   const rows = o.d ? [['Status', s.words], ...(l ? [['Water column', `${l.heightM.toFixed(3)} m above the sensor`], ['Sampling', DART_MODES[l.mode] || 'mode ' + l.mode], ['Last reading', agoWords(l.t, Date.now(), true)]] : []), ...(s.rangeM != null ? [['Change, last 6 h', `${s.rangeM.toFixed(3)} m (mostly the tide)`]] : [])]
-    : [['Status', o.notCarried ? "The buoy's file needs the download version (its local helper relays it)" : o.err ? 'NDBC is not answering: ' + o.err : 'reading the buoy…']];
+    : [['Status', o.notCarried ? "The buoy's file needs the download version (its local helper relays it)" : o.err && !o.reading ? 'NDBC is not answering: ' + o.err : 'reading the buoy…']];
   return `<div class="det">${Detail.head(s ? DART_LOOK[s.state] : DART_LOOK.standard, 'NOAA DART · tsunami buoy', o.name || o.id, esc(o.id + (o.owner ? ' · ' + o.owner : '')))}${Detail.kv(rows)}${center(o)}${Detail.links([{ text: 'NDBC station page', url: ndbcPage(o.id) }, { text: 'Tsunami warnings (tsunami.gov)', url: 'https://www.tsunami.gov/' }])}
 ${foot('A pressure sensor on the sea floor measures the water above it; tides move it by a metre or more. A sudden change, a quake or a test switches it into event mode (15-second and 1-minute readings) for a few hours. NOAA NDBC (public domain).')}</div>`;
 };
@@ -57,14 +67,15 @@ Points.define('tides', 'tides');
 async function readTide(o) {
   let datum = coopsDatum(o), latest = parseCoopsLatest(await Net.json(coopsUrl(o.id, 'latest', { datum })));
   const alt = /Datum values are:\s*([A-Z]{3,4})/.exec(latest.error || ''); if (alt) { datum = alt[1]; latest = parseCoopsLatest(await Net.json(coopsUrl(o.id, 'latest', { datum }))); }
-  const tides = o.tidal ? nextTides(parseCoopsHilo(await Net.json(coopsUrl(o.id, 'hilo', { datum })).catch(() => ({})))) : null;
+  const hilo = o.tidal ? parseCoopsHilo(await Net.json(coopsUrl(o.id, 'hilo', { datum })).catch(() => ({}))) : null;
   stamp(o, 'tides', [rep('coops', { dataAt: latest.t })]);
-  o.rows = tideRows({ ...o, tidal: datum === 'MLLW', greatLakes: datum === 'IGLD' }, latest, tides);
+  o.tide = { st: { tidal: datum === 'MLLW', greatLakes: datum === 'IGLD' }, latest, hilo };   // the rows are worded when the card is drawn ("6 min ago", rising, the next high)
 }
 Detail.renderers.tide = o => {
-  if (!o.read) o.read = readTide(o).catch(e => { o.err = e.message; }).finally(() => reshow(o));
+  if (readDue(o, TIDE_MAX_AGE)) reread(o, readTide);
+  const t = o.tide, rows = t ? tideRows(t.st, t.latest, t.hilo ? nextTides(t.hilo) : null) : null;
   return `<div class="det">${Detail.head(o.greatLakes ? '#9fe3ff' : '#5fd3ff', 'NOAA CO-OPS · ' + (o.greatLakes ? 'lake level gauge' : o.tidal ? 'tide gauge' : 'water level gauge'), o.name + (o.state ? ', ' + o.state : ''), esc(o.id))}
-${Detail.kv(o.rows || [['Water level', o.err ? 'NOAA is not answering: ' + o.err : 'reading the gauge…']])}${center(o)}${Detail.links([{ text: 'NOAA Tides & Currents page', url: coopsPage(o.id) }])}
+${Detail.kv(rows || [['Water level', o.err && !o.reading ? 'NOAA is not answering: ' + o.err : 'reading the gauge…']])}${center(o)}${Detail.links([{ text: 'NOAA Tides & Currents page', url: coopsPage(o.id) }])}
 ${foot('Measured every 6 minutes (preliminary until checked); highs and lows are NOAA\'s astronomical predictions, so wind and pressure can push the water above or below them. NOAA CO-OPS (public domain).')}</div>`;
 };
 feed(lyTides, { interval: 86400, fetch: async () => {

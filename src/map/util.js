@@ -35,6 +35,14 @@ export const fmt = {
 export { haversine };
 /** [lat, lon] reached after `dist` metres along bearing `brg` (the map's argument order and array; core/geo.js destination). */
 export function destination(lat, lon, brg, dist) { const p = geoDestination(lat, lon, dist, brg); return [p.lat, p.lon]; }
+/** [lon, lat] points → Leaflet [lat, lon] with longitudes made continuous along the path (each step the short way round,
+ *  starting from the first point's longitude or the copy nearest `ref`), so a line or ring across the date line doesn't
+ *  jump back across the whole map: Leaflet draws vectors as given and doesn't wrap them. */
+export function unwrap(path, ref = null) {
+  const out = []; let prev = ref;
+  for (const [lon, lat] of path) { let x = lon; if (prev != null) x = prev + ((((lon - prev) % 360) + 540) % 360 - 180); out.push([lat, x]); prev = x; }
+  return out;
+}
 export function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 export function throttle(fn, ms) { let last = 0, t; return (...a) => { const now = Date.now(); if (now - last >= ms) { last = now; fn(...a); } else { clearTimeout(t); t = setTimeout(() => { last = Date.now(); fn(...a); }, ms - (now - last)); } }; }
 export function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }

@@ -2,10 +2,10 @@
 // Point and vector layers: quakes, events, disasters, storms, news, weather, space weather, radar, clouds, terminator, cables, cameras, ships, balloons, fires, OSM scan.
 import { num, idArg } from '../core/format.js';
 import { COUNTRY, COUNTRY_ALIAS } from './countries.js';
-import { $, C, debounce, deg, esc, fmt, haversine, isHttp, late, Log, Net, rad, Relay, safeHost, toast } from './util.js';
+import { $, C, debounce, deg, esc, fmt, haversine, isHttp, late, Log, Net, rad, Relay, safeHost, toast, unwrap } from './util.js';
 import { map, vecRenderer } from './mapview.js';
 import { nightRing } from '../core/sky.js';
-import { Dyn, Exports, Feeds, Layers, Points, UI, feed, requestDraw, runFeed } from './engine.js';
+import { Dyn, Exports, Feeds, Layers, Points, Sel, UI, feed, requestDraw, runFeed } from './engine.js';
 import { Detail } from './detail.js';
 import { parseUsgs, usgsUrl, USGS_FEEDS, largest, usgsDataAt, stampQuake, gdacsQuakes, emscSource, emscAsk } from '../core/quakes.js';
 import { stamp, rep, stampReports } from '../core/liveprov.js';
@@ -15,9 +15,11 @@ import { stormAgreement, loadCyclones, category, catName, KIND_KT, NHC_CURRENT, 
 import { WW } from '../core/hazards.js';
 import { overpass } from '../core/overpass.js';
 import { OVATION_URL, KP_URL, parseOvation, ovationAt, paintMercator, MERCATOR_MAX_LAT, latestKp } from '../core/aurora.js';
+import { KP_FORECAST_URL, kpSeries, kpSummary } from '../core/earthnow.js';
+import { onPublishedSite } from '../core/relay.js';
 import { CABLE_URLS, LANDING_URLS, parseLandings, nearestCable, cablePage, landingPage, okColor } from '../core/cables.js';
 import { CAMERA_NETS, CAMERA_GROUPS, boxInView, bustUrl, isStream, netOf } from '../core/cameras.js';
-import { sameShip, parseAisLocations, parseAisVessels, shipKind, shipTypeName, SHIP_KINDS, NAV_STATUS, flagOf, etaTime, DIGITRAFFIC_AIS, DIGITRAFFIC_HEADERS } from '../core/ais.js';
+import { sameShip, parseAisLocations, parseAisVessels, shipKind, shipTypeName, SHIP_KINDS, NAV_STATUS, flagOf, etaTime, DIGITRAFFIC_AIS, DIGITRAFFIC_HEADERS, cleanAisSentinels, aisstreamSocketUrl } from '../core/ais.js';
 
 /* ============================================================ POINT + VECTOR LAYERS
    Points go on the shared canvas (Points.set); only polygons and lines stay as Leaflet vectors, non-interactive. */
@@ -51,18 +53,18 @@ feed(lyQuakes, { interval: 300, fetch: async () => {   // parsed by core/quakes.
 } });
 
 /* ---------- Natural events (NASA EONET) */
-export const lyEvents = Layers.add({ id: 'events', group: 'Ground', name: 'Natural events', desc: 'NASA EONET · wildfires, storms, volcanoes, floods, ice', color: C.evt, default: false, points: 'events' });
+export const lyEvents = Layers.add({ id: 'events', group: 'Ground', name: 'Natural events', desc: 'NASA EONET · wildfires, volcanoes, floods, ice (storms: the Tropical cyclones layer)', color: C.evt, default: false, points: 'events' });
 export const gEvents = lineLayer(lyEvents); Points.define('events', 'events');
 export const EONET_COL = EONET_COLOR;
 Detail.renderers.event = e => `<div class="det">${Detail.head(e.color, 'Natural event · NASA EONET', e.title, esc(e.cats.join(' · ')), e.closed ? [{ t: 'Closed ' + e.closed.slice(0, 10) }] : [{ t: 'Open', cls: 'good' }])}
 ${Detail.kv([['Latest position', fmt.ll(e.lat, e.lon)], ['Latest fix', fmt.date(e.date)], ['First reported', e.first ? fmt.date(e.first) : null], ['Fixes', e.n], ['Magnitude', e.mag]])}
 <div class="actions"><button class="btn small" data-do="fly" data-lat="${num(e.lat)}" data-lon="${num(e.lon)}" data-z="7">Center</button></div><hr class="sep">${Detail.links([{ text: 'EONET event', url: e.link }, ...e.sources.map(s => ({ text: `Source: ${s.id}`, url: s.url }))])}</div>`;
 feed(lyEvents, { interval: 900, fetch: async () => {   // core/eonet.js: polygons (some fires, ice) are placed at their middle
-  const list = parseEonet(await Net.json(eonetUrl({ days: 20 }))); gEvents.clearLayers(); const items = []; World.events = [];
+  const list = parseEonet(await Net.json(eonetUrl({ days: 20 }))).filter(e => e.cat !== 'severeStorms'); gEvents.clearLayers(); const items = []; World.events = [];   // storms: the cyclones layer draws them (as globe/events.js)
   for (const ev of list) {
     const color = EONET_COL[ev.cat] || C.evt, e = stamp({ ...ev, color }, 'events', [rep('eonet', { dataAt: ev.date })]);
     World.events.push(e); items.push({ lat: e.lat, lon: e.lon, r: 4.5, color, fillAlpha: .35, kind: 'event', obj: e, tip: e.title });
-    if (ev.track.length > 1) L.polyline(ev.track.slice(-12).map(x => [x.lat, x.lon]), { color, weight: 1, opacity: .5, interactive: false, renderer: vecRenderer }).addTo(gEvents);
+    if (ev.track.length > 1) L.polyline(unwrap(ev.track.slice(-12).map(x => [x.lon, x.lat])), { color, weight: 1, opacity: .5, interactive: false, renderer: vecRenderer }).addTo(gEvents);
   }
   Points.set('events', items); lyEvents.feed.count = items.length;
 } });
@@ -97,8 +99,11 @@ ${Detail.kv([['Max winds', s.kt ? `${s.kt} kt · ${fmt.n(s.kt * 1.852)} km/h` : 
 <p style="font-size:12px;color:var(--ink-dim);line-height:1.45">${f && f.cone.length ? (f.coherent ? 'The white cone is where the centre will probably be over the next days (about 2 times in 3); wind, rain and surge reach well outside it.' : 'The forecast cone is being updated: shown again with the next advisory.') : 'The past track, not a forecast.'}${f && f.winds.length ? ' Shaded now: tropical-storm (yellow), 50 kt (orange) and hurricane-force (red) winds.' : ''} Official forecasts and warnings: your national weather service.</p>
 <div class="actions"><button class="btn small" data-do="fly" data-lat="${num(s.lat)}" data-lon="${num(s.lon)}" data-z="6">Center</button></div><hr class="sep">${Detail.links(links)}</div>`;
 };
-const gdacsKept = new Map();   // GDACS geometry per event/episode (never changes)
-const ll = path => path.map(([lon, lat]) => [lat, lon]);
+// GDACS geometry per event/episode (an episode never changes), kept between loads; get() notes which keys a load used,
+// so the episodes that are gone are dropped after it (a storm gets a new episode with each advisory), and at most 24 stay
+class KeptGeometry extends Map { used = new Set(); get(k) { this.used.add(k); return super.get(k); } }
+const gdacsKept = new KeptGeometry(), GDACS_KEEP = 24;
+const ll = path => unwrap(path);   // [lon, lat] → [lat, lon], continuous across the date line
 /** One storm's forecast on the map: the wind field now, the cone, the forecast track, coastal watches and warnings, the past track. */
 function drawForecast(f) {
   const add = shape => shape.addTo(gStorms), opt = o => ({ interactive: false, renderer: vecRenderer, ...o });
@@ -112,13 +117,16 @@ function drawForecast(f) {
 }
 feed(lyStorms, { interval: 1200, errorInterval: 1800, fetch: async () => {   // EONET + NHC + NOAA forecasts + GDACS, merged per storm (core/cyclones.js, as on the globe)
   const nhc = Relay.available || !!Relay.wrap(NHC_CURRENT);   // NHC's list: the helper, or the website's public relay
-  const list = await loadCyclones({ json: (url, o = {}) => Net.json(url, { timeout: o.timeout || 30000 }), nhc, kept: gdacsKept, warn: (what, e) => Log.warn(`${what}: ${e.message}`) });
+  let gdacsDown = false; gdacsKept.used.clear();
+  const list = await loadCyclones({ json: (url, o = {}) => Net.json(url, { timeout: o.timeout || 30000 }), nhc, kept: gdacsKept, warn: (what, e) => { if (what === 'GDACS') gdacsDown = true; Log.warn(`${what}: ${e.message}`); } });
+  if (!gdacsDown) for (const k of [...gdacsKept.keys()]) if (!gdacsKept.used.has(k)) gdacsKept.delete(k);   // GDACS's list answered: episodes not in it are over
+  while (gdacsKept.size > GDACS_KEEP) gdacsKept.delete(gdacsKept.keys().next().value);   // oldest first
   gStorms.clearLayers(); World.storms = list; const items = [];
   const nhcCopy = Relay.viaCopy(NHC_CURRENT) ? ['nhc'] : [];
   for (const s of list) {
     const { reports, agreeing } = stormAgreement(s); stampReports(s, 'storms', reports, agreeing, { cached: nhcCopy });   // which agencies place it here (core/cyclones.js)
     const [, cat, col] = category(s.kt);
-    if (s.track.length > 1 && !(s.fc && s.fc.past.length)) L.polyline(s.track.map(p => [p.lat, p.lon]), { color: col, weight: 1.5, opacity: .6, dashArray: '6 5', interactive: false, renderer: vecRenderer }).addTo(gStorms);
+    if (s.track.length > 1 && !(s.fc && s.fc.past.length)) L.polyline(unwrap(s.track.map(p => [p.lon, p.lat])), { color: col, weight: 1.5, opacity: .6, dashArray: '6 5', interactive: false, renderer: vecRenderer }).addTo(gStorms);
     if (s.fc) drawForecast(s.fc);
     items.push({ lat: s.lat, lon: s.lon, r: 6 + Math.max(0, cat) * 1.5, color: col, fillAlpha: .3, lw: 2, halo: 16, kind: 'storm', obj: s, tip: `${s.title}${s.kt ? ' · ' + s.kt + ' kt' : ''}${s.fc && s.fc.cone.length ? ' · forecast cone' : ''}`, label: shortName(s.title), labelZoom: 2 });
   }
@@ -162,21 +170,80 @@ feed(lyNews, { interval: 900, errorInterval: 900, fetch: async () => {
   lyNews.feed.count = (d.articles || []).length; Log.info(`GDELT: ${(d.articles || []).length} articles from ${by.size} countries for "${q}"${unknown ? ` (${unknown} with no country)` : ''}`);
 } });
 
-/* ---------- NWS severe alerts (US) — polygons stay as Leaflet vectors, clickable */
-export const lyNws = Layers.add({ id: 'nws', group: 'Weather & space weather', name: 'Severe weather alerts (US)', desc: 'NWS · Extreme and Severe warnings with polygons', color: C.alert, default: true });
+/* ---------- NWS severe alerts (US) — polygons stay as Leaflet vectors, clickable. api.weather.gov gives a polygon only to
+   storm-based warnings (tornado, severe thunderstorm, flash flood); zone-based ones (tropical, winter, wind, fire, freeze:
+   most of them) come with geometry null and a list of forecast zones. Those are listed under the layer, and opening one
+   draws its zones (the first 5, from api.weather.gov, kept a day). */
+export const lyNws = Layers.add({ id: 'nws', group: 'Weather & space weather', name: 'Severe weather alerts (US)', desc: 'NWS · Extreme and Severe warnings · storm polygons on the map, zone alerts listed here (open one to draw its zones)', color: C.alert, default: true,
+  sub(el) { nwsList.el = el; nwsList.render(); } });
 export const gNws = lineLayer(lyNws);
+/** Tornado, hurricane, typhoon, tropical storm and extreme wind: the alert colour and the bolder outline. */
+export const NWS_MAJOR = /tornado|hurricane|typhoon|tropical storm|extreme wind/i;
+const nwsColor = ev => NWS_MAJOR.test(ev || '') ? C.emg : /flash flood|storm/i.test(ev || '') ? C.warn : '#ff9a6b';
+const NWS_ZONE = /^https:\/\/api\.weather\.gov\/zones\/[a-z]+\/[A-Z]{2}[CZ]\d{3}$/, NWS_ZONES_MAX = 5, NWS_ZONE_TTL = 86400e3;
+const nwsZones = new Map();     // zone URL -> { t, g (its polygon geometry or null) }, a day; at most 80 kept
+const nwsOpened = new Set();    // alert ids whose zones were drawn: drawn again after each refresh while the alert lasts
+const nwsZoneLayers = new Map(); // alert id -> its zones' layer group (inside gNws)
+const nwsZoneUrls = p => (Array.isArray(p.affectedZones) ? p.affectedZones : []).filter(u => typeof u === 'string' && NWS_ZONE.test(u));
+async function nwsZone(url) {
+  const c = nwsZones.get(url); if (c && Date.now() - c.t < NWS_ZONE_TTL) return c.g;
+  const d = await Net.json(url, { timeout: 30000, throttle: 'nws-zones', gap: 250, cache: 'default' });
+  const g = d && d.geometry && /^(Multi)?Polygon$/.test(d.geometry.type) ? d.geometry : null;
+  nwsZones.delete(url); nwsZones.set(url, { t: Date.now(), g }); while (nwsZones.size > 80) nwsZones.delete(nwsZones.keys().next().value);
+  return g;
+}
+/** Draw (again) the zones of a zone-only alert from the zones already read. */
+function drawNwsZones(p) {
+  const old = nwsZoneLayers.get(p.id); if (old) gNws.removeLayer(old);
+  const col = nwsColor(p.event), grp = L.layerGroup();
+  for (const u of nwsZoneUrls(p).slice(0, NWS_ZONES_MAX)) {
+    const c = nwsZones.get(u); if (!c || !c.g) continue;
+    const g = L.geoJSON(c.g, { bubblingMouseEvents: false, style: { color: col, weight: 1.4, dashArray: '5 4', fillColor: col, fillOpacity: .12, renderer: vecRenderer } });
+    g.on('click', () => Detail.show('nws', p, p.id)); grp.addLayer(g);
+  }
+  gNws.addLayer(grp); nwsZoneLayers.set(p.id, grp); return grp;
+}
+/** Open a zone-only alert: its card, then its zones on the map (the first 5). */
+export async function openNwsZones(p) {
+  const urls = nwsZoneUrls(p), pick = urls.slice(0, NWS_ZONES_MAX);
+  if (!urls.length) { p.zoneNote = 'no forecast zones listed'; return; }
+  p.zoneNote = `drawing ${pick.length === urls.length ? '' : `the first ${pick.length} of `}${urls.length} zone${urls.length === 1 ? '' : 's'}…`; if (Sel.obj === p) Detail.render();
+  let ok = 0, err = null;
+  for (const u of pick) { try { if (await nwsZone(u)) ok++; } catch (e) { err = e; } }
+  const cur = (World.nws || []).find(x => x.id === p.id) || p; nwsOpened.add(p.id);
+  cur.zoneNote = ok ? `${ok} of ${urls.length} zone${urls.length === 1 ? '' : 's'} drawn${urls.length > ok ? ' (at most 5)' : ''}` : `zones not drawn: ${err ? err.message : 'no outline sent'}`; if (cur !== p) p.zoneNote = cur.zoneNote;
+  if (lyNws.on && ok) { const b = drawNwsZones(cur).getLayers().reduce((bb, l) => bb ? bb.extend(l.getBounds()) : l.getBounds(), null); if (b && b.isValid()) map.flyToBounds(b, { maxZoom: 8, duration: .8 }); }
+  if (Sel.obj === p || Sel.obj === cur) Detail.render();
+}
+/** The zone-only alerts as a list under the layer (event, area, expiry; all escaped). */
+const nwsList = {
+  el: null,
+  render() {
+    const el = this.el; if (!el) return;
+    const rows = (World.nws || []).map((p, i) => [p, i]).filter(([p]) => p.zoneOnly)
+      .sort(([a], [b]) => (a.severity === 'Extreme' ? 0 : 1) - (b.severity === 'Extreme' ? 0 : 1) || (Date.parse(a.expires) || 0) - (Date.parse(b.expires) || 0));
+    if (!rows.length) { el.innerHTML = ''; return; }
+    const area = t => { t = String(t || ''); return t.length > 70 ? t.slice(0, 68) + '…' : t; };
+    el.innerHTML = `<details style="width:100%"><summary style="cursor:pointer;font-size:11px;color:var(--ink-dim)">${rows.length} alert${rows.length === 1 ? '' : 's'} by zone, no polygon: open one to draw its zones</summary><div style="display:flex;flex-direction:column;gap:3px;max-height:200px;overflow:auto;margin-top:4px">${rows.map(([p, i]) =>
+      `<button type="button" class="pill" style="text-align:left;white-space:normal" data-nws="${i}" title="${esc(p.areaDesc)}"><b>${esc(p.event)}</b> · ${esc(area(p.areaDesc))}${p.expires ? ` · until ${esc(fmt.date(p.expires))}` : ''}</button>`).join('')}</div></details>`;
+  },
+};
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-nws]'); if (!b) return; const p = (World.nws || [])[+b.dataset.nws]; if (!p) return; Detail.show('nws', p, p.id); if (p.zoneOnly) openNwsZones(p); });
 Detail.renderers.nws = p => `<div class="det">${Detail.head(C.alert, 'NWS alert', p.event, esc(p.headline || ''), [{ t: p.severity, cls: p.severity === 'Extreme' ? 'emg' : 'warn' }, { t: p.urgency }, { t: p.certainty }])}
-${Detail.kv([['Areas', p.areaDesc], ['Sender', p.senderName], ['Onset', p.onset ? fmt.date(p.onset) : null], ['Expires', p.expires ? fmt.date(p.expires) : null]])}
+${Detail.kv([['Areas', p.areaDesc], ['Sender', p.senderName], ['Onset', p.onset ? fmt.date(p.onset) : null], ['Expires', p.expires ? fmt.date(p.expires) : null], ['On the map', p.zoneOnly ? (p.zoneNote || 'by forecast zone (NWS sends no polygon)') : null]])}
 <p style="font-size:12.5px;line-height:1.45;white-space:pre-wrap;color:var(--ink-dim);max-height:40vh;overflow:auto">${esc((p.description || '').slice(0, 2500))}</p>
 <hr class="sep">${Detail.links([{ text: 'Alert on weather.gov', url: p['@id'] || 'https://www.weather.gov/alerts' }])}</div>`;
 feed(lyNws, { interval: 300, fetch: async () => {
-  const d = await Net.json('https://api.weather.gov/alerts/active?status=actual&message_type=alert,update&severity=Extreme,Severe', { timeout: 60000 }); gNws.clearLayers(); let n = 0, drawn = 0; World.nws = [];
+  const d = await Net.json('https://api.weather.gov/alerts/active?status=actual&message_type=alert,update&severity=Extreme,Severe', { timeout: 60000 }); gNws.clearLayers(); nwsZoneLayers.clear(); let n = 0, drawn = 0; World.nws = [];
   for (const f of d.features || []) {
-    const p = stamp(f.properties || {}, 'alerts', [rep('nws', { dataAt: (f.properties || {}).sent })]); n++; World.nws.push(p); if (!f.geometry) continue; const isTor = /tornado|hurricane|extreme wind/i.test(p.event || ''); const col = isTor ? C.emg : /flash flood|storm/i.test(p.event || '') ? C.warn : '#ff9a6b';
+    const p = stamp(f.properties || {}, 'alerts', [rep('nws', { dataAt: (f.properties || {}).sent })]); n++; World.nws.push(p); p.zoneOnly = !f.geometry;
+    if (!f.geometry) { if (nwsOpened.has(p.id)) { p.zoneNote = 'drawn from its forecast zones'; drawNwsZones(p); } continue; }
+    const isTor = NWS_MAJOR.test(p.event || ''), col = nwsColor(p.event);
     const g = L.geoJSON(f.geometry, { bubblingMouseEvents: false, style: { color: col, weight: isTor ? 2 : 1.2, fillColor: col, fillOpacity: isTor ? .25 : .12, renderer: vecRenderer } }); g.on('click', () => Detail.show('nws', p, p.id)); gNws.addLayer(g); drawn++;
     if (isTor && !lyNws.seen?.has(p.id)) { (lyNws.seen ||= new Set()).add(p.id); if (/tornado warning/i.test(p.event) && Date.now() - (Date.parse(p.sent) || 0) < 900e3) Log.alert(`${p.event}: ${p.areaDesc}`, { onclick: () => { const c = g.getBounds().getCenter(); flyTo(c.lat, c.lng, 8); Detail.show('nws', p, p.id); } }); }
   }
-  lyNws.feed.count = drawn; lyNws.desc = `${n} active Extreme/Severe alerts · ${drawn} with polygons`;
+  for (const id of nwsOpened) if (!World.nws.some(p => p.id === id)) nwsOpened.delete(id);   // expired or cancelled
+  lyNws.feed.count = n; lyNws.desc = `${n} active Extreme/Severe alerts · ${drawn} with polygons${n - drawn ? ` · ${n - drawn} by zone, listed below` : ''}`; nwsList.render();
 } });
 
 /* ---------- Aurora (NOAA SWPC OVATION) + Kp */
@@ -190,12 +257,19 @@ feed(lyAurora, { interval: 900, fetch: async () => {   // the grid and its colou
   if (auroraOverlay) map.removeLayer(auroraOverlay); auroraOverlay = L.imageOverlay(url, [[-MERCATOR_MAX_LAT, -180], [MERCATOR_MAX_LAT, 180]], { opacity: .8, interactive: false, className: 'aurora-ov' }); if (lyAurora.on) auroraOverlay.addTo(map);
   lyAurora.feed.count = o.cells20; lyAurora.desc = `Forecast for ${o.at} · ${o.cells20} cells ≥ 20 %`;
 } });
-export const Space = { kp: null, kpTime: null };
+export const Space = { kp: null, kpTime: null, kpKind: null };
+/** Kp now, as the globe's Earth-now card has it: the forecast product's latest observed or estimated 3-hour block
+ *  (core/earthnow.js kpSummary), or, if that can't be read, the last completed block of the observed list. */
+export async function kpNow() {
+  try { const s = kpSummary(kpSeries(await Net.json(KP_FORECAST_URL), { pastH: 24 })); if (s && s.now) return { kp: s.now.kp, t: new Date(s.now.t).toISOString().slice(0, 19), kind: s.now.kind }; }
+  catch (e) { /* the observed list below */ }
+  const last = latestKp(await Net.json(KP_URL)); if (!last) throw new Error('no Kp rows');   // rows or objects: core/aurora.js
+  return { kp: last.kp, t: String(last.t).replace(' ', 'T').slice(0, 19), kind: 'observed' };
+}
 export async function fetchKp() {
   try {
-    const last = latestKp(await Net.json(KP_URL)); if (!last) throw new Error('no Kp rows');   // rows or objects: core/aurora.js
-    const kp = last.kp; Space.kp = kp; Space.kpTime = last.t; $('#chipKp b').textContent = kp.toFixed(1); $('#chipKp').classList.toggle('hot', kp >= 5);
-    $('#chipKp').title = `Planetary K-index ${kp} at ${last.t} UTC (NOAA SWPC)` + (kp >= 5 ? ' · geomagnetic storm' : '');
+    const now = await kpNow(), kp = now.kp; Space.kp = kp; Space.kpTime = now.t; Space.kpKind = now.kind; $('#chipKp b').textContent = kp.toFixed(1); $('#chipKp').classList.toggle('hot', kp >= 5);
+    $('#chipKp').title = `Planetary K-index ${+kp.toFixed(2)}${now.kind === 'estimated' ? ' (estimated: the 3-hour block in progress)' : ''} for the block from ${now.t.replace('T', ' ').slice(0, 16)} UTC (NOAA SWPC)` + (kp >= 5 ? ' · geomagnetic storm' : '');
     if (kp >= 6 && !window._kpWarned) { window._kpWarned = true; Log.warn(`Geomagnetic storm: Kp ${kp}`); } else if (kp < 5) window._kpWarned = false; // re-arm for the next storm
   } catch (e) { $('#chipKp b').textContent = '—'; $('#chipKp').title = 'Kp unavailable: ' + e.message; }
 }
@@ -241,9 +315,9 @@ export function cableHit(latlng) { // nearest cable within ~10 px (core/cables.j
   if (!cableData || !lyCables.on) return null;
   return nearestCable(cableData.features, latlng.lat, latlng.lng, 10 * 40075016 * Math.cos(rad(latlng.lat)) / (256 * Math.pow(2, map.getZoom())));
 }
-feed(lyCables, { interval: 86400, fetch: async () => { const d = cableData && Date.now() - cableData._t < 86400e3 ? cableData : await firstOk(CABLE_URLS, { timeout: 60000 }); d._t = d._t || Date.now(); cableData = d; gCables.clearLayers(); // toggling the layer reuses the multi-MB file
+feed(lyCables, { interval: 86400, fetch: async () => { const d = cableData && Date.now() - cableData._t < 86400e3 ? cableData : await firstOk(CABLE_URLS, { timeout: 60000, cache: 'default' }); d._t = d._t || Date.now(); cableData = d; gCables.clearLayers(); // toggling the layer reuses the multi-MB file; a new visit gets the browser's copy while the relay's max-age allows
   gCables.addLayer(L.geoJSON(d, { interactive: false, style: f => ({ color: f.properties?.color || C.cable, weight: 1.2, opacity: .55, renderer: vecRenderer }) })); lyCables.feed.count = (d.features || []).length; } });
-feed(lyLanding, { interval: 86400, fetch: async () => { const d = await firstOk(LANDING_URLS, { timeout: 60000 });
+feed(lyLanding, { interval: 86400, fetch: async () => { const d = await firstOk(LANDING_URLS, { timeout: 60000, cache: 'default' });
   const list = parseLandings(d); Points.set('landing', list.map(p => ({ lat: p.lat, lon: p.lon, r: 2.5, color: '#8fc6e6', fillAlpha: .6, kind: 'landing', obj: p, tip: p.name }))); lyLanding.feed.count = list.length; } });
 
 /* ---------- Traffic & public cameras: the globe's twelve agency networks (core/cameras.js), each loaded only while its
@@ -291,7 +365,8 @@ async function loadCamNet(id) { // one agency's list (core/cameras.js parses it)
   const n = CAMERA_NETS[id]; let c = camCache[id];
   if (!c || Date.now() - c.t > (id === 'sg' ? 300e3 : 1800e3)) {
     if (n.relay && !Relay.available && !Relay.wrap(n.url)) throw new Error('needs the helper (no CORS)');
-    const d = n.xml ? await Net.text(n.url, { timeout: 60000 }) : await Net.json(n.url, { timeout: 60000 });
+    const o = { timeout: 60000, cache: id === 'sg' ? 'no-store' : 'default' };   // the lists change slowly (Singapore's image addresses every few minutes)
+    const d = n.xml ? await Net.text(n.url, o) : await Net.json(n.url, o);
     c = camCache[id] = { t: Date.now(), cams: n.parse(d) };
     for (const cam of c.cams) stamp(cam, 'cameras', [rep('cameras', { name: n.name, url: null, dataAt: cam.t || null, cached: Relay.viaCopy(n.url) })]);   // the lists carry no picture time: unknown
   }
@@ -336,9 +411,9 @@ function stampShip(pre, mmsi) {
   stampReports(own, 'ships', reps, reps.filter((x, i) => i === 0 || sameShip(reps[0], x)).map(x => x.src));
   if (other) stampReports(other, 'ships', [reps[1], reps[0]], sameShip(reps[0], reps[1]) ? [reps[1].src, reps[0].src] : [reps[1].src]);
 }
-const aisGet = path => Net.json(DIGITRAFFIC_AIS + path, { timeout: 60000, headers: DIGITRAFFIC_HEADERS });
+const aisGet = (path, cache = 'no-store') => Net.json(DIGITRAFFIC_AIS + path, { timeout: 60000, headers: DIGITRAFFIC_HEADERS, cache });
 feed(lyShipsFi, { interval: 60, fetch: async () => {   // positions and ship details parsed by core/ais.js, like the globe's ships
-  if (Date.now() - vesselMeta.t > 1800e3) { try { vesselMeta = { t: Date.now(), m: new Map(parseAisVessels(await aisGet('vessels')).map(v => [v.mmsi, v])) }; } catch (e) { Log.warn('Digitraffic vessel names: ' + e.message); } }
+  if (Date.now() - vesselMeta.t > 1800e3) { try { vesselMeta = { t: Date.now(), m: new Map(parseAisVessels(await aisGet('vessels', 'default')).map(v => [v.mmsi, v])) }; } catch (e) { Log.warn('Digitraffic vessel names: ' + e.message); } }
   const reps = parseAisLocations(await aisGet('locations')), now = Date.now(); let n = 0;
   if (!lyShipsFi.on) return; // switched off while loading: don't put the ships back
   for (const [k, s] of Dyn.ships) if (k.startsWith('fi') && now - s.ts > 3600e3) Dyn.ships.delete(k); // ships that stopped reporting
@@ -350,16 +425,22 @@ feed(lyShipsFi, { interval: 60, fetch: async () => {   // positions and ship det
   }
   lyShipsFi.feed.count = n; requestDraw();
 } });
-export const lyShipsWs = Layers.add({ id: 'ships_ws', group: 'Sea & sky', name: 'Ships · global AIS stream', desc: 'aisstream.io WebSocket · needs a free key (Setup tab)', color: '#3fb8a2', default: false });
-export const AisWs = { ws: null, timer: null,
-  connect() { const key = late.Keys.get('aisstream'); if (!key) { this.close(); lyShipsWs.feed.status = 'error'; lyShipsWs.feed.err = 'no aisstream.io key'; UI.refreshLayer(lyShipsWs); return; }
-    this.close(); lyShipsWs.feed.status = 'loading'; UI.refreshLayer(lyShipsWs);
-    try { this.ws = new WebSocket('wss://stream.aisstream.io/v0/stream'); } catch (e) { lyShipsWs.feed.status = 'error'; lyShipsWs.feed.err = e.message; UI.refreshLayer(lyShipsWs); return; }
-    this.ws.onopen = () => { this.subscribe(); lyShipsWs.feed.status = 'ok'; lyShipsWs.feed.lastOk = Date.now(); UI.refreshLayer(lyShipsWs); Log.info('aisstream.io connected'); };
-    this.ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } if (m.error) { lyShipsWs.feed.status = 'error'; lyShipsWs.feed.err = m.error; UI.refreshLayer(lyShipsWs); return; } if (m.MessageType !== 'PositionReport') return; const md = m.MetaData || {}, pr = m.Message?.PositionReport || {}; if (md.latitude == null) return;
+// aisstream.io only in the download: its local helper (serve.js / serve.py) relays the socket at /aisstream; the website
+// never opens aisstream.io's own socket (its ships are Fintraffic's), and the layer says so (core/ais.js aisstreamSocketUrl)
+const aisNeeds = () => onPublishedSite(location.hostname) ? 'Worldwide ships via aisstream need the free download' : 'aisstream needs the local helper: open the page through serve.js / serve.py';
+export const lyShipsWs = Layers.add({ id: 'ships_ws', group: 'Sea & sky', name: 'Ships · global AIS stream', desc: aisstreamSocketUrl(location) ? 'aisstream.io through the local helper · needs a free key (Setup tab)' : 'aisstream.io · ' + aisNeeds().replace(/^\w/, c => c.toLowerCase()), color: '#3fb8a2', default: false });
+export const AisWs = { ws: null, timer: null, opened: false,
+  connect() { const url = aisstreamSocketUrl(location), f = lyShipsWs.feed;
+    if (!url) { this.close(); f.status = 'error'; f.err = aisNeeds(); f.notCarried = true; UI.refreshLayer(lyShipsWs); return; }
+    const key = late.Keys.get('aisstream'); if (!key) { this.close(); f.status = 'error'; f.err = 'no aisstream.io key'; UI.refreshLayer(lyShipsWs); return; }
+    this.close(); f.status = 'loading'; UI.refreshLayer(lyShipsWs); this.opened = false;
+    try { this.ws = new WebSocket(url); } catch (e) { f.status = 'error'; f.err = e.message; UI.refreshLayer(lyShipsWs); return; }
+    this.ws.onopen = () => { this.opened = true; this.subscribe(); f.status = 'ok'; f.lastOk = Date.now(); UI.refreshLayer(lyShipsWs); Log.info('aisstream.io connected through the local helper'); };
+    this.ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } if (m.error) { lyShipsWs.feed.status = 'error'; lyShipsWs.feed.err = m.error; UI.refreshLayer(lyShipsWs); return; } if (m.MessageType !== 'PositionReport') return; const md = m.MetaData || {}, pr = m.Message?.PositionReport || {}; if (!Number.isFinite(md.latitude) || !Number.isFinite(md.longitude) || Math.abs(md.latitude) > 90) return;
       if (!Dyn.ships.has('ws' + md.MMSI)) lyShipsWs.feed.count++; if (!this.drawT) this.drawT = setTimeout(() => { this.drawT = null; requestDraw(); }, 1000); // O(1) per message; redraw at most once a second
-      Dyn.ships.set('ws' + md.MMSI, { id: md.MMSI, lat: md.latitude, lon: md.longitude, sog: pr.Sog, cog: pr.Cog, heading: pr.TrueHeading, navStat: pr.NavigationalStatus, navText: NAV[pr.NavigationalStatus], name: (md.ShipName || '').trim(), ts: Date.parse(String(md.time_utc || '').replace(/^(\S+) (\d\d:\d\d:\d\d)(\.\d{1,3})?\d* \+0000 UTC$/, '$1T$2$3Z')) || Date.now(), src: 'aisstream.io' }); stampShip('ws', md.MMSI); };
-    this.ws.onclose = () => { if (lyShipsWs.on) { lyShipsWs.feed.status = 'error'; lyShipsWs.feed.err = 'disconnected — retrying'; UI.refreshLayer(lyShipsWs); this.timer = setTimeout(() => this.connect(), 15000); } };
+      const c = cleanAisSentinels(pr);   // "not available" speed 102.3, course 360, heading 511 → null, as Digitraffic's (core/ais.js)
+      Dyn.ships.set('ws' + md.MMSI, { id: md.MMSI, lat: md.latitude, lon: md.longitude, sog: c.sog, cog: c.cog, heading: c.heading, turn: c.turn, navStat: c.navStat, navText: NAV[c.navStat], name: (md.ShipName || '').trim(), ts: Date.parse(String(md.time_utc || '').replace(/^(\S+) (\d\d:\d\d:\d\d)(\.\d{1,3})?\d* \+0000 UTC$/, '$1T$2$3Z')) || Date.now(), src: 'aisstream.io' }); stampShip('ws', md.MMSI); };
+    this.ws.onclose = () => { if (lyShipsWs.on) { lyShipsWs.feed.status = 'error'; lyShipsWs.feed.err = this.opened ? 'disconnected — retrying' : 'the local helper did not open aisstream (an older serve.js / serve.py?) — retrying'; UI.refreshLayer(lyShipsWs); this.timer = setTimeout(() => this.connect(), 15000); } };
     this.ws.onerror = () => { };
   },
   subscribe() { if (!this.ws || this.ws.readyState !== 1) return; const b = map.getBounds(); const s = Math.max(-90, b.getSouth()), n = Math.min(90, b.getNorth()); let w = b.getWest(), e = b.getEast(); if (e - w >= 360) { w = -180; e = 180; } else { w = ((w + 540) % 360) - 180; e = ((e + 540) % 360) - 180; if (e < w) { w = -180; e = 180; } }
@@ -367,7 +448,8 @@ export const AisWs = { ws: null, timer: null,
   close() { clearTimeout(this.timer); if (this.ws) { this.ws.onclose = null; try { this.ws.close(); } catch (e) { } this.ws = null; } },
 };
 lyShipsWs.enable = () => AisWs.connect(); lyShipsWs.disable = () => { AisWs.close(); for (const k of [...Dyn.ships.keys()]) if (k.startsWith('ws')) Dyn.ships.delete(k); lyShipsWs.feed.count = 0; };
-feed(lyShipsWs, { interval: 30, fetch: async () => { if (!AisWs.ws || AisWs.ws.readyState > 1) AisWs.connect(); const now = Date.now(); for (const [k, s] of Dyn.ships) if (k.startsWith('ws') && now - s.ts > 900e3) Dyn.ships.delete(k); lyShipsWs.feed.count = [...Dyn.ships.keys()].filter(k => k.startsWith('ws')).length; if (!late.Keys.get('aisstream')) throw new Error('no aisstream.io key (Setup tab)'); } });
+feed(lyShipsWs, { interval: 30, fetch: async () => { if (!aisstreamSocketUrl(location)) throw Object.assign(new Error(aisNeeds()), { notCarried: true });   // stops for the visit (engine.js runFeed)
+  if (!AisWs.ws || AisWs.ws.readyState > 1) AisWs.connect(); const now = Date.now(); for (const [k, s] of Dyn.ships) if (k.startsWith('ws') && now - s.ts > 900e3) Dyn.ships.delete(k); lyShipsWs.feed.count = [...Dyn.ships.keys()].filter(k => k.startsWith('ws')).length; if (!late.Keys.get('aisstream')) throw new Error('no aisstream.io key (Setup tab)'); } });
 map.on('moveend', debounce(() => AisWs.subscribe(), 1200));
 
 /* ---------- Weather balloons / radiosondes (SondeHub) */
