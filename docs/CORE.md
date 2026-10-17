@@ -19,7 +19,7 @@ is also used by its tests in `test/`.
 
 - [Time, units and frames](#time-units-and-frames): `time.js`, `units.js`, `rotation.js`
 - [Orbits and the Solar System](#orbits-and-the-solar-system): `kepler.js`, `planets.js`, `moons.js`, `smallbodies.js`, `comets.js`, `craft.js`, `accuracy.js`
-- [Satellites](#satellites): `tle.js`, `passes.js`, `observer.js`, `socrates.js`, `explain.js`
+- [Satellites](#satellites): `tle.js`, `passes.js`, `observer.js`, `ecfvel.js`, `socrates.js`, `explain.js`
 - [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `whereis.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `syzygy.js`, `orientation.js`, `deepsky.js`, `lightpollution.js`, `darksky.js`
 - [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`
 - [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`
@@ -186,6 +186,13 @@ Cesium: what `passes.js` needs on a page with no 3D globe. Used by globe, sky, m
 
 - `observer`: `{ pos, east, north, up }` for a latitude, longitude and height.
 - `sunEcef`: the unit vector toward the Sun, Earth-fixed, at a time.
+
+### `ecfvel.js`
+
+A satellite's Earth-fixed velocity from the inertial one SGP4 returns, so a position and a velocity cost one
+propagation: v_ecf = R(gmst)·v_eci − ω×r_ecf. Used by globe (the satellite worker inlines it, and the modelled satellites).
+
+- `eciVelToEcf`: `(rEcf, vEci, gmst, out)` → km/s, written into the out object. `EARTH_RATE`: ω, 7.2921159e-5 rad/s.
 
 ### `socrates.js`
 

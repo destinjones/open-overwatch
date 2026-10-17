@@ -11,8 +11,11 @@ import { Dyn, Exports, Layers, Sel, UI, feed, requestDraw } from './engine.js';
 import { Detail, Tracks } from './detail.js';
 
 /* ============================================================ SATELLITES (CelesTrak GP data + SGP4 in a worker) */
+// satellite.js in the worker is the site's own copy (the bytes the page pins by hash; importScripts checks none), by its
+// whole URL: a blob worker has no base to resolve a relative one against
+const SAT_LIB = new URL('../vendor/satellite.min.js', import.meta.url).href;
 export const SAT_WORKER_SRC = `
-importScripts('https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/dist/satellite.min.js');
+importScripts(${JSON.stringify(SAT_LIB)});
 let recs = [];
 onmessage = e => {
   const m = e.data;

@@ -45,4 +45,10 @@ Third-party data in this repository with its own licence (not MIT):
     WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
     USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+Third-party code in this repository with its own copyright:
+
+- src/vendor/satellite.min.js: satellite.js 5.0.0 (https://github.com/shashwatak/satellite-js), Copyright (C) 2013
+  Shashwat Kandadai, UCSC Jack Baskin School of Engineering, MIT License (src/vendor/satellite.js-LICENSE.md). The
+  published dist/satellite.min.js byte for byte, the same file the pages load from the CDN by its sha384.
+
 The full list of data sources and their terms is in docs/DATA_SOURCES.md.

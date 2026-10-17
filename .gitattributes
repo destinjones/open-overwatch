@@ -11,3 +11,5 @@
 *.mp4 binary
 *.wav binary
 *.ogg binary
+# vendored libraries stay byte for byte as published (test/sri.test.mjs checks their hash)
+src/vendor/** -text

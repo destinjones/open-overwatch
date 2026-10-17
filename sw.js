@@ -3,8 +3,12 @@
 // patchy), scoped to the site root. src/app/pwa.js registers it on the website only (on the local helper with ?sw=1).
 //
 // What it does with each request (classify() below; test/sw.test.mjs runs this file in a fake worker):
-//   pages + code (html, src/, css, manifest)  network first, the saved copy when offline or after 4 s with no answer;
-//                                             every page is kept, so the app opens with no connection at all
+//   pages + code (html, src/, css, manifest)  a published build: this version's own copy first (saved together at
+//                                             install), so a page and every module the install crawl found come from one
+//                                             version; a file the crawl missed (a URL built at run time) comes from the
+//                                             network, which may be newer. 'dev' (git, the local helper):
+//                                             network first, the saved copy when offline or after 4 s with no answer.
+//                                             Every page is kept, so the app opens with no connection at all
 //   data/ copies of live feeds (TLEs, wind,   network first: never served as if fresh. Offline, the last copy comes
 //   launches, news, versions.json …)          back marked with an x-oo-offline header (when it was saved)
 //   data/ datasets (borders, stars, …)        stale-while-revalidate: the saved copy at once, refreshed in the
@@ -19,6 +23,8 @@
 // Versions: build_site.py stamps BUILD with the version and commit when the website is built, so every published
 // version is a new worker. A new worker waits until the page says so (the "new version" prompt in src/app/pwa.js),
 // except the very first one, which takes over at once. Old versions' page caches are deleted when a new one starts.
+// The pages import their modules under plain URLs (no version in them), so a publish must not reach an open app file by
+// file: until the page reloads into the new worker, the old one keeps serving the version the page started with.
 
 const BUILD = 'dev'; // stamped by .github/build_site.py: '<version>+<commit>'
 const SHELL = 'oo-shell-' + BUILD;
@@ -29,6 +35,7 @@ const NET_TIMEOUT = 4000;      // ms before a slow network loses to the saved co
 const LIVE_TIMEOUT = 8000;     // the same for copies of live feeds: wait longer, a fresh copy matters more
 const DAY = 86400e3;
 const SCOPE = new URL(self.registration ? self.registration.scope : './', self.location.href);
+const ONE_VERSION = BUILD !== 'dev';   // a published build: pages and code come from this version's copy (see above)
 
 // the pages and the small files that make the app open offline; the modules each page imports are found by crawling
 const PAGES = ['index.html', 'globe.html', 'open-overwatch.html', 'solar.html', 'tonight.html', 'about.html', 'guide.html', 'india/'];   // india/: the India page, as its ad links name it
@@ -191,6 +198,14 @@ async function cacheFirst(event, kind, key, maxAge) {
   }
 }
 
+/** This version's copy of a page or module if it has one (whatever the page asked: a reload must not pull one file of a
+ *  newer version under the rest), else the network as networkFirst does it (that copy may be from a newer publish:
+ *  test/sw.test.mjs checks the crawl of the real site stays under MAX_PRECACHE, so only a run-time URL lands here). */
+async function versionFirst(event, kind, key, fallback) {
+  const old = await saved(kind, key);
+  return old || networkFirst(event, kind, key, NET_TIMEOUT, fallback);
+}
+
 async function offlinePage() {
   const c = await caches.open(SHELL);
   return (await c.match(new URL('offline.html', SCOPE).href)) || new Response('<!doctype html><meta charset="utf-8"><title>Offline</title><p>You are offline and this page was not saved yet.</p>', { status: 503, headers: { 'content-type': 'text/html; charset=utf-8' } });
@@ -202,8 +217,8 @@ function handle(event) {
   const key = keyOf(req, kind);
   const reload = req.cache === 'no-store' || req.cache === 'reload' || req.cache === 'no-cache';   // the page asked for fresh
   switch (kind) {
-    case 'page': return networkFirst(event, kind, key, NET_TIMEOUT, offlinePage, event.preloadResponse);
-    case 'code': return networkFirst(event, kind, key, NET_TIMEOUT);
+    case 'page': return ONE_VERSION ? versionFirst(event, kind, key, offlinePage) : networkFirst(event, kind, key, NET_TIMEOUT, offlinePage, event.preloadResponse);
+    case 'code': return ONE_VERSION ? versionFirst(event, kind, key) : networkFirst(event, kind, key, NET_TIMEOUT);
     case 'data-live': return networkFirst(event, kind, key, LIVE_TIMEOUT);
     case 'data': return reload ? networkFirst(event, kind, key, LIVE_TIMEOUT) : staleWhileRevalidate(event, kind, key, /\.bin$/.test(key) ? 7 * DAY : DAY);
     case 'asset': return reload ? networkFirst(event, kind, key, NET_TIMEOUT) : staleWhileRevalidate(event, kind, key, 7 * DAY);
@@ -289,7 +304,9 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     for (const name of await caches.keys()) if (name.startsWith('oo-') && !KEEP.includes(name)) await caches.delete(name);
-    if (self.registration.navigationPreload) await self.registration.navigationPreload.enable().catch(() => {});
+    // navigation preload fetches every page in parallel, which only network first uses (a published build would waste it)
+    const np = self.registration.navigationPreload;
+    if (np) { try { await (ONE_VERSION ? np.disable() : np.enable()); } catch { /* not supported: nothing to switch */ } }
     await self.clients.claim();
   })());
 });
@@ -312,4 +329,4 @@ async function status() {
 }
 
 // for test/sw.test.mjs (harmless in a browser)
-self.__oo = { BUILD, SHELL, CACHES, classify, isTile, keyOf, ageOf, references, crawl, trim, markOffline, handle };
+self.__oo = { BUILD, SHELL, CACHES, ONE_VERSION, MAX_PRECACHE, classify, isTile, keyOf, ageOf, references, crawl, trim, markOffline, handle };
