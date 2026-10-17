@@ -1,0 +1,58 @@
+# Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
+# Publishes the MCP server to npm as open-overwatch-mcp (npx -y open-overwatch-mcp) on a v* tag, or by hand from the
+# Actions tab. It only runs once the owner sets the repository variable NPM_PUBLISH to true (Settings > Secrets and
+# variables > Actions > Variables), after linking this workflow on npmjs.com as the package's trusted publisher; until
+# then the job is skipped, so site releases stay green. A version npm already has is skipped (site tags are v0.9.2.x,
+# the package has its own version in package.json, so most tags publish nothing). Authentication is npm trusted
+# publishing (OIDC, no stored token) with a provenance statement; secrets.NPM_TOKEN, if set, is the fallback.
+# The MCP Registry entry (mcp/server.json) is published separately by the owner with mcp-publisher.
+name: npm
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: vars.NPM_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # trusted publishing and provenance
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: Is this version on npm already?
+        id: have
+        run: |
+          N=$(node -p "require('./package.json').name"); V=$(node -p "require('./package.json').version")
+          code=$(curl -s -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/$N/$V")
+          case "$code" in
+            200) echo "skip=true" >> "$GITHUB_OUTPUT"; echo "::notice::$N@$V is already on npm; nothing to publish" ;;
+            404) echo "skip=false" >> "$GITHUB_OUTPUT"; echo "$N@$V is new" ;;
+            *) echo "::error::the npm registry answered $code for $N@$V"; exit 1 ;;
+          esac
+      - name: npm 11 (trusted publishing needs npm 11.5.1 or newer; Node 22 comes with npm 10)
+        if: steps.have.outputs.skip == 'false'
+        run: npm install -g npm@11.20.0 && npm --version
+      - name: Install (satellite.js; Playwright is a dev dependency and its browsers are not fetched)
+        if: steps.have.outputs.skip == 'false'
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Tests (the whole suite, including test/npmpack.test.mjs on the tarball's file list)
+        if: steps.have.outputs.skip == 'false'
+        run: node --test
+      - name: The npm page shows the MCP server's README (relative links point at GitHub)
+        if: steps.have.outputs.skip == 'false'
+        run: sed 's#](\.\./#](https://github.com/destinjones/open-overwatch/blob/main/#g' mcp/README.md > README.md
+      - name: Publish with provenance
+        if: steps.have.outputs.skip == 'false'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public --ignore-scripts

@@ -309,6 +309,9 @@ Round 2 (2026-10-10, local):
 - [x] An MCP server (download version): mcp/, 38 tools in 0.4.0
 - [ ] A real-phone check of everything above
 - [ ] Publish `open-overwatch-mcp` to npm (needs the owner's npm account with 2FA): not for now (owner, 2026-10-17)
+  - [x] Ready to publish (eng/npm): a 105-file tarball checked against the import graph (test/npmpack.test.mjs),
+        `.github/workflows/npm.yml` (trusted publishing, provenance, off until `NPM_PUBLISH` is true), `mcp/server.json`
+        for the MCP Registry; the owner's steps are in brand/launch/mcp-listings.md (not in the repository)
 
 ### Installable app, touch hints, accessibility (grow-pwa-a11y, 2026-10-12, local)
 - [x] Service worker (sw.js, scope = the site root): the app opens offline (pages + every module, found by reading the

@@ -8,6 +8,18 @@ file was built from.
 
 ## [Unreleased]
 
+### Added
+- The MCP server is ready for npm and the MCP Registry (nothing published yet): `.github/workflows/npm.yml` publishes
+  `open-overwatch-mcp` with trusted publishing and provenance once the owner turns it on (`NPM_PUBLISH`), skipping a
+  version npm already has; `mcp/server.json` is the registry entry (`io.github.destinjones/open-overwatch`).
+- `test/npmpack.test.mjs`: the npm tarball holds exactly what `mcp/server.mjs` imports, checked with
+  `npm pack --dry-run --json` against the import graph.
+
+### Changed
+- The npm package ships 105 files instead of 154: only the 62 `src/core/` modules the server imports (not the
+  website's other core modules) and no `mcp/worker.mjs` (the Cloudflare Worker entry); `mcpName`, `publishConfig`
+  and more keywords in `package.json`.
+
 ## [0.9.2.15] - 2026-10-17
 
 Tonight for any place, and honest about what is live.

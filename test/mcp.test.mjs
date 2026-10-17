@@ -457,6 +457,8 @@ test('mcp: the npm package, the Claude Desktop bundle and the server agree on th
   const pkg = JSON.parse(readFileSync(new URL('package.json', root), 'utf8')), man = JSON.parse(readFileSync(new URL('mcp/manifest.json', root), 'utf8'));
   const { VERSION } = await import('../mcp/feeds.mjs'), { tools } = (await rpc(serve().server, 'tools/list')).result;
   assert.equal(pkg.version, VERSION); assert.equal(man.version, VERSION);
+  const reg = JSON.parse(readFileSync(new URL('mcp/server.json', root), 'utf8'));   // the MCP Registry entry (test/npmpack.test.mjs)
+  assert.equal(reg.version, VERSION); assert.equal(reg.packages[0].version, VERSION);
   assert.deepEqual(man.tools.map(t => t.name), tools.map(t => t.name));
   assert.equal(pkg.bin['open-overwatch-mcp'], 'mcp/server.mjs'); assert.equal(man.server.entry_point, 'mcp/server.mjs');
   assert.deepEqual(Object.keys(pkg.dependencies), ['satellite.js']);
