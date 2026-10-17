@@ -43,7 +43,6 @@ FILES
                              elements still come from the website). data/lightpollution.md: that atlas is
                              CC BY-NC 4.0 (non-commercial use only), unlike the rest
   brand/                     logo, start-screen art, fonts, 3D models and textures
-  LICENSE, NOTICE            the MIT licence and the data credits
   serve.py                   helper, Python 3 standard library
   serve.js                   helper, Node 18+ / Bun
   Start Open Overwatch.bat   Windows launcher (console window stays open)

@@ -61,11 +61,11 @@ Detail that used to live in CLAUDE.md. Read the section you need before touching
 
 ## Publishing
 Repo github.com/destinjones/open-overwatch (public); site https://destinjones.github.io/open-overwatch/, built by the "Website"
-workflow (.github/workflows/pages.yml -> .github/build_site.py): main at the root, every annotated v* tag frozen under
-/v/<tag>/, and versions.json for the landing page's version picker and history (#launch). The /v/<tag>/ copies only
-contain build_site.py's APP_PATHS: add every new runtime asset there (the Launch button opens /v/<latest>/), or
+workflow (.github/workflows/pages.yml -> .github/build_site.py): main at the root, the newest ARCHIVE_KEEP (6)
+annotated v* tags frozen under /v/<tag>/ (older tags get a small page pointing at their release zip), and versions.json
+for the landing page's version picker and history (#launch). The /v/<tag>/ copies only contain build_site.py's APP_PATHS: add every new runtime asset there (the Launch button opens /v/<latest>/), or
 the archived app 404s on it (v0.7-v0.8 globe crashed that way until v0.8.1). Each archived version costs
-~25 MB of the 1 GB Pages limit.
+~30 MB of the 1 GB Pages limit (pages.yml warns over 900 MB and fails over 950 MB).
 Mirrors are best effort, and a failed refresh must never take the previous copy down: on 2026-10-06 06:28 UTC the
 scheduled build timed out on every CelesTrak group (90 s each, a 36-minute build that still "succeeded"), deployed with
 an empty data/tle/, and the live globe fell back to CelesTrak directly for every visitor until the next build.

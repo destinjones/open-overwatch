@@ -24,7 +24,7 @@ jobs:
           cp -r brand/emblem brand/fonts brand/sprites brand/lander brand/about brand/india "$D/brand/"
           rm -rf "$D/brand/sprites/raw" "$D/brand/lander/icons/"*.png "$D/brand/india/og-card.html"   # sources, not served
           cp brand/hero/*.webp "$D/brand/hero/"
-          cp brand/social/og-1200x630.png "$D/brand/social/"
+          cp brand/social/og-1200x630.png brand/social/screen-narrow.jpg brand/social/screen-wide.jpg "$D/brand/social/"   # og card, install-sheet screenshots
           cp -r brand/textures/night "$D/brand/textures/"
           cp brand/textures/earth_fx_8k.jpg brand/textures/earth_fx_4k.jpg brand/textures/earth_fx_2k.jpg "$D/brand/textures/"   # globe clouds/glint
           cp -r brand/textures/sky brand/textures/sky_1k "$D/brand/textures/"                     # globe star field

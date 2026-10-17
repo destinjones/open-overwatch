@@ -2,8 +2,9 @@
 
 What changed in each release, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions are small four-part steps (v0.9.2.11, then v0.9.2.12, …) rather than strict semantic versioning: every release
-is a usable site, and every one stays online under `/v/<tag>/` on the website (the landing page's version picker lists
-them). The annotated tag messages (`git tag -n99`) are the release notes this file was built from.
+is a usable site, and the newest six stay online under `/v/<tag>/` on the website (the landing page's version picker
+lists them); older ones are their release zip. The annotated tag messages (`git tag -n99`) are the release notes this
+file was built from.
 
 ## [Unreleased]
 
