@@ -31,7 +31,9 @@ export const CONNECTOR_ORIGINS = Object.freeze(['https://claude.ai', 'https://ch
  * of test/mcp.test.mjs, data already parsed: satellite_passes 13 ms, solar_system 10 ms, night_sky 7 ms on a tiny element
  * set (more on the real ones, as for close_approaches and a where_is_satellite search through the big groups); decoding
  * vector tiles, fire tiles and GTFS-RT feeds grows with the area; ships_baltic and traffic_cameras can need more than 50
- * look-ups. Everything else answers in 0.1-4 ms once its data is in the isolate (where_in_space 1-2 ms, sun_and_moon 4).
+ * look-ups. Everything else answers in 0.1-4 ms once its data is in the isolate (where_in_space 1-2 ms, sun_and_moon 4;
+ * earthquakes checked against EMSC 0.2 ms for a day, 1 ms for a week, 3.5 ms for a month's 1800 quakes against 1000 EMSC
+ * solutions: each EMSC body is parsed once, in mcp/hazards.mjs, and matched by time, in core/quakes.js matchEmsc).
  * A fresh isolate's first call that parses a big data copy (eclipses, countries, small bodies: 15-150 ms) can still
  * overrun the free plan; after that the parsed copy stays in the memo and what the tools build from it (prepared borders,
  * eclipse tracks, the cable map, the light pollution grid) in feeds.mjs derive(), so a new question costs 1-3 ms

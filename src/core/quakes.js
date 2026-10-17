@@ -116,10 +116,34 @@ export function emscRepeatsUsgs(e, q) {
   return /^(neic|neis|usgs|us)$/.test(a) || (!!a && !!net && a === net.toLowerCase());
 }
 
-/** The EMSC solution that is quake q (sameQuake), the closest in time when several are; or null. */
+const byTime = new WeakMap();   // an EMSC list -> its solutions with a time, oldest first (list order among equal times)
+/** list's solutions sorted by time, built once per list (a list is never changed once parsed; a length change rebuilds). */
+function timeIndex(list) {
+  let ix = byTime.get(list);
+  if (!ix || ix.n !== list.length) {
+    const s = list.map((e, i) => [e, i]).filter(([e]) => e && Number.isFinite(e.time)).sort((a, b) => a[0].time - b[0].time || a[1] - b[1]);
+    byTime.set(list, (ix = { n: list.length, e: s.map(x => x[0]), i: s.map(x => x[1]), t: s.map(x => x[0].time) }));
+  }
+  return ix;
+}
+/** The EMSC solution that is quake q (sameQuake), the closest in time when several are (the first in the list on a tie);
+ *  or null. A long list (a week's or month's 1000) is searched by time, so stamping n quakes costs n log m, not n * m. */
 export function matchEmsc(q, emsc) {
-  let best = null;
-  for (const e of emsc || []) if (sameQuake(q, e) && (!best || Math.abs(e.time - q.time) < Math.abs(best.time - q.time))) best = e;
+  let best = null, bi = -1;
+  if (!emsc || !emsc.length || !q || !Number.isFinite(q.time)) return null;
+  if (emsc.length < 32) {
+    for (const e of emsc) if (sameQuake(q, e) && (!best || Math.abs(e.time - q.time) < Math.abs(best.time - q.time))) best = e;
+    return best;
+  }
+  const ix = timeIndex(emsc), lo = q.time - QUAKE_AGREE.dtS * 1000, hi = q.time + QUAKE_AGREE.dtS * 1000;
+  let a = 0, b = ix.t.length;
+  while (a < b) { const m = (a + b) >> 1; if (ix.t[m] < lo) a = m + 1; else b = m; }
+  for (let k = a; k < ix.t.length && ix.t[k] <= hi; k++) {
+    const e = ix.e[k], d = Math.abs(e.time - q.time);
+    if (!sameQuake(q, e)) continue;
+    const bd = best ? Math.abs(best.time - q.time) : Infinity;
+    if (d < bd || (d === bd && ix.i[k] < bi)) { best = e; bi = ix.i[k]; }
+  }
   return best;
 }
 

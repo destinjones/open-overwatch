@@ -160,6 +160,15 @@ test('stampQuake: an EMSC solution of its own confirms a USGS quake; one too far
   const late = stampQuake({ ...q }, { dataAt: at - 60e3 }); assert.equal(recordOf(late, at).of, 1);
   stampQuake(late, { dataAt: at - 60e3, emsc: [pan] }); assert.equal(recordOf(late, at).confidence, 'confirmed');
   assert.equal(matchEmsc(q, [{ ...pan, id: 'far', time: q.time + 50e3 }, pan, { ...pan, id: 'near2', time: q.time - 20e3 }]).id, pan.id);
+  // a long list (a week's 1000) is searched by time: the same match as a full scan, ties to the first in the list
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const long = Array.from({ length: 400 }, (_, i) => ({ ...pan, id: 'e' + i, time: q.time + Math.round((rnd() - 0.5) * 600) * 1000, lat: q.lat + (rnd() - 0.5) * 2, mag: q.mag + (rnd() - 0.5) }));
+  long.push({ ...pan, id: 'nan', time: NaN });
+  const scan = (x, l) => { let b = null; for (const e of l) if (sameQuake(x, e) && (!b || Math.abs(e.time - x.time) < Math.abs(b.time - x.time))) b = e; return b; };
+  for (let k = 0; k < 200; k++) { const x = { ...q, time: q.time + Math.round((rnd() - 0.5) * 700) * 1000 }; assert.equal(matchEmsc(x, long), scan(x, long)); }
+  const tie = [...Array.from({ length: 40 }, (_, i) => ({ ...pan, id: 'pad' + i, time: q.time + 3600e3 })), { ...pan, id: 'after', time: q.time + 5e3 }, { ...pan, id: 'before', time: q.time - 5e3 }];
+  assert.equal(matchEmsc(q, tie).id, 'after', 'a tie goes to the first in the list, as a full scan does');
+  assert.equal(matchEmsc({ ...q, time: NaN }, long), null);
   // an old answer (EMSC down since) still lists the quake but is no longer fresh: back to reported
   assert.equal(recordOf(stampQuake({ ...q }, { dataAt: at + 2 * 3600e3, emsc: [pan] }), at + 2 * 3600e3 + 60e3).confidence, 'reported');
 });

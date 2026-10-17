@@ -37,7 +37,7 @@ const local = u => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(u.hostname);
 
 /**
  * fetchImpl: fetch-compatible (tests pass their own). site: the Open Overwatch address links point at and the data copies
- * come from. Returns { json, text, bytes, site(path), siteBase, clear() }; json/text/bytes(url, { ttl, headers, timeout, signal,
+ * come from. Returns { json, text, bytes, site(path), siteBase, scope, clear() }; json/text/bytes(url, { ttl, headers, timeout, signal,
  * method, body, maxBytes }). bytes resolves to { bytes: Uint8Array, type } (a picture, a protobuf feed, a gzipped tile).
  * memo: the Map answers are kept in (pass one to share parsed answers between servers: the Worker makes a server per
  * request). shared: a cache in front of the network that outlives the process, { match(key) -> Response | undefined,
@@ -108,6 +108,8 @@ export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntr
     /** A file on the Open Overwatch site (its data copies: data/tle/…, data/launches.json, …). */
     site: path => new URL(path, base).href,
     siteBase: base,
+    /** The memo itself: what outlives this server (the Worker makes one per request), for state kept beside the answers. */
+    scope: cache,
     clear: () => cache.clear(),
   };
 }
