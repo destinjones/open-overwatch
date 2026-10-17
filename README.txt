@@ -34,7 +34,16 @@ WHY THE HELPER
 FILES
   open-overwatch.html        the map (self-contained; libraries load from cdnjs/jsdelivr)
   globe.html                 the 3D globe (CesiumJS from jsdelivr; models and textures in brand/)
-  brand/                     logo, start-screen art, 3D models, promo video and the scripts that make them
+  solar.html                 the Solar System, out to the Local Group (three.js from jsdelivr)
+  tonight.html               what is up in your sky tonight
+  index.html                 the home page; about.html (the creator), guide.html (the user guide), india/ (India page)
+  src/                       the views' code (ES modules)
+  data/                      orbits, stars, airports, runways, deep sky, light pollution and more, so the views
+                             load them from this folder (the live feeds such as launches, flybys and satellite
+                             elements still come from the website). data/lightpollution.md: that atlas is
+                             CC BY-NC 4.0 (non-commercial use only), unlike the rest
+  brand/                     logo, start-screen art, fonts, 3D models and textures
+  LICENSE, NOTICE            the MIT licence and the data credits
   serve.py                   helper, Python 3 standard library
   serve.js                   helper, Node 18+ / Bun
   Start Open Overwatch.bat   Windows launcher (console window stays open)
