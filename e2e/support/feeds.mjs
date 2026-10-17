@@ -24,6 +24,15 @@ export function usgs(now = Date.now()) {
   return { type: 'FeatureCollection', metadata: { generated: now, title: 'USGS Magnitude 2.5+ Earthquakes, Past Day (e2e fixture)', status: 200, count: features.length }, features };
 }
 
+/** EMSC's catalogue (FDSN GeoJSON): its own solution of the M6.1 off Japan (so that quake reads "confirmed") and NEIC's of
+ *  the Chile one (USGS's own: listed, not confirming). */
+export function emsc(now = Date.now()) {
+  const e = (unid, mag, place, lon, lat, depth, ago, auth) => ({ type: 'Feature', id: unid, geometry: { type: 'Point', coordinates: [lon, lat, -depth] },
+    properties: { unid, source_catalog: 'EMSC-RTS', time: iso(now - ago + 4e3), lastupdate: iso(now - 5 * 60e3), flynn_region: place, lat, lon, depth, evtype: 'ke', auth, mag, magtype: 'mw' } });
+  return { type: 'FeatureCollection', metadata: { count: 2 }, features: [e('20260101_0000e01', 6.0, 'OFF EAST COAST OF HONSHU, JAPAN', 142.95, 40.62, 33, 2 * H, 'JMA'),
+    e('20260101_0000e02', 4.8, 'COQUIMBO, CHILE', -71.5, -30.9, 58, 5 * H, 'NEIC')] };
+}
+
 /** NASA EONET open events: a wildfire, a volcano and a named storm with a short track. */
 export function eonet(now = Date.now()) {
   return { title: 'EONET Events (e2e fixture)', events: [

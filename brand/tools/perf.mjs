@@ -38,7 +38,7 @@ for (const mode of MODES) {
     for (const page of PAGES) {
       const p = await b.newPage();
       await p.send('Page.enable'); await p.send('Runtime.enable'); await p.send('Network.enable'); await p.send('Performance.enable');
-      await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*opensky-network.org*', '*adsb.lol*', '*adsb.fi*', '*airplanes.live*', '*earthquake.usgs.gov*', '*wheretheiss.at*'] });
+      await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*opensky-network.org*', '*adsb.lol*', '*adsb.fi*', '*airplanes.live*', '*earthquake.usgs.gov*', '*seismicportal.eu*', '*wheretheiss.at*'] });
       await p.send('Network.setCacheDisabled', { cacheDisabled: true });
       await p.send('Emulation.setDeviceMetricsOverride', { width: P.width, height: P.height, deviceScaleFactor: P.deviceScaleFactor, mobile: P.mobile });
       if (P.mobile) { await p.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 }); await p.send('Emulation.setUserAgentOverride', { userAgent: P.ua }); }

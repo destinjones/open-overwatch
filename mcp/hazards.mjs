@@ -2,7 +2,7 @@
 // The live hazard feeds several tools read (earthquakes, tropical cyclones, natural events), fetched once here and parsed
 // by the shared core parsers the globe and the 2D map use (core/quakes.js, core/cyclones.js, core/eonet.js): the
 // earthquakes, tropical_storms and natural_events tools list them, country_briefing and volcanoes pick out a place's.
-import { parseUsgs, usgsUrl, usgsFeedFor, usgsDataAt, stampQuake } from '../src/core/quakes.js';
+import { parseUsgs, usgsUrl, usgsFeedFor, usgsDataAt, stampQuake, parseEmsc, emscUrl, emscAsk } from '../src/core/quakes.js';
 import { stamp, rep, provLine } from '../src/core/liveprov.js';
 import { parseEonet, eonetUrl, newestFirst, EONET_CATS } from '../src/core/eonet.js';
 import { parseNhcCurrent, parseGdacsCyclones, gdacsTcUrl, NHC_CURRENT, NHC_CLASS, sameStorm } from '../src/core/cyclones.js';
@@ -11,10 +11,20 @@ import { iso, r1, r2, coord } from './words.mjs';
 
 export { EONET_CATS };
 
-/** USGS's feed for a magnitude floor and period: every earthquake in it at or above `min` ({ t } in ms, the rest for answers; `now` ages the provenance). */
-export async function loadQuakes(feeds, { min = 2.5, period = 'day', signal, now = Date.now() } = {}) {
-  const d = await feeds.json(usgsUrl(usgsFeedFor(min, period)), { ttl: 60e3, timeout: 30e3, signal }), dataAt = usgsDataAt(d);
-  return parseUsgs(d, { min, quakesOnly: true }).map(q => ({ provenance: provLine(stampQuake(q, { dataAt }), now), magnitude: r1(q.mag), place: q.place || coord(q.lat, q.lon), time: iso(q.time), t: q.time, depth_km: q.depth != null ? r1(q.depth) : null,
+const emscKept = new WeakMap();   // feeds -> Map(summary -> its last EMSC list): the address moves every 10 min, so the feeds cache can't stand in
+/** USGS's feed for a magnitude floor and period: every earthquake in it at or above `min` ({ t } in ms, the rest for answers).
+ *  emsc: also ask EMSC's catalogue (one request per summary, kept 10 min; read as text, since FDSN answers an empty 204
+ *  when nothing matches) so a quake both list reads "confirmed"; EMSC failing or slow (10 s) falls back to that summary's
+ *  last EMSC list, as the browser views do, else leaves the answer USGS's alone. */
+export async function loadQuakes(feeds, { min = 2.5, period = 'day', signal, emsc = false, now = Date.now() } = {}) {
+  const feed = usgsFeedFor(min, period);
+  if (emsc && !emscKept.has(feeds)) emscKept.set(feeds, new Map());
+  const kept = emsc ? emscKept.get(feeds) : null;
+  const [d, em] = await Promise.all([feeds.json(usgsUrl(feed), { ttl: 60e3, timeout: 30e3, signal }),
+    emsc ? feeds.text(emscUrl({ ...emscAsk(feed), now }), { ttl: 10 * 60e3, timeout: 10e3, signal }).then(parseEmsc)
+      .then(list => (kept.set(feed, list), list), () => kept.get(feed) || []) : []]);
+  const dataAt = usgsDataAt(d);
+  return parseUsgs(d, { min, quakesOnly: true }).map(q => ({ provenance: provLine(stampQuake(q, { dataAt, emsc: em }), now), magnitude: r1(q.mag), place: q.place || coord(q.lat, q.lon), time: iso(q.time), t: q.time, depth_km: q.depth != null ? r1(q.depth) : null,
     lat: r2(q.lat), lon: r2(q.lon), tsunami: q.tsunami, alert: q.alert, felt_reports: q.felt || 0, url: q.url || null }));
 }
 

@@ -17,6 +17,7 @@ const quake = (mag, lat, lon, place, mins) => ({ properties: { mag, place, time:
 const QUAKES = { features: [quake(5.1, 35.6, 139.7, '20 km SE of Tokyo, Japan', 30), quake(3.0, 31.6, -102.0, '15 km W of Midland, Texas', 90)] };
 const ROUTES = [
   [/earthquake\.usgs\.gov\/.*(2\.5|4\.5)_day\.geojson$/, QUAKES],
+  [/seismicportal\.eu\/fdsnws\/event\/1\/query/, { features: [] }],   // EMSC, asked beside USGS by the earthquakes tool
   [/api\.open-meteo\.com\/v1\/forecast\?.*current=is_day/, { timezone: 'Europe/Helsinki' }],
   [/api\.open-meteo\.com\/v1\/forecast/, { status: 503 }],
   [/api\.adsbdb\.com\/v0\/callsign\/BAW15$/, { response: { flightroute: { callsign: 'BAW15', airline: { name: 'British Airways', icao: 'BAW', country: 'United Kingdom' } } } }],
@@ -106,13 +107,13 @@ test('mcp worker: the free plan leaves the heavy tools out; paid lists all; TOOL
 test('mcp worker: answers are shared through the Cache API: the same question costs nothing, a new isolate reuses the feed', async () => {
   const { worker, net, caches } = make(), env = { MCP_TOKEN: TOKEN }, c1 = ctx();
   const a = await (await worker.fetch(post(call('earthquakes', { min_magnitude: 3, period: 'day' }, 7)), env, c1)).json();
-  assert.equal(a.id, 7); assert.equal(a.result.isError, false); assert.equal(net.asked.length, 1);
+  assert.equal(a.id, 7); assert.equal(a.result.isError, false); assert.equal(net.asked.length, 2, 'USGS and EMSC');
   assert.ok(c1.waits.length >= 1, 'cache writes finish after the answer (waitUntil)'); await Promise.all(c1.waits);
   assert.ok([...caches.store.keys()].every(k => k.startsWith('https://mcp-cache.open-overwatch.invalid/')), 'keys on a host that is never asked');
   const putCall = [...caches.store.entries()].find(([k]) => k.includes('/call/'));
   assert.equal(putCall[1].headers['cache-control'], `public, max-age=${CALL_TTL.default}`);
   const b = await (await worker.fetch(post(call('earthquakes', { period: 'day', min_magnitude: 3 }, 8)), env, ctx())).json();
-  assert.equal(b.id, 8, 'its own id'); assert.deepEqual(b.result, a.result, 'the same answer, arguments in any order'); assert.equal(net.asked.length, 1, 'no new look-ups');
+  assert.equal(b.id, 8, 'its own id'); assert.deepEqual(b.result, a.result, 'the same answer, arguments in any order'); assert.equal(net.asked.length, 2, 'no new look-ups');
   // a fresh isolate (new memory) in the same data centre: the USGS feed comes from the Cache API, not from USGS
   const other = internet(), w2 = createWorker({ fetchImpl: other.fetchImpl, caches, now: () => NOW });
   const c = await (await w2.fetch(post(call('earthquakes', { min_magnitude: 4 })), env, ctx())).json();   // a new question on the same feed

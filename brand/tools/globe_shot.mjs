@@ -19,7 +19,7 @@ try {
   // times); CelesTrak can never be unblocked
   const unblock = (process.env.OO_UNBLOCK || '').split(',').filter(h => h && !/celestrak/i.test(h));
   await p.send('Network.setBlockedURLs', { urls: ['*celestrak.org*', '*opensky-network.org*', '*adsb.lol*', '*adsb.fi*',
-    '*airplanes.live*', '*earthquake.usgs.gov*', '*wheretheiss.at*'].filter(u => !unblock.some(h => u.includes(h))) });
+    '*airplanes.live*', '*earthquake.usgs.gov*', '*seismicportal.eu*', '*wheretheiss.at*'].filter(u => !unblock.some(h => u.includes(h))) });
   await p.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
   const loaded = p.waitFor('Page.loadEventFired', { timeoutMs: 60000 });
   await p.send('Page.navigate', { url: process.env.OO_URL || 'http://localhost:8787/globe.html' }); // OO_URL: e.g. the live site

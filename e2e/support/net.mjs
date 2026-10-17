@@ -41,6 +41,7 @@ export function fixtureFor(href, now = Date.now()) {
   const u = new URL(href), h = u.hostname, p = u.pathname;
   if (h === 'earthquake.usgs.gov' && /\.geojson$/.test(p)) return F.usgs(now);
   if (h === 'earthquake.usgs.gov' && p === '/fdsnws/event/1/query') return F.catalogue(href);   // time travel
+  if (h === 'www.seismicportal.eu' && p === '/fdsnws/event/1/query') return F.emsc(now);   // EMSC, the quakes' second catalogue
   if (h === 'eonet.gsfc.nasa.gov') return F.eonet(now);
   if (h === 'services.swpc.noaa.gov' && /k-index/.test(p)) return F.kp(now);
   if (h === 'services.swpc.noaa.gov' && /ovation/.test(p)) return F.ovation(now);

@@ -109,7 +109,7 @@ export function createTools(ctx) {
   const earthquakes = {
     name: 'earthquakes',
     title: 'Earthquakes',
-    description: 'Recent earthquakes from the US Geological Survey (worldwide; complete above about magnitude 4.5 everywhere and lower in the US), strongest or latest first, optionally in an area. Each has its magnitude, place, time, depth, tsunami flag and PAGER alert, with a globe link.',
+    description: 'Recent earthquakes from the US Geological Survey (worldwide; complete above about magnitude 4.5 everywhere and lower in the US), strongest or latest first, optionally in an area. Each has its magnitude, place, time, depth, tsunami flag and PAGER alert, with a globe link, and a provenance line that says "confirmed" when EMSC\'s catalogue has the same quake from its own solution.',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -123,17 +123,17 @@ export function createTools(ctx) {
     async run(a, { signal }) {
       const min = a.min_magnitude ?? 2.5, period = a.period || 'day', sort = a.sort || 'magnitude';
       if (period === 'month' && min < 2.5) throw new ToolError('For a whole month ask for magnitude 2.5 or more (the full list is too large)', 'invalid_arguments');
-      const [quakes, area] = await Promise.all([loadQuakes(feeds, { min, period, signal, now: now() }), resolveArea(a, feeds, { pointKm: 500, signal })]);
+      const [quakes, area] = await Promise.all([loadQuakes(feeds, { min, period, signal, emsc: true, now: now() }), resolveArea(a, feeds, { pointKm: 500, signal })]);
       const all = quakes.filter(q => inArea(area, q.lat, q.lon));
       all.sort(sort === 'time' ? (x, y) => y.t - x.t : (x, y) => y.magnitude - x.magnitude || y.t - x.t);
       const list = take(all, a.limit || 20), t = now(), top = all.length ? all.reduce((m, q) => (q.magnitude > m.magnitude ? q : m)) : null;
       const camera = area ? frameArea(area) : top ? frame(top.lat, top.lon, 900) : EARTH_VIEW, url = link({ camera, on: ['quakes'] });
       const head = all.length ? `${plural(all.length, 'earthquake')} of magnitude ${min}+ in the last ${period}${where(area)}${all.length > list.length ? ` (the ${list.length} ${sort === 'time' ? 'latest' : 'strongest'} below)` : ''}.`
         : `No earthquakes of magnitude ${min}+ in the last ${period}${where(area)}.`;
-      const lines = list.map(q => `M${q.magnitude} · ${q.place} · ${utc(q.t)} (${ago(q.t, t)}) · ${q.depth_km} km deep${q.tsunami ? ' · tsunami flag' : ''}${q.alert ? ` · PAGER ${q.alert}` : ''}`);
+      const lines = list.map(q => `M${q.magnitude} · ${q.place} · ${utc(q.t)} (${ago(q.t, t)}) · ${q.depth_km} km deep${q.tsunami ? ' · tsunami flag' : ''}${q.alert ? ` · PAGER ${q.alert}` : ''}${/ · confirmed$/.test(q.provenance || '') ? ' · confirmed by EMSC' : ''}`);
       const note = period !== 'day' || min < 2.5 ? " (the globe's layer shows the last 24 hours, M2.5+)" : '';
       return { text: [head, ...lines, `On the globe${note}: ${url}`].join('\n'), data: { total: all.length, returned: list.length, truncated: all.length > list.length, min_magnitude: min, period,
-        area: areaData(area), earthquakes: list.map(({ t: _, ...q }) => q), url, source: 'USGS Earthquake Hazards Program (public domain)' } };
+        area: areaData(area), earthquakes: list.map(({ t: _, ...q }) => q), url, source: 'USGS Earthquake Hazards Program (public domain); checked against EMSC, the European-Mediterranean Seismological Centre (credit EMSC)' } };
     },
   };
 
