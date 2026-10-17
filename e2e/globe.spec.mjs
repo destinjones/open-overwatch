@@ -1,10 +1,12 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The 3D globe (globe.html, CesiumJS in software WebGL): boot, the counters from the (stubbed) feeds, the layer dock,
 // the time bar, the band's panels (search, launches, eclipses, measure), the share link both ways, the link to the 2D
-// map, and a hostile link.
+// map, a hostile link; the panels a link opens (#go=: Earth now, falling soon, near misses, crew, flybys, find a
+// flight), weather mode, an Ops look and a voice command; and the zoom out to the Solar System and back.
 import { test, expect, openGlobe } from './support/fixtures.mjs';
 import { encodeView } from '../src/core/viewlink.js';
 import { jdFromMs } from '../src/core/time.js';
+import { AU_KM } from '../src/core/units.js';
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
 
@@ -179,4 +181,153 @@ test('a hostile link is refused and the globe still boots', async ({ page }) => 
   expect(await page.locator('img[src=x]').count()).toBe(0);
   const c = await camera(page);
   expect(Number.isFinite(c.lon) && Number.isFinite(c.lat) && c.h > 0).toBe(true);
+});
+
+// ---- the panels a link opens (#go=, core/viewlink.js GO). Several per globe boot: each software-WebGL boot is ~20 s.
+const AT = '2026-10-13T19:00:00Z';   // the re-entry list and the near misses (feeds.mjs SOCRATES_AT) are fixed for this moment
+const go = (page, name) => page.evaluate(n => { location.hash = '#go=' + n; }, name);   // a new hash in an open page is applied like an arriving link
+
+test.describe('panels from a link', () => {
+  test.use({ fixedNow: AT });
+
+  test('Earth now, falling soon and near misses, from the canned feeds', async ({ page }) => {
+    await openGlobe(page, '#go=now');
+    await expect(page.locator('#now')).toHaveClass(/\bshow\b/);
+    await expect(page.locator('#nwTitle')).toHaveText('Earth now');
+    await expect(page.locator('#nwBody')).toContainText('5 quakes M2.5+ in 24 h', { timeout: 30000 });
+    await expect(page.locator('#nwBody')).toContainText('14 people are in space right now', { timeout: 30000 });
+    await page.locator('#nwX').click();
+    await expect(page.locator('#now')).not.toHaveClass(/\bshow\b/);
+
+    // falling soon: worked out here from the TLE fixture's elements; at AT only object 66052 comes down within 30 days
+    await go(page, 'reentry');
+    await expect(page.locator('#card h2')).toHaveText('Falling soon');
+    const falling = page.locator('#card .cjl .cj');
+    await expect(falling).toHaveCount(1, { timeout: 60000 });
+    await expect(falling.first()).toContainText('66052');
+    await expect(page.locator('#card')).toContainText(/1 of \d+ loaded objects/);
+    await falling.first().click();
+    await expect(page.locator('#card h2')).toHaveText('66052');
+    await expect(page.locator('#card .k')).toContainText('Re-entry');
+
+    // near misses: data/socrates.json from test/fixtures/socrates-small.csv, the past one dropped, closest first
+    await page.waitForFunction(() => OO3D.Sats.byId.has('25544'), null, { timeout: 30000 });
+    await go(page, 'conj');
+    await expect(page.locator('#card h2')).toHaveText('Near misses');
+    const rows = page.locator('#card .cjl .cj');
+    await expect(rows).toHaveCount(3, { timeout: 20000 });
+    await expect(rows.first()).toContainText('412 m');
+    await expect(rows.first()).toContainText('ISS (ZARYA) × COSMOS 1408 DEB');
+    await expect(rows.first()).not.toHaveClass(/\bdim\b/);
+    await expect(rows.nth(2)).toHaveClass(/\bdim\b/);   // neither Starlink-1007 nor the Iridium debris is in the loaded groups
+    await expect(page.locator('#card')).toContainText('updated 2026-10-13 17:00 UTC');
+    // picking one sets the clock to 45 s before the closest approach (20 h after AT) and follows the ISS through it
+    await rows.first().click();
+    await expect(page.locator('#card')).toContainText('14.21 km/s');
+    await expect.poll(() => page.evaluate(() => OO3D.time.live)).toBe(false);
+    const lead = await page.evaluate(tca => tca - OO3D.time.nowMs(), Date.parse(AT) + 20 * 3600e3);
+    expect(lead).toBeGreaterThan(-15e3); expect(lead).toBeLessThan(46e3);
+    await page.locator('#cjNow').click();
+    await expect(page.locator('#tMode')).toHaveText('live');
+  });
+
+  test('people in space, flybys and find a flight', async ({ page }) => {
+    await openGlobe(page, '#go=crew');   // crew has no band button: the link opens it by itself
+    await expect(page.locator('#card h2')).toHaveText('People in space');
+    await expect(page.locator('#card .tn-head')).toHaveText('14 people are in space right now: 11 on the ISS and 3 on Tiangong.', { timeout: 30000 });
+    await expect(page.locator('#card')).toContainText('Jessica Meir');
+    await expect(page.locator('#card')).toContainText('Also listed: Starman');
+
+    // flybys: data/flybys.json is made by the site build only, so here the panel says so instead of listing
+    await go(page, 'flybys');
+    await expect(page.locator('#card h2')).toHaveText('Flybys');
+    await expect(page.locator('#card')).toContainText("isn't available here", { timeout: 30000 });
+
+    // find a flight: nonsense is refused; a callsign is asked of adsb.lol through the local relay (canned) and followed
+    await go(page, 'flight');
+    await expect(page.locator('#card h2')).toHaveText('Find a flight');
+    await page.locator('#flQ').fill('!!');
+    await page.locator('#flQ').press('Enter');
+    await expect(page.locator('#flMsg')).toContainText("doesn't look like a flight number");
+    await page.locator('#flQ').fill('RYR4TW');
+    await page.locator('#flQ').press('Enter');
+    await expect(page.locator('#toast')).toContainText('Found RYR4TW', { timeout: 30000 });
+    await expect.poll(() => page.evaluate(() => OO3D.Flight.shareId)).toBe('RYR4TW');   // and the next share link finds it
+  });
+});
+
+test('weather mode opens on the radar frames, says what it could not reach, and closes', async ({ page }) => {
+  await openGlobe(page);
+  // the band's button can sit under the zoom pad at laptop widths: clicked the way share.js opens a panel
+  await page.evaluate(() => document.querySelector('#band [data-go="weather"]').click());
+  await expect(page.locator('#wx')).toHaveClass(/\bshow\b/);
+  await expect(page.locator('#wxTime')).toContainText('observed', { timeout: 60000 });
+  expect(await page.evaluate(() => [OO3D.Weather.on, OO3D.Weather.radar.length, OO3D.Weather.ir.length])).toEqual([true, 13, 0]);
+  await expect(page.locator('#wxSets [data-set]')).toHaveCount(9);
+  await expect(page.locator('#wxNote')).toContainText('No infrared images reachable.');   // the GIBS stand-ins are blank: no scan found
+  await expect(page.locator('#wxScale')).toContainText('no forecast reachable');          // the GFS and ECMWF files are not canned
+  await page.locator('#wx .x').click();
+  await expect(page.locator('#wx')).not.toHaveClass(/\bshow\b/);
+  expect(await page.evaluate(() => OO3D.Weather.on)).toBe(false);
+});
+
+test('an Ops look from a link (thermal, HUD, boxes), a voice command, and a plain link puts it back', async ({ page }) => {
+  await openGlobe(page, '#c=139.7,35.6,2500000,0,-90&o=flir.h.d');
+  const body = page.locator('body');
+  await expect(body).toHaveAttribute('data-sensor', 'flir', { timeout: 30000 });
+  await expect(body).toHaveClass(/\bops-hud\b/);
+  await expect(page.locator('#opsRail [data-s="flir"]')).toHaveClass(/\bon\b/);
+  await expect(page.locator('#opsRail [data-o="detect"]')).toHaveClass(/\bon\b/);
+  await expect(page.locator('#opsHud .oh-tl')).toContainText('OVERWATCH ◆ WHT');
+  expect(await page.evaluate(() => [OO3D.Ops.sensor, OO3D.Ops.hud, OO3D.Ops.detect])).toEqual(['flir', true, true]);
+  expect(await page.evaluate(() => OO3D.Share.link())).toMatch(/[#&]o=flir\.h\.d(&|$)/);   // the next link carries it on
+  // a spoken command (Voice.run is what the microphone's transcript is handed to)
+  await page.evaluate(() => OO3D.Voice.run('night vision'));
+  await expect(body).toHaveAttribute('data-sensor', 'nvg');
+  // a new link without &o= goes back to normal colour, no HUD, no boxes
+  await page.evaluate(() => { location.hash = '#c=139.7,35.6,2500000,0,-90'; });
+  await expect(body).toHaveAttribute('data-sensor', 'normal');
+  await expect(body).not.toHaveClass(/\bops-hud\b/);
+  expect(await page.evaluate(() => [OO3D.Ops.hud, OO3D.Ops.detect])).toEqual([false, false]);
+});
+
+// ---- one zoom: past the Moon the globe hands its camera and clock to the Solar System (src/globe/space.js, an iframe of
+// solar.html?embed=1) and stops drawing; zooming into Earth there hands both back (src/solar/embed.js).
+test('zooming out past the Moon hands over to the Solar System with the same clock, and zooming in hands back', async ({ page }) => {
+  test.slow();   // two software-WebGL views in one page: the Solar System loads and compiles while the globe draws
+  const SOLAR = 'iframe[src="solar.html?embed=1"]', AU_M = AU_KM * 1000;
+  const solar = fn => page.evaluate(`(${fn})(document.querySelector('${SOLAR}').contentWindow.OOSS)`);
+  // the globe's frame counter after two animation frames: it stands still while the globe's render loop is off
+  const frameNo = () => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(OO3D.viewer.scene.frameState.frameNumber)))));
+  await openGlobe(page);
+  const jd = jdFromMs(Date.UTC(2026, 9, 13, 18));
+  await page.evaluate(jd => OO3D.time.setJd(jd, 0), jd);   // paused at a moment that isn't now: the Solar System must take the globe's clock
+  // beyond the hand-over height (space.js ENTER_M = 3.0e8 m; the Moon is ~3.8e8 m out), looking straight down at Earth
+  const H0 = 4.0e8;
+  await page.evaluate(h => OO3D.viewer.camera.setView({ destination: Cesium.Cartesian3.fromDegrees(20, 10, h) }), H0);
+  await expect(page.locator(SOLAR)).toHaveCount(1, { timeout: 30000 });
+  // the hand-over waits for the Solar System to draw once and warm its shaders (at most 8 s once loaded), then cross-fades
+  await expect.poll(() => page.evaluate(() => OO3D.space.active), { timeout: 240000, intervals: [1000] }).toBe(true);
+  await expect.poll(() => page.evaluate(() => OO3D.viewer.useDefaultRenderLoop), { timeout: 10000 }).toBe(false);
+  const f0 = await frameNo();
+  expect(await frameNo()).toBe(f0);   // only one renderer draws at a time
+  const s = await solar(S => ({ active: S.embed.active, live: S.clock.live, jd: S.clock.jd, rate: S.clock.rate, running: S.loop.running, focus: S.nav.focus && S.nav.focus.key, au: S.camera.position.distanceTo(S.byKey.earth.pos) }));
+  expect(s).toMatchObject({ active: true, live: false, rate: 0, running: true, focus: 'earth' });
+  expect(Math.abs(s.jd - jd) * 86400).toBeLessThan(60);   // the globe's moment, to the minute
+  expect(s.au * AU_M / (H0 + 6.378e6)).toBeCloseTo(1, 1);   // the same distance from Earth: metres crossed as ecliptic vectors, not km or AU
+  await expect(page.locator(SOLAR)).toHaveCSS('opacity', '1');
+
+  // back in: the Solar System's way home (its "3D globe" link) flies to Earth; below 2.2e8 m (embed.js EXIT_M) it hands back
+  await expect.poll(() => solar(S => S.controls.enabled), { timeout: 30000 }).toBe(true);   // its arrival animation is over
+  await solar(S => S.embed.goToEarth());
+  await expect.poll(() => page.evaluate(() => OO3D.space.active), { timeout: 120000, intervals: [500] }).toBe(false);
+  expect(await page.evaluate(() => OO3D.viewer.useDefaultRenderLoop)).toBe(true);
+  const f1 = await frameNo();
+  expect(await frameNo()).toBeGreaterThan(f1);   // the globe draws again
+  const c = await camera(page);
+  expect(c.h).toBeGreaterThan(1.0e8); expect(c.h).toBeLessThan(2.2e8);   // where the Solar System left the camera
+  expect(await page.evaluate(() => [OO3D.time.live, OO3D.time.rate])).toEqual([false, 0]);   // and the clock comes back with it
+  expect(Math.abs(await page.evaluate(() => OO3D.time.jd()) - jd) * 86400).toBeLessThan(60);
+  await expect(page.locator(SOLAR)).toHaveCSS('opacity', '0');
+  await expect.poll(() => solar(S => S.loop.running), { timeout: 10000 }).toBe(false);   // the Solar System sleeps again
 });
