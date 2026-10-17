@@ -107,7 +107,8 @@ export function createComets({ scene, focus: focusOf = () => null }) {
   }
   function drop(b) {
     removeBody(b); list.splice(list.indexOf(b), 1);
-    for (const o of [b.group, b.coma, b.dust, b.ion, b.orbit]) { scene.remove(o); o.geometry?.dispose?.(); }
+    // a sprite's geometry is three.js's own, shared by every sprite: only its material is the comet's
+    for (const o of [b.group, b.coma, b.dust, b.ion, b.orbit]) { scene.remove(o); if (!o.isSprite) o.geometry?.dispose?.(); o.material?.dispose?.(); }
   }
   const lineGeo = pts => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pts, 3)); return g; };
   const orbitMat = () => new THREE.LineBasicMaterial({ color: '#7fb6d9', transparent: true, opacity: 0.3, depthWrite: false });

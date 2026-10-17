@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { LY_AU } from '../core/units.js';
 import { SimClock, jdFromMs } from '../core/time.js';
-import { smoothLog, Sharpen, PHONE } from './util.js';
+import { smoothLog, Sharpen, PHONE, CALM } from './util.js';
 import { bodies, byKey, defineLayer, applyLayers } from './world.js';
 import { createSky } from './sky.js';
 import { createPlanets } from './planets.js';
@@ -79,6 +79,7 @@ const nav = {
   release() { if (this.free) return; this.free = true; this.fly = null; controls.minDistance = 1e-6; ui.showCard(null); this.focus?.onFocus?.(false); find?.syncHash(); },
   focusOn(b, dist = null, dur = 2.2, card = true, dir = null) {   // dir: turn the view to look from there (unit vector, target -> camera)
     if (!b) return;
+    if (CALM.matches) dur = Math.min(dur, 0.05);   // reduced motion: a jump (still a fly, so whatever waits for its end works as before)
     this.free = false;
     const sys = b.exo && exo.X.systems.find(s => s.host === b.host);
     const d1 = dist ?? (b.exo ? (sys ? exo.viewDistance(sys) : 0.25) : Math.max(b.radius * 4, b.kind === 'planet' ? b.radius * 3.2 : b.parent ? b.radius * 5 : 0.002));
@@ -90,7 +91,7 @@ const nav = {
     ui.showCard(card ? b : null);
     find?.syncHash();
   },
-  flyDist(d, dur = 2) { this.fly = { from: controls.target.clone(), d0: camera.position.distanceTo(controls.target), d1: d, t0: performance.now(), dur: dur * 1000 }; },
+  flyDist(d, dur = 2) { if (CALM.matches) dur = Math.min(dur, 0.05); this.fly = { from: controls.target.clone(), d0: camera.position.distanceTo(controls.target), d1: d, t0: performance.now(), dur: dur * 1000 }; },
   frame() {
     const p = this.focus.pos;
     if (this.free && !this.fly) return;

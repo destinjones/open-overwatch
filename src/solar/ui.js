@@ -148,10 +148,16 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
   // ---- search: find.js
 
   // ---- per frame: date, scale readout, band caption, ladder highlight, labels
-  let lastDate = 0, band = -1, started = false;
+  // the header's bottom edge (the "Riding with" pill sits under it), measured when it changes size, not every frame:
+  // reading it right after a text write forced a layout per frame
+  let lastDate = 0, band = -1, started = false, topBottom = 0, lastDist = '';
+  const measureTop = () => { topBottom = $('#top').getBoundingClientRect().bottom; };
+  measureTop(); addEventListener('resize', measureTop);
+  if (window.ResizeObserver) new ResizeObserver(measureTop).observe($('#top'));   // it wraps to more rows as its text changes
   function frame({ camSun, camFocus }) {
     if (performance.now() - lastDate > 200) { lastDate = performance.now(); $('#tDate').textContent = formatUtc(clock.jd, { suffix: PHONE ? '' : ' UTC' }); syncRate(); }
-    $('#sDist').textContent = 'View ' + viewWidth(2 * camFocus * Math.tan(camera.fov * Math.PI / 360) * camera.aspect) + ' wide';
+    const dist = 'View ' + viewWidth(2 * camFocus * Math.tan(camera.fov * Math.PI / 360) * camera.aspect) + ' wide';
+    if (dist !== lastDist) { lastDist = dist; $('#sDist').textContent = dist; }
     const f = nav.focus || byKey.sun, close = camFocus < 0.05 && f.key !== 'earth' && f.key !== 'moon';   // close in, name the body instead
     const inSystem = exo && exo.X.built && camera.position.distanceTo(exo.X.built.hostPos) < 30;   // inside another star's system
     const bi = close ? -2 : inSystem ? -3 : BANDS.findIndex(b => camSun < b[0]);
@@ -159,14 +165,14 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
       band = bi;
       if (close) $('#sName').textContent = f.name;
       else if (inSystem) {
-        const s = exo.X.built.s, hz = s.pl.filter(p => p[11]).length;
+        const s = exo.X.built.s, hz = s.pl.filter(p => p[11]).length, nm = byKey['exo:' + s.host]?.name || s.host;   // Kepler-90, not the archive's KOI-351
         $('#sName').textContent = 'Other worlds';
-        if (started && !story.tour.on && !story.pulse.on) caption(s.host + ': another solar system', `${s.pl.length} known planet${s.pl.length > 1 ? 's' : ''}${hz ? `, ${hz} in the habitable zone (green band)` : ''}, ${Math.round(s.ly)} light-years from us. They move with the clock; speed it up to watch them orbit.`, 'From the NASA Exoplanet Archive.');
+        if (started && !story.tour.on && !story.pulse.on) caption(nm + ': another solar system', `${s.pl.length} known planet${s.pl.length > 1 ? 's' : ''}${hz ? `, ${hz} in the habitable zone (green band)` : ''}, ${Math.round(s.ly)} light-years from us. They move with the clock; speed it up to watch them orbit.`, 'From the NASA Exoplanet Archive.');
       } else { const B = BANDS[bi]; $('#sName').textContent = B[1]; if (started && !story.tour.on && !story.pulse.on) caption(B[2], B[3], B[4]); }
     }
     document.querySelectorAll('.rung').forEach((r, i) => r.classList.toggle('on', bi === -3 ? RUNGS[i][0] === 'Other worlds' : bi >= 0 && RUNGS[i][0] === BANDS[bi][1]));
     const fc = $('#follow'), name = (nav.focus || byKey.sun).name, show = !nav.free && !!nav.focus && !(document.body.classList.contains('embedded') && nav.focus.key === 'earth');
-    fc.style.display = show ? '' : 'none'; if (show) fc.style.top = Math.round($('#top').getBoundingClientRect().bottom + 8) + 'px';   // under the header, which wraps to rows on a phone
+    fc.style.display = show ? '' : 'none'; if (show) fc.style.top = Math.round(topBottom + 8) + 'px';   // under the header, which wraps to rows on a phone
     if (show && fc.dataset.n !== name) { fc.dataset.n = name; $('#followN').textContent = name; }
     updateLabels(camSun, camFocus);
   }
