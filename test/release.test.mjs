@@ -116,6 +116,11 @@ test('release: the pages the shipped pages link to are in the zip', () => {
     }
   }
   assert.deepEqual(bad, [], 'links and assets the download would 404 on');
+  // the install manifest's icons and screenshots too (a missing one breaks the install sheet in the download)
+  const manifest = JSON.parse(read('manifest.webmanifest'));
+  const named = [...(manifest.icons || []), ...(manifest.screenshots || [])].map(i => i.src);
+  assert.ok(named.length >= 3, `manifest images: ${named}`);
+  assert.deepEqual(named.filter(p => !shipped(p)), [], 'manifest.webmanifest names these, release.yml does not ship them');
   // asset paths the pages build in JS ('brand/lander/clips/' + c, '../brand/india/clips/' + c, 'brand/models/' + f)
   for (const dir of ['brand/lander/clips/', 'brand/india/clips/', 'brand/models/']) {
     assert.ok(exists(dir), `${dir} is in the repository`);
