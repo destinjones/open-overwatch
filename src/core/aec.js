@@ -48,9 +48,14 @@ const SE = (() => { const t = []; for (let i = 0; i < 13; i++) for (let j = 0; j
  * reference interval, `flags` from AEC. Returns a Float64Array of the samples (signed if the SIGNED flag is set).
  */
 export function aecDecode(bytes, { n, bits, blockSize, rsi, flags }) {
+  if (!Number.isInteger(n) || n < 0) throw new Error('aec: ' + n + ' samples');
+  if (!Number.isInteger(bits) || bits < 1 || bits > 32) throw new Error('aec: ' + bits + ' bits per sample');
+  if (![8, 16, 32, 64].includes(blockSize)) throw new Error('aec: block size ' + blockSize);   // 0 would never finish an interval
+  if (!Number.isInteger(rsi) || rsi < 1 || rsi > 4096) throw new Error('aec: ' + rsi + ' blocks per reference interval');
+  // the most a stream can hold: a 9-bit "rest of the segment" zero run stands for at most 64 blocks of 64 samples
+  if (n > bytes.length * 8 * 4096 + 64) throw new Error('aec: ' + n + ' samples from ' + bytes.length + ' bytes');
   const out = new Float64Array(n);
   if (!n) return out;
-  if (bits < 1 || bits > 32) throw new Error('aec: ' + bits + ' bits per sample');
   const J = blockSize, pp = !!(flags & AEC.PREPROCESS), signed = !!(flags & AEC.SIGNED);
   const idLen = bits > 16 ? 5 : bits > 8 ? 4 : (flags & AEC.RESTRICTED) && bits <= 4 ? (bits <= 2 ? 1 : 2) : 3;
   const UNCOMP = 2 ** idLen - 1, xmax = 2 ** bits - 1, half = 2 ** (bits - 1);
@@ -76,6 +81,7 @@ export function aecDecode(bytes, { n, bits, blockSize, rsi, flags }) {
           let blocks = r.fs() + 1;
           if (blocks === ROS) { const b = Math.floor((used - ref) / J); blocks = Math.min(rsi - b, 64 - (b % 64)); }
           else if (blocks > ROS) blocks--;
+          if (used + blocks * J - ref > J * rsi) throw new Error('aec: a zero run past its reference interval');
           for (let i = blocks * J - ref; i > 0; i--) interval[used++] = 0;
         }
       } else if (id === UNCOMP) {
@@ -92,6 +98,7 @@ export function aecDecode(bytes, { n, bits, blockSize, rsi, flags }) {
     if (flags & AEC.PAD_RSI) r.align();
     // post-process: undo the predictor (or copy), and stop at n
     const m = Math.min(used, n - k);
+    for (let i = 0; i < m; i++) if (interval[i] > xmax) throw new Error('aec: a sample over ' + bits + ' bits');
     if (!pp) {
       for (let i = 0; i < m; i++) out[k + i] = signed && interval[i] >= half ? interval[i] - 2 * half : interval[i];
     } else {
@@ -142,8 +149,8 @@ export function aecEncode(samples, { bits, blockSize, rsi, flags }) {
         else fs(run < ROS ? run - 1 : run);
         b += run - 1; continue;
       }
-      let best = null;
-      for (let k = 0; k < UNCOMP - 1; k++) { const cost = vals.reduce((a, v) => a + Math.floor(v / 2 ** k) + 1 + k, 0); if (!best || cost < best.cost) best = { k, cost }; }
+      let best = { k: 0, cost: Infinity };   // with a 1-bit option id (restricted, 1 or 2 bits) there is no split option
+      for (let k = 0; k < UNCOMP - 1; k++) { const cost = vals.reduce((a, v) => a + Math.floor(v / 2 ** k) + 1 + k, 0); if (cost < best.cost) best = { k, cost }; }
       let seCost = 0;
       for (let i = 0; i < J; i += 2) { const a = ref && i === 0 ? 0 : blk[i], c = blk[i + 1], sum = a + c; seCost += sum > 12 ? Infinity : sum * (sum + 1) / 2 + c + 1; }
       if (seCost < best.cost && seCost < J * bits) {

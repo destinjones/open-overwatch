@@ -48,6 +48,8 @@ npm run e2e          # the browser tests: every page in headless Chromium, feeds
 ```
 
 - `node --test test/measure.test.mjs` runs one file.
+- Touched a decoder (GRIB2, AEC, JPEG 2000, tiles, GTFS-RT, METAR)? `OO_FUZZ=1 node --test test/fuzz.test.mjs` fuzzes
+  it 50 times harder than the default run ([docs/TESTING.md](docs/TESTING.md#fuzz-tests)).
 - The browser tests need a browser: `npx playwright install chromium` (on Linux add `--with-deps`); on Windows they
   fall back to the installed Edge. They start their own helper on port 8805, so your :8787 is left alone.
 - `test/docs.test.mjs` checks the docs against the code: a new layer, link parameter or core module fails the tests

@@ -80,6 +80,7 @@ const ZC = (() => {
  * last decoded bit leaves open, as OpenJPEG reconstructs it. `reversible`: whole planes decoded are exact.
  */
 export function decodeBlock(data, { w, h, band, passes, planes, reversible = true }) {
+  if (planes > 31) throw new Error('jpx: ' + planes + ' bit planes');   // the magnitudes are 32-bit integers
   const n = w * h, mag = new Int32Array(n), sign = new Uint8Array(n), last = new Int8Array(n);
   const sig = new Uint8Array(n), coded = new Uint8Array(n), refined = new Uint8Array(n);
   const H = new Uint8Array(n), V = new Uint8Array(n), D = new Uint8Array(n), out = new Float64Array(n);
@@ -175,16 +176,24 @@ class TagTree {
 class HeaderBits {
   constructor(d, p) { this.d = d; this.p = p; this.n = 0; this.byte = 0; this.ff = false; }
   bit() {
-    if (this.n === 0) { this.byte = this.d[this.p++]; this.n = this.ff ? 7 : 8; this.ff = this.byte === 0xff; }
+    if (this.n === 0) {
+      if (this.p >= this.d.length) throw new CutOff();   // past the end a tag tree would read zeros for ever
+      this.byte = this.d[this.p++]; this.n = this.ff ? 7 : 8; this.ff = this.byte === 0xff;
+    }
     return (this.byte >> --this.n) & 1;
   }
-  read(k) { let v = 0; while (k--) v = (v << 1) | this.bit(); return v; }
+  read(k) { let v = 0; while (k--) v = v * 2 + this.bit(); return v; }
   align() { this.n = 0; if (this.ff) { this.p++; this.ff = false; } }
 }
+
+/** A packet header that runs past the data: a stream cut short, decoded up to there. */
+class CutOff extends Error { constructor() { super('jpx: cut off'); } }
 
 // ---- the codestream
 const u16 = (b, p) => (b[p] << 8) | b[p + 1];
 const u32 = (b, p) => ((b[p] << 24) >>> 0) + (b[p + 1] << 16) + (b[p + 2] << 8) + b[p + 3];
+/** The most samples an image may declare (GRIB2's own limit, core/grib2.js MAX_POINTS). */
+const MAX_SAMPLES = 2 ** 24;
 
 function readCod(b, p, into) {
   const s = b[p];
@@ -211,9 +220,10 @@ const stepFor = (q, k, levels) => {   // style 1 ("derived") sends only the LL s
 
 /**
  * Decode a JPEG 2000 codestream (Uint8Array starting with the SOC marker 0xFF4F) → { width, height, data: Float64Array
- * of the samples in raster order (integers for a reversible stream) }.
+ * of the samples in raster order (integers for a reversible stream) }. `maxSamples`: the most the caller can use (GRIB2
+ * knows its field's size), so a corrupt size is refused before a big image is decoded for nothing.
  */
-export function jpxDecode(b) {
+export function jpxDecode(b, { maxSamples = MAX_SAMPLES } = {}) {
   if (u16(b, 0) !== 0xff4f) throw new Error('jpx: not a JPEG 2000 codestream');
   let p = 2, siz = null;
   const main = {}, tiles = new Map();
@@ -226,6 +236,8 @@ export function jpxDecode(b) {
       siz = { w: u32(b, q + 2), h: u32(b, q + 6), x0: u32(b, q + 10), y0: u32(b, q + 14), tw: u32(b, q + 18), th: u32(b, q + 22), tx0: u32(b, q + 26), ty0: u32(b, q + 30), comps: u16(b, q + 34),
         bits: (b[q + 36] & 0x7f) + 1, signed: !!(b[q + 36] & 0x80) };
       if (siz.comps !== 1) throw new Error('jpx: ' + siz.comps + ' components');
+      const { w, h, x0, y0, tw, th, tx0, ty0 } = siz;   // T.800 A.5.1: the first tile holds the image's first sample
+      if (!(w > x0 && h > y0 && tw && th && tx0 <= x0 && ty0 <= y0 && tx0 + tw > x0 && ty0 + th > y0) || (w - x0) * (h - y0) > Math.min(maxSamples, MAX_SAMPLES)) throw new Error(`jpx: an image of ${w} × ${h} in tiles of ${tw} × ${th}`);
       if (b[q + 37] !== 1 || b[q + 38] !== 1) throw new Error('jpx: subsampled component');
     } else if (m === 0xff52) readCod(b, q, tile ? tile.cod : main);
     else if (m === 0xff53) readCoc(b, q + 2, tile ? tile.cod : main, b[q + 1] & 1);
@@ -238,6 +250,7 @@ export function jpxDecode(b) {
       if (!tile.cod) tile.cod = { ...main, q: main.q };
       let r = p + 2 + len;
       while (u16(b, r) !== 0xff93) {   // tile-part header markers
+        if (r + 4 > b.length) throw new Error('jpx: a tile-part header with no SOD');   // past the end u16 reads 0: for ever
         const mm = u16(b, r), ll = u16(b, r + 2), qq = r + 4;
         if (mm === 0xff52) readCod(b, qq, tile.cod);
         else if (mm === 0xff53) readCoc(b, qq + 2, tile.cod, b[qq + 1] & 1);
@@ -270,8 +283,12 @@ export function jpxDecode(b) {
 
 /** One tile: packets → code-blocks → subbands → inverse wavelet. Returns the tile's samples (before the level shift). */
 function decodeTile(data, cod, siz, tx0, ty0, tx1, ty1) {
+  if (cod.levels == null || !cod.q) throw new Error('jpx: no COD or QCD marker');
   if (cod.style & 0x3f) throw new Error('jpx: code-block style ' + cod.style + ' is not supported');
   if (cod.mct) throw new Error('jpx: component transform');
+  if (cod.levels > 32 || cod.xcb > 10 || cod.ycb > 10 || cod.xcb + cod.ycb > 12) throw new Error(`jpx: ${cod.levels} levels, code-blocks of 2^${cod.xcb} × 2^${cod.ycb}`);   // T.800 A.6.1
+  if (cod.ppx.some((v, r) => r && !v) || cod.ppy.some((v, r) => r && !v)) throw new Error('jpx: a one-sample precinct above the lowest resolution');
+  if (cod.progression > 2) throw new Error('jpx: progression order ' + cod.progression + ' is not supported');
   const NL = cod.levels, q = cod.q, ceilDiv = (a, k) => Math.ceil(a / 2 ** k);
   // resolutions, their bands, precincts and code-blocks
   const res = [];
@@ -284,7 +301,9 @@ function decodeTile(data, cod, siz, tx0, ty0, tx1, ty1) {
       const nb = r ? NL - r + 1 : NL, xo = type === BAND.HL || type === BAND.HH ? 1 : 0, yo = type === BAND.LH || type === BAND.HH ? 1 : 0;
       const bx0 = Math.ceil((tx0 - 2 ** (nb - 1) * xo) / 2 ** nb), by0 = Math.ceil((ty0 - 2 ** (nb - 1) * yo) / 2 ** nb);
       const bx1 = Math.ceil((tx1 - 2 ** (nb - 1) * xo) / 2 ** nb), by1 = Math.ceil((ty1 - 2 ** (nb - 1) * yo) / 2 ** nb);
-      const k = r ? 1 + 3 * (r - 1) + j : 0, st = stepFor(q, k, NL), gain = type === BAND.LL ? 0 : type === BAND.HH ? 2 : 1;
+      const k = r ? 1 + 3 * (r - 1) + j : 0, st = stepFor(q, k, NL);
+      if (!st) throw new Error('jpx: no quantisation step for subband ' + k);
+      const gain = type === BAND.LL ? 0 : type === BAND.HH ? 2 : 1;
       const Mb = q.guard + st.eps - 1, delta = cod.reversible ? 1 : 2 ** (siz.bits + gain - st.eps) * (1 + st.mu / 2048);
       return { type, x0: bx0, y0: by0, x1: bx1, y1: by1, w: Math.max(0, bx1 - bx0), h: Math.max(0, by1 - by0), Mb, delta, coef: new Float64Array(Math.max(0, bx1 - bx0) * Math.max(0, by1 - by0)), blocks: [] };
     });
@@ -308,30 +327,40 @@ function decodeTile(data, cod, siz, tx0, ty0, tx1, ty1) {
     }
     res.push({ rx0, ry0, rx1, ry1, bands, precincts });
   }
-  // packets, in the stream's progression order
-  const order = [];
-  if (cod.progression === 0) { for (let l = 0; l < cod.layers; l++) for (let r = 0; r <= NL; r++) for (let k = 0; k < res[r].precincts.length; k++) order.push([l, r, k]); }
-  else if (cod.progression === 1 || cod.progression === 2) { for (let r = 0; r <= NL; r++) { if (cod.progression === 1) { for (let l = 0; l < cod.layers; l++) for (let k = 0; k < res[r].precincts.length; k++) order.push([l, r, k]); } else for (let k = 0; k < res[r].precincts.length; k++) for (let l = 0; l < cod.layers; l++) order.push([l, r, k]); } }
-  else throw new Error('jpx: progression order ' + cod.progression + ' is not supported');
+  // packets, in the stream's progression order (made as they are read: 65535 layers of a big tile would not fit a list)
+  function* order() {
+    const P = r => res[r].precincts.length;
+    if (cod.progression === 0) { for (let l = 0; l < cod.layers; l++) for (let r = 0; r <= NL; r++) for (let k = 0; k < P(r); k++) yield [l, r, k]; }
+    else for (let r = 0; r <= NL; r++) {
+      if (cod.progression === 1) { for (let l = 0; l < cod.layers; l++) for (let k = 0; k < P(r); k++) yield [l, r, k]; }
+      else for (let k = 0; k < P(r); k++) for (let l = 0; l < cod.layers; l++) yield [l, r, k];
+    }
+  }
   let p = 0;
-  for (const [l, r, k] of order) {
+  for (const [l, r, k] of order()) {
     if (p >= data.length) break;   // a truncated stream: what arrived is decoded
     if (cod.sop && data[p] === 0xff && data[p + 1] === 0x91) p += 6;
     const rd = new HeaderBits(data, p), pbands = res[r].precincts[k], got = [];
-    if (rd.bit()) {
-      for (const pb of pbands) for (const blk of pb.blocks) {
-        let inc;
-        if (!blk.included) inc = pb.incl.below(blk.cx, blk.cy, l + 1, rd);
-        else inc = !!rd.bit();
-        if (!inc) continue;
-        if (!blk.included) { let z = 0; while (!pb.zbp.below(blk.cx, blk.cy, z + 1, rd)) z++; blk.zero = z; blk.included = true; }
-        let np = 1;
-        if (rd.bit()) { np = 2; if (rd.bit()) { const v = rd.read(2); np = 3 + v; if (v === 3) { const v5 = rd.read(5); np = 6 + v5; if (v5 === 31) np = 37 + rd.read(7); } } }
-        while (rd.bit()) blk.lblock++;
-        const len = rd.read(blk.lblock + Math.floor(Math.log2(np)));
-        blk.passes += np; got.push([blk, len]);
+    try {
+      if (rd.bit()) {
+        for (const pb of pbands) for (const blk of pb.blocks) {
+          let inc;
+          if (!blk.included) inc = pb.incl.below(blk.cx, blk.cy, l + 1, rd);
+          else inc = !!rd.bit();
+          if (!inc) continue;
+          if (!blk.included) {
+            let z = 0;
+            while (!pb.zbp.below(blk.cx, blk.cy, z + 1, rd)) if (++z > 74) throw new Error('jpx: ' + z + ' zero bit planes');   // Mb is at most 7 + 31 + 37
+            blk.zero = z; blk.included = true;
+          }
+          let np = 1;
+          if (rd.bit()) { np = 2; if (rd.bit()) { const v = rd.read(2); np = 3 + v; if (v === 3) { const v5 = rd.read(5); np = 6 + v5; if (v5 === 31) np = 37 + rd.read(7); } } }
+          while (rd.bit()) if (++blk.lblock > 32) throw new Error('jpx: a code-block length of over 32 bits');
+          got.push([blk, rd.read(blk.lblock + Math.floor(Math.log2(np))), np]);
+        }
       }
-    }
+    } catch (e) { if (e instanceof CutOff) break; throw e; }   // the header runs past the data: that packet never arrived
+    for (const [blk, , np] of got) blk.passes += np;
     rd.align(); p = rd.p;
     if (cod.eph && data[p] === 0xff && data[p + 1] === 0x92) p += 2;
     for (const [blk, len] of got) { blk.chunks.push(data.subarray(p, p + len)); p += len; }

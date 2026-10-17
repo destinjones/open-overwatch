@@ -8,11 +8,17 @@ const td = typeof TextDecoder !== 'undefined' ? new TextDecoder() : null;
 /** A protobuf reader (also used by core/gtfsrt.js): varints, length-delimited fields, fixed 32/64-bit numbers. */
 export class Pbf {
   constructor(buf, start = 0, end = buf.length) { this.b = buf; this.p = start; this.end = end; this.dv = null; }
-  varint() { let v = 0, s = 1, b; do { b = this.b[this.p++]; v += (b & 0x7f) * s; s *= 128; } while (b & 0x80); return v; }   // exact to 2^53
+  varint() {   // exact to 2^53; ten bytes at most (an eleventh would make 128^11 overflow into NaN)
+    let v = 0, s = 1, b, n = 0;
+    do { if (++n > 10) throw new Error('pbf: varint too long'); b = this.b[this.p++]; v += (b & 0x7f) * s; s *= 128; } while (b & 0x80);
+    return v;
+  }
   /** A signed 64-bit varint (protobuf int64): a negative value is 10 bytes, past a double's exactness, so it is read as a BigInt. */
-  int64() { let v = 0n, s = 0n, b; do { b = this.b[this.p++]; v |= BigInt(b & 0x7f) << s; s += 7n; } while (b & 0x80); return Number(BigInt.asIntN(64, v)); }
+  int64() { let v = 0n, s = 0n, b; do { if (s > 63n) throw new Error('pbf: varint too long'); b = this.b[this.p++]; v |= BigInt(b & 0x7f) << s; s += 7n; } while (b & 0x80); return Number(BigInt.asIntN(64, v)); }
   key() { const k = this.varint(); return [Math.floor(k / 8), k & 7]; }
-  bytes() { const l = this.varint(), a = this.p; this.p += l; return [a, this.p]; }
+  /** A length-delimited field as [start, end): the end stops at this message's own, so a declared length past the data
+   *  (a cut-off download, or a hostile one) is read only as far as the bytes go instead of walking 2^53 missing ones. */
+  bytes() { const l = this.varint(), a = this.p; this.p += l; return [a, Math.min(this.p, this.end)]; }
   str() { const [a, b] = this.bytes(); return td.decode(this.b.subarray(a, b)); }
   view() { return this.dv || (this.dv = new DataView(this.b.buffer, this.b.byteOffset, this.b.byteLength)); }
   f32() { if (this.p + 4 > this.end) throw new Error('mvt: cut off'); const v = this.view().getFloat32(this.p, true); this.p += 4; return v; }   // a plain error for a truncated download, not a RangeError
@@ -29,8 +35,7 @@ function value(r, end) {
   while (r.p < end) {
     const [f, w] = r.key();
     if (f === 1) v = r.str();
-    else if (f === 2) v = r.f32();
-    else if (f === 3) v = r.f64();
+    else if (f === 2 || f === 3) { v = f === 2 ? r.f32() : r.f64(); if (!Number.isFinite(v)) v = null; }   // NaN or Infinity is no value
     else if (f === 4) v = r.int64();
     else if (f === 5) v = r.varint();
     else if (f === 6) { const n = r.varint(); v = n % 2 === 1 ? -(n + 1) / 2 : n / 2; }
@@ -70,7 +75,7 @@ export function decodeTile(buf, want) {
       else if (lf === 2) feats.push(L.bytes());
       else if (lf === 3) keys.push(L.str());
       else if (lf === 4) { const [va, vb] = L.bytes(); vals.push(value(new Pbf(buf, va, vb), vb)); }
-      else if (lf === 5) extent = L.varint();
+      else if (lf === 5) extent = L.varint() || 4096;   // the callers divide by it
       else L.skip(lw);
     }
     if (!name || (want && !want.includes(name))) continue;
@@ -80,7 +85,7 @@ export function decodeTile(buf, want) {
         const [ff, fw] = F.key();
         if (ff === 1) ft.id = F.varint(); else if (ff === 2) tags = F.packed(); else if (ff === 3) ft.type = F.varint(); else if (ff === 4) geom = F.packed(); else F.skip(fw);
       }
-      for (let k = 0; k + 1 < tags.length; k += 2) ft.props[keys[tags[k]]] = vals[tags[k + 1]];
+      for (let k = 0; k + 1 < tags.length; k += 2) if (tags[k] < keys.length && tags[k + 1] < vals.length && keys[tags[k]] !== '__proto__') ft.props[keys[tags[k]]] = vals[tags[k + 1]];
       ft.parts = geometry(geom);
       return ft;
     });

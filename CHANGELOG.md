@@ -12,10 +12,31 @@ file was built from.
 - A type check and a bug-finding linter, as dev dependencies only (the site still has no build step): `npm run
   typecheck` runs TypeScript 6.0 over the JSDoc of `src/core/`, `mcp/` and the test helpers (`tsconfig.json`, no
   output; the two core workers get the WebWorker names in `tsconfig.workers.json` alone); `npm run lint` runs ESLint 10 with bug rules only (`eslint.config.mjs`). Both run in CI's test job.
+- Fuzz and property tests of every decoder that reads untrusted bytes (`test/fuzz.test.mjs`, a few seconds in
+  `node --test`; `OO_FUZZ=1` for 50 times the cases): GRIB2, CCSDS, JPEG 2000, vector tiles, GTFS-RT, METAR/TAF, MQTT
+  and the text feeds, each in a worker with a deadline, from a seeded PRNG and no new dependency.
 
 ### Changed
 - JSDoc types where the checker could not infer them (option objects, tables of pairs), so it passes
   with no errors and no `@ts-ignore`; `Sim` (core/traffic.js) assigns its fields one by one so they are typed.
+
+### Fixed
+- Hangs on corrupt or cut-off data: a GRIB2 message of length 0 or cut short, a CCSDS stream with 0 blocks per
+  interval, a JPEG 2000 stream cut inside a tile-part or packet header, and a vector tile or GTFS-RT feed whose
+  declared length runs past the end (it walked billions of missing bytes).
+- No decoder believes a size past its data: GRIB2 grids and value counts, CCSDS sample counts and JPEG 2000 images
+  are capped (2^24 points) and checked against the bytes before anything is allocated (a GRIB2 JPEG 2000 image more
+  than about twice its field's values is refused); a JPEG 2000 header asking for 65,535 layers no longer runs out of
+  memory. A GRIB2 CCSDS section 5 too short for its parameters is an error.
+- GRIB2: a field with no bitmap after one with a bitmap, in the same message, no longer takes the earlier bitmap; a
+  message cut off after whole ones keeps the whole ones (it threw them all away).
+- No NaN or Infinity where a number is promised: GRIB2 values that overflow float32 or come without a bitmap, CCSDS
+  zero runs past their interval, wider-than-declared samples, endless varints, NaN tile values and a tile extent of 0,
+  GTFS-RT speeds and headings (and vehicles past the poles), SOCRATES speeds and probabilities, DART modes, `.idx` and
+  ECMWF index offsets that are not offsets.
+- METAR and TAF: a wind direction past 360°, a variable range past 360°, impossible days, hours and minutes (which
+  rolled into another month) and a visibility of 400 nines are left unread instead of believed. A short SOCRATES row
+  no longer throws away the whole list.
 
 ## [0.9.2.15] - 2026-10-17
 

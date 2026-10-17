@@ -42,7 +42,7 @@ export function parseEcIndex(text) {
   for (const line of String(text).split('\n')) {
     if (!line.trim()) continue;
     let o; try { o = JSON.parse(line); } catch (e) { continue; }
-    if (!o || typeof o.param !== 'string' || !Number.isFinite(o._offset) || !Number.isFinite(o._length)) continue;
+    if (!o || typeof o.param !== 'string' || !Number.isSafeInteger(o._offset) || o._offset < 0 || !Number.isSafeInteger(o._length) || o._length < 1) continue;   // a byte range, or nothing
     rows.push({ n: ++n, start: o._offset, end: o._offset + o._length - 1, variable: o.param, level: o.levelist ? `${o.levtype} ${o.levelist}` : String(o.levtype || ''), forecast: `${o.step} hour fcst`, date: o.date + o.time });
   }
   return rows;
