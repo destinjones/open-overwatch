@@ -119,6 +119,7 @@ print(json.dumps({'n': n, 'asked': asked, 'fake': fake, 'real': open(p).read()})
   assert.match(out.fake, /india\/<\/loc><lastmod>2027-01-02<\/lastmod>/);
   const repo = readFileSync(join(root, 'sitemap.xml'), 'utf8');
   assert.equal(out.fake.match(/solar\.html<\/loc><lastmod>([^<]+)/)[1], repo.match(/solar\.html<\/loc><lastmod>([^<]+)/)[1]);
-  const day = execFileSync('git', ['log', '-1', '--format=%cs', '--', 'globe.html'], { cwd: root, encoding: 'utf8' }).trim();
-  assert.equal(out.real.match(/globe\.html<\/loc><lastmod>([^<]+)/)[1], day);
+  const day = (...paths) => execFileSync('git', ['log', '-1', '--format=%cs', '--', ...paths], { cwd: root, encoding: 'utf8' }).trim();
+  assert.equal(out.real.match(/globe\.html<\/loc><lastmod>([^<]+)/)[1], day('globe.html', 'src', 'data'), 'an app page also counts its modules and data');
+  assert.equal(out.real.match(/about\.html<\/loc><lastmod>([^<]+)/)[1], day('about.html'), 'a plain page counts only itself');
 });

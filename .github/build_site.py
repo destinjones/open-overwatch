@@ -94,10 +94,14 @@ def fix_archived_links(root):
                     f.write(fixed)
 
 
+APP_PAGES = ('globe.html', 'solar.html', 'open-overwatch.html', 'tonight.html')
+
+
 def date_sitemap(path, last_change=None):
     """sitemap.xml's <loc> list stays hand-written; each <lastmod> is rewritten to the day its page last changed in git
-    (a <loc> ending in / is that folder's index.html), so crawlers are never told a page is older than it is."""
-    last_change = last_change or (lambda page: git('log', '-1', '--format=%cs', '--', page))
+    (a <loc> ending in / is that folder's index.html), so crawlers are never told a page is older than it is. The app pages
+    also count their modules and data, which change far more often than the HTML shell."""
+    last_change = last_change or (lambda page: git('log', '-1', '--format=%cs', '--', page, *(('src', 'data') if page in APP_PAGES else ())))
     if not os.path.exists(path):
         return 0
     with open(path, encoding='utf-8') as f:
@@ -160,7 +164,7 @@ def newest_epoch(txt):
     return max(eps) if eps else None
 
 
-def iso(ms):
+def iso_utc(ms):
     return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(ms / 1000))
 
 
@@ -203,12 +207,12 @@ def mirror_tles(dest):
             else:
                 print(f'tle {g}: FAILED {e}')
         time.sleep(2)   # be gentle with CelesTrak
-    index['epochs'] = {g: iso(ms) for g, ms in epochs.items() if ms}
+    index['epochs'] = {g: iso_utc(ms) for g, ms in epochs.items() if ms}
     if index['epochs']:
         index['oldest'] = min(index['epochs'].values())
     for g in index['kept']:   # a kept copy is only as fresh as its elements: say so where the maintainer looks
         if epochs.get(g) and time.time() * 1000 - epochs[g] > 48 * 3600e3:
-            print(f'::warning::tle {g}: the kept copy\'s newest elements are from {iso(epochs[g])}, over 48 h old (CelesTrak refused this build)')
+            print(f'::warning::tle {g}: the kept copy\'s newest elements are from {iso_utc(epochs[g])}, over 48 h old (CelesTrak refused this build)')
     with open(os.path.join(dest, 'index.json'), 'w', encoding='utf-8') as f:
         json.dump(index, f, indent=1)
     return index
