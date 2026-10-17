@@ -191,6 +191,7 @@ test.describe('panels from a link', () => {
   test.use({ fixedNow: AT });
 
   test('Earth now, falling soon and near misses, from the canned feeds', async ({ page }) => {
+    test.slow();   // one software-WebGL boot, then three panels that each wait on a feed
     await openGlobe(page, '#go=now');
     await expect(page.locator('#now')).toHaveClass(/\bshow\b/);
     await expect(page.locator('#nwTitle')).toHaveText('Earth now');
@@ -227,11 +228,14 @@ test.describe('panels from a link', () => {
     await expect.poll(() => page.evaluate(() => OO3D.time.live)).toBe(false);
     const lead = await page.evaluate(tca => tca - OO3D.time.nowMs(), Date.parse(AT) + 20 * 3600e3);
     expect(lead).toBeGreaterThan(-15e3); expect(lead).toBeLessThan(46e3);
-    await page.locator('#cjNow').click();
+    // the followed near miss rewrites the card every 100 ms (conjunctions.js updateHud), so the button is a new element
+    // faster than a software-WebGL frame: clicked without the actionability wait, through its own onclick
+    await page.evaluate(() => document.querySelector('#cjNow').click());
     await expect(page.locator('#tMode')).toHaveText('live');
   });
 
   test('people in space, flybys and find a flight', async ({ page }) => {
+    test.slow();   // as above: one boot, three panels
     await openGlobe(page, '#go=crew');   // crew has no band button: the link opens it by itself
     await expect(page.locator('#card h2')).toHaveText('People in space');
     await expect(page.locator('#card .tn-head')).toHaveText('14 people are in space right now: 11 on the ISS and 3 on Tiangong.', { timeout: 30000 });
@@ -297,8 +301,8 @@ test('zooming out past the Moon hands over to the Solar System with the same clo
   test.slow();   // two software-WebGL views in one page: the Solar System loads and compiles while the globe draws
   const SOLAR = 'iframe[src="solar.html?embed=1"]', AU_M = AU_KM * 1000;
   const solar = fn => page.evaluate(`(${fn})(document.querySelector('${SOLAR}').contentWindow.OOSS)`);
-  // the globe's frame counter after two animation frames: it stands still while the globe's render loop is off
-  const frameNo = () => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(OO3D.viewer.scene.frameState.frameNumber)))));
+  // the globe's frame counter: it stands still while the globe's render loop is off
+  const frameNo = () => page.evaluate(() => OO3D.viewer.scene.frameState.frameNumber);
   await openGlobe(page);
   const jd = jdFromMs(Date.UTC(2026, 9, 13, 18));
   await page.evaluate(jd => OO3D.time.setJd(jd, 0), jd);   // paused at a moment that isn't now: the Solar System must take the globe's clock
@@ -309,8 +313,10 @@ test('zooming out past the Moon hands over to the Solar System with the same clo
   // the hand-over waits for the Solar System to draw once and warm its shaders (at most 8 s once loaded), then cross-fades
   await expect.poll(() => page.evaluate(() => OO3D.space.active), { timeout: 240000, intervals: [1000] }).toBe(true);
   await expect.poll(() => page.evaluate(() => OO3D.viewer.useDefaultRenderLoop), { timeout: 10000 }).toBe(false);
+  // only one renderer draws at a time: sampled over 1 s, longer than the battery saver's 200 ms idle frame (saver.js)
   const f0 = await frameNo();
-  expect(await frameNo()).toBe(f0);   // only one renderer draws at a time
+  await page.evaluate(() => new Promise(r => setTimeout(r, 1000)));
+  expect(await frameNo()).toBe(f0);
   const s = await solar(S => ({ active: S.embed.active, live: S.clock.live, jd: S.clock.jd, rate: S.clock.rate, running: S.loop.running, focus: S.nav.focus && S.nav.focus.key, au: S.camera.position.distanceTo(S.byKey.earth.pos) }));
   expect(s).toMatchObject({ active: true, live: false, rate: 0, running: true, focus: 'earth' });
   expect(Math.abs(s.jd - jd) * 86400).toBeLessThan(60);   // the globe's moment, to the minute
@@ -323,7 +329,7 @@ test('zooming out past the Moon hands over to the Solar System with the same clo
   await expect.poll(() => page.evaluate(() => OO3D.space.active), { timeout: 120000, intervals: [500] }).toBe(false);
   expect(await page.evaluate(() => OO3D.viewer.useDefaultRenderLoop)).toBe(true);
   const f1 = await frameNo();
-  expect(await frameNo()).toBeGreaterThan(f1);   // the globe draws again
+  await expect.poll(frameNo, { timeout: 10000 }).toBeGreaterThan(f1);   // the globe draws again (at 5 fps once the saver idles)
   const c = await camera(page);
   expect(c.h).toBeGreaterThan(1.0e8); expect(c.h).toBeLessThan(2.2e8);   // where the Solar System left the camera
   expect(await page.evaluate(() => [OO3D.time.live, OO3D.time.rate])).toEqual([false, 0]);   // and the clock comes back with it
