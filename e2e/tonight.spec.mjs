@@ -91,6 +91,7 @@ test('a link answers for its place (#at=lat,lon), and saves nothing', async ({ p
   await expect(card(page).locator('h2')).toHaveText('Tonight over New Delhi');
   await expect(card(page)).toContainText(/Saturn/);
   await expect(page.locator('#tnLoc')).toBeVisible();   // and still offers your own place
+  await expect(page.locator('#tnAur')).toHaveCount(0);   // an aurora alert would save the link's place
   expect(await page.evaluate(() => localStorage.getItem('oo3d.home'))).toBeNull();
 });
 
@@ -104,6 +105,8 @@ test('a typed place: only the words go to Photon, and Share links that place', a
   await page.locator('#tnQ').press('Enter');
   await page.locator('[data-pl="0"]').click();
   await expect(card(page).locator('.k').first()).toContainText('Pune · 18.52, 73.86 · saved on this device');
+  await expect(card(page).locator('h2')).toHaveText('Tonight over Pune');
+  await expect(page.locator('#tnForget')).toHaveText('Forget this place');
   expect(asked).toHaveLength(1);
   expect(new URL(asked[0]).searchParams.get('q')).toBe('Pune');
   expect(new URL(asked[0]).searchParams.has('lat')).toBe(false);   // the words only, never where the visitor is

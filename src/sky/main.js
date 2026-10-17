@@ -70,11 +70,12 @@ Tonight.use({
 if (embed) {
   const at = link.at || GREENWICH, back = document.createElement('p');   // an embed with no place shows Greenwich: something, not a prompt it can't answer
   back.innerHTML = `<a href="https://destinjones.github.io/open-overwatch/tonight.html#${esc(tonightHash(at))}" target="_blank" rel="noopener"><b>Open Overwatch</b>: tonight's full sky for ${esc(at.name || 'this place')}, and for yours</a>`;
+  $('footer').querySelectorAll('a').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });   // About and the globe open in a tab, not inside the host's frame
   $('footer').prepend(back);
   Tonight.open(at);
 } else {
   Tonight.open(link.at);
-  Tonight.peek().catch(() => {});
+  Tonight.peek({ nudge: !link.at }).catch(() => {});   // a linked place: no toast about the visitor's own passes over it
 }
 addEventListener('hashchange', () => { const n = decodeTonight(location.hash); if (n.at && !embed) Tonight.open(n.at); });   // another place's link pasted into the open page
 window.OOSKY = { Tonight, sats };

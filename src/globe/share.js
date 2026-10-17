@@ -63,7 +63,7 @@ export const Share = {
       if (x.go === 'launches' && x.id) Launches.openList(x.id);   // tonight.html hands over one launch or eclipse
       else if (x.go === 'eclipses' && x.id) Eclipses.openList(x.id);
       else if (x.go === 'reentry' && x.id) hooks.reentry?.(x.id);
-      else if (x.go === 'tonight' && x.at) Tonight.open(x.at);   // Tonight for the place in the link (&at=lat,lon&name=), not saved
+      else if (x.go === 'tonight' && x.at) { document.querySelectorAll('#band .go').forEach(b => b.classList.toggle('on', b.dataset.go === 'tonight')); Tonight.open(x.at); }   // Tonight for the place in the link (&at=lat,lon&name=), not saved
       else if (x.go) { const b = document.querySelector(`#band [data-go="${x.go}"]`); if (b) b.click(); else PRESETS[x.go](); }
       if (x.flight) Flight.find(x.flight); return !!(x.go || x.flight);
     }
