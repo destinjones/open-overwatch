@@ -1,21 +1,34 @@
 # Architecture
 
-Open Overwatch is a static site: every view is an HTML page that loads ES modules straight from `src/` — no bundler,
-no framework, no server you have to run (the optional local helper only relays a few feeds that send no CORS headers).
-Third-party libraries come from a CDN through an import map, pinned to exact versions.
+Open Overwatch is a static site: every view is an HTML page that loads ES modules straight from `src/` — no bundler, no
+framework, no server you have to run (the optional local helper only relays a few feeds that send no CORS headers).
+Third-party libraries come from a CDN, pinned to exact versions with integrity hashes (three.js and hls.js through
+import maps, CesiumJS, satellite.js and Leaflet as script tags). The one library the site serves itself is satellite.js
+for the satellite Web Workers (`src/vendor/satellite.min.js`, byte for byte the copy the pages pin): `importScripts` has
+no integrity check, so a worker never loads code from another site.
 
 ```
 index.html            landing page
+about.html, guide.html  the creator page and the user guide (plain HTML + CSS)
 open-overwatch.html   2D map (Leaflet)            -> src/map/
 globe.html            3D Earth (CesiumJS)         -> src/globe/
 solar.html            Solar System -> Local Group -> cosmic web (three.js) -> src/solar/
-src/core/             shared, DOM-free, tested: time, frames, orbits, data formats
+tonight.html          the Tonight card without the globe -> src/sky/ (reuses src/globe/tonight.js)
+india/, india/hi/     the India page in English and Hindi -> india/india.js, src/core/india.js (india/hi/ is generated)
+src/core/             shared, DOM-free, tested: time, frames, orbits, data formats (docs/CORE.md)
+src/app/              the shell every page loads: the installable app, accessibility, touch hints, What's new
+src/vendor/           satellite.js for the Web Workers (see above)
+sw.js, offline.html   the service worker (offline copy, updates) and the page it shows with nothing saved
 mcp/                  the MCP server (Node, stdio): tools over the same open data, links into the globe, the chat panel
-test/                 node --test, fixtures from JPL Horizons
-data/solar/           pre-built binary/JSON data (scripts in brand/tools/)
+mcp-worker/           the same MCP server as a Cloudflare Worker (wrangler config; the code is mcp/worker.mjs)
+relay/                the website's public relay, a Cloudflare Worker (the hosts are in src/core/relay.js)
+test/, e2e/           node --test with fixtures from JPL Horizons; Playwright browser tests (run on GitHub)
+data/                 pre-built binary/JSON data (scripts in brand/tools/), and on the website the build's feed copies
 brand/                textures, models, promo assets and the scripts that make them
 serve.js / serve.py   optional local helper: static files + a locked-down relay
 ```
+
+[DEVELOPING.md](DEVELOPING.md) has the same map as a table, with the files to start from in each.
 
 ## Conventions
 
@@ -54,6 +67,12 @@ same code runs in Node tests and in the render loop without allocating.
 | `syzygy.js` | eclipses (solar, lunar) and lunar occultations 2026-2030 from a Chebyshev fit of Horizons' Sun and Moon (`data/solar/ephem.json`) |
 | `accuracy.js` | errors against JPL Horizons (shared by the tests and the in-app "Under the hood" panel) |
 | `gpu.js` | software-WebGL detection |
+| `quality.js` | the globe's graphics levels (tile detail, model caps, render scale, FXAA, limb halo, cloud taps, shell mesh) and the automatic step-down |
+| `poll.js` | feed timers that rest while the tab is hidden, catch up staggered when it shows, and stop for the visit on a feed the page can't reach |
+| `ecfvel.js` | a satellite's Earth-fixed velocity from SGP4's inertial one (the globe's satellite worker inlines it) |
+| `relay.js`, `airgrid.js` | the website's public relay (its hosts, the one URL form it accepts, hosts it refused this visit); the fixed 250 nm aircraft grid |
+| `viewlink.js` | share links: a view as a URL hash and back, panels to open, Tonight for a place (`#at=`) and its embed |
+| `whatsnew.js` | the "What's new" card a returning visitor sees once after an update |
 | `mvt.js` | Mapbox Vector Tile decoding (protobuf by hand, wanted layers only), tile maths |
 | `roadtiles.js` | road lines from vector tiles: clipped per tile, joined across tile edges, junctions, names, lights where busy roads meet |
 | `traffic.js` | the traffic simulation: road graph, car following (IDM), lights, time-of-day busyness, NYC DOT / Fintraffic readings |
@@ -61,7 +80,7 @@ same code runs in Node tests and in the render loop without allocating.
 | `spot.js` | "this spot" (a long press): decimal / DMS / MGRS coordinates, a globe link with a pin on the spot |
 | `a11ycheck.js` | the HTML accessibility check (names, labels, alt, ids, tabindex, roles, text-colour contrast) that the tests run on every page |
 | `measure.js` | draw and measure: WGS84 distances and bearings (Vincenty; a bisection near the antipode), geodesic polygon areas (authalic sphere), ground length, the words for them, GeoJSON, the drawing in share links |
-| `quakes.js`, `eonet.js`, `gdacs.js` | USGS quakes, NASA EONET events (points and polygons, storm tracks), GDACS alerts: one parser for the 2D map, the globe and the MCP server |
+| `quakes.js`, `eonet.js`, `gdacs.js` | USGS quakes (with EMSC as the second catalogue that makes one "confirmed"), NASA EONET events (points and polygons, storm tracks), GDACS alerts: one parser for the 2D map, the globe and the MCP server |
 | `cyclones.js` | every active cyclone, merged per storm from EONET, NOAA NHC, NOAA's forecast layers and GDACS (`loadCyclones`, fetching injected); categories, sources |
 | `cameras.js` | the twelve agency camera networks (where the list is, the box, the credit, a parser each; Hong Kong's XML read here) |
 | `transitfeeds.js` | live transit sources and areas, the poll loop and HSL's MQTT stream, the fleet drawn behind live (`createFleet`) |
@@ -93,6 +112,14 @@ and `spot.js` (globe and 2D map only, loaded after the page) show the first-run 
 `shell.css` carries the shared focus rings, bar, hint card and reduced-motion rule. `sw.js` is a classic worker at the
 site root; `offline.html` is what it shows for a page that was never saved. Details in docs/NOTES.md.
 
+Updates: the site build stamps `sw.js` with `<version>+<commit>`, so every publish is a new worker. At install it crawls
+the pages and every module they import and saves them together (with Save-Data on, the pages only), and a published
+build then serves a page and those modules from that one version's copy (a file built from a run-time URL, which the
+crawl can't find, comes from the network). The new worker waits until the visitor presses Reload on the new-version bar
+(the very first one takes over at once); a tab still running the old version when another tab takes the update is asked
+to reload too, since the new worker no longer serves the old version's modules. After an update the visitor sees "What's
+new" once (`src/core/whatsnew.js`): never on a first visit, in an archived `/v/<tag>/` copy or in an embed.
+
 ## The 3D globe (`src/globe/`)
 
 Cesium and satellite.js load as classic scripts (globals); the app is ES modules on top: `env` (DOM, storage, network,
@@ -101,6 +128,18 @@ shells, Sun/Moon directions), `layers` (switches + dock), `follow` (follow camer
 `satellites` (TLEs via core, SGP4 worker, models), `aircraft` (feeds, dead reckoning, models), `quakes`, `ui` (stats,
 band, presets, picking, card, lighting), `mobile` (phones only: bottom dock and sheets that click the existing controls), `weather` (weather mode: GIBS infrared clouds, RainViewer radar, IMERG rain, animated), `lighthouses`, `country` (click a country: border, facts, headlines, employers), `companies`, `volcanoes`, `aurora`, `flybys`, `sunline`, `buildings` (needs an ion token, `config.js`), `share` (view links in the URL hash), `tour`, `measure` (draw and measure: pins, lines, areas, distance arrows, country outlines), `navpad` (everything else: zoom, north-up, top-down and reset buttons, keys + − N T R) and `main` (wiring, timers, boot). `state.js` holds the selection and late-bound
 hooks so feature modules never import the UI. `window.OO3D` is the console handle.
+
+- **Satellites:** a Web Worker (a blob built in `satellites.js`) loads `src/vendor/satellite.min.js` and propagates
+  every satellite once a second: one SGP4 run each gives the Earth-fixed position and, through `core/ecfvel.js`, the
+  velocity, sent half a second on (plus 0.5 s of gravity) so the page's straight line between ticks stays about 1 m off
+  the orbit. The page moves the dots between ticks.
+- **Feed timers:** `main.js` runs every live feed through one `core/poll.js` poller. In a hidden tab the feeds rest,
+  except the aircraft feeds while a plane is followed or watched for its landing; when the tab shows again each feed
+  that came due runs once, 1.5 s apart. A feed this page can't reach (the website's relay doesn't carry it: `env.js`
+  `notCarried`, or the deployed relay refused its host) stops for the visit, and one line says why once the boot screen
+  has lifted.
+- **Graphics levels:** `quality.js` applies `core/quality.js` (render scale, FXAA, tile detail, model caps, cloud
+  octaves and relief, the limb halo) and steps down in Auto; the table is in docs/PERFORMANCE.md.
 
 ## One zoom from street to galaxy
 

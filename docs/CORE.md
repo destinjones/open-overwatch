@@ -19,19 +19,18 @@ is also used by its tests in `test/`.
 
 - [Time, units and frames](#time-units-and-frames): `time.js`, `units.js`, `rotation.js`
 - [Orbits and the Solar System](#orbits-and-the-solar-system): `kepler.js`, `planets.js`, `moons.js`, `smallbodies.js`, `comets.js`, `craft.js`, `accuracy.js`
-- [Satellites](#satellites): `tle.js`, `passes.js`, `observer.js`, `ecfvel.js`, `socrates.js`, `explain.js`
+- [Satellites](#satellites): `tle.js`, `passes.js`, `observer.js`, `ecfvel.js`, `socrates.js`, `decay.js`, `explain.js`
 - [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `whereis.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `syzygy.js`, `orientation.js`, `deepsky.js`, `lightpollution.js`, `darksky.js`
 - [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`
-- [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`
-- [Weather](#weather): `gfs.js`, `wxmodels.js`, `wxload.js`, `model.worker.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpaint.js`
-- [Weather](#weather): `gfs.js`, `wxmodels.js`, `grib2.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpoint.js`
+- [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`, `india.js`
+- [Weather](#weather): `gfs.js`, `grib2.js`, `wxmodels.js`, `wxload.js`, `model.worker.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpaint.js`, `wxpoint.js`
 - [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `history.js`, `aurora.js`, `spaceweather.js`, `ocean.js`, `fireclusters.js`, `fires.worker.js`, `earthnow.js`
-- [Aviation](#aviation): `aircraft.js`, `actype.js`, `acinfo.js`, `phase.js`, `airports.js`, `runways.js`, `aloft.js`, `trail.js`
+- [Aviation](#aviation): `aircraft.js`, `actype.js`, `acinfo.js`, `phase.js`, `airports.js`, `runways.js`, `metar.js`, `eta.js`, `runwaylog.js`, `aloft.js`, `trail.js`
 - [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `transitfeeds.js`, `gtfsrt.js`, `bikes.js`, `cameras.js`, `cables.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
 - [OpenStreetMap](#openstreetmap): `osmtiles.js`, `overpass.js`
 - [Links, words and the interface](#links-words-and-the-interface): `viewlink.js`, `solarlink.js`, `search.js`, `scene.js`, `voicecmd.js`, `format.js`, `ics.js`, `radio.js`
-- [Network and devices](#network-and-devices): `assets.js`, `relay.js`, `gpu.js`, `poll.js`, `quality.js`
-- [The app shell](#the-app-shell): `pwa.js`, `whatsnew.js`, `spot.js`, `a11ycheck.js`
+- [Network and devices](#network-and-devices): `assets.js`, `relay.js`, `airgrid.js`, `gpu.js`, `poll.js`, `quality.js`
+- [The app shell](#the-app-shell): `pwa.js`, `whatsnew.js`, `spot.js`, `a11ycheck.js`, `sricheck.js`, `provenance.js`, `liveprov.js`, `export.js`
 
 ## Time, units and frames
 
@@ -76,6 +75,10 @@ solar, core.
 - `solveKepler`: the eccentric anomaly by Newton's method, started at π for e ≥ 0.8 so it converges up to e → 1.
 - `positionAt`: position at a Julian Date. `orbitPoint`: position at an eccentric anomaly.
 - `orbitPath`: the whole ellipse as one flat typed array of points, evenly spaced in eccentric anomaly.
+  `orbitPath(el, n, { origin, out, through })`: `origin` is subtracted in float64 before the float32 write (a float32
+  at 39 AU is only good to ~570 km), so a far line keeps its vertices relative to its body; `through` starts the samples
+  at the body's own eccentric anomaly, so a vertex sits on the body instead of a chord passing up to 56,000 km from
+  Pluto at n = 720; `out` refills an existing array.
 - `meanMotion`, `periodDays`, `wrap2pi`, `TWO_PI`, `GAUSS_DEG_PER_DAY`.
 
 ### `planets.js`
@@ -109,7 +112,8 @@ equation for each point in a shader; this module decodes the same way on the CPU
 
 - `viewSmallBodies`: typed-array views over one packed file (no copies). `RECORD_BYTES`, `DEFAULT_EPOCH`.
 - `decodeElements`: one record's elements, decoded exactly as the shader decodes them.
-- `cometElements`: a comet row from `small_bodies.json` as elements. `packSmallBodies`: elements back into the format.
+- `cometElements`: a comet row from `small_bodies.json` as elements. `packSmallBodies`: elements back into the format
+  (e is packed to 65534 at most, so a near-parabolic comet never decodes as e = 1 exactly).
 - `CLASSES`: Main belt, Near-Earth asteroids, Jupiter Trojans, Centaurs, Kuiper belt & beyond, Mars-crossers, Other.
 
 ### `comets.js`
@@ -125,7 +129,9 @@ their two tails: the ion tail along the solar wind and the curved dust tail. Use
 - `ionTail`, `dustTail`, `dustDays`, `activity`: the tails, longer nearer the Sun (illustrative lengths, true
   directions).
 - `cometsNearNow`: the comets best placed near the Sun and Earth. `perihelionPassages`: perihelion dates in a span.
-  `conicArc`: a drawable stretch of an open orbit. `GM_SUN`, `SOLAR_WIND_AU_DAY`.
+  `conicArc`: a drawable stretch of an open orbit; `conicArc(c, jd0, jd1, n, { origin, out, at })` takes `origin` and
+  `out` as `orbitPath` does, and `at` gives that jd (the comet's now) a sample of its own. `GM_SUN`,
+  `SOLAR_WIND_AU_DAY`.
 - Brightness from SBDB's M1/K1 (the same formula as Horizons' T-mag, checked against it): `cometMagnitude`,
   `cometMagnitudeAt`, `cometPeak` (the brightest moment in a span), `brightComets` (brightest now, with each one's peak),
   `cometsComing` (due to peak brighter than a magnitude), `seeingWords` ("binoculars"). `orbitFresh`: whether two-body
@@ -136,16 +142,26 @@ their two tails: the ion tail along the solar wind and the curved dust tail. Use
 Deep-space missions from `data/solar/spacecraft.json` (JPL Horizons): where a craft is at any moment (a cubic through
 the samples), how fast, what its mission does next, and how long its signal takes to reach Earth. Used by solar, core.
 
-- `trackPosition`, `trackSpeed`, `sampleIndex`: position, speed and the sample reached.
+- `trackPosition`, `trackSpeed`, `sampleIndex`: position, speed and the sample reached. `trackSpeed(c, jd, centerAt)`
+  takes the same optional centre as `trackPosition`, so a craft in orbit around a planet or the Moon moves on that
+  orbit.
 - `missionPhase`: before launch, flying, coasting out past the published track, or beyond the data. `escaping`,
   `lastVelocity`.
 - `eventsAround`: the last and next mission event. `missionDays`, `relativeTime` ("in 3 days", "5 hours ago").
-- `missionsNow`: one line per mission, nearest Earth first (the "Deep-space missions now" list). `lightSeconds`.
+- `missionsNow`: one line per mission, nearest Earth first (the "Deep-space missions now" list); an optional fourth
+  argument is the `centerAt` to use. `lightSeconds`.
 - `lagrangeL1L2`: the Sun-Earth L1 and L2 points for Earth's position (`EARTH_MOON_MU`). `craftAliases`: search words.
 - A craft in orbit around a planet (Juno): `track.local` holds Horizons' osculating elements around it, daily and every
   30 minutes for 3 hours around each perijove. `trackPosition(c, jd, out, centerAt)` puts the craft on that orbit
   around the planet as the caller draws it (within 150 km of Horizons through a perijove); `localPosition`,
-  `localOrbit` (the set in force, never carried across a perijove), `inLocal`, `periapses` (the perijove times).
+  `localOrbit` (the set in force, never carried across a perijove), `inLocal` (never past the end of the track),
+  `periapses` (the perijove times).
+- ISRO's Moon orbiters (Chandrayaan-1, Chandrayaan-2, the Chandrayaan-3 propulsion module, Vikram) carry the same around
+  'moon', and Mars Orbiter Mission around 'mars': a set every 3 days (6 hours for Chandrayaan-3's short stay), within
+  ~300 km of Horizons in quiet orbit (~20 km for Chandrayaan-3), but off by up to ~5,000 km across an orbit burn.
+  `moonCenterAt`: a centre for callers with no view of their own (the MCP): the Moon from `planets.js`, null for any
+  other key. Chandrayaan-2's published track ends 2026-11-08 and Aditya-L1's 2027-01-19 (their `end_jd` fields); a
+  working craft past its track reads "past the published track (JPL Horizons)" in the Solar view's list.
 
 ### `accuracy.js`
 
@@ -173,7 +189,9 @@ Satellite passes over an observer: rise, peak and set, look angles, and whether 
 sunlight while your sky is dark). The caller supplies the satellite's Earth-fixed position at any time (SGP4) and the
 Sun's direction, so the module needs no orbit library. Used by globe, mcp, core.
 
-- `findPasses`: passes in a time window, each `{ rise, peak, set, maxEl, azRise, azPeak, azSet, visible }`.
+- `findPasses`: passes in a time window, each `{ rise, peak, set, maxEl, azRise, azPeak, azSet, visible }`. Where SGP4
+  already fails at rise or set (a decaying object), the azimuth comes from the last instant it worked (bisected toward
+  the peak to 250 ms); a pass whose peak fails too is dropped.
   `nextPass`: the next one within some hours. `ecfAt`: a satellite.js record as an Earth-fixed position function
   (shared by the 2D map, Tonight and the MCP server).
 - `lookAngles`: elevation and azimuth of an Earth-fixed point from an observer.
@@ -185,7 +203,8 @@ An observer on the WGS84 ellipsoid in Earth-fixed coordinates, and the Sun's dir
 Cesium: what `passes.js` needs on a page with no 3D globe. Used by globe, sky, mcp.
 
 - `observer`: `{ pos, east, north, up }` for a latitude, longitude and height.
-- `sunEcef`: the unit vector toward the Sun, Earth-fixed, at a time.
+- `sunEcef`: the unit vector toward the Sun, Earth-fixed, at a time (from the point `sky.js` puts under the Sun, so of
+  date).
 
 ### `ecfvel.js`
 
@@ -215,8 +234,9 @@ which matters in the last days) it gives the ballistic factor Cd·A/m the object
 (`BSTAR_TO_BALLISTIC` = 12.741621 per unit B*) and is the fallback and cross-check. That factor is flown down through
 Vallado's exponential atmosphere (table 8-4, CIRA-72) scaled by solar flux, da/dt = -(Cd·A/m)·ρ·√(μa), midpoint steps of
 2% of a scale height, until the perigee reaches `END_KM` (100 km). Eccentric orbits keep their perigee while the apogee
-comes down, with the orbit-averaged density ρ(perigee)·e^-x·I0(x), x = ae/H (King-Hele). The window is ±`WINDOW_FRACTION`
-(25%) of the remaining lifetime at the epoch, ±`DISAGREE_FRACTION` when n-dot and B* differ by more than `DISAGREE_RATIO`.
+comes down, with the orbit-averaged density ρ(perigee)·e^-x·I0(x), x = ae/H (King-Hele). The window is
+±`WINDOW_FRACTION` (25%) of the remaining lifetime at the epoch, ±`DISAGREE_FRACTION` when n-dot and B* differ by more
+than `DISAGREE_RATIO` (one giving days and the other "more than 25 years" counts as disagreeing).
 
 - `predict`: `(l1, l2, { solar, keepPath })` → `{ id, epochMs, perigeeKm, apogeeKm, incl, periodMin, method, ballistic, days,
   reentryMs, windowMs, fraction, otherDays, manoeuvring, solar, el, path }`, or null when neither drag term says anything.
@@ -246,11 +266,13 @@ comes down, with the orbit-averaged density ρ(perigee)·e^-x·I0(x), x = ae/H (
 
 Your sky tonight in plain words: where the Sun, Moon and planets are for someone on the ground, the Moon's phase, which
 planets are worth stepping outside for, the aurora chance, passes as sentences, Starlink trains and meetings in the
-sky. Accuracy is "where to look" (a degree or so). Used by globe, map, sky, mcp, core.
+sky. RA/Dec are J2000; `altAz` and `subsolar` turn them to the equator and apparent sidereal time of date with
+`eclipselocal.js`'s precession and nutation, so rise and set times are good to the minute. Positions are "where to
+look" (`planets.js`: an arcminute or so). Used by globe, map, sky, mcp, core.
 
 - `bodyRaDec`, `altAz`, `gmst`, `sunAlt`: positions in the sky.
 - `darkWindow`: the dark part of the next 24 hours (Sun below −6°). `riseSet`: rise and set times for the Sun, the Moon
-  and twilight.
+  and twilight (`h0` −0.833° for the Sun, +0.125° by default for the Moon's parallax, −6° or −18° for twilight).
 - `moonPhase`, `nextFullMoon` (with its traditional name and whether it is a supermoon).
 - `planetsTonight`: the bright planets during the dark hours, with a sentence each.
 - `auroraAt`: the aurora chance overhead and on the horizon from NOAA's OVATION grid.
@@ -284,8 +306,9 @@ side, how much is lit, visual magnitude (Meeus), and the next oppositions, conju
 by mcp (its `solar_system` tool).
 
 - `planetFromEarth`, `moonFromEarth`: one body from Earth at a Julian Date. `SKY_PLANETS`.
-- `magnitude`, `saturnRingTilt`: brightness. `skyEvents`: the coming events. `visibility`: how easy it is to see, in a
-  phrase.
+- `magnitude`, `saturnRingTilt`, `saturnDeltaU`: brightness; Saturn's adds its rings (tilt B) and the Almanac's
+  0.044·|dU| term (dU: how far apart the Sun's and Earth's Saturnicentric longitudes are, Meeus ch. 45). `skyEvents`:
+  the coming events. `visibility`: how easy it is to see, in a phrase.
 
 ### `whereis.js`
 
@@ -353,7 +376,8 @@ Solar eclipses use `eclipse.js`'s cones and `eclipselocal.js`'s Earth-fixed turn
   `earthShadow`: Earth's umbra and penumbra at the Moon (`DANJON`).
 - `findOccultations`, `occultationGeometry`, `planetGeocentric`: the Moon in front of `OCCULT_STARS` (Aldebaran,
   Regulus, Spica, Antares, the Pleiades) and `OCCULT_PLANETS`, where on Earth it is seen and whether it is dark there.
-- `subPoint`, `toFixed`: ground points under a direction. `minimize`, `root`: the small searches. `eventTitle`, `R_EARTH`.
+- `subPoint`, `toFixed`: ground points under a direction (`subPoint`'s latitude is the direction's declination of date:
+  where the ground's normal points at a far body). `minimize`, `root`: the small searches. `eventTitle`, `R_EARTH`.
 
 ### `orientation.js`
 
@@ -368,8 +392,9 @@ east-north-up components: look-up mode. Used by globe.
 
 Deep-sky objects for "what's up tonight": every Messier object and the NGC/IC objects to about magnitude 12.5 from
 `data/deepsky.json` (2,405 objects, CC-BY-SA-4.0, derived from OpenNGC by `brand/tools/make_deepsky.py`, which pins the
-release and checks each CSV's SHA-256). Positions are J2000 against the mean sidereal time of date, like `sky.js`: a
-degree or so. Read-only. Used by core (darksky.js), mcp.
+release and checks each CSV's SHA-256). Positions are J2000 catalogue places that `sky.js` `altAz` turns to the equator
+and apparent sidereal time of date, so altitudes are good to well under a degree. Read-only. Used by core (darksky.js),
+mcp.
 
 - `loadDeepsky`, `parseDeepsky`: the file's rows as objects (catalogue id, Messier number, type, RA/Dec,
   magnitude, size, common name, constellation). `TYPES`: OpenNGC's type codes with a label and a group. `label`.
@@ -399,7 +424,8 @@ Tests: `test/darksky.test.mjs`.
 - `skyWords`: a `skyAt` result in words (the Milky Way, the faintest star, about how many stars). `nelmFromSqm` (the
   usual SQM-to-limiting-magnitude fit), `starsVisible` (Allen's counts, the part of the sky that is up).
 - `nearestDark`: the nearest cell at Bortle 3 or better (its four neighbours too) within 1,000 km, scanned outward in a box
-  and checked on land by a `land(lat, lon)` callback (the atlas is dark offshore; the callers use `borders.js`).
+  and checked on land by a `land(lat, lon)` callback (the atlas is dark offshore; the callers use `borders.js`). Without
+  the callback the answer is marked `unchecked: true`, and `darkText` adds that it may be at sea.
   `nearestDarker`: Bortle 3, else Bortle 4 (marked as the fallback). `darkText`, `bearing`, `qLimit`, `COMPASS_WORDS`.
 - `moonOver`: the Moon over a dark window (lit fraction, hours up, the longest moonless stretch, its added sky brightness).
   `tonightQuality`: one line from the sky, the Moon and `clouds.js` `night()`, a score and a word, and the sky brightness
@@ -416,9 +442,11 @@ Tests: `test/darksky.test.mjs`.
 
 Spherical-Earth geodesy for things that move (aircraft dead reckoning, ship tracks). Used by globe, map, mcp, core.
 
-- `haversine`: great-circle distance in metres. `destination`: the point reached along a bearing.
+- `haversine`: great-circle distance in metres. `destination`: the point reached along a bearing, written into an
+  optional fifth argument, an `out` object { lat, lon }.
 - `deadReckon`: where a moving object is some seconds after its last fix. `deadReckonArc`: the same through a turn,
-  for an aircraft that was turning between its last two fixes.
+  for an aircraft that was turning between its last two fixes; an optional fifth argument, an `out` object,
+  takes the { lat, lon, track }, so the globe moves thousands of planes a pass without a new object for each.
 - `courseAxis`: the unit vector along a course, which Cesium uses to point an icon. `EARTH_RADIUS_M`.
 
 ### `measure.js`
@@ -630,20 +658,35 @@ draws as maps read off for a place, in a forecaster's words. Used by mcp (its `w
 Tropical cyclone forecasts, wildfires and recent satellite pictures, parsed. Used by globe.
 
 - `nhcForecasts`: NOAA NHC's map service → cones, tracks, watches and warnings, wind fields; `coherent` only when they
-  all come from the same advisory (`stormKey`, `WW`).
-- `gdacsForecast`: GDACS cones and tracks for every other basin.
+  all come from the same advisory (`stormKey`, `WW`). Each forecast's `advisoryAt` is the points' file time
+  (idp_filedate), else the tau-0 point's local-time label read with its US time zone. A point with no position is left
+  out.
+- `gdacsForecast`: GDACS cones and tracks for every other basin (a point's `forecast` is undefined when the package has
+  no advisory time).
 - `firePerimeters`: NIFC perimeters. `parseFires`, `fireTilesFor`, `fireTileDeg`: VIIRS hot spots from GIBS vector tiles.
 - `parseCmrCsv`, `imageryDates`, `pickPair`: Landsat and Sentinel-2 picture dates and the first before/after pair;
   `IMAGERY`, `gibsTemplate` for the tiles.
-- `rings`, `paths`, `csvLine`: GeoJSON and CSV helpers.
+- `rings`, `paths`, `csvLine`: GeoJSON and CSV helpers (rings and paths of fewer than 2 points are dropped).
 
 ### `quakes.js`
 
-Earthquakes from the USGS real-time GeoJSON summaries: one parser for the 2D map, the globe and the MCP server. Used by
-globe, map, mcp.
+Earthquakes from the USGS real-time GeoJSON summaries: one parser for the 2D map, the globe and the MCP server; and
+EMSC's catalogue (www.seismicportal.eu, keyless, CORS; credit EMSC) as the second word that lets a quake read
+"confirmed". No fetch here: `emscSource` is handed one. Used by globe, map, mcp.
 
 - `parseUsgs`: a summary → quakes. `usgsUrl`, `usgsFeedFor`, `USGS_FEEDS`, `USGS_BASE`: which summary to read.
+  `usgsDataAt`: the summary's data time (when USGS generated it).
 - `largest`, `quakeTitle`: "M6.2 · 34 km SW of Town".
+- Provenance: `stampQuake`, given `{ dataAt, gdacs, emsc, cached }`, stamps a USGS quake with USGS's report plus the
+  matching EMSC solution and GDACS alert (`sameQuake`: within `QUAKE_AGREE`, 60 s, 100 km and 0.6 in magnitude); each
+  agrees as a second witness only when its solution is not USGS's own (`emscRepeatsUsgs`: agency NEIC, or the network
+  that made the USGS quake). `gdacsQuakes`: GDACS's earthquake alerts as solutions to compare.
+- EMSC: `emscUrl` (`EMSC_BASE`; magnitude `min` less 0.6, the start floored to 10 minutes so one question keeps one
+  address, limit 500, or 1000 for windows over a day or floors under M2.5; a busy window comes back as its newest part
+  only), `emscAsk` (the window and floor beside a USGS summary), `parseEmsc` (earthquakes only; takes the body as text,
+  so FDSN's empty 204 is no events), `matchEmsc` (the closest in time; a long list is searched by time).
+  `emscSource(json, { gapMs })`: one request at a time per question and at most one per 9.5 minutes; each question
+  keeps its own last list, which a failure leaves in place; `load()` never rejects.
 
 ### `eonet.js`
 
@@ -658,7 +701,15 @@ Tropical cyclones assembled once for every view: EONET tracks, NOAA NHC advisori
 service (forecast cones, watches, wind fields) and GDACS for every other basin. Fetching is injected, so the globe, the
 2D map and the tests share the whole recipe. Used by globe, map, mcp, core.
 
-- `loadCyclones`: every source, merged (`stormsFromEonet`, `mergeNhc`, `mergeNoaa`, `mergeGdacs`, `attach`).
+- `loadCyclones`: every source, merged (`stormsFromEonet`, `mergeNhc`, `mergeNoaa`, `mergeGdacs`, `attach`). NOAA's
+  layers (`NOAA_LAYERS`) are asked with idp_filedate; if ArcGIS answers that with an error, the points layer is asked
+  again without it, and a layer still in error warns ('NHC forecast layer <id>') instead of drawing nothing. Only the
+  tau-0 point moves a storm and counts as NHC's fix; without it a new storm starts at the cone's corner, and a forecast
+  with neither (or a GDACS cyclone with no position) only joins a storm of the same name. GDACS's forecast is skipped
+  only for storms that got a NOAA one.
+- Provenance: `stormAgreement`: the sources that place a storm within `STORM_AGREE` (150 km plus 30 km an hour between
+  fixes, at most 500 km) of its freshest fix, each agency counted once (`agencyOf`: EONET's or GDACS's copy of an NHC
+  advisory is not a second witness). `sameStorm`: two fixes within that.
 - `parseNhcCurrent`, `parseGdacsCyclones`: the sources' lists. `noaaLayerUrl`, `gdacsTcUrl`, `gdacsGeometryUrl`.
 - `category`, `catName`, `CYCLONE_CAT`, `NHC_CLASS`: Saffir-Simpson and NHC's codes. `activeLine`, `shortName`,
   `stormSources`: words for labels and cards.
@@ -667,8 +718,9 @@ service (forecast cones, watches, wind fields) and GDACS for every other basin. 
 
 The GDACS disaster alert list behind the 2D map's "Disaster alerts" layer. Used by map.
 
-- `loadGdacsEvents`: every page of the last days. `parseGdacsEvents`, `gdacsEventsUrl`, `GDACS_TYPES`,
-  `GDACS_LEVEL_COLOR`.
+- `loadGdacsEvents`: every page of the last days. `parseGdacsEvents` (one alert per event, its dates made explicit
+  UTC, green earthquakes left to USGS), `gdacsEventsUrl`, `GDACS_TYPES`, `GDACS_LEVEL_COLOR`. `utc`: a GDACS time
+  without a zone, read as UTC.
 
 ### `history.js`
 
@@ -1001,13 +1053,21 @@ answering. Used by globe, map.
 
 ### `viewlink.js`
 
-The share link: a view as a URL hash and back (full format in [LINK_FORMAT.md](LINK_FORMAT.md)). Used by globe, mcp.
+The share link: a view as a URL hash and back (full format in [LINK_FORMAT.md](LINK_FORMAT.md)), and Tonight's links
+for a place. Used by globe, map, sky, mcp.
 
-- `encodeView`, `decodeView`: a view ↔ `c=…&l=…&…`. Nothing decoded is trusted.
+- `encodeView`, `decodeView`: a view ↔ `c=…&l=…&…`. Nothing decoded is trusted: the heading is wrapped to 0-360°, the
+  pitch clamped to ±90°, and a clock rate to ±10 years per second (the Solar view's fastest).
 - `zoomToHeight`, `heightToZoom`: the 2D map's zoom and the globe's camera height, so a link made on one opens the
   same area on the other. `MAP_TO_GLOBE`, `globeLayersFor`, `mapLayersFor`: the two views' layer ids.
-- `decodeExtras`: the parts that work without a camera: the panel to open, a flight, an item id. `GO`: the panels a
-  link may open.
+  `MAP_TO_WEATHER`, `weatherFor`, `mapWeatherFor`: the 2D map's forecast layers ↔ the globe's `w=` list and model.
+- `decodeExtras`: the parts that work without a camera: the panel to open, a flight, an item id, and the place Tonight
+  answers for. `GO`: the panels a link may open.
+- Tonight for a place (`#at=lat,lon&name=…`, in the hash only): `tonightHash` writes it, rounded to 0.01° (~1 km, as a
+  saved home is); `placeName` cleans a name (60 characters at most, no control characters or angle brackets).
+  `decodeTonight`: tonight.html's hash → `{ at, embed, sections }` (`embed=1`, and `sections=` keys from
+  `TONIGHT_SECTIONS`, the card's headings each one opens; unknown keys are dropped). `tonightHeadings`: the headings a
+  list of keys opens (the rest fold shut in an embed).
 
 ### `solarlink.js`
 
@@ -1040,6 +1100,14 @@ Spoken commands without an AI service: a sentence in, one action out. Used by gl
 - `parse`: a sentence → `{ act, … }` (go, track, layer, view, sensor, measure, route, weather, count, an airport's
   board, what plane that is, trails, …). `normalize`
   strips the wake word, politeness and punctuation first.
+- Hindi: a sentence in Devanagari is matched on folded text (no nukta, chandrabindu as anusvara) against a small set
+  of Hindi commands (help, zoom, the weather, weather mode, tonight, look up, show or hide planes, ships, satellites,
+  quakes or storms, track, go to a place), giving the same actions as English; a place is spelled from the words as
+  spoken, nukta kept (ज़ → z, क़ → q). `romanize`: Devanagari to Latin letters ("मुंबई" → "mumbai"; व after a
+  consonant cluster is w). `EXAMPLES_HI`: the Hindi help phrases.
+- `COMMAND_LANGS` (en, hi): the languages `parse` understands. `voiceLangs`: which language to listen and answer in from
+  the browser's languages (Hindi is heard in hi-IN and answered in en-IN; any other language falls back to English
+  for its country, else en-US).
 - `EXAMPLES`: the phrases the help card suggests. `SENSORS`: the Ops looks.
 - `skyWords`, `weatherSentence`, `seaWords`: weather readings in words (with gusts, pressure and its trend, and the sea
   state), metric or imperial.
@@ -1058,7 +1126,10 @@ A calendar file (iCalendar, RFC 5545) with a reminder: the one alert that reache
 server. Used by globe.
 
 - `makeIcs`: events → the file's text.
-- `reminderPlan`: the tab reminders due now (once, late ones up to 12 hours), still to come, and the wait to the next.
+- `reminderPlan`: the tab reminders due now (each once), still to come, and the wait to the next. One that came due
+  while the tab slept is still shown until its own end time, `until` in ms (when the event is over: the pass sets, or an
+  hour after a launch), or else up to `grace` late (2 hours by default), marked late past 3 minutes; older ones are
+  dropped.
 
 ### `radio.js`
 
@@ -1084,14 +1155,18 @@ carry the big data files. Used by globe, solar, sky, core.
 The public relay for the published website (`relay/worker.js`, a Cloudflare Worker) and the hosts it carries. Used by
 globe, map.
 
-- `PUBLIC_RELAY`, `PUBLIC_RELAY_HOSTS`: the Worker's address and its allowlist (= the Worker's `TTL` table). No aircraft
-  feed is on it: adsb.lol answers Cloudflare's servers with 429, and the others' terms don't allow it.
+- `PUBLIC_RELAY`, `PUBLIC_RELAY_HOSTS`: the Worker's address and its allowlist (= the Worker's `TTL` table;
+  `test/relayhosts.test.mjs` checks): eleven hosts, NOAA NHC, NDBC (buoys and DART), tsunami.gov, the NYC, BC and
+  Missouri camera lists, four agencies' camera stills (Norway, Iowa, Calgary, Singapore) and the submarine cable map.
+  No aircraft feed is on it: adsb.lol answers Cloudflare's servers with 429, and the others' terms don't allow it.
 - `publicRelayable`: whether the relay carries a URL: a listed host the deployed Worker hasn't refused in this visit (it
   doesn't check paths; the Worker does).
 - `relayUrl`: the relay's URL for a feed in the one form it accepts, `PUBLIC_RELAY + encodeURIComponent(new URL(u).href)`
   (any other spelling gets a 400, since it would be a separate entry in the shared cache; an optional `&t=<digits>` may
   follow, for a camera still's refresh).
-- `relayRefused`: whether an answer is the Worker refusing the host (its own 403 text), not the feed itself refusing.
+- `relayRefused`: whether an answer is the Worker refusing the host (its own 403 text, 'host not on the relay
+  allowlist'), not the feed itself refusing. A path the Worker refuses on a host it carries gets 'path not on the relay
+  allowlist' instead, so it never marks the whole host.
 - `markNotCarried`, `carried`: note a host the deployed Worker refused (it can lag behind the list: a rollback, a redeploy
   not done yet), and whether a URL's host is still asked; kept in memory only, so the next visit asks again.
 - `onPublishedSite`: true on the published site (the relay answers only that origin).
@@ -1107,7 +1182,8 @@ Cloudflare's servers on 2026-10-15, and the Worker no longer imports this file).
   row, so no seam at the antimeridian). `onGrid`: whether a URL's centre is on it. `nearestTiles`: the n nearest.
 - `adsbLolTtl`, `adsbLolRelayable`, `AIR_TTL`, `ADSB_LOL_HOST`: /v2/mil and squawks 7500/7600/7700 (60 s), grid tiles
   (45 s); nothing else (single-plane lookups differ per visitor). `adsbLolTtl` and `adsbLolRelayable` are kept for a
-  future relay that can reach adsb.lol; the map reads `AIR_TTL`.
+  future relay that can reach adsb.lol (only the tests use them today); the globe and the map pace their aircraft
+  feeds by `AIR_TTL`.
 
 ### `gpu.js`
 
@@ -1121,16 +1197,22 @@ Feed timers that rest while the page is hidden and catch up once, staggered, whe
 hidden (an armed alert) or stop for the visit on a not-carried error. DOM-free: the page passes its clock and timers.
 Used by globe.
 
-- `createPoller`: `add(ms, fn, { keep, permanent, onError, onStop, start })` and `setHidden(hidden)`.
+- `createPoller`: the poller, given `{ now, setTimer, clearTimer, stagger }`. `add(ms, fn, { keep, permanent, onError,
+  onStop, start })` runs fn now (or after ms with `start: false`) and then every ms from the start of one run to the
+  next, never two at once. `keep()` lets it run while hidden (a watched landing, a followed plane); `permanent(e)`, by
+  default an error marked notCarried, stops it for the visit and calls onStop. `setHidden(h)` pauses and resumes: on
+  showing, each feed whose time came while hidden runs once, 1.5 s apart by default, in the order added.
 
 ### `quality.js`
 
 The globe's three graphics levels and the rules between them. Used by globe.
 
 - `qualityLevels`: the levels for a phone or not (tile detail, model caps, cloud octaves, frame cap, render scale, FXAA,
-  the limb halo, cloud relief, shell mesh); `ORDER`. `autoLevel`: where 'auto' starts. `limbFade` and
-  `limbShown`: the halo at a height (`LIMB_RIM_M`). `shellPartitions`. `medianFrame`, `slowWindows` and
-  `lowerLevel`: the automatic step-down.
+  the limb halo, cloud relief, shell mesh; the numbers are in docs/PERFORMANCE.md); `ORDER`. `autoLevel`: where
+  'auto' starts (Low on phones and software renderers, else High). `limbFade` and `limbShown`: the halo's strength at
+  a height, 0 to 1 (on Balanced it fades out between 1,200 and 800 km, `LIMB_RIM_M` ± 200 km). `shellPartitions`:
+  256 × 512 or 128 × 256. `medianFrame`, `slowWindows` and `lowerLevel`: the automatic step-down (one 3 s window
+  with a median over 50 ms, or two in a row over budget: the frame cap plus 8 ms, or 28 ms).
 
 ## The app shell
 
@@ -1148,8 +1230,12 @@ are due. Used by app.
 "What's new": the card a returning visitor sees once after an update, with the notes of each version (CHANGELOG.md's,
 shortened). Never on a first visit, an archived copy or an embed; a commit-only rebuild is not a new version. Used by app.
 
-- `whatsNewDue`, `cardFor`, `RELEASES`, `SEEN_KEY`: the decision and the card. `versionOf`, `compareVersions`,
-  `releaseFor`, `notesUrl`, `tryLink`.
+- `whatsNewDue`, `cardFor`, `RELEASES`, `SEEN_KEY`: the decision and the card (the first `MAX_LINES`, 3, of a release's
+  lines). `?whatsnew=1` in the address shows the card anyway, `?whatsnew=0` never. `versionOf` (the version part of the
+  worker's build stamp, '0.9.2.15+abc1234'), `compareVersions`, `releaseFor`, `notesUrl` (`CHANGELOG_URL`), `tryLink`.
+- Each release's date stays null until it is published. `test/whatsnew.test.mjs` fails when CHANGELOG.md has a
+  heading for a version whose entry has no date, when a dated entry's title is not the changelog's one-liner, or when
+  `src/map/version.js` names a version with no entry.
 
 ### `spot.js`
 
@@ -1192,7 +1278,8 @@ the globe and the 2D map shows it, the MCP answers carry its line.
 The per-layer side of provenance: who each feed is, how old a layer's data may be, and the stamp a layer puts on each
 item when it builds it. The record is made when a card is drawn, so ages stay true while it is open.
 
-- `SOURCES`: the feeds (name, link, terms) by id. `LAYERS`: each live layer's maximum age and what its data time is.
+- `SOURCES`: the feeds (name, link, terms) by id, EMSC among them (its terms ask for the credit "EMSC"). `LAYERS`:
+  each live layer's maximum age and what its data time is (quakes: USGS's summary time; EMSC's newest update).
 - `rep`: one source's report from the catalogue plus its times. `stamp`: put `{ layer, sources, agreeing }` on an item;
   `provStamp` makes the same for a prototype's `get prov()`. `stampReports`: from agreement reports `[{ src, t }]`.
 - `recordOf`: the provenance record of a stamped item now (an item's own `prov.maxAgeMs` beats its layer's: re-entry
@@ -1209,5 +1296,6 @@ A layer's visible live items as a file, each with its provenance in columns of i
 confidence, sources, agree, of, data_time and data_age_s. The views hand in items; `src/app/save.js` makes the buttons and the download.
 
 - `exportFile`: `{ name, mime, text, count }` for `EXPORT_FORMATS` geojson, csv or kml.
-- `exportRow`, `exportRows`: items to flat rows (plain fields only). `toGeoJSON`, `toCSV`, `toKML`.
+- `exportRow`, `exportRows`: items to flat rows (plain fields only). `toGeoJSON`, `toCSV`, `toKML`. The CSV starts
+  with a UTF-8 byte-order mark, so Excel opening it from disk reads '·' as '·', not 'Â·'.
 - `csvCell`: quoting, and a leading ' on text that a spreadsheet would run as a formula.

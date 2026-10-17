@@ -97,15 +97,32 @@ Known left (emulation can't show a real phone's GPU):
     That cut the globe variants from 11 to 6.
   - Pre-warm every aircraft and satellite model type at boot (`src/globe/warm.js`).
   - Model shaders still differ near the ground: fog adds an atmosphere stage to them. Those compile once per session.
-- **Graphics levels** (`src/globe/quality.js`, `src/solar/quality.js`): High, Balanced and Low; phones and software
-  renderers start on Low. In Auto, two 3-second windows with a median frame over 40 ms step down one level.
-  - Globe levers: tile detail (screen-space error 2/3/4), model counts (aircraft 200/80/30, satellites 40/25/12),
-    cloud noise octaves (4/2/1), 30 fps cap on Low; render scale 1/0.9/0.75 (0.66 on phones), FXAA on/on/off, limb
-    halo everywhere/fading out below 1,000 km/off, the cloud relief taps off on Low, coarser shell meshes below High
-    (`src/core/quality.js`). Starlink (~8,000 dots) is off by default on phones.
+- **Graphics levels** (`src/core/quality.js` holds the globe's; `src/globe/quality.js` and `src/solar/quality.js`
+  apply them): High, Balanced and Low. Auto starts phones and software renderers on Low, everything else on High.
+  A level picked in the dock is kept and never changed automatically.
+  - Globe levers (a phone's figure in brackets where it differs). Low cuts what every pixel costs, not only tile detail
+    and models:
+
+    | Lever | High | Balanced | Low |
+    |---|---|---|---|
+    | Tile detail (screen-space error) | 2 | 3 | 4 |
+    | 3D models: aircraft / satellites | 200 / 40 | 80 / 25 | 30 / 12 |
+    | Cloud noise octaves | 4 | 2 | 1 |
+    | Cloud relief (four sun-side taps) | on | on | off |
+    | Frame cap | none | none | 30 fps |
+    | Render scale (× CSS pixels) | 1 | 0.9 | 0.75 (0.66) |
+    | FXAA pass | on | on | off |
+    | Limb halo (a full-disc pass) | always | fades out between 1,200 and 800 km | off |
+    | Shell mesh (stacks × slices) | 256 × 512 (128 × 256) | 128 × 256 | 128 × 256 |
+
+    The shell mesh follows the level the page starts on; rebuilding the shells on a later change would be a stall of its
+    own. Starlink (~8,000 dots) is off by default on phones, one tap in the dock to show.
   - Solar levers: pixel ratio (1.5/1/1; 2× on a Retina laptop was four times the pixels), and all 1.57M asteroids or only
     the brightest 300k.
-  - The step-down now triggers on a 3-second window with a median frame over 50 ms, or two in a row over 28 ms.
+  - The step-down (Auto only, while the page is visible, after the first 10 to 12 s): the median frame of each 3-second
+    window is watched. One window over 50 ms steps down one level at once; otherwise two windows in a row over budget
+    do. The budget is 28 ms (under ~36 fps), or on the globe the level's frame cap plus 8 ms (41 ms on Low). The
+    battery saver's slow idle frames on the globe don't count.
 - **Faded point clouds still drawn (Solar System).** From light-years out the 1.57M asteroids land on a few pixels
   and additive blending serialises them: 60 ms frames at any zoom past the Oort cloud. Faded clouds are now hidden.
 - **Software WebGL** (hardware acceleration off): detected from the renderer string (`src/core/gpu.js`). The page
@@ -114,5 +131,8 @@ Known left (emulation can't show a real phone's GPU):
 ## Load size
 
 - Globe: 16 MB, plus 6.7 MB of satellite models warmed in the background (2 types on phones).
-- Solar System: 42 MB on desktop, 19 MB of which is the second asteroid file, loaded after start. 14 MB on phones.
+- Solar System: 42 MB on desktop, 19 MB of which is the second asteroid file (`asteroids_b.bin`). It loads only on
+  the levels that draw every asteroid, with the asteroid layer on, once the camera first goes past 1.5 AU from the Sun
+  or the search box is used (inside the globe: once the view is entered), or straight away for a link that names one
+  of its asteroids. 14 MB on phones.
 - 2D map: under 1 MB.
