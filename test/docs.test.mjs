@@ -155,3 +155,14 @@ test('docs: CORE.md has a section for every core module, and every export it nam
 test('docs: the landing page links to the guide', () => {
   assert.match(read('index.html'), /href="guide\.html"/);
 });
+
+test('docs: long code in the guide can wrap on a phone (a link or an embed snippet must not widen the page)', () => {
+  // A 412 px phone fits about 40 characters of code in a paragraph; a longer unbroken run (the Tonight iframe src, a
+  // #at= link) pushed the page to 736 px in the browser suite. Paragraph and list code wraps anywhere; table code scrolls
+  // inside its .tbl box.
+  const body = guide.slice(guide.indexOf('<body')).replace(/<td[\s\S]*?<\/td>/g, '');
+  const long = [...body.matchAll(/<code>([\s\S]*?)<\/code>/g)].map(m => m[1].replace(/&amp;/g, '&').replace(/&lt;|&gt;/g, '<'))
+    .flatMap(t => t.split(/\s+/)).filter(run => run.split(/(?<=-)/).some(s => s.length > 40));
+  if (long.length) assert.match(guide, /p code,li code\{overflow-wrap:anywhere\}/, `guide.html has unbreakable code: ${long[0]}`);
+  for (const m of body.matchAll(/<table/g)) assert.match(body.slice(m.index - 40, m.index), /class="tbl"[^>]*>\s*$/, 'guide.html: every table sits in its .tbl scroll box');
+});
