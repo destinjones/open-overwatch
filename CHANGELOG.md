@@ -8,6 +8,50 @@ file was built from.
 
 ## [Unreleased]
 
+Tonight for any place, and honest about what is live.
+
+### Added
+- Tonight for any place: type one in, or open `tonight.html#at=lat,lon&name=…` (a place from a link is shown, never
+  saved); an embeddable card (`tonight.html#embed=1&sections=passes,planets,…`); the MCP `night_sky` answer links to it.
+- ISRO's missions in the Solar System view from JPL Horizons tracks (Chandrayaan-1, Chandrayaan-2, Chandrayaan-3's
+  propulsion module and Vikram, Aditya-L1, Mangalyaan), linked from the India page and placed by MCP `where_in_space`.
+- EMSC as a second earthquake catalogue beside USGS (globe, 2D map, MCP `earthquakes`): a quake EMSC solved too reads
+  "confirmed" instead of "reported".
+- A real Hindi page at `/india/hi/` (made from the English one by `brand/tools/india_hi.mjs`) and the main voice
+  commands in Hindi. A "What's new" card once after an update; a maskable icon and screenshots for the install sheet.
+- The download zip carries the airport, runway, deep-sky and light-pollution data, the home, about, guide and India
+  pages, LICENSE and NOTICE. Browser tests for the zoom into the Solar System and back and the panels that links open.
+
+### Changed
+- Honest about what the website carries: the relay (redeployed 2026-10-17) now carries NOAA buoys and DART but no
+  aircraft network, so both views say once that live aircraft come with the free download and stop asking, instead of
+  "0 AIR" and endless retries. The home and India pages, the README and the install sheet lead with the zoom,
+  satellites, storms, quakes and Tonight; the two pages load the 3D models and phone clips only when needed.
+- A faster globe: Low renders at 0.75 resolution (0.66 on phones) without FXAA, the limb halo or the cloud relief,
+  Balanced at 0.9; Starlink is off by default on phones; hover tips pick only at rest; desktops load the 4k cloud
+  texture, not the 8k, unless the GPU and screen can show it.
+- Solar System orbit lines pass through their bodies close up (Pluto sat 56,000 km off its line); on desktops the
+  standalone view's 19 MB faint-asteroid file waits until the camera passes 1.5 AU from the Sun or a search needs it.
+- After a publish an open app keeps one version's pages and code together, and other tabs are asked to reload. The
+  website keeps the newest six releases under `/v/<tag>/` and no longer publishes test/, e2e/, notes/, relay/,
+  mcp-worker/ or brand/clip/.
+
+### Fixed
+- Sunrise, sunset, solar noon and the night side ran about 1.6 minutes early; moonrise and moonset include the Moon's
+  parallax everywhere; eclipse sub-points were up to ~10 km off; Saturn near quadrature was up to ~0.27 mag too bright.
+- A NOAA storm point without a position no longer puts a storm at NaN or 0,0 or empties the storms layer.
+- The globe's boot screen says what failed, with Retry and the 2D map; phone panels no longer cover each other. The
+  Solar System's hand-over roll no longer bounces back to the globe, and its flights jump with reduced motion.
+- Sky alerts fire once, after the service worker is ready, and up to 2 hours late after a tab slept.
+- Passes of decaying satellites no longer throw, 15 near-parabolic comets no longer decode as parabolas, the 2D map's
+  phone buttons are 44 px, and `plate_readers` no longer calls a place outside North America an outage.
+
+### Security
+- The satellite workers load a self-hosted satellite.js instead of an unchecked CDN file; the relay takes one canonical
+  request form per feed (anything else is a 400), so re-spelled requests can't bypass its cache; every workflow action
+  is pinned to a commit SHA; a malformed MCP `/mcp/` path is a 404, not a crash (the hosted Worker still runs the
+  earlier version until it is redeployed).
+
 ## [0.9.2.14] - 2026-10-15
 
 India.
