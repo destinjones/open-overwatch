@@ -12,8 +12,9 @@ const root = new URL('../', import.meta.url);
 const read = path => readFileSync(new URL(path, root), 'utf8').replace(/\r\n/g, '\n');
 const exists = path => existsSync(new URL(path, root));
 
-// data/ files the site build makes every 6 hours (.github/build_site.py) and never commits: the download fetches them
-// from the website, so they are not in the zip. camera_poses.json is optional shared camera alignments, not made yet.
+// data/ files the site build makes every 6 hours (.github/build_site.py) and never commits: the download does without
+// them (the views hide what needs them, or fall back to the live feed), so they are not in the zip.
+// camera_poses.json is optional shared camera alignments, not made yet.
 const SITE_ONLY = ['data/astronauts.json', 'data/flybys.json', 'data/launches.json', 'data/news.json', 'data/socrates.json',
   'data/wind.json', 'data/tle/', 'data/tle/history/', 'data/camera_poses.json'];
 
@@ -101,7 +102,9 @@ test('release: the pages the shipped pages link to are in the zip', () => {
   for (const page of pages) {
     assert.ok(shipped(page), `${page} is in the zip`);
     const dir = page.includes('/') ? page.slice(0, page.lastIndexOf('/') + 1) : '';
-    for (const [, url] of read(page).matchAll(/\b(?:href|src|poster)="([^"]+)"/g)) {
+    const urls = [...read(page).matchAll(/\b(href|src|poster|srcset)="([^"]+)"/g)]   // srcset: the first word of each part
+      .flatMap(([, attr, v]) => attr === 'srcset' ? v.split(',').map(part => part.trim().split(/\s+/)[0]).filter(Boolean) : [v]);
+    for (const url of urls) {
       if (/^(?:[a-z]+:|#|\/\/|\$\{)/i.test(url) || url.includes('${')) continue;
       let p = new URL(url.split(/[?#]/)[0], 'file:///z/' + dir).pathname.slice(3);
       if (p === '' || p.endsWith('/')) p += 'index.html';
@@ -109,6 +112,11 @@ test('release: the pages the shipped pages link to are in the zip', () => {
     }
   }
   assert.deepEqual(bad, [], 'links and assets the download would 404 on');
+  // asset paths the pages build in JS ('brand/lander/clips/' + c, '../brand/india/clips/' + c, 'brand/models/' + f)
+  for (const dir of ['brand/lander/clips/', 'brand/india/clips/', 'brand/models/']) {
+    assert.ok(exists(dir), `${dir} is in the repository`);
+    assert.ok(shipped(dir), `${dir} is in the zip`);
+  }
 });
 
 test('release: Publish Update.bat catches up with origin/main before it tags, and undoes the tag when the push fails', () => {

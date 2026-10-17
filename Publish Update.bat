@@ -9,7 +9,8 @@ cd /d "%~dp0"
 git fetch origin main || goto :fail
 git merge --ff-only origin/main || goto :behind
 for /f "tokens=2 delims='" %%v in ('findstr /c:"const OW_VERSION" src\map\version.js') do set CUR=%%v
-echo Current version: %CUR%
+for /f %%b in ('git rev-parse --abbrev-ref HEAD') do set BRANCH=%%b
+echo Current version: %CUR%   (branch %BRANCH% goes to main)
 set /p VER=New version number (e.g. 0.6): 
 if "%VER%"=="" goto :eof
 set /p MSG=What changed? (one line): 
@@ -40,7 +41,7 @@ git tag -d "v%VER%"
 git reset --soft HEAD~1
 echo.
 echo Not published. The version commit was taken back, and the tag v%VER% too if it was made; your changes are still
-echo there, staged.
+echo there, staged. src\map\version.js already holds %VER%: enter the same number again.
 echo Check the message above and run this again.
 pause
 goto :eof

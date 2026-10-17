@@ -39,8 +39,9 @@ FILES
   index.html                 the home page; about.html (the creator), guide.html (the user guide), india/ (India page)
   src/                       the views' code (ES modules)
   data/                      orbits, stars, airports, runways, deep sky, light pollution and more, so the views
-                             load them from this folder. data/lightpollution.md: that atlas is CC BY-NC 4.0
-                             (non-commercial use only), unlike the rest
+                             load them from this folder (the live feeds such as launches, flybys and satellite
+                             elements still come from the website). data/lightpollution.md: that atlas is
+                             CC BY-NC 4.0 (non-commercial use only), unlike the rest
   brand/                     logo, start-screen art, fonts, 3D models and textures
   LICENSE, NOTICE            the MIT licence and the data credits
   serve.py                   helper, Python 3 standard library
