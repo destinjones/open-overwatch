@@ -37,9 +37,12 @@ Open an issue and say so.
 2. Move CHANGELOG.md's "Unreleased" section under the new version and date. Versions are small four-part steps:
    after v0.9.2.11 comes v0.9.2.12.
 3. Run `node --test`; CI must be green on the commit.
-4. Run `Publish Update.bat` (Windows; on another system do the same by hand): it writes the version into `OW_VERSION`
-   in `src/map/version.js`, commits, creates the annotated tag `v<version>` and pushes `main` with its tags. The tag's
-   message is the release note: write a short paragraph a visitor would understand.
+4. Run `Publish Update.bat` (Windows; on another system do the same by hand): it fetches `origin/main` and
+   fast-forwards the current branch to it (and stops, changing nothing, if that is not a fast-forward: merge
+   `origin/main` first, for example after a Dependabot PR was merged on GitHub), writes the version into `OW_VERSION`
+   in `src/map/version.js`, commits, creates the annotated tag `v<version>` and pushes the branch to `main` with its
+   tags in one atomic push. If the push fails it deletes the tag and takes back the commit, so a second run is clean.
+   The tag's message is the release note: write a short paragraph a visitor would understand.
 5. GitHub then rebuilds the site (about a minute, with the new version at the root and under `/v/<tag>/`) and builds the
    release with its two files. Bump the MCP version (`VERSION` in `mcp/feeds.mjs`, `package.json`,
    `mcp/manifest.json`) when the server changed; the tests check they agree.
@@ -47,7 +50,8 @@ Open an issue and say so.
    ROADMAP.md, the version and date in `CITATION.cff`.
 
 When a release adds a runtime file (a new data file, texture, module folder), check it is in `APP_PATHS` in
-`build_site.py` (or archived versions 404 on it) and in the zip's file list in `release.yml`.
+`build_site.py` (or archived versions 404 on it) and in the zip's file list in `release.yml` (`test/release.test.mjs`
+checks the zip against README.txt, the data files the views fetch and the pages they link to).
 
 ## The relay and the MCP Worker
 
