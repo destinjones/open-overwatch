@@ -1,7 +1,14 @@
 # Roadmap — the rebuild
 
 Work happens on the local `rebuild` branch. Nothing is pushed, tagged or deployed until the user says so (a local
-pre-push hook refuses pushes without OO_PUSH_OK=1). Published: v0.9.1 (2026-10-02), v0.9.2.1 and v0.9.2.2 (2026-10-03), v0.9.2.3 and v0.9.2.4 (2026-10-04), v0.9.2.5 (2026-10-06); next v0.9.2.6.
+pre-push hook refuses pushes without OO_PUSH_OK=1). Published: v0.9.1 (2026-10-02)
+through v0.9.2.14 (2026-10-15), each with its CHANGELOG.md entry; next v0.9.2.15 (CHANGELOG.md's [Unreleased]).
+
+Owner decisions still open (2026-10-17): redeploying the MCP Worker, so the 2026-10-17 MCP fixes (the /mcp/%zz crash,
+parse caching) and EMSC in `earthquakes` reach claude.ai users; narrowing the pages' `connect-src` from `https:` to the feed
+hosts (docs/NOTES.md calls the wildcard a deliberate trade-off: custom relays and radio streams); and whether the
+non-commercial terms of Open-Meteo (free API) and the light-pollution World Atlas (CC BY-NC 4.0) fit paid Meta ads and
+GitHub Sponsors (record the answer in NOTICE or GOVERNANCE.md).
 
 Goal: one coherent, well-engineered project that zooms from a street to the Local Group on real, open data — code a
 programmer would enjoy reading, not three big HTML files.
@@ -16,8 +23,10 @@ programmer would enjoy reading, not three big HTML files.
 - [x] 2D map split into modules (`src/map/`, generated from an AST analysis of the old script), keeping its layer contract; satellites via `src/core/tle.js`
 - [x] CI: syntax check, page→module links, tests on every push (`.github/workflows/ci.yml`; runs once we publish)
 - [x] `docs/DATA_SOURCES.md` (every feed: what, licence, refresh, accuracy)
-- [ ] Refresh ISRO spacecraft tracks before they run out (Chandrayaan-2 2026-11-08, Aditya-L1 2027-01-19): `python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"` (JPL Horizons, public domain); test/india.test.mjs warns two weeks ahead
-- [ ] Honest README with a demo clip (do with Stage 3, once the zoom exists)
+- [ ] Refresh ISRO spacecraft tracks before they run out (Chandrayaan-2 2026-11-08, Aditya-L1 2027-01-19): `python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"` (JPL Horizons, public domain); test/india.test.mjs warns two weeks ahead.
+      Do it before 2026-11-01 and republish; if Horizons still ends Chandrayaan-2 on 2026-11-08, the owner picks where the India page's main button goes instead
+      (Aditya-L1 or the Moon)
+- [x] Honest README with a demo clip (README.md: brand/clip/zoom-preview.webp and the 30 s MP4)
 
 Housekeeping before publishing: `src`, `earth_fx_2k.jpg` and `brand/textures/moons` are now in `APP_PATHS` / the release zip;
 check any new runtime asset is too (archived /v/<tag>/ copies fall back to the site root only for big data and textures).
@@ -112,12 +121,12 @@ check any new runtime asset is too (archived /v/<tag>/ copies fall back to the s
       a hex address; "tonight" opened pre-dawn described the minutes to dawn; meteor peak nights were a day off west of
       UTC+6; cards overwrote each other; look-up leaked models, buildings and clicks; the build's launch/crew copies
       were all-or-nothing; the site build now keeps the last good copy of any feed it can't refresh (see NOTES.md)
-- [ ] Live site 2026-10-06: data/tle/ is empty since the 06:28 UTC build (CelesTrak timed out on GitHub's runner); the
+- [x] Live site 2026-10-06: data/tle/ is empty since the 06:28 UTC build (CelesTrak timed out on GitHub's runner); the
       next scheduled build (12:23 UTC) or a manual "Website" run restores it; with this branch's build_site.py a repeat
-      would keep the previous copy instead
+      would keep the previous copy instead (it does, and now warns when a kept group's elements are over 48 h old)
 - [ ] Real-phone check: share sheet with a file (iOS Safari, Android Chrome), notifications on Android, .ics on iPhone
 
-## Stage 5 — Ops pack: take on God's Eye View (2026-10-10, local, not published)
+## Stage 5 — Ops pack: take on God's Eye View (2026-10-10; published from v0.9.2.7, 2026-10-11)
 Benchmark: [bilawalsidhu/gods-eye-view](https://github.com/bilawalsidhu/gods-eye-view) (Node + Vite, Google 3D tiles, OpenAI voice).
 Our edge stays: a URL that works on a phone, no keys, no install, and the zoom out to the cosmic web.
 - [x] Sensor looks, keys 1-7: night vision, thermal (white hot, black hot, ironbow), CRT, noir. One post-process pass
@@ -136,11 +145,11 @@ Round 2 (2026-10-10, local):
 - [x] Public relay on the owner's Cloudflare account (relay/, Workers Cache in front): NOAA NHC, NYC cameras and the
       live cable map now work on the website. The ADS-B networks and OpenSky refuse Cloudflare's servers, so live
       aircraft still need the download (see docs/NOTES.md "Public relay"; adsb.lol says feeder API keys are coming)
-- [ ] Live aircraft on the website (2026-10-15, branch claude/wizardly-hamilton-5bcd3f; **needs the owner's OK to redeploy
-      the relay**): adsb.lol through the relay for /mil, emergency squawks and a fixed grid of 250 nm tiles (core/airgrid.js,
-      shared at the edge 45-60 s); the globe asks the 3 tiles nearest the camera, the 2D map 6. OpenSky stays download-only
-      (its terms forbid passing the data on). Then check from the website that adsb.lol answers the Worker (not 429) and
-      watch the Worker's daily request count (free plan: 100,000)
+- [x] Live aircraft through the relay, tried and dropped: the 2026-10-15 deploy with adsb.lol was rolled back (adsb.lol
+      answers Cloudflare with 429), and the relay redeployed on 2026-10-17 carries no aircraft host (relay/worker.js:
+      not adsb.lol, not OpenSky, whose terms forbid passing the data on). On the website both views now say once that
+      live aircraft come with the free download and stop asking (core/relay.js markNotCarried). core/airgrid.js's tile
+      grid stays for a future relay; the open item is "Live aircraft on the website" below
 - [x] Photoreal 3D cities: Google tiles via the visitor's own Cesium ion token; Google's geocoder while on (src/globe/photoreal.js)
 - [x] Tropical cyclones on the globe: NASA EONET tracks + NOAA NHC advisories (src/globe/storms.js)
 - [x] Directions: drive / walk / cycle (FOSSGIS OSRM), turn-by-turn, "fly it", by voice (core/route.js tested)
@@ -205,8 +214,11 @@ Round 2 (2026-10-10, local):
       CAPE, fog, waves and swell, ECMWF/GFS/ICON agreement; core/wxpoint.js), `aircraft_lookup` (adsbdb: type, owner,
       route) and `where_in_space` (any mission, comet, moon or named asteroid now; asteroid elements by byte range;
       core/whereis.js); stdio split into mcp/stdio.mjs so nothing the Worker imports needs Node
-- [ ] Deploy the MCP Worker (`npx wrangler deploy` in mcp-worker/, a `MCP_TOKEN` secret): needs the owner's OK; then add
-      the connector in claude.ai and check the globe panel over a remote connector (MCP Apps support there is the host's)
+- [x] Deploy the MCP Worker (`npx wrangler deploy` in mcp-worker/, a `MCP_TOKEN` secret): deployed 2026-10-13 (version
+      aaf0e183, mcp-worker/wrangler.toml)
+- [ ] Redeploy the MCP Worker with the 2026-10-17 code (the /mcp/%zz 404, parse caching, EMSC in `earthquakes`): the
+      owner's call, not decided yet; then check the globe panel over a remote connector in claude.ai (MCP Apps support
+      there is the host's)
 - [x] Country lookups across the antimeridian: Russia no longer claims Canada and Alaska (core/borders.js, the globe's card too)
 - [x] Emulator pass of v0.9.2.7 (Android Chrome 124 + WebKit iPhone 15): every new layer holds the phone cap of 30
       renders/s while dragging, the battery saver idles at 5-15, no script errors in either engine, layer caches stay
@@ -294,7 +306,9 @@ Round 2 (2026-10-10, local):
       on its card (core/aloft.js aloftWords); trails coloured by altitude with stats and GeoJSON (core/trail.js)
 - [ ] 2D map: the tower view, the landing watch and the route arc are still globe-only
 - [ ] Live aircraft on the website: only with a feed's agreement (an adsb.lol feeder key, or OpenSky's permission)
-- [ ] An MCP server (download version), and a real-phone check of everything above
+- [x] An MCP server (download version): mcp/, 38 tools in 0.4.0
+- [ ] A real-phone check of everything above
+- [ ] Publish `open-overwatch-mcp` to npm (needs the owner's npm account with 2FA): not for now (owner, 2026-10-17)
 
 ### Installable app, touch hints, accessibility (grow-pwa-a11y, 2026-10-12, local)
 - [x] Service worker (sw.js, scope = the site root): the app opens offline (pages + every module, found by reading the
@@ -315,8 +329,10 @@ Round 2 (2026-10-10, local):
       the keyboard, the Solar System's search is a combobox; reduced motion stops CSS animation everywhere
 - [x] Contrast: the faint text colour #55667a (3.1-3.5:1) is now #738599 (4.6-5.4:1) on every page; symbol-only time
       buttons and the Solar System search got names. HTML check (core/a11ycheck.js) in the tests and in CI
-- [ ] Solar System camera flights still swoop with reduced motion on (the globe's already jump): src/solar is another
-      session's this round
+- [ ] Solar System camera flights still swoop with reduced motion on in v0.9.2.14 (the globe's already jump). Fixed on
+      rebuild: src/solar/util.js CALM, used by focusOn, flyDist and the hand-over roll. The box stays open only
+      because CONTRIBUTING.md still lists it as a good first issue and test/docs.test.mjs expects it open (and checks
+      CALM in src/globe/viewer.js, not src/solar/util.js); tick it in the same change that takes it off both
 - [ ] Real-phone check of install + offline (iOS: Add to Home Screen from Safari's Share menu; no install prompt there)
 
 ### Earth now dashboard (grow2-dashboard, 2026-10-13, local)
@@ -327,6 +343,7 @@ Round 2 (2026-10-10, local):
       windiest point; every line switches its layer on and flies there. Sums and SVG charts in core/earthnow.js (tested)
 - [ ] Launches per month from real history: the site copies only upcoming launches; a trimmed `launches/previous` copy
       in build_site.py (a few more LL2 requests per build) would give a true monthly count. Needs the owner's OK
+      (not decided on 2026-10-17, so left out of v0.9.2.15)
 - [ ] An `earth_now` MCP tool on the same core sums
 ### Time travel (grow3-timetravel, 2026-10-13, local)
 - [x] One clock, real history: with the globe's clock in the past, earthquakes come from the USGS catalogue (24 h before
@@ -351,8 +368,18 @@ Round 2 (2026-10-10, local):
       layouts (Pixel 7), five picture checks against small thumbnails; its own CI job (docs/TESTING.md)
 - [x] Fixed on the way: the 2D map's "3D globe" button lost the view on a middle-click
 - [ ] At 1366x820 the globe's zoom pad covers the right end of the band (Measure, Eclipses, Solar system ↗)
-- [ ] The 2D map's phone bar buttons are 37.5 px tall: under the 44-48 px a finger wants
-- [ ] First CI run on Linux: if fonts push the picture checks past their limits, add `<name>.linux.png` references
+- [ ] The 2D map's phone bar buttons are 37.5 px tall in v0.9.2.14: under the 44-48 px a finger wants. Fixed on
+      rebuild: 44 px (open-overwatch.html `#mobilebar button`; e2e/phone.spec.mjs checks 44). The box stays open only
+      because CONTRIBUTING.md still lists it as a good first issue and test/docs.test.mjs expects it open; tick it in
+      the same change that takes it off both
+- [x] First CI run on Linux: if fonts push the picture checks past their limits, add `<name>.linux.png` references
+      (e2e/snapshots/tonight-phone.linux.png)
+- [ ] Refresh e2e/snapshots/globe-europe.png on the next GitHub run (`OO_E2E_ALL=1 OO_E2E_UPDATE=1`): it was taken at
+      the old Low quality level, which no level now matches; look at it before committing it
+- [ ] Run the browser tests written on 2026-10-17 on GitHub (a push to ci-e2e needs the owner's OK): the globe to
+      Solar System hand-off and back, the #go= panels, weather mode, an Ops look, voice, Tonight's #at= links and embed,
+      the phone Low tier with Starlink off, and the EMSC mock. The delayed no-aircraft line has no browser test (only
+      source checks in test/globesite.test.mjs): look for it on a normal globe run there
 ### Oceans and air (grow3-ocean, 2026-10-13, local)
 - [x] Globe and 2D map: NOAA NDBC buoys and coastal stations (`buoys`, ~870, coloured by wave height), DART tsunami
       buoys (`dart`, ~75; the card reads the buoy's file: water column, event mode), NOAA CO-OPS tide gauges (`tides`,
@@ -361,9 +388,18 @@ Round 2 (2026-10-10, local):
       clicking the sea reads the value back from the tile's pixel; air quality (`airq`, the CAMS model via Open-Meteo
       on a grid over the view: OpenAQ v3 needs a key). Parsers and card words in core/ocean.js (tested on captured
       answers); MCP tools `sea_conditions` and `air_quality`
-- [ ] **The website needs the relay redeployed** for buoys and DART: NDBC sends no CORS, `www.ndbc.noaa.gov` is added to
+- [x] **The website needs the relay redeployed** for buoys and DART: NDBC sends no CORS, `www.ndbc.noaa.gov` is added to
       relay/worker.js (TTL, PATHS) and PUBLIC_RELAY_HOSTS, but the Worker on Cloudflare runs the old list until the owner
-      redeploys it (`npx wrangler deploy` in relay/). Tides, sea temperature, smoke and air quality need no relay
+      redeploys it (`npx wrangler deploy` in relay/). Tides, sea temperature, smoke and air quality need no relay.
+      Redeployed 2026-10-17, with www.tsunami.gov beside it and no adsb.lol
+- [ ] Tsunami messages (NTWC and PTWC, tsunami.gov's Atom feeds, already on the relay): a parser in src/core, a line
+      on quake cards with a tsunami flag, on DART cards in event mode and in Earth now, and an MCP tool (deferred from
+      the 2026-10-17 audit, product-5)
+- [ ] After the relay redeploy: probe one NDBC or camera target twice with different `&t=`; the Worker's inner cache
+      (caches.default) only takes effect on a custom domain or route, not on *.workers.dev
+- [ ] Iowa DOT stills: its camera list was empty on 2026-10-17; when it has rows again, check one ImageURL against the
+      relay's `atmsqf.iowadot.gov` PATHS rule (/snapshots/ or an image file, no query string), or Iowa stills get a
+      quiet 403 on the website
 - [ ] Ocean next: NOAA's HF-radar surface currents (ERDDAP, CORS); Argo floats; a tide curve on the card (the 6-minute
       predictions); tide gauges outside the US (IOC sea level monitoring, no CORS: relay); the 2D map's click-to-read
 ### CI security and coverage (ci-security-coverage, 2026-10-14, local)
@@ -371,7 +407,9 @@ Round 2 (2026-10-10, local):
       to main, weekly; data, renders and fixtures skipped), `npm audit --audit-level=high` and a licence allowlist
       check (`brand/tools/license_check.mjs`, no new dependency) in the test job, and a coverage floor (`npm run
       coverage`: src/core and mcp, lines 96 / branches 81 / functions 91 against 99.3 / 84.2 / 94.3 measured)
-- [ ] Raise the branch floor as the MCP tools' error paths get tests (airportwx, hazards, ocean are 51-59 % branches)
+- [ ] Raise the branch floor as the MCP tools' error paths get tests: 83 since the 2026-10-17 MCP error-path tests
+      (package.json `coverage`; 84.96 % measured). Lowest now: mcp/wxdetail.mjs 46 %, airportwx.mjs 53 %,
+      volcanoes.mjs 62 % branches
 
 ### Provenance on every live layer (provenance-layers, 2026-10-14, local)
 - [x] Every live card on the globe and the 2D map says who reported it, how many sources agree, how old the data is
@@ -379,7 +417,10 @@ Round 2 (2026-10-10, local):
 - [x] Real agreement where the site merges feeds: aircraft (both views), storms (NHC / GDACS / EONET, one vote per agency),
       quakes (USGS + GDACS alerts, 2D map), ships (Digitraffic + aisstream, 2D map); tolerances tested
 - [x] Export what's in view as GeoJSON, CSV, KML with provenance (core/export.js); MCP answers carry `provenance`
-- [ ] A second earthquake catalogue (EMSC) so quakes can be confirmed, not only reported (new feed: owner's call)
+- [x] A second earthquake catalogue (EMSC) so quakes can be confirmed, not only reported (new feed: owner's call):
+      seismicportal.eu beside USGS on the globe, the 2D map and the MCP `earthquakes` tool (core/quakes.js emscSource)
+- [ ] EMSC's busy windows (a week or a month, M1+ in a day) are cut at 1,000 events (core/quakes.js emscUrl; EMSC's own
+      ceiling is unchecked), so older USGS quakes there stay "reported"; the significant-month floor stays M4.5
 - [ ] Ask a second aircraft network once for the plane whose card is open (one request), so the open card can confirm
 
 ### Re-entry predictions: Falling soon (reentry, 2026-10-14, local)
@@ -392,6 +433,20 @@ Round 2 (2026-10-10, local):
       the documented default
 - [ ] Rocket bodies: a decaying-objects group copied by the site build (needs a source that may be redistributed)
 - [ ] Tell station-kept satellites from falling ones (SATCAT operational status, or two element sets a few days apart)
+
+### Left over from the 2026-10-17 audit (v0.9.2.15, local)
+- [ ] At publish: give 0.9.2.15 its date in src/core/whatsnew.js (test/whatsnew.test.mjs fails once CHANGELOG.md has
+      the heading and the entry has none)
+- [ ] Owner, outside the repo: point the Hindi Meta ads at `india/hi/` (the URL is in docs/INDIA.md), and reword the
+      Instagram bio and first post, which still mention planes
+- [ ] brand/tools/make_cards.mjs still makes an "11,737 planes" card: new copy or retire it; don't post it as it is
+- [ ] Kepler-90's planet cards keep the archive's designations (KOI-351 ...): an alias per planet would fix it
+- [ ] Solar System lines: Earth's is the Earth-Moon barycentre's orbit (up to ~4,700 km from Earth's centre); a comet
+      within PARABOLIC of e = 1 is placed as a parabola (core/comets.js), a little off its line; Moon-centred mission
+      tracks jump up to ~5,000 km at orbit burns (core/craft.js; a later local start for Chandrayaan-2 needs a new
+      Horizons fetch)
+- [ ] test/localpaths.test.mjs scans chosen folders; scanning every tracked .md/.html/.json would need its own allowlist
+- [ ] A public page (and an MCP tool) saying which feeds are stale or failing (deferred from the audit, product-6)
 
 ## Rules of thumb
 - One clear goal per session; read this file first, tick boxes as they land.
