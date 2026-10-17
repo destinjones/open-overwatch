@@ -466,7 +466,8 @@ As it is today:
    6 hours, and by hand. It builds the site with the current version at the root and the newest 6 annotated `v*` tags
    (`ARCHIVE_KEEP`) frozen under `/v/<tag>/`; an older tag gets a small page there that links to its release zip. Only
    `APP_PATHS` in `build_site.py` are copied into a frozen version, so add every new runtime asset to that list. The dev-only
-   folders (`SKIP_ROOT`: test/, e2e/, notes/, relay/, mcp-worker/, brand/clip/) are left off the site, except the files
+   folders (`SKIP_ROOT`: brand/source/, brand/blend/, .github/, brand/models/previews/, test/, e2e/, notes/, relay/,
+   mcp-worker/, brand/clip/) are left off the site, except the files
    a page loads (`KEEP_ROOT`). It writes `versions.json` for the landing page's version picker (every tag; `online` is
    how many have a frozen copy, `keep` the budget) and `sitemap.xml` with each page's `lastmod` from git, and refreshes
    the feed copies (TLE groups, launches, crew, flybys, close approaches, headlines, wind). A copy it can't refresh keeps
