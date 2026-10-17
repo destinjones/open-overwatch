@@ -31,8 +31,9 @@ export const gdacsGeometryUrl = (eventid, episodeid) => `${GDACS_API}polygons/ge
 const https = u => (typeof u === 'string' && /^https:\/\//i.test(u) ? u : '');
 const POINTS16 = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 export const compass16 = deg => POINTS16[Math.round((((+deg % 360) + 360) % 360) / 22.5) % 16];
-/** Great-circle-ish distance in km (equirectangular: fine for "the same storm, within 300 km"). */
-export const distKm = (a, b) => { const r = Math.PI / 180, x = (b.lon - a.lon) * r * Math.cos((a.lat + b.lat) / 2 * r), y = (b.lat - a.lat) * r; return Math.hypot(x, y) * 6371; };
+/** Great-circle-ish distance in km (equirectangular: fine for "the same storm, within 300 km"); the longitude difference
+ *  is wrapped, so fixes either side of 180° (Fiji, Tonga, the Central Pacific) are as near as they are. */
+export const distKm = (a, b) => { const r = Math.PI / 180, x = (((b.lon - a.lon) % 360 + 540) % 360 - 180) * r * Math.cos((a.lat + b.lat) / 2 * r), y = (b.lat - a.lat) * r; return Math.hypot(x, y) * 6371; };
 
 /** NHC's CurrentStorms.json → [{ id, name, code, title ('Hurricane Erin'), lat, lon, kt, pressure (mb), dir (deg), mph,
  *  movement ('toward NW at 12 mph'), advisory (time text), url (public advisory), forecastUrl, advNum, bin }]. */
@@ -171,6 +172,20 @@ export function mergeGdacs(list, gd) {
   return list;
 }
 
+/** A GDACS geometry's key in `kept`: "event/episode". */
+export const gdacsKey = g => g.eventid + '/' + g.episodeid;
+/**
+ * Bound the GDACS geometry cache: GDACS issues a new episode with every advisory, so without this a tab left open through
+ * a season keeps every one. The episodes in `current` (items with eventid and episodeid, or keys) always stay; the others
+ * go oldest first until at most `cap` entries are left. Returns `kept`.
+ * @param {Map<string, any>} kept @param {Iterable<any>} [current] @param {number} [cap]
+ */
+export function pruneKept(kept, current = [], cap = 24) {
+  const keep = new Set([...current].map(g => (typeof g === 'string' ? g : gdacsKey(g))));
+  for (const k of [...kept.keys()]) { if (kept.size <= cap) break; if (!keep.has(k)) kept.delete(k); }
+  return kept;
+}
+
 /**
  * Every active cyclone with what each source knows. json(url, { timeout, relay }) fetches and parses (throws on failure);
  * nhc: whether NHC's CurrentStorms.json can be reached (a relay); kept: a Map the caller keeps between loads (GDACS
@@ -199,16 +214,17 @@ export async function loadCyclones({ json, nhc = false, kept = new Map(), now = 
   // NOAA's own forecast is drawn for its storms (only those mergeNoaa placed, so a dropped one still gets GDACS's)
   const skip = new Set(list.filter(s => s.fc && s.fc.src === 'NOAA NHC').map(s => String(s.fc.name || '').toLowerCase().split(/\s+/).pop()));
   try {
-    const gd = [];
-    for (const g of parseGdacsCyclones(await json(gdacsTcUrl(now), { timeout: 30000 }))) {
+    const gd = [], current = parseGdacsCyclones(await json(gdacsTcUrl(now), { timeout: 30000 }));
+    for (const g of current) {
       if (skip.has(g.name.toLowerCase())) continue;
-      const key = g.eventid + '/' + g.episodeid;
+      const key = gdacsKey(g);
       if (!kept.has(key)) {
         try { kept.set(key, gdacsForecast(await json(gdacsGeometryUrl(g.eventid, g.episodeid), { timeout: 45000 }))); }
         catch (e) { warn('GDACS ' + g.name, e); continue; }
       }
       gd.push({ ...g, fc: kept.get(key) });
     }
+    pruneKept(kept, current);   // the list answered: old episodes go (each advisory is a new one)
     mergeGdacs(list, gd);
   } catch (e) { warn('GDACS', e); }
   return list;

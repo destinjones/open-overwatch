@@ -1,10 +1,13 @@
 # Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 """The world's volcanoes for the globe: Wikidata (CC0) -> data/volcanoes.json
 
-    python make_volcanoes.py        (the answer is cached in brand/source/volcanoes.json; delete it to refresh)
+    python make_volcanoes.py        (the answer is cached in brand/source/volcanoes.json with its query; delete it to refresh)
 
 Every item on Wikidata that is a volcano (or any kind of volcano) with coordinates: name, position, summit height, country, type
 (stratovolcano, shield volcano...), Wikidata id. "Extinct" is kept as a type so the globe can dim those. Rows are arrays, columns in `cols`.
+Heights are Wikidata's normalised values (psn:, always metres) of the best-rank statements: the plain wdt: value keeps the
+unit it was entered in, and some summits are in feet (Mount Blackburn came out as "16,390 m"). A cache from another query
+is asked again.
 """
 import json, re, subprocess, time
 from pathlib import Path
@@ -14,17 +17,21 @@ ROOT = HERE.parent.parent
 RAW = HERE.parent / 'source' / 'volcanoes.json'
 Q = '''SELECT ?v ?vLabel ?coord ?elev ?countryLabel ?typeLabel WHERE {
   ?v wdt:P31 ?type . ?type wdt:P279* wd:Q8072 . ?v wdt:P625 ?coord .
-  OPTIONAL { ?v wdt:P2044 ?elev . } OPTIONAL { ?v wdt:P17 ?country . }
+  OPTIONAL { ?v p:P2044 ?es . ?es a wikibase:BestRank ; psn:P2044/wikibase:quantityAmount ?elev . }
+  OPTIONAL { ?v wdt:P17 ?country . }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }'''
 
 
 def fetch():
-    if RAW.exists(): return json.loads(RAW.read_text(encoding='utf-8'))
+    if RAW.exists():
+        c = json.loads(RAW.read_text(encoding='utf-8'))
+        if isinstance(c, dict) and c.get('query') == Q: return c['bindings']
+        print('the cached answer is from another query: asking Wikidata again')
     for attempt in range(3):
         r = subprocess.run(['curl', '-sSL', '--fail', '-m', '170', '-G', 'https://query.wikidata.org/sparql', '--data-urlencode', 'query=' + Q, '-H', 'Accept: application/sparql-results+json', '-A', 'open-overwatch/0.9 (https://github.com/destinjones/open-overwatch)'], capture_output=True)
         if r.returncode == 0:
-            d = json.loads(r.stdout)['results']['bindings']; RAW.parent.mkdir(parents=True, exist_ok=True); RAW.write_text(json.dumps(d), encoding='utf-8'); return d
+            d = json.loads(r.stdout)['results']['bindings']; RAW.parent.mkdir(parents=True, exist_ok=True); RAW.write_text(json.dumps({'query': Q, 'bindings': d}), encoding='utf-8'); return d
         print('attempt', attempt + 1, 'failed', r.stderr.decode()[:70]); time.sleep(30)
     raise SystemExit('Wikidata kept failing; run again later')
 
@@ -37,8 +44,8 @@ def main():
         m = re.match(r'Point\(([-\d.eE+]+) ([-\d.eE+]+)\)', r['coord']['value'])
         if not m: continue
         b = best.setdefault(vid, {'name': name, 'lon': round(float(m.group(1)), 3), 'lat': round(float(m.group(2)), 3), 'elev': None, 'country': '', 'types': []})
-        if r.get('elev') and b['elev'] is None:
-            try: b['elev'] = round(float(r['elev']['value']))
+        if r.get('elev'):   # metres; of several best-rank heights the highest, so a re-run gives the same file
+            try: b['elev'] = max(b['elev'] or -1e9, round(float(r['elev']['value'])))
             except ValueError: pass
         if r.get('countryLabel') and not b['country']: b['country'] = r['countryLabel']['value']
         t = r.get('typeLabel', {}).get('value')

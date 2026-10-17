@@ -129,6 +129,15 @@ export function firePerimeters(fc) {
   }).filter(f => f.rings.length);
 }
 
+/** A longitude (or a difference of two) brought into [-180, 180). */
+export const lonWrap = d => ((d % 360) + 540) % 360 - 180;
+/** A west..east span of longitude (west < east, either may be past ±180) as boxes inside [-180, 180]: split at the antimeridian. */
+export function lonBoxes(w, e) {
+  if (e - w >= 360) return [[-180, 180]];
+  if (w < -180) return e < -180 ? [[w + 360, e + 360]] : [[w + 360, 180], [-180, e]];
+  if (e > 180) return w > 180 ? [[w - 360, e - 360]] : [[w, 180], [-180, e - 360]];
+  return [[w, e]];
+}
 /** GIBS's geographic tile grid (the "500m" set of the VIIRS thermal anomaly layers): level 0 is two 288° tiles. */
 export const fireTileDeg = level => 288 / 2 ** level;
 /** The tiles of a level that cover a box (degrees, west < east, no antimeridian crossing): [{ level, row, col }]. */
@@ -154,8 +163,11 @@ export const fireLevel = km => km > 1200 ? 3 : km > 500 ? 4 : km > 150 ? 5 : 6;
  */
 export function fireTilesWanted(lat, lon, r, level, max, now = Date.now()) {
   const day = ms => new Date(ms).toISOString().slice(0, 10), rl = r / Math.max(0.2, Math.cos(lat * Math.PI / 180));
-  const near = fireTilesFor(Math.max(-180, lon - rl), Math.max(-90, lat - r), Math.min(180, lon + rl), Math.min(90, lat + r), level)
-    .map(t => { const d = fireTileDeg(t.level); return /** @type {[any, number]} */ ([t, Math.hypot(-180 + (t.col + 0.5) * d - lon, 90 - (t.row + 0.5) * d - lat)]); })
+  lon = lonWrap(lon);
+  const s = Math.max(-90, lat - r), n = Math.min(90, lat + r), seen = new Set();
+  const near = lonBoxes(lon - rl, lon + rl).flatMap(([w, e]) => fireTilesFor(w, s, e, n, level))   // a view across 180° takes tiles on both sides
+    .filter(t => !seen.has(t.col + '/' + t.row) && seen.add(t.col + '/' + t.row))
+    .map(t => { const d = fireTileDeg(t.level); return /** @type {[any, number]} */ ([t, Math.hypot(lonWrap(-180 + (t.col + 0.5) * d - lon), 90 - (t.row + 0.5) * d - lat)]); })
     .sort((a, b) => a[1] - b[1]).slice(0, level <= 3 ? 2 : max).map(a => a[0]);
   const out = [];
   for (const t of near) for (const sat of Object.keys(FIRE_LAYERS)) for (const d of [day(now), day(now - 864e5)])
@@ -240,3 +252,22 @@ export const IMAGERY = Object.freeze({
   VIIRS: { name: 'VIIRS (daily)', layer: 'VIIRS_NOAA21_CorrectedReflectance_TrueColor', max: 9, ext: 'jpg', res: '250-375 m' },
 });
 export const gibsTemplate = (sensor, date) => { const s = IMAGERY[sensor]; return `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${s.layer}/default/${date}/GoogleMapsCompatible_Level${s.max}/{z}/{y}/{x}.${s.ext}`; };
+
+/**
+ * Time travel's catalogue requests while an upstream fails (the globe's quakes, storms and natural events sync every
+ * second): a failed key (a day) keeps its place and is asked again only after `first` ms, doubling to `max`, until a load
+ * works. claim(key) says whether to ask for that failed key now and, if so, holds it (no second request while one is out);
+ * a key that has not failed is the caller's to ask for at once.
+ */
+export function retryBackoff({ first = 30e3, max = 300e3 } = {}) {
+  let key = /** @type {string | null} */ (null), at = 0, wait = 0;
+  return {
+    /** Is `k` the failed key and its wait over? Then it is held until failed() or ok(). */
+    claim(k, now = Date.now()) { if (k !== key || now < at) return false; at = Infinity; return true; },
+    /** `k` failed: the wait (ms) before it is asked again. */
+    failed(k, now = Date.now()) { wait = wait ? Math.min(max, wait * 2) : first; key = k; at = now + wait; return wait; },
+    /** A load worked (or the clock left the past): forget the failure. */
+    ok() { key = null; at = 0; wait = 0; },
+    get key() { return key; },
+  };
+}

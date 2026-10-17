@@ -1,7 +1,8 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { stormKey, nhcForecasts, gdacsForecast, firePerimeters, fireTileDeg, fireTilesFor, parseFires, csvLine, parseCmrCsv, imageryDates, pickPair, gibsTemplate, WW } from '../src/core/hazards.js';
+import { stormKey, nhcForecasts, gdacsForecast, firePerimeters, fireTileDeg, fireTilesFor, parseFires, csvLine, parseCmrCsv, imageryDates, pickPair, gibsTemplate, WW, retryBackoff } from '../src/core/hazards.js';
+import { pruneKept, gdacsKey, loadCyclones } from '../src/core/cyclones.js';
 
 const feat = (properties, geometry) => ({ type: 'Feature', properties, geometry });
 const pt = (lon, lat) => ({ type: 'Point', coordinates: [lon, lat] });
@@ -127,4 +128,70 @@ test('recent imagery: CMR CSV, one entry per day and sensor, a sensible first pa
   assert.equal(pair.after.date, '2026-10-08'); assert.equal(pair.before.date, '2026-09-07');   // the cloudy Landsat day is skipped
   assert.equal(pickPair(dates.slice(0, 1)), null);
   assert.match(gibsTemplate('S30', '2026-10-08'), /HLS_S30_Nadir_BRDF_Adjusted_Reflectance\/default\/2026-10-08\/GoogleMapsCompatible_Level12\/\{z\}\/\{y\}\/\{x\}\.png$/);
+});
+
+// ---- the hazard layers stay gentle and bounded: time travel's backoff, the GDACS cache, the fire worker's timeout ----
+
+test('time travel backoff: a failed day waits 30 s, doubling to 5 min, and is held while asked', () => {
+  const r = retryBackoff(), t0 = 1e6;
+  assert.equal(r.claim('2026-10-01', t0), false);   // nothing failed: the caller asks for a new day itself
+  assert.equal(r.failed('2026-10-01', t0), 30e3);
+  assert.equal(r.claim('2026-10-01', t0 + 1000), false);   // the next second: not again
+  assert.equal(r.claim('2026-10-01', t0 + 29e3), false);
+  assert.equal(r.claim('2026-10-02', t0 + 31e3), false);   // another day is not this one's to retry
+  assert.equal(r.claim('2026-10-01', t0 + 30e3), true);
+  assert.equal(r.claim('2026-10-01', t0 + 31e3), false);   // held while the retry is out
+  let t = t0 + 31e3;
+  const waits = [];
+  for (let i = 0; i < 6; i++) { waits.push(r.failed('2026-10-01', t)); t += waits[i]; assert.equal(r.claim('2026-10-01', t), true); }
+  assert.deepEqual(waits, [60e3, 120e3, 240e3, 300e3, 300e3, 300e3]);
+  r.ok(); assert.equal(r.key, null); assert.equal(r.claim('2026-10-01', t + 1e9), false);
+  assert.equal(r.failed('2026-10-01', t), 30e3);   // a fresh failure starts again at 30 s
+  // a failure every second for an hour asks the same day ~16 times, not 3,600
+  const q = retryBackoff();
+  let asked = 0;
+  for (let s = 0; s < 3600; s++) { const now = s * 1000; if (s === 0 || q.claim('d', now)) { asked++; q.failed('d', now); } }
+  assert.ok(asked <= 16, String(asked));
+});
+
+test('GDACS cache: current episodes stay, the rest go oldest first past the cap', () => {
+  const kept = new Map(Array.from({ length: 30 }, (_, i) => ['e' + i + '/1', { i }]));
+  pruneKept(kept, [{ eventid: 'e0', episodeid: 1 }, 'e1/1']);
+  assert.equal(kept.size, 24); assert.ok(kept.has('e0/1') && kept.has('e1/1'));   // the oldest, but current
+  assert.ok(!kept.has('e2/1') && !kept.has('e7/1') && kept.has('e8/1') && kept.has('e29/1'));
+  const many = new Map(Array.from({ length: 30 }, (_, i) => ['c' + i + '/1', i]));
+  pruneKept(many, [...many.keys()]); assert.equal(many.size, 30);   // never a current one
+  assert.equal(gdacsKey({ eventid: 1001335, episodeid: 38 }), '1001335/38');
+  const small = new Map([['a/1', 1]]); assert.equal(pruneKept(small), small); assert.equal(small.size, 1);
+});
+
+test('GDACS cache: a live load drops old episodes once the list answers, and keeps them when it does not', async () => {
+  const list = { features: [{ properties: { iscurrent: 'true', eventid: 7, episodeid: 9, eventname: 'BUALOI-26', alertlevel: 'Green' }, geometry: { type: 'Point', coordinates: [130, 15] } }] };
+  const json = async url => (url.startsWith('https://eonet') ? { events: [] } : url.includes('geteventlist') ? list : { features: [] });
+  const kept = new Map(Array.from({ length: 40 }, (_, i) => ['old' + i + '/1', {}]));
+  await loadCyclones({ json, kept });
+  assert.equal(kept.size, 24); assert.ok(kept.has('7/9')); assert.ok(!kept.has('old0/1') && kept.has('old39/1'));
+  const kept2 = new Map(Array.from({ length: 40 }, (_, i) => ['old' + i + '/1', {}]));
+  await loadCyclones({ json: async url => { if (url.includes('geteventlist')) throw new Error('down'); return json(url); }, kept: kept2 });
+  assert.equal(kept2.size, 40);   // no list, no judgement
+});
+
+test('fire worker: a stalled request or body read answers with an error after its timeout', async () => {
+  const posted = [], had = { self: globalThis.self, fetch: globalThis.fetch }, g = /** @type {any} */ (globalThis);
+  const stall = signal => new Promise((_, rej) => signal.addEventListener('abort', () => rej(signal.reason)));
+  const url = 'https://gibs.example/t.mvt', keep = setInterval(() => {}, 1000);   // AbortSignal.timeout's timer does not hold Node's event loop
+  try {
+    g.self = { postMessage: m => posted.push(m) };
+    await import('../src/core/fires.worker.js');
+    const run = data => g.self.onmessage({ data });
+    g.fetch = (u, o) => stall(o.signal);   // the server never answers
+    await run({ id: 1, url, since: 0, timeout: 30 });
+    g.fetch = async (u, o) => ({ status: 200, ok: true, arrayBuffer: () => stall(o.signal) });   // headers, then nothing
+    await run({ id: 2, url, since: 0, timeout: 30 });
+    g.fetch = async () => { throw new TypeError('Failed to fetch'); };   // GIBS's 404 without CORS: no data that day yet
+    await run({ id: 3, url, since: 0, timeout: 30 });
+    g.fetch = async (u, o) => { assert.ok(o.signal instanceof AbortSignal); return { status: 404, ok: false }; };
+    await run({ id: 4, url, since: 0 });
+  } finally { g.self = had.self; g.fetch = had.fetch; clearInterval(keep); }
+  assert.deepEqual(posted, [{ id: 1, error: 'timed out' }, { id: 2, error: 'timed out' }, { id: 3, fires: [], missing: true }, { id: 4, fires: [] }]);
 });

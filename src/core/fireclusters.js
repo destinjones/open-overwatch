@@ -2,7 +2,7 @@
 // Fire detections in an area, made answerable: which GIBS tiles cover it (across the antimeridian too), and the hot pixels
 // grouped into fires (single linkage: detections within ~2.5 km of each other are one fire), each with its size, power and
 // last sighting. Pure (test/fireclusters.test.mjs); the MCP server's wildfires tool uses it with core/hazards.js.
-import { fireTilesFor, fireTileDeg } from './hazards.js';
+import { fireTilesFor, fireTileDeg, lonWrap, lonBoxes } from './hazards.js';
 
 const KM_DEG = 111.32, D2R = Math.PI / 180;
 
@@ -12,12 +12,7 @@ const KM_DEG = 111.32, D2R = Math.PI / 180;
  */
 export function fireTilesAround(lat, lon, km, { maxTiles = 6, maxLevel = 6, minLevel = 2 } = {}) {
   const dLat = km / KM_DEG, dLon = Math.min(180, km / (KM_DEG * Math.max(0.05, Math.cos(Math.min(89, Math.abs(lat) + dLat) * D2R))));
-  const s = Math.max(-90, lat - dLat), n = Math.min(90, lat + dLat), boxes = [];
-  if (dLon >= 180) boxes.push([-180, 180]);
-  else {
-    const w = lon - dLon, e = lon + dLon;
-    if (w < -180) boxes.push([w + 360, 180], [-180, e]); else if (e > 180) boxes.push([w, 180], [-180, e - 360]); else boxes.push([w, e]);
-  }
+  const s = Math.max(-90, lat - dLat), n = Math.min(90, lat + dLat), boxes = dLon >= 180 ? [[-180, 180]] : lonBoxes(lon - dLon, lon + dLon);
   for (let level = maxLevel; level >= minLevel; level--) {
     const tiles = boxes.flatMap(([w, e]) => fireTilesFor(w, s, e, n, level));
     if (tiles.length <= maxTiles || level === minLevel) return { level, tiles };
@@ -29,6 +24,7 @@ export { fireTileDeg };
 /**
  * Detections ({ lat, lon, frp, t, day, conf, sat }) grouped into fires: [{ count, frp (total MW), max_frp, lat, lon (the
  * power-weighted centre), km (the group's longest side), first, last (ms), night (detections at night) }], strongest first.
+ * The antimeridian is no seam: the grid's columns wrap around the world and a fire on Taveuni across 180° stays one fire.
  */
 export function clusterFires(fires, linkKm = 2.5) {
   const n = fires.length, parent = Int32Array.from({ length: n }, (_, i) => i);
@@ -36,15 +32,18 @@ export function clusterFires(fires, linkKm = 2.5) {
   const join = (a, b) => { a = find(a); b = find(b); if (a !== b) parent[b] = a; };
   // cells at least a link wide both ways (east-west at the most poleward detection), so a link never skips a cell
   let top = 0; for (const f of fires) top = Math.max(top, Math.abs(f.lat));
-  const cell = linkKm / KM_DEG, cellLon = cell / Math.max(0.05, Math.cos(Math.min(87, top) * D2R)), grid = new Map(), key = (y, x) => y + ',' + x;
-  fires.forEach((f, i) => { const y = Math.floor(f.lat / cell), x = Math.floor(f.lon / cellLon), k = key(y, x), g = grid.get(k); if (g) g.list.push(i); else grid.set(k, { y, x, list: [i] }); });
+  // the columns divide 360° exactly (each still at least a link wide), so the last one sits next to the first
+  const cell = linkKm / KM_DEG, cols = Math.max(1, Math.floor(360 / (cell / Math.max(0.05, Math.cos(Math.min(87, top) * D2R))))), cellLon = 360 / cols;
+  const grid = new Map(), key = (y, x) => y + ',' + x;
+  fires.forEach((f, i) => { const y = Math.floor(f.lat / cell), x = Math.min(cols - 1, Math.floor((lonWrap(f.lon) + 180) / cellLon)), k = key(y, x), g = grid.get(k); if (g) g.list.push(i); else grid.set(k, { y, x, list: [i] }); });
   for (const { y, x, list } of grid.values()) {
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-      const o = grid.get(key(y + dy, x + dx)), other = o && o.list; if (!other) continue;
+    const xs = new Set([x - 1, x, x + 1].map(c => (c + cols) % cols));   // a world of one or two columns has fewer neighbours
+    for (let dy = -1; dy <= 1; dy++) for (const nx of xs) {
+      const o = grid.get(key(y + dy, nx)), other = o && o.list; if (!other) continue;
       for (const i of list) for (const j of other) {
         if (j <= i) continue;
         const a = fires[i], b = fires[j], kx = KM_DEG * Math.cos(a.lat * D2R);
-        if (Math.hypot((a.lat - b.lat) * KM_DEG, (a.lon - b.lon) * kx) <= linkKm) join(i, j);
+        if (Math.hypot((a.lat - b.lat) * KM_DEG, lonWrap(a.lon - b.lon) * kx) <= linkKm) join(i, j);
       }
     }
   }
@@ -52,13 +51,15 @@ export function clusterFires(fires, linkKm = 2.5) {
   fires.forEach((f, i) => { const r = find(i); const g = groups.get(r); if (g) g.push(f); else groups.set(r, [f]); });
   const out = [];
   for (const list of groups.values()) {
-    let frp = 0, max = 0, wl = 0, wx = 0, wy = 0, first = Infinity, last = -Infinity, night = 0, s = 90, nn = -90, w = 180, e = -180;
+    // longitudes unwrapped around the first detection, so a group across 180° has its centre and width there (not near 0°)
+    const ref = list[0].lon;
+    let frp = 0, max = 0, wl = 0, wx = 0, wy = 0, first = Infinity, last = -Infinity, night = 0, s = 90, nn = -90, w = Infinity, e = -Infinity;
     for (const f of list) {
-      const p = Math.max(0.1, f.frp || 0); frp += f.frp || 0; if ((f.frp || 0) > max) max = f.frp || 0;
-      wl += p; wy += f.lat * p; wx += f.lon * p; if (f.t < first) first = f.t; if (f.t > last) last = f.t; if (!f.day) night++;
-      if (f.lat < s) s = f.lat; if (f.lat > nn) nn = f.lat; if (f.lon < w) w = f.lon; if (f.lon > e) e = f.lon;
+      const p = Math.max(0.1, f.frp || 0), x = ref + lonWrap(f.lon - ref); frp += f.frp || 0; if ((f.frp || 0) > max) max = f.frp || 0;
+      wl += p; wy += f.lat * p; wx += x * p; if (f.t < first) first = f.t; if (f.t > last) last = f.t; if (!f.day) night++;
+      if (f.lat < s) s = f.lat; if (f.lat > nn) nn = f.lat; if (x < w) w = x; if (x > e) e = x;
     }
-    const lat = wy / wl, lon = wx / wl;
+    const lat = wy / wl, mx = wx / wl, lon = mx > 180 ? mx - 360 : mx < -180 ? mx + 360 : mx;
     out.push({ count: list.length, frp, max_frp: max, lat, lon, km: Math.max((nn - s) * KM_DEG, (e - w) * KM_DEG * Math.cos(lat * D2R)) + 0.375, first, last, night });
   }
   return out.sort((a, b) => b.frp - a.frp || b.count - a.count);

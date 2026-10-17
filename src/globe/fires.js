@@ -23,7 +23,10 @@ function viaWorker(url, since) {
     worker.onmessage = e => { const w = waiting.get(e.data.id); if (!w) return; waiting.delete(e.data.id); e.data.error ? w.rej(new Error(e.data.error)) : w.res(e.data); };
     worker.onerror = e => { for (const w of waiting.values()) w.rej(new Error(e.message || 'fires worker failed')); waiting.clear(); worker = null; };   // a worker that fails to load would otherwise leave every tile 'loading' for good
   }
-  return new Promise((res, rej) => { const id = ++seq; waiting.set(id, { res, rej }); worker.postMessage({ id, url, since }); });
+  return new Promise((res, rej) => {   // the worker gives up after 30 s; this backstop frees the request slot whatever happens
+    const id = ++seq, timer = setTimeout(() => { if (waiting.delete(id)) rej(new Error('fires worker timed out')); }, 45e3);
+    waiting.set(id, { res: v => { clearTimeout(timer); res(v); }, rej: e => { clearTimeout(timer); rej(e); } }); worker.postMessage({ id, url, since });
+  });
 }
 
 // ---- hot spots: one point collection per tile and day, so a tile leaving the view is one switch, not 15,000 removals
