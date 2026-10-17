@@ -51,7 +51,7 @@ test('2D map: the bottom bar switches between the layers, the map and the intel 
   const bar = page.locator('#mobilebar');
   await expect(bar).toBeVisible();
   await expectOnScreen(page, '#mobilebar');
-  await expectTappable(page, '#mobilebar button', 36);   // 37.5 px today: under the 44-48 px touch guidelines, over the floor
+  await expectTappable(page, '#mobilebar button', 44);   // the 44 px touch guideline (37.5 px until v0.9.2.15)
   await expectFitsWidth(page, ['#top', '#mobilebar', '#mapwrap']);
   await bar.locator('[data-sheet="rail"]').tap();
   await expect(page.locator('#rail')).toBeVisible();
