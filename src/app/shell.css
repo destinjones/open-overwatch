@@ -30,6 +30,18 @@ html.oo-kbd :focus-visible{box-shadow:0 0 0 4px rgba(4,6,10,.75)}
 .oo-bar-b:hover{border-color:#7dffa6}
 .oo-install[hidden]{display:none!important}
 
+/* "What's new": once after an update (src/app/pwa.js); a corner card, never a blocking dialog */
+.oo-new{position:fixed;left:10px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:100001;width:min(360px,calc(100% - 20px));box-sizing:border-box;
+  padding:14px 14px 12px;border-radius:14px;background:rgba(8,12,18,.94);border:1px solid rgba(125,255,166,.35);box-shadow:0 12px 36px rgba(0,0,0,.55);
+  color:#e6edf3;font:14px/1.4 "Barlow",system-ui,sans-serif;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.oo-new h2{margin:0 28px 2px 0;color:#7dffa6;font:600 12px/1.2 "IBM Plex Mono",ui-monospace,Consolas,monospace;letter-spacing:.08em;text-transform:uppercase}
+.oo-new-t{margin:0 28px 8px 0;font:800 19px/1.1 "Big Shoulders Display","Arial Narrow",sans-serif;letter-spacing:.03em}
+.oo-new ul{margin:0 0 10px;padding-left:18px;display:grid;gap:4px}
+.oo-new-row{display:flex;gap:8px;flex-wrap:wrap}
+.oo-new-row .oo-bar-b{display:inline-flex;align-items:center;text-decoration:none}
+.oo-new-x{position:absolute;top:8px;right:8px;width:32px;height:32px;border:0;border-radius:8px;background:transparent;color:#8b9bab;font-size:15px;cursor:pointer}
+.oo-new-x:hover{color:#e6edf3}
+
 /* first-run touch hints */
 #ooHints{position:fixed;inset:0;z-index:100002;display:flex;align-items:flex-end;justify-content:center;padding:16px 12px calc(16px + env(safe-area-inset-bottom,0px));
   background:rgba(2,4,8,.55);opacity:0;transition:opacity .22s}

@@ -1,12 +1,14 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The installable app, page side: registers ../../sw.js (see the decision in core/pwa.js), shows a banner while the
-// device is offline, offers a reload when a new version has been published, and an Install button where the browser
-// allows one (Chrome, Edge, Android; iPhones install from Safari's Share menu).
+// device is offline, offers a reload when a new version has been published, a "What's new" card once after it
+// (core/whatsnew.js), and an Install button where the browser allows one (Chrome, Edge, Android; iPhones install from
+// Safari's Share menu).
 //
 // Archived /v/<tag>/ pages do none of it and never touch the site's worker. On the local helper (serve.js, the
 // download) the worker is off unless ?sw=1 asks for it; ?sw=0 turns it off again and removes it.
 
 import { swDecision, offlineWords } from '../core/pwa.js';
+import { whatsNewDue, SEEN_KEY } from '../core/whatsnew.js';
 import { announce } from './a11y.js';
 
 const SW_URL = new URL('../../sw.js', import.meta.url);
@@ -54,6 +56,7 @@ export function initPwa(page) {
   initOffline();
   addEventListener('beforeinstallprompt', e => { e.preventDefault(); Pwa.installEvent = e; installButtons(true, page); });
   addEventListener('appinstalled', () => { Pwa.installEvent = null; installButtons(false); announce('Open Overwatch is installed'); });
+  if (/[?&]whatsnew=1\b/.test(location.search)) setTimeout(() => whatsNew(null), 1500);   // forced, for testing (no worker needed)
   if (!sw) return;
   if (!d.register) { if (d.reason === 'local' || d.reason === 'switched-off') removeOwnWorker(); return; }
   const go = () => register().catch(e => console.warn('[oo] service worker:', e && e.message));
@@ -88,7 +91,7 @@ async function register() {
     w.addEventListener('statechange', () => { if (w.state === 'installed' && sw.controller) offerUpdate(w); });
   });
   sw.addEventListener('controllerchange', () => { if (Pwa.reloading) location.reload(); });
-  ask(sw.controller, { type: 'build' }).then(r => { if (r) Pwa.build = r.build; });
+  ask(sw.controller, { type: 'build' }).then(r => { if (r) { Pwa.build = r.build; whatsNew(r.build); } });
   // phones keep tabs for days: look for a new version when the tab comes back, at most every 15 minutes
   let last = Date.now();
   const check = () => { if (document.visibilityState === 'visible' && Date.now() - last > 15 * 60e3) { last = Date.now(); reg.update().catch(() => {}); } };
@@ -138,10 +141,56 @@ function offerUpdate(worker) {
   ask(worker, { type: 'build' }).then(r => {
     const v = r && r.build && r.build !== 'dev' ? ' (v' + r.build.split('+')[0] + ')' : '';
     showBar('update', 'A new version of Open Overwatch is ready' + v + '.', { buttons: [
-      { label: 'Reload', main: true, run: () => { Pwa.reloading = true; worker.postMessage({ type: 'skip-waiting' }); setTimeout(() => location.reload(), 4000); } },
+      { label: 'Reload', main: true, run: () => {
+        Pwa.reloading = true; try { sessionStorage.setItem(UPDATED_KEY, '1'); } catch { }
+        worker.postMessage({ type: 'skip-waiting' }); setTimeout(() => location.reload(), 4000);
+      } },
       { label: 'Later', run: () => hideBar('update') },
     ] });
   });
+}
+
+// ---- "What's new": once after an update, never on a first visit, an archived copy or an embed ----
+
+const UPDATED_KEY = 'oo-updated';   // sessionStorage: the visitor pressed Reload on the new-version bar
+const embedded = () => { try { return window.top !== window || /[#&?]embed\b/.test(location.href); } catch { return true; } };
+
+let newDone = false;
+function whatsNew(build) {
+  if (newDone) return; newDone = true;
+  let seen = null, updated = false;
+  try { seen = localStorage.getItem(SEEN_KEY); } catch { }
+  try { updated = sessionStorage.getItem(UPDATED_KEY) === '1'; sessionStorage.removeItem(UPDATED_KEY); } catch { }
+  const { card, remember } = whatsNewDue(build, seen, { embed: embedded(), updated, search: location.search });
+  try { if (remember) localStorage.setItem(SEEN_KEY, remember); } catch { }
+  if (card) showWhatsNew(card);
+}
+
+/** A small glass card in a corner: it never blocks the page, goes on ✕, Escape or a link, and is shown once. */
+function showWhatsNew(card) {
+  if (document.getElementById('ooNew')) return;
+  const el = document.createElement('section');
+  el.id = 'ooNew'; el.className = 'oo-new'; el.setAttribute('aria-labelledby', 'ooNewH');
+  const h = document.createElement('h2'); h.id = 'ooNewH'; h.textContent = 'New in v' + card.version;
+  const t = document.createElement('p'); t.className = 'oo-new-t'; t.textContent = card.title;
+  const ul = document.createElement('ul');
+  for (const line of card.lines) { const li = document.createElement('li'); li.textContent = line; ul.appendChild(li); }
+  const row = document.createElement('div'); row.className = 'oo-new-row';
+  const link = (label, href, main, external) => {
+    const a = document.createElement('a'); a.className = 'oo-bar-b' + (main ? ' main' : ''); a.textContent = label; a.href = href;
+    if (external) { a.target = '_blank'; a.rel = 'noopener'; }
+    a.addEventListener('click', () => close()); row.appendChild(a);
+  };
+  if (card.go) link('Try it', new URL(card.go, ROOT).href, true, false);
+  link(card.more > 0 ? `Full notes (+${card.more})` : 'Full notes', card.notes, !card.go, true);
+  const x = document.createElement('button'); x.type = 'button'; x.className = 'oo-new-x'; x.textContent = '✕'; x.setAttribute('aria-label', 'Close what\'s new');
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  const close = () => { el.remove(); removeEventListener('keydown', onKey); };
+  x.addEventListener('click', close);
+  addEventListener('keydown', onKey);
+  el.append(x, h, t, ul, row);
+  document.body.appendChild(el);
+  announce('New in version ' + card.version + ': ' + card.title);
 }
 
 /** The Install buttons: the landing page's (#ooInstall, or one added to its nav) appear only when the browser offers it. */

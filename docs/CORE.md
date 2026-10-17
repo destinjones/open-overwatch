@@ -31,7 +31,7 @@ is also used by its tests in `test/`.
 - [OpenStreetMap](#openstreetmap): `osmtiles.js`, `overpass.js`
 - [Links, words and the interface](#links-words-and-the-interface): `viewlink.js`, `solarlink.js`, `search.js`, `scene.js`, `voicecmd.js`, `format.js`, `ics.js`, `radio.js`
 - [Network and devices](#network-and-devices): `assets.js`, `relay.js`, `gpu.js`
-- [The app shell](#the-app-shell): `pwa.js`, `spot.js`, `a11ycheck.js`
+- [The app shell](#the-app-shell): `pwa.js`, `whatsnew.js`, `spot.js`, `a11ycheck.js`
 
 ## Time, units and frames
 
@@ -1107,6 +1107,14 @@ are due. Used by app.
 
 - `swDecision`, `swSwitch`, `isArchivedPath`, `isLocalHost`: the service worker.
 - `ageWords`, `offlineWords`: the offline banner. `hintsDue`, `hintsSeen`, `isLongPress`, `HINT_KEY`, `HINT_PAGES`.
+
+### `whatsnew.js`
+
+"What's new": the card a returning visitor sees once after an update, with the notes of each version (CHANGELOG.md's,
+shortened). Never on a first visit, an archived copy or an embed; a commit-only rebuild is not a new version. Used by app.
+
+- `whatsNewDue`, `cardFor`, `RELEASES`, `SEEN_KEY`: the decision and the card. `versionOf`, `compareVersions`,
+  `releaseFor`, `notesUrl`, `tryLink`.
 
 ### `spot.js`
 
