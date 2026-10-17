@@ -106,8 +106,8 @@ test('every kind of request goes the right way', () => {
   assert.equal(k('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'), 'lib');
   assert.equal(k('https://fonts.gstatic.com/s/barlow/v12/x.woff2'), 'lib');
   assert.equal(k('https://cdn.jsdelivr.net/npm/cesium/Build/Cesium/Cesium.js'), 'pass', 'an unpinned library may change under the same URL');
-  assert.equal(k('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/3/2/1'), 'tile');
   assert.equal(k('https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/BlueMarble_NextGeneration/default/default/500m/2/1/1.jpeg'), 'tile');
+  assert.equal(k('https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/VIIRS_Black_Marble/default/2016-01-01/500m/2/1/1.png'), 'tile');
   assert.equal(k('https://terrain.reearth.land/cesium-mesh/ellipsoid/5/10/12.terrain'), 'tile');
   assert.equal(k('https://tile.openstreetmap.org/4/8/5.png'), 'tile');
 });
@@ -119,6 +119,9 @@ test('live feeds, the relay, archived versions and odd requests are never touche
     'https://opensky-network.org/api/states/all', 'https://tilecache.rainviewer.com/v2/radar/1/256/2/1/1/2/1_1.png',
     'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_Band13_Clean_Infrared/default/default/GoogleMapsCompatible_Level6/2/1/1.png',
     'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer?f=json', 'https://tiles.openfreemap.org/planet',
+    // Esri's imagery: streamed live only, never kept (the owner's call, 2026-10-17)
+    'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/3/2/1', 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/3/2/1',
+    'https://ibasemaps-api.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/3/2/1.jpg',
     SCOPE + 'proxy?url=https%3A%2F%2Fexample.org', SCOPE + 'sw.js', SCOPE + 'brand/clip/promo.mp4',
     SCOPE + 'v/v0.9.2.7/globe.html', SCOPE + 'v/v0.9.2.7/src/globe/main.js', 'https://destinjones.github.io/other-repo/index.html'])
     assert.equal(k(url), 'pass', url);
@@ -198,17 +201,31 @@ test('pinned libraries: fetched once with CORS (no opaque copies), then from the
 });
 
 test('tiles: opaque answers are not kept, readable ones are, and the cache stays bounded', async () => {
-  const osm = 'https://tile.openstreetmap.org/4/8/5.png', esri = 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/3/2/1';
+  const osm = 'https://tile.openstreetmap.org/4/8/5.png', gibs = 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/BlueMarble_NextGeneration/default/default/500m/2/1/1.jpeg';
   const opaque = () => { const r = fresh('px'); Object.defineProperty(r, 'type', { value: 'opaque' }); return r; };
-  const w = worker({ net: { [osm]: req => req.mode === 'cors' ? Promise.reject(new TypeError('CORS')) : opaque(), [esri]: () => fresh('tile') } });
+  const w = worker({ net: { [osm]: req => req.mode === 'cors' ? Promise.reject(new TypeError('CORS')) : opaque(), [gibs]: () => fresh('tile') } });
   const r1 = await w.request(osm, { mode: 'no-cors' });
   assert.equal(r1.res.type, 'opaque', 'the picture still shows');
   assert.equal((await w.caches.open(w.oo.CACHES.tile)).map.size, 0);
-  await w.request(esri);
+  await w.request(gibs);
   assert.equal((await w.caches.open(w.oo.CACHES.tile)).map.size, 1);
   const c = await w.caches.open('t'); for (let i = 0; i < 30; i++) await c.put(SCOPE + 'x' + i, fresh('x'));
   await w.oo.trim('t', 10);
   assert.deepEqual([...c.map.keys()].slice(0, 2), [SCOPE + 'x20', SCOPE + 'x21'], 'the oldest go first');
+});
+
+test('Esri tiles stream live only: never kept, and copies an older version kept are dropped at activate', async () => {
+  const esri = 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/3/2/1', esri2 = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/4/5/6';
+  const gibs = 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/BlueMarble_NextGeneration/default/default/500m/2/1/1.jpeg', osm = 'https://tile.openstreetmap.org/4/8/5.png';
+  const w = worker({ net: { [esri]: () => fresh('esri'), [gibs]: () => fresh('gibs') } });
+  assert.equal((await w.request(esri)).passed, true, 'the browser fetches it as if there were no worker');
+  assert.equal((await w.caches.open(w.oo.CACHES.tile)).map.size, 0);
+  // what v0.9.2.15 and earlier left behind: Esri tiles next to NASA's and OSM's
+  const tiles = await w.caches.open(w.oo.CACHES.tile);
+  for (const u of [esri, esri2, gibs, osm]) await tiles.put(u, fresh('old'));
+  await w.lifecycle('activate');
+  assert.deepEqual([...tiles.map.keys()].sort(), [gibs, osm].sort(), 'the NASA Blue Marble and OSM copies stay for offline use');
+  assert.equal(await w.oo.dropStreamOnly(), 0, 'nothing left to drop');
 });
 
 test('the install crawl finds every module a page reaches, and nothing outside the site', async () => {

@@ -48,9 +48,10 @@ test('Caltrans, DriveBC, Calgary, Singapore', () => {
   assert.equal(bc.length, 1); assert.equal(bc[0].direction, 'northeast'); assert.equal(bc[0].image, 'https://www.drivebc.ca/images/42.jpg');
   const yyc = CAMERA_NETS.calgary.parse([{ camera_url: { url: 'http://trafficcam.calgary.ca/loc50.jpg', description: 'Deerfoot' }, point: { coordinates: [-114, 51] }, quadrant: 'NE' }]);
   assert.equal(yyc[0].image, 'https://trafficcam.calgary.ca/loc50.jpg'); assert.equal(yyc[0].id, 'yyc:loc50'); assert.equal(yyc[0].view, 'NE Calgary');
-  const sg = parseSingapore({ items: [{ cameras: [{ camera_id: '1001', timestamp: '2026-10-12T10:00:00+08:00', image: 'https://images.data.gov.sg/x.jpg', location: { latitude: 1.3, longitude: 103.8 } }] }] });
-  assert.equal(sg[0].fresh, true); assert.equal(sg[0].view, 'Expressway camera · 2026-10-12 10:00');
-  assert.equal(sg[0].t, Date.parse('2026-10-12T02:00:00Z'));   // the still's own time, so its provenance is not 'unknown'
+  const sg = parseSingapore({ items: [{ cameras: [{ camera_id: '1001', timestamp: '2026-10-18T06:30:56+08:00', image: 'https://images.data.gov.sg/x.jpg', location: { latitude: 1.3, longitude: 103.8 } }] }] });
+  assert.equal(sg[0].fresh, true); assert.equal(sg[0].view, 'Expressway camera');
+  assert.doesNotMatch(JSON.stringify(sg[0]), /06:30|2026-10-18/, 'no zone-less Singapore clock time (it reads hours ahead in the Americas and Europe)');
+  assert.equal(sg[0].t, Date.parse('2026-10-17T22:30:56Z'));   // the still's own time, so its provenance is not 'unknown'
   assert.equal(parseSingapore({ items: [{ cameras: [{ camera_id: '1002', image: 'https://images.data.gov.sg/y.jpg', location: { latitude: 1.3, longitude: 103.8 } }] }] })[0].t, null);
 });
 

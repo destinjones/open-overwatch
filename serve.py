@@ -4,10 +4,11 @@
 
 Serves this folder at http://127.0.0.1:8787/ and relays requests to a short list of data sources
 that refuse browser (CORS) requests. The page comes from this same origin, so the relayed answers need no CORS
-header, and only this helper's own pages may use the relay.
+header, and only this helper's own pages may use the relay. It also carries aisstream.io's WebSocket for the download's
+ships (ws://127.0.0.1:8787/aisstream, see Handler.aisstream): the website never opens that socket.
 Standard library only. Run:  python serve.py   (or double-click "Start Open Overwatch.bat")
 """
-import http.server, socketserver, urllib.request, urllib.parse, urllib.error, os, sys, webbrowser, threading, gzip, zlib, io
+import http.server, socketserver, urllib.request, urllib.parse, urllib.error, os, sys, webbrowser, threading, gzip, zlib, io, re, socket, ssl
 
 PORT = int(os.environ.get("OW_PORT", "8787"))
 PAGE = "open-overwatch.html"
@@ -54,10 +55,57 @@ class CheckedRedirect(urllib.request.HTTPRedirectHandler):
 
 OPENER = urllib.request.build_opener(CheckedRedirect)
 
+# aisstream.io for the download's ships: a WebSocket tunnel (keep in step with aisTunnel in serve.js). aisstream.io takes
+# no connection from a web page, so the 2D map opens ws://127.0.0.1:8787/aisstream and the bytes go through unchanged to
+# wss://stream.aisstream.io/v0/stream, both ways: the visitor's API key (in the first frame) is never read, logged or
+# kept here. Only this helper's own pages may open it, a query string is refused, and a few tunnels at most are open.
+# OW_AIS_UPSTREAM=ws://127.0.0.1:<port>/<path> points it at a stand-in for test/serve.test.mjs (loopback ws:// only).
+AIS_PATH = "/aisstream"
+AIS_MAX = 4
+AIS_LOCK = threading.Lock()
+AIS_OPEN = [0]
+WS_KEY = re.compile(r"^[A-Za-z0-9+/]{22}==$")
+PRINTABLE = re.compile(r"^[\x20-\x7e]*$")
+
+
+def ais_upstream():
+    o = os.environ.get("OW_AIS_UPSTREAM", "")
+    if o:
+        try:
+            u = urllib.parse.urlsplit(o)
+            if u.scheme == "ws" and u.hostname == "127.0.0.1" and u.port:
+                return u.hostname, u.port, u.path or "/", False
+        except ValueError:
+            pass
+    return "stream.aisstream.io", 443, "/v0/stream", True
+
+
+def pump(src_read, dst):
+    """Copy bytes until either side closes, then close the other side too."""
+    try:
+        while True:
+            data = src_read(65536)
+            if not data:
+                break
+            dst.sendall(data)
+    except OSError:
+        pass
+    finally:
+        try:
+            dst.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+
 
 class Handler(http.server.SimpleHTTPRequestHandler):
-    # brand/ assets and the 3D globe (keep in sync with MIME in serve.js)
-    extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, '.webp': 'image/webp', '.glb': 'model/gltf-binary', '.mp4': 'video/mp4', '.wav': 'audio/wav', '.mjs': 'text/javascript'}
+    # pinned, so the Windows registry can't change them (a "text/plain" .js entry would blank every page); = MIME in serve.js
+    # (test/serve.test.mjs checks)
+    extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map,
+                      '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json',
+                      '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8', '.py': 'text/plain; charset=utf-8',
+                      '.bat': 'text/plain; charset=utf-8', '.md': 'text/markdown; charset=utf-8', '.webp': 'image/webp', '.glb': 'model/gltf-binary', '.mp4': 'video/mp4',
+                      '.wav': 'audio/wav', '.mjs': 'text/javascript; charset=utf-8', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json',
+                      '.webm': 'video/webm', '.wasm': 'application/wasm'}
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=os.path.dirname(os.path.abspath(__file__)), **kw)
 
@@ -65,6 +113,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         msg = fmt % args
         if "/proxy" in msg:
             msg = msg.split("url=")[0] + "url=…" if "url=" in msg else msg
+        if AIS_PATH in msg:  # never a query string from the tunnel's address in the log
+            msg = re.sub(r"(/aisstream)\?\S*", r"\1?…", msg)
         sys.stdout.write("%s %s\n" % (self.log_date_time_string(), msg)); sys.stdout.flush()
 
     def end_headers(self):
@@ -85,16 +135,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_HEAD(self):
         if self.headers.get("Host") not in OWN_HOSTS:
             return self.reply(421, "wrong host")
+        if "\0" in urllib.parse.unquote(urllib.parse.urlsplit(self.path).path):
+            return self.reply(400, "bad path")
         return super().do_HEAD()
 
     def do_GET(self):
         if self.headers.get("Host") not in OWN_HOSTS:  # DNS rebinding guard
             return self.reply(421, "wrong host")
         parsed = urllib.parse.urlsplit(self.path)
+        if "\0" in urllib.parse.unquote(parsed.path):  # the same answer as serve.js (which a NUL byte once crashed)
+            return self.reply(400, "bad path")
         if parsed.path == "/proxy":
             if not self.own_request():
                 return self.reply(403, "the relay only serves pages from this helper")
             return self.proxy(urllib.parse.parse_qs(parsed.query))
+        if parsed.path == AIS_PATH:
+            return self.aisstream(parsed)
         if parsed.path == "/":
             self.send_response(302); self.send_header("Location", "/" + PAGE); self.end_headers(); return
         return super().do_GET()
@@ -107,6 +163,80 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def aisstream(self, parsed):
+        """The WebSocket tunnel to aisstream.io (see AIS_PATH above): checks, the upstream handshake, then raw bytes."""
+        self.close_connection = True
+        h = self.headers
+        if not h.get("Upgrade"):
+            return self.reply(426, "a WebSocket only")
+        if not h.get("Origin") or not self.own_request():  # a browser always sends Origin on a WebSocket
+            return self.reply(403, "the aisstream tunnel only serves pages from this helper")
+        if parsed.query:
+            return self.reply(400, "no query string: the API key goes in the subscription message")
+        key = h.get("Sec-WebSocket-Key") or ""
+        if (h.get("Upgrade") or "").lower() != "websocket" or h.get("Sec-WebSocket-Version") != "13" or not WS_KEY.match(key):
+            return self.reply(400, "a WebSocket only")
+        extra = {k: h.get(k) for k in ("Sec-WebSocket-Extensions", "Sec-WebSocket-Protocol") if h.get(k)}
+        if any(not PRINTABLE.match(v) for v in extra.values()):
+            return self.reply(400, "bad header")
+        with AIS_LOCK:
+            if AIS_OPEN[0] >= AIS_MAX:
+                return self.reply(503, "too many aisstream tunnels open")
+            AIS_OPEN[0] += 1
+        host, port, path, secure = ais_upstream()
+        up = None
+        try:
+            try:
+                up = socket.create_connection((host, port), timeout=15)
+                if secure:
+                    up = ssl.create_default_context().wrap_socket(up, server_hostname=host)
+                lines = ["GET %s HTTP/1.1" % path, "Host: %s" % host, "Upgrade: websocket", "Connection: Upgrade",
+                         "Sec-WebSocket-Key: %s" % key, "Sec-WebSocket-Version: 13", "User-Agent: %s" % UA]
+                lines += ["%s: %s" % kv for kv in extra.items()]
+                up.sendall(("\r\n".join(lines) + "\r\n\r\n").encode("latin-1"))  # no Origin, no cookies: a plain client
+                buf = b""
+                while b"\r\n\r\n" not in buf:
+                    chunk = up.recv(4096)
+                    if not chunk or len(buf) > 16384:
+                        return self.reply(502, "aisstream.io sent no handshake")
+                    buf += chunk
+            except OSError as e:
+                return self.reply(502, "aisstream.io: %s" % e)
+            head, rest = buf.split(b"\r\n\r\n", 1)
+            status, *rows = head.decode("latin-1").split("\r\n")
+            code = (status.split(" ") + ["", ""])[1]
+            if code != "101":
+                return self.reply(502, "aisstream.io refused the connection (HTTP %s)" % (code or "?"))
+            got = {}
+            for row in rows:
+                k, _, v = row.partition(":")
+                got[k.strip().lower()] = v.strip()
+            accept = got.get("sec-websocket-accept", "")
+            if not accept or not PRINTABLE.match(accept):
+                return self.reply(502, "aisstream.io sent a bad handshake")
+            out = ["HTTP/1.1 101 Switching Protocols", "Upgrade: websocket", "Connection: Upgrade", "Sec-WebSocket-Accept: %s" % accept]
+            for name in ("Sec-WebSocket-Extensions", "Sec-WebSocket-Protocol"):
+                v = got.get(name.lower())
+                if v and PRINTABLE.match(v):
+                    out.append("%s: %s" % (name, v))
+            self.connection.sendall(("\r\n".join(out) + "\r\n\r\n").encode("latin-1") + rest)
+            up.settimeout(None)
+            self.connection.settimeout(None)
+            sys.stdout.write("%s aisstream open\n" % self.log_date_time_string()); sys.stdout.flush()
+            back = threading.Thread(target=pump, args=(up.recv, self.connection), daemon=True)
+            back.start()
+            pump(self.rfile.read1, up)  # the frames themselves, untouched
+            back.join(5)
+            sys.stdout.write("%s aisstream closed\n" % self.log_date_time_string()); sys.stdout.flush()
+        finally:
+            if up is not None:
+                try:
+                    up.close()
+                except OSError:
+                    pass
+            with AIS_LOCK:
+                AIS_OPEN[0] -= 1
 
     def proxy(self, q):
         if "ping" in q:
@@ -156,7 +286,8 @@ def main():
         print("Port %d is busy (%s). Is the helper already running? Open %s" % (PORT, e, url)); sys.exit(1)
     print("Open Overwatch helper on %s  (Ctrl+C to stop)" % url)
     print("Relaying: " + ", ".join(sorted(ALLOWED_HOSTS)))
-    threading.Timer(0.6, lambda: webbrowser.open(url)).start()
+    if not os.environ.get("OW_NO_OPEN"):  # OW_NO_OPEN=1: tests and CI, no browser window
+        threading.Timer(0.6, lambda: webbrowser.open(url)).start()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

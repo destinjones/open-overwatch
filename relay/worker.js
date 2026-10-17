@@ -3,13 +3,17 @@
 // advisories, buoys and tsunami messages, NYC cameras, some camera lists and stills, the submarine cable map), so a browser
 // page can't read them. This passes those through, and only those, like the download's local helper (serve.js):
 //   GET /?url=<encodeURIComponent(new URL(feed).href)>   the feed, with Access-Control-Allow-Origin for the website
-//   GET /?url=<...>&t=<digits>                            the same (a camera still's refresh: t only busts the browser's copy)
+//   GET /?url=<...>&t=<minute>                            a camera still's refresh (core/cameras.js bustUrl: Date.now() in
+//                                                         whole minutes); camera stills only, and only near this minute
 //   GET /?ping=1                                          "ok"
 // Rules: an allowlist of hosts and paths, GET only, an Origin header required (browsers always send one cross-origin;
 // a script without one gets nothing), one canonical request form (anything else is a 400: extra or reordered parameters,
-// a re-encoded or upper-case target would each be a fresh cache key), every redirect re-checked against the allowlist, a
-// fixed Accept header (a forwarded one could poison the shared cache with an HTML rendering of a JSON feed), no cookies or
-// keys passed on, a byte cap enforced on the stream. Rate limiting per address is a Cloudflare WAF rule on the route.
+// a re-encoded or upper-case target would each be a fresh cache key; so would any t, which is why only stills take one,
+// within T_WINDOW minutes of now), every redirect re-checked against the allowlist, a fixed Accept header (a forwarded one
+// could poison the shared cache with an HTML rendering of a JSON feed), no cookies or keys passed on, a byte cap enforced
+// on the stream. Rate limiting: the Workers Rate Limiting binding env.LIMITER (wrangler.toml [[ratelimits]]) per
+// cf-connecting-ip, counted only for requests that would go upstream (front-cache hits never reach this code). It works
+// on workers.dev; a WAF rule would not (that needs a zone of the owner's, and this Worker has only workers.dev).
 // Two caches share each answer for seconds to minutes, so a thousand visitors cost the volunteer feeds one request per
 // interval, not a thousand: Workers Cache in front (wrangler.toml [cache], keyed by the raw request; its hits never reach
 // this code, so the allowed origin is one fixed value) and caches.default inside, keyed by the canonical target alone
@@ -49,6 +53,13 @@ const PATHS = {
   'www.ndbc.noaa.gov': ['/data/latest_obs/latest_obs.txt', '/activestations.xml', '/data/realtime2/'],
   'www.tsunami.gov': ['/events/xml/'],
 };
+// the camera stills a t= may name (what bustUrl adds it to): the still hosts, and DriveBC's pictures (not its list)
+const T_STILLS = new Set(['kamera.atlas.vegvesen.no', 'atmsqf.iowadot.gov', 'trafficcam.calgary.ca', 'images.data.gov.sg']);
+const takesT = u => T_STILLS.has(u.hostname) || (u.hostname === 'www.drivebc.ca' && u.pathname.startsWith('/images/'));
+// minutes either side of now a t may be: room for a visitor's clock being off, while each still has at most
+// 2 * T_WINDOW + 1 cache keys at a time (each one an upstream fetch per TTL)
+const T_WINDOW = 10;
+const freshT = (t, now = Date.now()) => Math.abs(+t - Math.floor(now / 60000)) <= T_WINDOW;
 const MAX_BYTES = 30e6;
 const ACCEPT = 'application/json, application/geo+json, image/*;q=0.9, */*;q=0.5';
 const UA = 'OpenOverwatchRelay/1 (+https://destinjones.github.io/open-overwatch/)';
@@ -80,10 +91,17 @@ export default {
       return reply(400, 'one form only: /?url=' + encodeURIComponent(target.href) + ' (encodeURIComponent of the normalised URL; &t=<digits> may follow)');
     // a carried host asked for a path it doesn't carry gets its own text: only a refused host reads as core/relay.js relayRefused
     if (!allowed(target)) return reply(403, (Object.hasOwn(TTL, target.hostname) ? 'path not on the relay allowlist: ' : 'host not on the relay allowlist: ') + target.hostname);
+    if (t && !takesT(target)) return reply(400, 't= is only for a camera still: ask /?url=' + encodeURIComponent(target.href));
+    if (t && !freshT(t)) return reply(400, `t= must be the current minute (Date.now() / 60000, within ${T_WINDOW})`);
 
     // the inner cache: one copy per target whatever t says (the cache in front keys by the raw URL, t included)
     const cache = req.method === 'GET' && typeof caches !== 'undefined' && caches.default, key = cache && new Request(canonical(target, u.origin));
     if (cache) { const hit = await cache.match(key).catch(() => null); if (hit) return hit; }
+    // past both caches this request goes upstream: per address, at most LIMITER's share (a broken binding lets it through)
+    if (env && env.LIMITER) {
+      const { success } = await env.LIMITER.limit({ key: req.headers.get('cf-connecting-ip') || 'anonymous' }).catch(() => ({ success: true }));
+      if (!success) { const r = reply(429, 'too many requests from this address: try again in a minute'); r.headers.set('retry-after', '60'); return r; }
+    }
     const seconds = TTL[target.hostname];
 
     let res;

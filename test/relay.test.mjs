@@ -2,6 +2,7 @@
 // The public relay (relay/worker.js) with a stand-in upstream: who it serves, what it fetches, what it shares.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import worker from '../relay/worker.js';
 import { PUBLIC_RELAY, relayUrl } from '../src/core/relay.js';
 
@@ -9,9 +10,10 @@ const SITE = 'https://destinjones.github.io';
 let upstream;   // the next upstream answer: { status, headers, body }
 const calls = [];
 globalThis.fetch = async (url, init) => { calls.push({ url: String(url), init }); const u = upstream; return new Response(u.body, { status: u.status || 200, headers: u.headers || {} }); };
-const raw = (href, headers = { origin: SITE }, method = 'GET', ctx) => worker.fetch(new Request(href, { method, headers }), {}, ctx);
+const raw = (href, headers = { origin: SITE }, method = 'GET', ctx, env = {}) => worker.fetch(new Request(href, { method, headers }), env, ctx);
 const call = (url, headers, method, ctx) => raw('https://relay.test/?url=' + encodeURIComponent(url), headers, method, ctx);
 const NHC = 'https://www.nhc.noaa.gov/CurrentStorms.json';
+const minute = (off = 0) => Math.floor(Date.now() / 60000) + off;   // what core/cameras.js bustUrl sends as t
 
 test('relay: only Open Overwatch pages, only GET', async () => {
   upstream = { body: '{}', headers: { 'content-type': 'application/json' } };
@@ -32,7 +34,9 @@ test('relay: one canonical request form; every other spelling of a feed is a 400
     assert.equal((await raw('https://relay.test/' + bad)).status, 400, bad);
   assert.equal(calls.length, 0);
   assert.equal((await raw(`https://relay.test/?url=${enc}`)).status, 200);
-  assert.equal((await raw(`https://relay.test/?url=${enc}&t=29345678`)).status, 200);   // a still's per-minute refresh
+  assert.equal((await raw(`https://relay.test/?url=${enc}&t=${minute()}`)).status, 400, 'a feed takes no t: each one would be a fresh upstream fetch');
+  const still = encodeURIComponent('https://kamera.atlas.vegvesen.no/api/images/3000063_1');
+  assert.equal((await raw(`https://relay.test/?url=${still}&t=${minute()}`)).status, 200);   // a still's per-minute refresh
   assert.equal(calls.length, 2);
   // the clients build the canonical form, even from a feed's odd spelling
   assert.equal(relayUrl('https://WWW.NHC.noaa.gov/CurrentStorms.json'), PUBLIC_RELAY + enc);
@@ -96,13 +100,67 @@ test('relay: the inner cache is keyed by the canonical target, whatever t says',
   try {
     const ctx = { waitUntil: p => waits.push(p) }, enc = encodeURIComponent('https://kamera.atlas.vegvesen.no/api/images/1');
     calls.length = 0; upstream = { body: 'jpg', headers: { 'content-type': 'image/jpeg' } };
-    const first = await raw(`https://relay.test/?url=${enc}&t=100`, undefined, 'GET', ctx);
+    const first = await raw(`https://relay.test/?url=${enc}&t=${minute()}`, undefined, 'GET', ctx);
     assert.equal(await first.text(), 'jpg'); await Promise.all(waits);
     assert.deepEqual([...store.keys()], [`https://relay.test/?url=${enc}`]);
-    const again = await raw(`https://relay.test/?url=${enc}&t=101`, undefined, 'GET', ctx);
+    const again = await raw(`https://relay.test/?url=${enc}&t=${minute(1)}`, undefined, 'GET', ctx);
     assert.equal(again.status, 200); assert.equal(await again.text(), 'jpg'); assert.equal(calls.length, 1);   // one upstream fetch for both
     upstream = { status: 503, body: 'down', headers: { 'content-type': 'text/plain' } };   // errors are never put
     await raw('https://relay.test/?url=' + encodeURIComponent(NHC), undefined, 'GET', ctx); await Promise.all(waits);
     assert.equal(store.size, 1);
   } finally { delete globalThis.caches; }
+});
+
+test('relay: t= only on camera stills, and only near the current minute', async () => {
+  upstream = { body: 'jpg', headers: { 'content-type': 'image/jpeg' } };
+  const q = (url, t) => raw(`https://relay.test/?url=${encodeURIComponent(url)}&t=${t}`);
+  calls.length = 0;
+  for (const feed of [NHC, 'https://www.ndbc.noaa.gov/activestations.xml', 'https://www.tsunami.gov/events/xml/PAAQAtom.xml', 'https://www.submarinecablemap.com/api/v3/cable/cable-geo.json',
+    'https://www.drivebc.ca/api/webcams/', 'https://traveler.modot.org/timconfig/feed/desktop/StreamingCams2.json']) {
+    const r = await q(feed, minute()); assert.equal(r.status, 400, feed); assert.match(await r.text(), /only for a camera still/);
+  }
+  for (const stale of [minute(-12), minute(12), 9000000001, 29345678, 0]) assert.equal((await q('https://trafficcam.calgary.ca/loc86.jpg', stale)).status, 400, String(stale));
+  assert.equal(calls.length, 0, 'none of those reached upstream');
+  for (const still of ['https://kamera.atlas.vegvesen.no/api/images/1', 'https://atmsqf.iowadot.gov/snapshots/Public/x.jpg', 'https://trafficcam.calgary.ca/loc86.jpg',
+    'https://images.data.gov.sg/api/traffic-images/2026/10/x.jpg', 'https://www.drivebc.ca/images/42.jpg'])
+    for (const off of [0, -9, 9]) assert.equal((await q(still, minute(off))).status, 200, still + ' ' + off);   // a visitor's clock a few minutes off still works
+});
+
+test('relay: the per-address rate limit (LIMITER) answers 429, counted only on the way upstream', async () => {
+  upstream = { body: '{}', headers: { 'content-type': 'application/json' } };
+  const keys = [];
+  let allow = true;
+  const env = { LIMITER: { limit: async ({ key }) => { keys.push(key); return { success: allow }; } } };
+  const go = (headers = { origin: SITE, 'cf-connecting-ip': '203.0.113.7' }, url = NHC) => raw('https://relay.test/?url=' + encodeURIComponent(url), headers, 'GET', undefined, env);
+  assert.equal((await go()).status, 200);
+  assert.deepEqual(keys, ['203.0.113.7']);
+  allow = false; calls.length = 0;
+  const r = await go();
+  assert.equal(r.status, 429); assert.equal(r.headers.get('retry-after'), '60'); assert.equal(r.headers.get('cache-control'), 'no-store');
+  assert.equal(r.headers.get('access-control-allow-origin'), SITE, 'the page can read why');
+  assert.equal(calls.length, 0, 'nothing went upstream');
+  keys.length = 0;
+  assert.equal((await go({ origin: 'https://evil.example' })).status, 403);
+  assert.equal((await go(undefined, 'https://example.com/x')).status, 403);
+  assert.equal((await raw('https://relay.test/?ping=1', {}, 'GET', undefined, env)).status, 200);
+  assert.deepEqual(keys, [], 'refused requests and pings never count against an address');
+  // a broken binding lets the request through rather than taking the relay down
+  const broken = { LIMITER: { limit: async () => { throw new Error('binding down'); } } };
+  assert.equal((await raw('https://relay.test/?url=' + encodeURIComponent(NHC), undefined, 'GET', undefined, broken)).status, 200);
+  // an inner-cache hit never counts either (it costs the feed nothing)
+  const store = new Map();
+  globalThis.caches = { default: { async match(k) { const x = store.get(k.url); return x && x.clone(); }, async put(k, x) { store.set(k.url, new Response(await x.arrayBuffer(), x)); } } };
+  try {
+    allow = true; keys.length = 0; const waits = [], ctx = { waitUntil: p => waits.push(p) };
+    await raw('https://relay.test/?url=' + encodeURIComponent(NHC), undefined, 'GET', ctx, env); await Promise.all(waits);
+    allow = false;
+    assert.equal((await raw('https://relay.test/?url=' + encodeURIComponent(NHC), undefined, 'GET', ctx, env)).status, 200, 'served from the inner cache');
+    assert.equal(keys.length, 1);
+  } finally { delete globalThis.caches; }
+});
+
+test('relay: wrangler.toml binds LIMITER, and the code no longer claims a WAF rule', () => {
+  const toml = readFileSync(new URL('../relay/wrangler.toml', import.meta.url), 'utf8'), src = readFileSync(new URL('../relay/worker.js', import.meta.url), 'utf8');
+  assert.match(toml, /\[\[ratelimits\]\]\s*\nname = "LIMITER"\s*\nnamespace_id = "\d+"[\s\S]*?\[ratelimits\.simple\]\s*\n\s*limit = 60\s*\n\s*period = 60/);
+  assert.doesNotMatch(src, /is a Cloudflare WAF rule on the route/);
 });
