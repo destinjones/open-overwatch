@@ -11,7 +11,7 @@
   "bin": { "open-overwatch-mcp": "mcp/server.mjs" },
   "files": ["mcp/*.mjs", "mcp/README.md", "src/package.json", "src/core/", "NOTICE"],
   "engines": { "node": ">=20" },
-  "dependencies": { "satellite.js": "5.0.0" },
+  "dependencies": { "satellite.js": "7.1.0" },
   "devDependencies": { "@playwright/test": "1.63.0" },
   "scripts": { "mcp": "node mcp/server.mjs", "test": "node --test", "coverage": "node --test --experimental-test-coverage --test-coverage-include=\"src/core/**\" --test-coverage-include=\"mcp/**\" --test-coverage-lines=96 --test-coverage-branches=83 --test-coverage-functions=91", "e2e": "playwright test" }
 }
