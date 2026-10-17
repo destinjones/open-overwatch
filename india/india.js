@@ -32,9 +32,15 @@ function setLang(l, remember = true) {
     if (!el.dataset.altEn) el.dataset.altEn = el.alt;
     el.alt = l === 'hi' ? el.dataset.altHi : el.dataset.altEn;
   }
-  $('#langBtn').setAttribute('aria-label', l === 'hi' ? 'Read this page in English' : 'यह पेज हिन्दी में पढ़ें');
+  // the language button is named in the other language, and says so (lang), so a screen reader voices it right; it is
+  // class="keep", so the CSS that hides the other language's text never hides it
+  const langBtn = $('#langBtn');
+  langBtn.setAttribute('aria-label', l === 'hi' ? 'Read this page in English' : 'यह पेज हिन्दी में पढ़ें');
+  langBtn.lang = l === 'hi' ? 'en' : 'hi';
   $('#menuBtn').setAttribute('aria-label', l === 'hi' ? 'मेन्यू' : 'Menu');
-  $('#phonePlay').setAttribute('aria-label', l === 'hi' ? 'रिकॉर्डिंग चलाएँ' : 'Play the recordings');
+  $('.tabs').setAttribute('aria-label', l === 'hi' ? 'क्लिप' : 'Clips');
+  $('#phoneVid').setAttribute('aria-label', l === 'hi' ? 'भारत के ऊपर ग्लोब की एक रिकॉर्डिंग' : 'A recording of the globe over India');
+  playLabel();
   if (!remember) return;
   try { localStorage.setItem('oo-lang', l); } catch (e) { /* private mode: the choice lasts this visit */ }
   try {   // an address that says ?lang= (or a page in the other language) follows the toggle, so a reload keeps what is on screen
@@ -137,26 +143,56 @@ async function passes() {
 const passIo = new IntersectionObserver(([e]) => { if (e.isIntersecting) { passIo.disconnect(); passes(); } }, { rootMargin: '600px 0px' });
 passIo.observe($('#passBox'));
 
-// ---- phone demo: the tabs cycle through the India clips. On a phone, or on a slow or Save-Data connection, nothing
-// downloads before a tap: the poster shows with a play button, and the clips cycle from that tap on
+// ---- phone demo: the tabs play the India clips one after another, once round (a picked tab plays its clip once), and
+// #phonePlay pauses and plays them (WCAG 2.2.2). On a phone, or on a slow or Save-Data connection, nothing downloads
+// before a tap: the poster shows with a big play button, and the clips run from that tap on. The tabs are a real tab
+// list: the phone screen is their panel, the arrow keys (and Home, End) move between them.
 const conn = navigator.connection;
 const slowNet = !!(conn && (conn.saveData || /2g|3g/.test(conn.effectiveType || '')));
-const pv = $('#phoneVid'), tabs = [...document.querySelectorAll('.tab')], playBtn = $('#phonePlay');
-let cur = 0, auto = true, started = !(slowNet || matchMedia('(max-width:760px)').matches);
-playBtn.hidden = started;
-playBtn.addEventListener('click', () => { show(cur); pv.play().catch(() => {}); });
-function show(i) {
-  cur = i; started = true; playBtn.hidden = true;
-  tabs.forEach((t, j) => { t.setAttribute('aria-selected', j === i); t.querySelector('.bar i').style.width = '0'; });
+const pv = $('#phoneVid'), tabs = [...document.querySelectorAll('.tab')], playBtn = $('#phonePlay'), panel = $('#clipPanel');
+// auto: the next clip follows at each end (until the last); want: the viewer wants them running (false after Pause, or
+// once the round or the picked clip is over), so scrolling back to the phone does not start them again
+let cur = 0, auto = true, want = false, started = !(slowNet || matchMedia('(max-width:760px)').matches);
+/** The button's name follows what it would do now, in the page's language (setLang calls this too). */
+function playLabel() {
+  const b = $('#phonePlay'), hi = root.dataset.lang === 'hi';
+  b.setAttribute('aria-label', b.classList.contains('on') ? (hi ? 'रिकॉर्डिंग रोकें' : 'Pause the recordings') : (hi ? 'रिकॉर्डिंग चलाएँ' : 'Play the recordings'));
+}
+const sync = () => { playBtn.classList.toggle('on', !pv.paused && !pv.ended); playBtn.classList.toggle('corner', started); playLabel(); };
+const select = i => {
+  tabs.forEach((t, j) => { t.setAttribute('aria-selected', String(j === i)); t.tabIndex = j === i ? 0 : -1; });
+  panel.setAttribute('aria-labelledby', tabs[i].id);
+};
+tabs.forEach((t, i) => { t.id = 'clipTab' + i; t.setAttribute('aria-controls', panel.id); });
+select(0); playBtn.hidden = false; sync();
+function show(i, play = !reduce) {
+  cur = i; started = true; want = play;
+  select(i);
+  tabs.forEach(t => { t.querySelector('.bar i').style.width = '0'; });
   const c = tabs[i].dataset.clip;
   pv.poster = SITE + 'brand/india/clips/' + c + '.jpg';
   pv.src = SITE + 'brand/india/clips/' + c + '.mp4';
-  if (!reduce) pv.play().catch(() => {});
+  if (play) pv.play().catch(() => {});
+  sync();
 }
+playBtn.addEventListener('click', () => {
+  if (!pv.paused && !pv.ended) { want = false; pv.pause(); }
+  else if (!pv.getAttribute('src')) show(cur, true);
+  else if (pv.ended) show(auto ? 0 : cur, true);   // the round is over: again from the first clip (or the picked one)
+  else { want = true; pv.play().catch(() => {}); }
+});
+for (const ev of ['play', 'pause', 'ended']) pv.addEventListener(ev, sync);
 pv.addEventListener('timeupdate', () => { if (pv.duration) tabs[cur].querySelector('.bar i').style.width = (pv.currentTime / pv.duration * 100) + '%'; });
-pv.addEventListener('ended', () => auto ? show((cur + 1) % tabs.length) : (pv.currentTime = 0, pv.play().catch(() => {})));
+pv.addEventListener('ended', () => { if (auto && cur < tabs.length - 1) show(cur + 1, true); else { want = false; sync(); } });
 tabs.forEach((t, i) => t.addEventListener('click', () => { auto = false; show(i); }));
-new IntersectionObserver(([e]) => { if (e.isIntersecting) { if (!started) return; if (!pv.getAttribute('src')) show(0); else if (!reduce) pv.play().catch(() => {}); } else pv.pause(); }, { threshold: .3 }).observe(pv);
+const STEP = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+$('.tabs').addEventListener('keydown', e => {
+  const at = tabs.indexOf(e.target.closest('.tab'));
+  if (at < 0 || !(Object.hasOwn(STEP, e.key) || e.key === 'Home' || e.key === 'End')) return;
+  const i = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : (at + STEP[e.key] + tabs.length) % tabs.length;
+  e.preventDefault(); tabs[i].focus(); auto = false; show(i);
+});
+new IntersectionObserver(([e]) => { if (e.isIntersecting) { if (!started) return; if (!pv.getAttribute('src')) show(0); else if (want) pv.play().catch(() => {}); } else pv.pause(); }, { threshold: .3 }).observe(pv);
 
 // ---- share: the page in the language on screen (india/ or india/hi/, so the preview card is in that language too),
 // never the ad's tags

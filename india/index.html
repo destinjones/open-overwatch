@@ -240,11 +240,17 @@ footer a{color:var(--ink-dim)}
 .rv.in{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none}.dot{animation:none}html{scroll-behavior:auto}}
 
-/* the phone demo's play button: phones and slow or Save-Data connections start the clips with a tap (india.js shows it) */
+/* the phone demo's play/pause button: phones and slow or Save-Data connections start the clips with a tap on the big one
+   (india.js shows it); once a clip is up it sits small in the corner and pauses or plays (WCAG 2.2.2) */
 .phone .play{position:absolute;inset:0;margin:auto;width:76px;height:76px;border-radius:50%;border:1px solid rgba(255,159,63,.7);background:rgba(4,6,10,.72);
   color:var(--saffron);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3;box-shadow:0 0 40px rgba(255,159,63,.25)}
 .phone .play[hidden]{display:none}
 .phone .play svg{width:28px;height:28px;margin-left:4px}
+.phone .play .i-pause,.phone .play.on .i-play{display:none}
+.phone .play.on .i-pause{display:block;margin-left:0}
+.phone .play.corner{inset:auto 18px 18px auto;width:44px;height:44px;box-shadow:none}
+.phone .play.corner svg{width:18px;height:18px}
+.phone .play:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* phones: no backdrop blurs (solid panels instead) and a steady live dot, they cost frames on low-end Android */
 @media (max-width:760px){
   nav.solid,.feed{backdrop-filter:none}
@@ -268,7 +274,7 @@ footer a{color:var(--ink-dim)}
       <a href="#air"><span lang="en">Air</span><span lang="hi">हवा</span></a>
     </div>
     <div class="tools">
-      <button class="btn small lang-btn" id="langBtn" type="button" aria-label="हिन्दी में पढ़ें / Read in English">
+      <button class="btn small lang-btn keep" id="langBtn" type="button" aria-label="हिन्दी में पढ़ें / Read in English">
         <span lang="hi" class="keep to-hi">हिन्दी</span><span lang="en" class="keep to-en">English</span>
       </button>
       <a class="btn small primary go" href="../globe.html#c=79,21,22000000,0,-90&amp;a=stations,visual,geo,launches,quakes,storms"><span lang="en">Open the globe</span><span lang="hi">ग्लोब खोलें</span></a>
@@ -304,7 +310,7 @@ footer a{color:var(--ink-dim)}
     </div>
     <p class="cta-note rv"><span lang="en">Works on any recent phone. The website shows satellites, launches, weather, quakes and air quality. It does not show live aircraft.</span><span lang="hi">किसी भी नए फ़ोन पर चलता है। वेबसाइट पर उपग्रह, लॉन्च, मौसम, भूकंप और हवा की गुणवत्ता दिखती है। लाइव हवाई जहाज़ इसमें नहीं दिखते।</span></p>
 
-    <aside class="feed rv" aria-live="polite">
+    <aside class="feed rv">
       <header><span><span class="dot"></span><span lang="en">Live now</span><span lang="hi">अभी लाइव</span></span><b id="ist">--:--:-- IST</b></header>
       <div class="row"><span class="k">ISS</span><span class="v sat" id="issNow"><span lang="en">acquiring…</span><span lang="hi">खोज रहे हैं…</span><small>wheretheiss.at</small></span></div>
       <div class="row"><span class="k"><span lang="en">QUAKES</span><span lang="hi">भूकंप</span></span><span class="v qk" id="qk"><span lang="en">listening…</span><span lang="hi">सुन रहे हैं…</span><small><span lang="en">South Asia, M2.5+, last 24 h · USGS</span><span lang="hi">दक्षिण एशिया, M2.5+, पिछले 24 घंटे · USGS</span></small></span></div>
@@ -371,7 +377,7 @@ footer a{color:var(--ink-dim)}
       <article id="weather" class="rv" style="--c:var(--sky)">
         <div class="tag"><span lang="en">Monsoon &amp; cyclones</span><span lang="hi">मानसून और चक्रवात</span></div>
         <h3><span lang="en">Bay of Bengal and Arabian Sea</span><span lang="hi">बंगाल की खाड़ी और अरब सागर</span></h3>
-        <p><span lang="en">Rain seen from space (NASA IMERG), wind and pressure from the NOAA GFS forecast up to five days ahead, and tropical cyclones with their forecast tracks (GDACS, NASA EONET) whenever one is active.</span><span lang="hi">अंतरिक्ष से दिखती बारिश (NASA IMERG), NOAA GFS पूर्वानुमान से पाँच दिन आगे तक हवा और दबाव, और जब कोई सक्रिय हो तो उष्णकटिबंधीय चक्रवात उनके अनुमानित रास्ते के साथ (GDACS, NASA EONET)।</span></p>
+        <p><span lang="en">Rain seen from space (NASA IMERG), wind and pressure from the NOAA GFS forecast up to five days ahead (three on phones), and tropical cyclones with their forecast tracks (GDACS, NASA EONET) whenever one is active.</span><span lang="hi">अंतरिक्ष से दिखती बारिश (NASA IMERG), NOAA GFS पूर्वानुमान से पाँच दिन आगे तक (फ़ोन पर तीन दिन) हवा और दबाव, और जब कोई सक्रिय हो तो उष्णकटिबंधीय चक्रवात उनके अनुमानित रास्ते के साथ (GDACS, NASA EONET)।</span></p>
         <div class="go">
           <a class="btn small primary" href="../globe.html#c=82,16,16000000,0,-90&amp;w=rain,wind,pres"><span lang="en">Rain and wind</span><span lang="hi">बारिश और हवा</span></a>
           <a class="btn small" href="../globe.html#c=80,14,6000000,0,-90&amp;a=storms"><span lang="en">Cyclone watch</span><span lang="hi">चक्रवात पर नज़र</span></a>
@@ -435,7 +441,7 @@ footer a{color:var(--ink-dim)}
     <div>
       <div class="eyebrow rv"><span lang="en">Recorded over India</span><span lang="hi">भारत के ऊपर रिकॉर्ड किया गया</span></div>
       <h2 class="rv"><span lang="en">See it on a phone.</span><span lang="hi">फ़ोन पर देखिए।</span></h2>
-      <div class="tabs" role="tablist" aria-label="Clips">
+      <div class="tabs" role="tablist" aria-label="Clips" aria-orientation="vertical">
         <button class="tab" role="tab" data-clip="india_sats" style="--c:var(--sat)"><span class="n">01</span><span class="tx"><b><span lang="en">India's sky, full of satellites</span><span lang="hi">उपग्रहों से भरा भारत का आसमान</span></b><span class="d"><span lang="en">18,000 objects in orbit, the clock at 20x.</span><span lang="hi">कक्षा में 18,000 चीज़ें, घड़ी 20 गुना तेज़।</span></span><span class="bar"><i></i></span></span></button>
         <button class="tab" role="tab" data-clip="delhi_dive" style="--c:var(--saffron)"><span class="n">02</span><span class="tx"><b><span lang="en">Down to Delhi</span><span lang="hi">सीधे दिल्ली तक</span></b><span class="d"><span lang="en">From orbit to the city lights in five seconds.</span><span lang="hi">कक्षा से शहर की रोशनी तक, पाँच सेकंड में।</span></span><span class="bar"><i></i></span></span></button>
         <button class="tab" role="tab" data-clip="airq" style="--c:var(--air)"><span class="n">03</span><span class="tx"><b><span lang="en">The air over north India</span><span lang="hi">उत्तर भारत की हवा</span></b><span class="d"><span lang="en">Modelled AQI from Punjab to Bengal.</span><span lang="hi">पंजाब से बंगाल तक AQI का मॉडल।</span></span><span class="bar"><i></i></span></span></button>
@@ -443,9 +449,9 @@ footer a{color:var(--ink-dim)}
       </div>
       <p class="clipnote rv"><span lang="en">Recorded from the website on a phone-sized screen, not mocked up.</span><span lang="hi">वेबसाइट से फ़ोन जितनी स्क्रीन पर रिकॉर्ड किया गया, कोई नकली डेमो नहीं।</span></p>
     </div>
-    <div class="phone rv"><div class="notch"></div><div class="screen">
+    <div class="phone rv"><div class="notch"></div><div class="screen" id="clipPanel" role="tabpanel">
       <video id="phoneVid" muted playsinline preload="none" poster="../brand/india/clips/india_sats.jpg" aria-label="A recording of the globe over India"></video>
-      <button class="play" id="phonePlay" type="button" aria-label="Play the recordings" hidden><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg></button>
+      <button class="play" id="phonePlay" type="button" aria-label="Play the recordings" hidden><svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg><svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z"/></svg></button>
     </div></div>
   </div>
 </section>

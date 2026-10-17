@@ -45,7 +45,40 @@ export function countdown(net, now) {
   return `T${s >= 0 ? '-' : '+'}${d ? d + ' d ' : ''}${hms}`;
 }
 
-/** Upcoming first; a launch stays listed for 2 hours after its time (or while marked in flight). */
+/** LL2's precision (its abbrev, or its name: 'DAY' / 'Day', 'Q4' / 'Quarter 4', 'M' / 'Month') as one upper-case code:
+ *  SEC MIN HR AM PM DAY WK M Q1-Q4 H1 H2 Y FY DEC, or '' when not given. */
+export function precisionCode(p) {
+  const s = String(p || '').trim().toUpperCase();
+  const q = /^(?:QUARTER|Q) ?([1-4])$/.exec(s), h = /^(?:HALF|H) ?([12])$/.exec(s);
+  if (q) return 'Q' + q[1];
+  if (h) return 'H' + h[1];
+  return { SECOND: 'SEC', MINUTE: 'MIN', HOUR: 'HR', D: 'DAY', W: 'WK', WEEK: 'WK', MONTH: 'M', YEAR: 'Y', 'FISCAL YEAR': 'FY', DECADE: 'DEC', MORNING: 'AM', AFTERNOON: 'PM' }[s] || s;
+}
+
+/** The end (ms, UTC) of the period a not-yet-precise launch time names: the end of its UTC day (DAY, AM, PM), a week on
+ *  (WK), or the end of its month, quarter, half, year or decade. LL2 dates such a launch inside that period (a "NET
+ *  October" launch at 31 October 00:00Z), so it is still due until the period is over. null for a time to the hour or
+ *  better, an unknown code or no time. */
+export function periodEnd(net, precision) {
+  if (!Number.isFinite(net)) return null;
+  const d = new Date(net), y = d.getUTCFullYear(), m = d.getUTCMonth(), day = Date.UTC(y, m, d.getUTCDate() + 1);
+  const c = precisionCode(precision);
+  if (c === 'DAY' || c === 'AM' || c === 'PM') return day;
+  if (c === 'WK') return day + 6 * 864e5;
+  if (c === 'M') return Date.UTC(y, m + 1, 1);
+  if (/^Q[1-4]$/.test(c)) return Date.UTC(y, Math.floor(m / 3) * 3 + 3, 1);
+  if (/^H[12]$/.test(c)) return Date.UTC(y, m < 6 ? 6 : 12, 1);
+  if (c === 'Y' || c === 'FY') return Date.UTC(y + 1, 0, 1);
+  if (c === 'DEC') return Date.UTC(Math.floor(y / 10) * 10 + 10, 0, 1);
+  return null;
+}
+
+/** Until when (ms) a launch belongs on an "upcoming" list: `grace` after its time, or to the end of the period an
+ *  imprecise time names (periodEnd), whichever is later. */
+export const listedUntil = (net, precision, grace) => Math.max(net + grace, periodEnd(net, precision) ?? -Infinity);
+
+/** Upcoming first; a launch stays listed for 2 hours after its time, to the end of the day, month or quarter an
+ *  imprecise time names (periodEnd), or while marked in flight. */
 export function upcoming(list, now) {
-  return list.filter(l => l && (l.status === 'In Flight' || !Number.isFinite(l.net) || l.net > now - 2 * 3600e3)).sort((a, b) => (a.net || Infinity) - (b.net || Infinity));
+  return list.filter(l => l && (l.status === 'In Flight' || !Number.isFinite(l.net) || listedUntil(l.net, l.precision, 2 * 3600e3) > now)).sort((a, b) => (a.net || Infinity) - (b.net || Infinity));
 }

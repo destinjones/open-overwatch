@@ -132,8 +132,76 @@ test('launches from India, and when they are due only as precisely as announced'
   assert.equal(launchWhen(list[2], 'en'), 'target: October 2026');
   assert.match(launchWhen(list[2], 'hi'), /^लक्ष्य: अक्[तट]ूबर 2026$/);
   assert.equal(launchWhen({ net: '2026-10-20T09:30:00Z', net_precision: { abbrev: 'MIN' } }, 'en'), '20 Oct 2026, 3:00 pm IST');
-  assert.equal(launchWhen({ net: '2026-10-20T20:00:00Z', net_precision: { abbrev: 'D' } }, 'en'), '21 Oct 2026', 'the day in India');
+  // Launch Library 2's real codes (lldev.thespacedevs.com netprecision): DAY, not D; WK, not W; Q1-Q4 and H1/H2
+  assert.equal(launchWhen({ net: '2026-10-20T20:00:00Z', net_precision: { abbrev: 'DAY', name: 'Day' } }, 'en'), '21 Oct 2026', 'the day in India');
+  assert.match(launchWhen({ net: '2026-10-29T00:00:00Z', net_precision: { abbrev: 'DAY' } }, 'hi'), /^29 अक्[तट]ू?॰? 2026$/u);
+  assert.equal(launchWhen({ net: '2026-10-29T00:00:00Z', net_precision: { name: 'Day' } }, 'en'), '29 Oct 2026', 'the name when there is no abbrev');
+  assert.equal(launchWhen({ net: '2026-10-29T00:00:00Z', net_precision: { abbrev: 'D' } }, 'en'), '29 Oct 2026', 'the old code still reads as a day');
+  assert.equal(launchWhen({ net: '2026-12-31T00:00:00Z', net_precision: { abbrev: 'Q4', name: 'Quarter 4' } }, 'en'), 'target: Q4 2026');
+  assert.equal(launchWhen({ net: '2026-12-31T00:00:00Z', net_precision: { abbrev: 'Q4' } }, 'hi'), 'लक्ष्य: 2026 की चौथी तिमाही');
+  assert.equal(launchWhen({ net: '2027-06-30T00:00:00Z', net_precision: { abbrev: 'H1' } }, 'en'), 'target: H1 2027');
+  assert.equal(launchWhen({ net: '2027-06-30T00:00:00Z', net_precision: { abbrev: 'H1' } }, 'hi'), 'लक्ष्य: 2027 की पहली छमाही');
+  assert.equal(launchWhen({ net: '2026-11-30T00:00:00Z', net_precision: { abbrev: 'M' } }, 'en'), 'target: November 2026');
+  assert.match(launchWhen({ net: '2026-11-30T00:00:00Z', net_precision: { abbrev: 'M' } }, 'hi'), /^लक्ष्य: नवंबर 2026$/u);
+  assert.equal(launchWhen({ net: '2026-11-30T00:00:00Z', net_precision: { abbrev: 'WK' } }, 'en'), 'target: November 2026');
+  assert.equal(launchWhen({ net: '2027-12-31T00:00:00Z', net_precision: { abbrev: 'Y' } }, 'hi'), 'लक्ष्य: 2027');
   assert.equal(launchWhen({ net: 'soon' }, 'en'), 'date to be set');
+});
+
+test('an imprecise Indian launch stays listed until the period it names is over', () => {
+  const shar = { location: { name: 'Satish Dhawan Space Centre, India' } };
+  const list = [
+    { id: 'oct', net: '2026-10-31T00:00:00Z', net_precision: { abbrev: 'M', name: 'Month' }, pad: shar },   // "NET October"
+    { id: 'day', net: '2026-10-31T00:00:00Z', net_precision: { abbrev: 'DAY' }, pad: shar },
+    { id: 'q4', net: '2026-12-31T00:00:00Z', net_precision: { abbrev: 'Q4' }, pad: shar },
+    { id: 'min', net: '2026-10-31T00:00:00Z', net_precision: { abbrev: 'MIN' }, pad: shar },
+  ];
+  const ids = at => indianLaunches(list, Date.parse(at)).map(r => r.id).sort();
+  assert.deepEqual(ids('2026-10-31T00:30:00Z'), ['day', 'min', 'oct', 'q4']);
+  assert.deepEqual(ids('2026-10-31T01:30:00Z'), ['day', 'oct', 'q4'], 'a precise time goes an hour after it');
+  assert.deepEqual(ids('2026-10-31T12:00:00Z'), ['day', 'oct', 'q4'], 'still due "in October" on 31 October');
+  assert.deepEqual(ids('2026-11-01T03:00:00Z'), ['q4'], 'October is over');
+  assert.deepEqual(ids('2026-12-31T23:00:00Z'), ['q4']);
+  assert.deepEqual(ids('2027-01-01T00:00:01Z'), []);
+});
+
+test('screen readers: a quiet live strip, a pausable demo with real tabs, and labels in the language they are in', () => {
+  const js = read('india/india.js');
+  // the strip's clock ticks every second and the ISS every 10 s: no live region around them (WCAG 4.1.3 noise)
+  const feed = body.match(/<aside class="feed[^"]*"[^>]*>[\s\S]*?<\/aside>/)[0];
+  assert.doesNotMatch(feed, /aria-live/, 'the live strip is not a live region');
+  assert.match(feed, /id="ist"/);
+  // the clips: a pause control, one round and no endless loop (WCAG 2.2.2)
+  const video = js.slice(js.indexOf('// ---- phone demo'), js.indexOf('// ---- share'));
+  assert.match(video, /if \(!pv\.paused && !pv\.ended\) \{ want = false; pv\.pause\(\); \}/, '#phonePlay pauses a running clip');
+  assert.match(video, /'Pause the recordings'/);
+  assert.match(video, /playBtn\.hidden = false/, 'the button stays on screen while the clips run');
+  assert.match(video, /if \(auto && cur < tabs\.length - 1\) show\(cur \+ 1, true\); else \{ want = false;/, 'auto-advance stops after the last clip');
+  assert.doesNotMatch(video, /% tabs\.length\)\)|pv\.currentTime = 0, pv\.play/, 'no endless cycle, no endless loop of a picked clip');
+  assert.match(video, /else if \(want\) pv\.play\(\)/, 'scrolling back does not undo a pause');
+  assert.match(body, /<button class="play" id="phonePlay"[^>]*>(?=[\s\S]*?class="i-play")(?=[\s\S]*?class="i-pause")/, 'a play and a pause icon');
+  // the tabs: a tab list with a panel, roving tabindex and arrow keys
+  assert.match(body, /<div class="tabs" role="tablist" aria-label="Clips" aria-orientation="vertical">/);
+  assert.match(body, /<div class="screen" id="clipPanel" role="tabpanel">/);
+  assert.match(video, /t\.setAttribute\('aria-controls', panel\.id\)/);
+  assert.match(video, /t\.tabIndex = j === i \? 0 : -1/);
+  assert.match(video, /ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1/);
+  // the language button speaks in its label's language, and the CSS never hides it for that (class="keep")
+  assert.match(body, /<button class="btn small lang-btn keep" id="langBtn"/);
+  assert.match(js, /langBtn\.lang = l === 'hi' \? 'en' : 'hi';/);
+  assert.match(html, /:root\[data-lang=en\] \[lang=hi\]:not\(\.keep\)/, 'the hiding rule spares .keep');
+  // the Clips list and the recording are named in the page's language too
+  assert.match(js, /\$\('\.tabs'\)\.setAttribute\('aria-label', l === 'hi' \? 'क्लिप' : 'Clips'\)/);
+  assert.match(js, /\$\('#phoneVid'\)\.setAttribute\('aria-label', l === 'hi' \? '[^']*[ऀ-ॿ][^']*' : 'A recording of the globe over India'\)/u);
+});
+
+test('the forecast promise matches the globe: five days, three on phones', () => {
+  assert.match(read('src/globe/model.js'), /export const MAX_H = PHONE \? 72 : 120;/, 'the globe still stops at 72 h on phones');
+  for (const page of [body, hiHtml.slice(hiHtml.indexOf('<body'))]) {
+    assert.match(page, /NOAA GFS forecast up to five days ahead \(three on phones\)/);
+    assert.match(page, /पाँच दिन आगे तक \(फ़ोन पर तीन दिन\)/);
+  }
+  assert.doesNotMatch(body, /five days ahead,/);
 });
 
 test('the six cities, the ISS passes over them, and the directions in two languages', async () => {
