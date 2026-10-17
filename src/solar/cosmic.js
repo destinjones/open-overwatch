@@ -25,7 +25,7 @@ const CLUSTERS = [
 
 export function createCosmicWeb({ scene, renderer }) {
   const uniforms = { uFade: { value: 0 }, uPR: { value: renderer.getPixelRatio() } };
-  let points = null, loading = null;
+  let points = null, loading = null, failedAt = -Infinity;
   const C = { count: 0, labels: [] };
 
   async function load() {
@@ -75,13 +75,14 @@ export function createCosmicWeb({ scene, renderer }) {
     }
   }
   onLayers(() => { if (points) points.visible = layerOn('galaxy'); });
-  // one load, whoever asks first (flying out, or the desktop's background load): a second would draw every galaxy twice
-  const loadOnce = () => loading || (loading = load());
+  // one load, whoever asks first (flying out, or the desktop's background load): a second would draw every galaxy twice.
+  // A failed fetch (offline, say) clears the latch so flying out tries again a minute later; once the points are in the scene it stays
+  const loadOnce = () => loading || (loading = load().catch(e => { if (!points) { loading = null; failedAt = performance.now(); } throw e; }));
 
   return {
     C, load: loadOnce,
     frame({ camSun, fade }) {
-      if (!loading && camSun > 1e6 * LY_AU) loadOnce().catch(e => console.warn('galaxies', e));   // 0.7 MB: only out past the Local Group
+      if (!loading && camSun > 1e6 * LY_AU && performance.now() - failedAt > 60e3) loadOnce().catch(e => console.warn('galaxies', e));   // 0.7 MB: only out past the Local Group
       uniforms.uPR.value = renderer.getPixelRatio();
       uniforms.uFade.value = fade(4e6, 4e7, camSun, 'ly');
       if (points) points.visible = layerOn('galaxy') && uniforms.uFade.value > 0.002;

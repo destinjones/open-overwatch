@@ -165,9 +165,9 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
       band = bi;
       if (close) $('#sName').textContent = f.name;
       else if (inSystem) {
-        const s = exo.X.built.s, hz = s.pl.filter(p => p[11]).length;
+        const s = exo.X.built.s, hz = s.pl.filter(p => p[11]).length, nm = byKey['exo:' + s.host]?.name || s.host;   // Kepler-90, not the archive's KOI-351
         $('#sName').textContent = 'Other worlds';
-        if (started && !story.tour.on && !story.pulse.on) caption(s.host + ': another solar system', `${s.pl.length} known planet${s.pl.length > 1 ? 's' : ''}${hz ? `, ${hz} in the habitable zone (green band)` : ''}, ${Math.round(s.ly)} light-years from us. They move with the clock; speed it up to watch them orbit.`, 'From the NASA Exoplanet Archive.');
+        if (started && !story.tour.on && !story.pulse.on) caption(nm + ': another solar system', `${s.pl.length} known planet${s.pl.length > 1 ? 's' : ''}${hz ? `, ${hz} in the habitable zone (green band)` : ''}, ${Math.round(s.ly)} light-years from us. They move with the clock; speed it up to watch them orbit.`, 'From the NASA Exoplanet Archive.');
       } else { const B = BANDS[bi]; $('#sName').textContent = B[1]; if (started && !story.tour.on && !story.pulse.on) caption(B[2], B[3], B[4]); }
     }
     document.querySelectorAll('.rung').forEach((r, i) => r.classList.toggle('on', bi === -3 ? RUNGS[i][0] === 'Other worlds' : bi >= 0 && RUNGS[i][0] === BANDS[bi][1]));

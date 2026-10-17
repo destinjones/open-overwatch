@@ -72,11 +72,9 @@ export function createExoplanets({ scene, camera, renderer }) {
   function load() {
     return X.loading || (X.loading = (async () => {
       const d = await fetchAsset('data/solar/exoplanets.json', 'json');
-      X.data = d; X.systems = d.list;
-      const N = X.systems.length, pos = new Float32Array(N * 3), hz = new Float32Array(N);
-      X.systems.forEach((s, k) => { pos.set([s.p[0] * LY_AU, s.p[1] * LY_AU, s.p[2] * LY_AU], k * 3); hz[k] = s.pl.some(p => p[11]) ? 1 : 0; });
-      X.hostPos = pos;
-      for (const [host] of FAMOUS) { const s = X.systems.find(x => x.host === host), b = byKey['exo:' + host]; if (s && b) b.pos.set(s.p[0] * LY_AU, s.p[1] * LY_AU, s.p[2] * LY_AU); }
+      const systems = d.list, N = systems.length, pos = new Float32Array(N * 3), hz = new Float32Array(N);
+      systems.forEach((s, k) => { pos.set([s.p[0] * LY_AU, s.p[1] * LY_AU, s.p[2] * LY_AU], k * 3); hz[k] = s.pl.some(p => p[11]) ? 1 : 0; });
+      for (const [host] of FAMOUS) { const s = systems.find(x => x.host === host), b = byKey['exo:' + host]; if (s && b) b.pos.set(s.p[0] * LY_AU, s.p[1] * LY_AU, s.p[2] * LY_AU); }
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('hz', new THREE.BufferAttribute(hz, 1));
       markers = new THREE.Points(g, new THREE.ShaderMaterial({ uniforms, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
         vertexShader: LOGDEPTH_V + `attribute float hz; uniform float uPR; varying float vHz;
@@ -91,6 +89,7 @@ export function createExoplanets({ scene, camera, renderer }) {
             gl_FragColor = vec4(c * a, a);
           }` }));
       markers.frustumCulled = false; markers.visible = layerOn('exo'); scene.add(markers);
+      X.data = d; X.systems = systems; X.hostPos = pos;   // only once built: a throw above leaves X.data null, so frame() tries again
       onChange();
     })().catch(e => { X.loading = null; X.failedAt = performance.now(); throw e; }));
   }
