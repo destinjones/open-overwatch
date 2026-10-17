@@ -1,7 +1,7 @@
 # God's Eye View: what it's made of, and what to take (2026-10-10)
 
 Source: github.com/bilawalsidhu/gods-eye-view at commit 591f299 (2026-10-09), cloned read-only to
-`C:\Users\desti\open-overwatch-work\reference\gods-eye-view` (nothing installed or run). Four read-throughs of the code
+a reference folder outside this repository (nothing installed or run). Four read-throughs of the code
 plus the docs, and a header-only CORS probe of every source below from our site's origin.
 
 ## What it is

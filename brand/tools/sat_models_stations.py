@@ -1201,7 +1201,8 @@ def validate(name, report):
         errors.append(f'file size {size} > {size_lim}')
     mats = [m.get('name') for m in js.get('materials', [])]
     imgs = [(im.get('name'), im.get('mimeType')) for im in js.get('images', [])]
-    rec = {'file': path, 'bytes': size, 'triangles_gltf': gltf_tris, 'triangles_blender_import': tris,
+    # 'file' is repo-relative with forward slashes: validation.json is published, so no local folder names in it
+    rec = {'file': os.path.relpath(path, os.path.dirname(BRAND_DIR)).replace(os.sep, '/'), 'bytes': size, 'triangles_gltf': gltf_tris, 'triangles_blender_import': tris,
            'dims_m_xyz_blender': [round(float(v), 2) for v in (hi - lo)],
            'bbox_min': [round(float(v), 2) for v in lo], 'bbox_max': [round(float(v), 2) for v in hi],
            'nodes': [n.get('name') for n in nodes], 'solar_nodes': solars, 'materials': mats, 'images': imgs,

@@ -1,6 +1,6 @@
 {
  "soyuz": {
-  "file": "C:\\Users\\desti\\OneDrive\\Documents\\open-overwatch\\brand\\models\\soyuz.glb",
+  "file": "brand/models/soyuz.glb",
   "bytes": 342964,
   "triangles_gltf": 6524,
   "triangles_blender_import": 6524,
@@ -140,7 +140,7 @@
   "ok": true
  },
  "hubble": {
-  "file": "C:\\Users\\desti\\OneDrive\\Documents\\open-overwatch\\brand\\models\\hubble.glb",
+  "file": "brand/models/hubble.glb",
   "bytes": 358320,
   "triangles_gltf": 6864,
   "triangles_blender_import": 6864,
@@ -279,7 +279,7 @@
   "ok": true
  },
  "iss": {
-  "file": "C:\\Users\\desti\\OneDrive\\Documents\\open-overwatch\\brand\\models\\iss.glb",
+  "file": "brand/models/iss.glb",
   "bytes": 2181888,
   "triangles_gltf": 54830,
   "triangles_blender_import": 54830,
@@ -602,7 +602,7 @@
   "ok": true
  },
  "css": {
-  "file": "C:\\Users\\desti\\OneDrive\\Documents\\open-overwatch\\brand\\models\\css.glb",
+  "file": "brand/models/css.glb",
   "bytes": 909408,
   "triangles_gltf": 20300,
   "triangles_blender_import": 20300,
