@@ -5,7 +5,7 @@
 // NOAA CO-OPS tide gauges (~300 on US coasts and the Great Lakes; a card reads the level now and the next high and low).
 // NDBC sends no CORS headers, so its files come through the local helper or the website's relay; CO-OPS sends them.
 // Parsing and the card's words are shared (core/ocean.js). All NOAA data, public domain.
-import { C, esc, toast, getText, getJSON, relayed, viaCopy } from './env.js';
+import { C, esc, toast, getText, getJSON, relayed, viaCopy, ON_SITE } from './env.js';
 import { rep, provStamp, provBlock } from '../core/liveprov.js';
 import { scene } from './viewer.js';
 import { L, setCount } from './layers.js';
@@ -25,7 +25,12 @@ const SCALE = new C.NearFarScalar(2e5, 1.6, 2e7, 0.7), OUTLINE = C.Color.BLACK.w
 const col = css => C.Color.fromCssColorString(css);
 const rows = list => '<dl>' + list.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('') + '</dl>';
 const link = (url, words) => url ? `<div class="acts"><a class="chipbtn" href="${esc(url)}" target="_blank" rel="noopener">${esc(words)}</a></div>` : '';
-const needsHelper = () => { toast('NOAA\'s buoy files need the download version (its local helper relays them) or the published website', 4000); };
+// no way to NDBC's files here: no helper, or the website's relay doesn't carry them (until it is redeployed). Said once
+// each time the layer goes on, not on every refresh.
+const NEEDS = ON_SITE ? 'NOAA\'s buoy files need the download version for now (the website\'s relay doesn\'t carry them yet)'
+  : 'NOAA\'s buoy files need the download version (its local helper relays them) or the published website';
+const told = new Set();
+const needsHelper = id => { if (!told.has(id)) { told.add(id); toast(NEEDS, 4000); } };
 
 // NDBC's station list: names, owners and types for both layers, fetched once
 let stationList = null;
@@ -51,7 +56,7 @@ const BuoyProto = {
 export const Buoys = {
   list: [], loading: null, at: 0, timer: 0,
   async load() {
-    const via = relayed(NDBC_LATEST); if (!via) { needsHelper(); return; }
+    const via = relayed(NDBC_LATEST); if (!via) { needsHelper('buoys'); return; }
     const [txt, st] = await Promise.all([getText(via, { timeout: 60000 }), stations().catch(() => [])]);
     const list = mergeNdbc(parseNdbcLatest(txt), st);
     buoyPts.removeAll(); this.list = [];
@@ -64,8 +69,8 @@ export const Buoys = {
   },
   apply() {
     buoyPts.show = L.buoys.on; scene.requestRender();
-    if (!L.buoys.on) return;
-    if (!this.loading && Date.now() - this.at > REFRESH) this.loading = this.load().catch(e => { console.warn('buoys', e.message); toast('The NOAA buoy feed is not reachable right now (' + e.message + ')', 3500); }).finally(() => { this.loading = null; });
+    if (!L.buoys.on) { told.delete('buoys'); return; }
+    if (!this.loading && Date.now() - this.at > REFRESH) this.loading = this.load().catch(e => { console.warn('buoys', e.message); if (e.notCarried) needsHelper('buoys'); else toast('The NOAA buoy feed is not reachable right now (' + e.message + ')', 3500); }).finally(() => { this.loading = null; });
     if (!this.timer) this.timer = setInterval(() => { if (L.buoys.on && !document.hidden) this.apply(); }, REFRESH);
   },
 };
@@ -85,7 +90,8 @@ const DartProto = {
   async afterCard(card) {
     const body = card.querySelector('#dartBody'), url = dartUrl(this.id), via = url && relayed(url);
     if (!body) return;
-    if (!via) { body.querySelector('.note').textContent = 'The buoy\'s file needs the download version (its local helper relays it) or the published website.'; return; }
+    const lacks = () => { body.querySelector('.note').textContent = ON_SITE ? 'The buoy\'s file needs the download version for now (the website\'s relay doesn\'t carry it yet).' : 'The buoy\'s file needs the download version (its local helper relays it) or the published website.'; };
+    if (!via) return lacks();
     try {
       const d = parseDart(await getText(via, { timeout: 60000 }), { max: 200 }), s = dartStatus(d);
       if (state.selected !== this || !body.isConnected) return;
@@ -93,7 +99,7 @@ const DartProto = {
       this.readAt = l ? l.t : null; const pv = card.querySelector('.prov'); if (pv) pv.outerHTML = provBlock(this);
       body.innerHTML = rows([['Status', s.words], ...(l ? [['Water column', `${l.heightM.toFixed(3)} m above the sensor`], ['Sampling', DART_MODES[l.mode] || 'mode ' + l.mode], ['Last reading', agoWords(l.t, Date.now(), true)]] : []),
         ...(s.rangeM != null ? [['Change, last 6 h', `${s.rangeM.toFixed(3)} m (mostly the tide)`]] : []), ['Station', this.id + (this.owner ? ' · ' + this.owner : '')]]);
-    } catch (e) { if (body.isConnected) body.querySelector('.note').textContent = 'NDBC is not answering for this buoy right now (' + e.message + ').'; }
+    } catch (e) { if (!body.isConnected) return; if (e.notCarried) lacks(); else body.querySelector('.note').textContent = 'NDBC is not answering for this buoy right now (' + e.message + ').'; }
   },
 };
 export const Darts = {
@@ -110,9 +116,10 @@ export const Darts = {
   },
   apply() {
     dartPts.show = L.dart.on; scene.requestRender();
+    if (!L.dart.on) told.delete('dart');
     if (L.dart.on && !this.loading && !this.list.length) {
-      if (!relayed(NDBC_STATIONS)) { needsHelper(); return; }
-      this.loading = this.load().catch(e => { console.warn('dart', e.message); toast('The NOAA station list is not reachable right now (' + e.message + ')', 3500); }).finally(() => { this.loading = null; });
+      if (!relayed(NDBC_STATIONS)) { needsHelper('dart'); return; }
+      this.loading = this.load().catch(e => { console.warn('dart', e.message); if (e.notCarried) needsHelper('dart'); else toast('The NOAA station list is not reachable right now (' + e.message + ')', 3500); }).finally(() => { this.loading = null; });
     }
   },
 };

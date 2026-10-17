@@ -1,8 +1,11 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The globe's layer switches (remembered per browser) and the dock that shows them.
-import { $, esc, fmt, store, PHONE } from './env.js';
+import { $, esc, fmt, store, PHONE, ON_SITE, RELAY } from './env.js';
 import { hooks } from './state.js';
 
+// the website has no aircraft feed (OpenSky's terms forbid passing its data on; adsb.lol refuses the Cloudflare relay):
+// the download's local helper relays both
+const AIR_HERE = !(ON_SITE && !RELAY);
 export const LAYERS = [
   { id: 'stations', group: 'Space', name: 'Space stations', color: '#7dffa6', on: true, sat: ['stations'], size: 7 },
   { id: 'visual', group: 'Space', name: 'Bright satellites', color: '#e6edf3', on: true, sat: ['visual'], size: 3.5 },
@@ -17,8 +20,8 @@ export const LAYERS = [
   { id: 'debris', group: 'Space', name: 'Debris (Fengyun-1C, Iridium 33, Cosmos 2251)', color: '#ff6b6b', on: !PHONE, sat: ['fengyun-1c-debris', 'iridium-33-debris', 'cosmos-2251-debris'], size: 1.8, alpha: 0.8 },
   { id: 'launches', group: 'Space', name: 'Rocket launches (next 40, pads)', color: '#ff9f5c', on: true },
   { id: 'reentry', group: 'Space', name: 'Re-entry corridors: falling in the next 30 days (predicted here)', color: '#ff5a4f', on: false },
-  { id: 'air', group: 'Air', name: 'Civil aircraft (OpenSky, every 15 min)', color: '#5fd3ff', on: true },
-  { id: 'mil', group: 'Air', name: 'Military aircraft (adsb.lol, every 60 s)', color: '#ffb44d', on: true },
+  { id: 'air', group: 'Air', name: AIR_HERE ? 'Civil aircraft (OpenSky, every 15 min)' : 'Civil aircraft (download version)', color: '#5fd3ff', on: true },
+  { id: 'mil', group: 'Air', name: AIR_HERE ? 'Military aircraft (adsb.lol, every 60 s)' : 'Military aircraft (download version)', color: '#ffb44d', on: true },
   { id: 'airq', group: 'Air', name: 'Air quality: PM2.5 and AQI, modelled (CAMS via Open-Meteo)', color: '#ffe066', on: false },
   { id: 'smoke', group: 'Air', name: 'Smoke and dust from space (NASA OMPS aerosol index, daily)', color: '#c9a07a', on: false },
   { id: 'airports', group: 'Air', name: 'Airports and their arrivals and departures (OurAirports)', color: '#9fe3ff', on: !PHONE },

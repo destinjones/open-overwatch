@@ -11,12 +11,12 @@
 <script>/* iOS ignores user-scalable=no: stop its page pinch-zoom too (the views handle pinch themselves) */ addEventListener('gesturestart', e => e.preventDefault(), { passive: false });</script>
 <meta name="theme-color" content="#04060a">
 <title>Open Overwatch · Orbital</title>
-<meta name="description" content="A free 3D Earth with live satellites, aircraft, weather clouds and radar, wind, earthquakes, volcanoes, lighthouses, big employers and asteroid flybys. Click any country for its dossier. Zoom out to the Solar System. No account, in your browser.">
+<meta name="description" content="A free 3D Earth with live satellites, weather clouds and radar, wind, earthquakes, storms, volcanoes, lighthouses, big employers and asteroid flybys. Click any country for its dossier. Zoom out to the Solar System. No account, in your browser. Live aircraft come with the free download.">
 <link rel="canonical" href="https://destinjones.github.io/open-overwatch/globe.html">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="author" content="Destin Jones">
-<meta property="og:type" content="website"><meta property="og:site_name" content="Open Overwatch"><meta property="og:title" content="Open Overwatch · the 3D Earth, live"><meta property="og:description" content="A live 3D Earth: satellites, aircraft, weather, quakes, volcanoes and more, with a seamless zoom out to the Solar System. Free and open source."><meta property="og:url" content="https://destinjones.github.io/open-overwatch/globe.html">
-<meta property="og:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Open Overwatch · the 3D Earth, live"><meta name="twitter:description" content="A live 3D Earth: satellites, aircraft, weather, quakes, volcanoes and more, with a seamless zoom out to the Solar System. Free and open source."><meta name="twitter:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Open Overwatch"><meta property="og:title" content="Open Overwatch · the 3D Earth, live"><meta property="og:description" content="A live 3D Earth: satellites, weather, quakes, storms, volcanoes and more, with a seamless zoom out to the Solar System. Free and open source. Live aircraft come with the free download."><meta property="og:url" content="https://destinjones.github.io/open-overwatch/globe.html">
+<meta property="og:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Open Overwatch · the 3D Earth, live"><meta name="twitter:description" content="A live 3D Earth: satellites, weather, quakes, storms, volcanoes and more, with a seamless zoom out to the Solar System. Free and open source. Live aircraft come with the free download."><meta name="twitter:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png">
 <link rel="icon" href="brand/emblem/favicon.svg">
 <link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="brand/emblem/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Overwatch">
 <link rel="stylesheet" href="brand/fonts/fonts.css">
@@ -61,6 +61,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .stat{padding:4px 12px;border-radius:9px;text-align:center;min-width:64px}
 .stat b{display:block;font:600 17px/1.1 var(--mono)}
 .stat span{font:500 9.5px/1 var(--mono);letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+body.no-air .stats .stat:nth-child(-n+2){display:none} /* the website has no aircraft feed (main.js noAir): no AIR and MIL */
 .links{display:flex;gap:6px;padding:6px}
 .links a,.chipbtn{display:inline-flex;align-items:center;padding:8px 12px;border-radius:9px;font:500 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-decoration:none;border:1px solid transparent;background:none}
 .links a:hover,.chipbtn:hover{color:var(--ink);border-color:var(--edge-dim)}
@@ -147,6 +148,7 @@ body.lookup #top,body.lookup #band,body.lookup #dock,body.lookup #card,body.look
   #top{gap:8px;left:10px;right:10px;top:calc(10px + env(safe-area-inset-top,0px))} /* an installed app draws under the status bar */ .brand{padding:7px} .brand b,.brand small{display:none} /* emblem only: the bar must fit 360 px */
   .timebar [data-rate="-3600"],.timebar [data-rate="600"],.timebar #tLive{display:none} .tnow{min-width:0} .tnow b{font-size:11.5px} .tnow span{display:none}
   .stats{padding:4px} .stats .stat:nth-child(n+3){display:none} .stat{min-width:52px;padding:4px 8px} .stat b{font-size:15px}
+  body.no-air .stats .stat:nth-child(n+3){display:block} /* without aircraft, SAT and QK take their places */
   .links{padding:4px} .links a{display:none} /* keep the Layers button: it is the only way to open the dock on a phone */
   .alt b{font-size:16px;white-space:nowrap} .alt span{white-space:nowrap}
   #band{left:10px;right:10px;transform:none;bottom:10px;overflow-x:auto} .alt{min-width:120px}

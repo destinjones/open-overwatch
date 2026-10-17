@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Aircraft: the OpenSky global snapshot (every 15 min; on the website, which may not pass OpenSky on, adsb.lol around the
-// camera every 45 s through the public relay instead) and adsb.lol military (every 60 s), dead-reckoned between fixes
+// camera every 45 s through the public relay instead, where that carries it: today it doesn't, so the website has no
+// live aircraft and main.js says so once) and adsb.lol military (every 60 s), dead-reckoned between fixes
 // (through the turn a plane was making), each fix stamped with the feed's own time and eased in where it disagrees with
 // where we drew the plane; drawn as Blender-rendered sprites far out (nose along the course from any angle) and as glTF
 // models (pitch from climb rate, bank from turn rate) up close. Heights: geometric altitude where the feed has it, and on
@@ -74,6 +75,9 @@ const layerOf = r => L[r.mil ? 'mil' : 'air'];
 export const airShown = r => layerOf(r).on && !Time.offLive();
 export const Air = {
   map: new Map(),
+  // answered: which feeds have answered in this visit (the header says — until one has, not a 0 that looks like data);
+  // offSite: the feeds can't answer on this page (the website: its relay doesn't carry aircraft), set by main.js
+  answered: { air: false, mil: false }, offSite: false,
   upsert(a, { cached = false } = {}) {   // cached: from a stored copy (the OpenSky snapshot kept 15 min)
     let r = this.map.get(a.hex);
     const report = { src: a.src, lat: a.lat, lon: a.lon, t: a.ts, gsKt: a.gs != null ? a.gs / 0.514444 : null, altFt: a.ground ? 0 : a.alt != null ? a.alt / 0.3048 : null };
@@ -122,7 +126,7 @@ export const Air = {
     for (const [hex, flight, country, lon, lat, alt, ground, gs, track, squawk, vr, tpos, geo] of rows)   // dead-reckon from when each position was heard, not when we asked (rows: core/aircraft.js openskyState, cached)
       this.upsert({ hex, flight, country, lon, lat, alt: alt || 0, ground: !!ground, gs, track, vr: vr ?? 0, squawk, emerg: EMERGENCY.includes(squawk), mil: false,
         ts: tpos > 0 && tpos * 1000 <= ts && ts - tpos * 1000 < DR_MAX_S * 1000 ? tpos * 1000 : ts, altG: !ground && geo != null ? geo : null, src: 'OpenSky' }, { cached: ts !== now });
-    this.snapshotAt = ts; setCount('air', rows.length); hooks.updateStats();
+    this.snapshotAt = ts; this.answered.air = true; setCount('air', rows.length); hooks.updateStats();
   },
   /** Civil traffic: OpenSky's global snapshot where the local helper relays it (the download), else adsb.lol near the camera. */
   civil() {
@@ -143,15 +147,15 @@ export const Air = {
         const d = await getJSON(url, { relay: true, timeout: 30000 }), now = Date.now(), cached = viaCopy(url);
         for (const a of d.ac || []) { const r = fromAdsb(a, now); if (r && !r.mil) this.upsert(r, { cached }); }
         done++;
-      } catch (e) { err = err || e; if (/HTTP 429/.test(e.message)) break; }
+      } catch (e) { err = err || e; if (e.notCarried || /HTTP 429/.test(e.message)) break; }   // not carried: the other tiles won't be either
     }
     if (!done && err) throw err;
-    this.areaAt = Date.now(); setCount('air', this.counts().air); hooks.updateStats();
+    this.areaAt = Date.now(); this.answered.air = true; setCount('air', this.counts().air); hooks.updateStats();
   },
   async military() {
     const url = 'https://api.adsb.lol/v2/mil', d = await getJSON(url, { relay: true }), now = Date.now(), cached = viaCopy(url); let n = 0; this.milAt = now;
     for (const a of d.ac || []) { const r = fromAdsb(a, now, true); if (!r) continue; n++; this.upsert(r, { cached }); }
-    setCount('mil', n); hooks.updateStats();
+    this.answered.mil = true; setCount('mil', n); hooks.updateStats();
   },
   prune() {
     const now = Date.now();

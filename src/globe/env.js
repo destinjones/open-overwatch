@@ -3,7 +3,8 @@
 export const C = window.Cesium;
 export const $ = s => document.querySelector(s);
 export { esc } from '../core/format.js';
-import { PUBLIC_RELAY, onPublishedSite, publicRelayable } from '../core/relay.js';
+import { PUBLIC_RELAY, onPublishedSite, publicRelayable, relayRefused, markNotCarried, carried } from '../core/relay.js';
+export { carried };
 export const fmt = n => n == null || Number.isNaN(n) ? '—' : Math.round(n).toLocaleString('en-US');
 // a narrow window, or a touch screen whose short side is phone-sized (a phone held sideways is wider than 820 px)
 export const PHONE = matchMedia('(max-width: 820px)').matches || (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600);
@@ -47,15 +48,28 @@ export function relayed(url) {
   return null;
 }
 
+/** A feed this page can't get (the website's relay doesn't carry it, or only the download's helper relays it): it won't
+ *  answer later in this visit either, so timers stop asking (core/poll.js). */
+export const notCarried = (msg = 'this feed needs the download version (its local helper relays it)') => Object.assign(new Error(msg), { notCarried: true });
 async function request(url, timeout, read) {
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), timeout);
-  try { const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) throw new Error('HTTP ' + r.status); return await read(r); }
+  try {
+    const r = await fetch(url, { signal: ctl.signal });
+    if (!r.ok) {   // the deployed Worker refusing the host (its own 403 text) is not the feed's 403: the host is off for the visit
+      if (r.status === 403 && url.startsWith(PUBLIC_RELAY) && relayRefused(r.status, await r.text().catch(() => ''))) {
+        try { markNotCarried(new URL(decodeURIComponent(url.slice(PUBLIC_RELAY.length))).hostname); } catch (e) { /* not a URL */ }
+        throw notCarried('not carried by the website: needs the download version');
+      }
+      throw new Error('HTTP ' + r.status);
+    }
+    return await read(r);
+  }
   catch (e) { throw e.name === 'AbortError' ? new Error('timeout') : e; }
   finally { clearTimeout(t); }
 }
 export function getJSON(url, { relay = false, timeout = 45000 } = {}) {
   const via = relay ? relayed(url) : url;
-  if (!via) return Promise.reject(new Error('this feed needs the download version (its local helper relays it)'));
+  if (!via) return Promise.reject(notCarried());
   return request(via, timeout, r => r.json());
 }
 export const getText = (url, { timeout = 90000 } = {}) => request(url, timeout, r => r.text());

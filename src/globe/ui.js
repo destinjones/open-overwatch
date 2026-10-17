@@ -17,8 +17,8 @@ import { provBlock } from '../core/liveprov.js';
 
 // ---- stats + altitude band
 export function updateStats() {
-  const { air, mil } = Air.counts();
-  $('#sAir').textContent = fmt(air); $('#sMil').textContent = fmt(mil);
+  const { air, mil } = Air.counts(), heard = Air.answered;   // — until a feed has answered (on the website, none can: no 0 posing as data)
+  $('#sAir').textContent = heard.air ? fmt(air) : '—'; $('#sMil').textContent = heard.mil ? fmt(mil) : '—';
   $('#sSat').textContent = fmt(Sats.list.filter(s => L[s.layer].on && !s.gone).length); $('#sQk').textContent = fmt(Quakes.list.length);
 }
 // ---- time bar

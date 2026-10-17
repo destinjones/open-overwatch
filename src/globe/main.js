@@ -10,6 +10,7 @@ import { Sats, SatModels, SHADOW_FILL } from './satellites.js';
 import { warmModels, warmAgain, warmSlowly } from './warm.js';
 import { Air, AirModels, airShown } from './aircraft.js';
 import { AIR_TTL } from '../core/airgrid.js';
+import { createPoller } from '../core/poll.js';
 import { Time } from './time.js';
 import { Quakes } from './quakes.js';
 import { Lighthouses } from './lighthouses.js';
@@ -66,6 +67,7 @@ import { Bikes } from './bikes.js';
 import { Saver } from './saver.js';
 import { Model } from './model.js';
 import { Airports, Aviation } from './aviation.js';
+import { LandWatch } from './landwatch.js';   // after aviation.js, which loads it (the module order stays as it was)
 import { Now } from './now.js';
 import { Events } from './events.js';
 import { TimeTravel } from './timetravel.js';
@@ -135,13 +137,25 @@ setInterval(() => AirModels.refresh(), 500);
 { let lastAir = 0; setInterval(() => { const now = Date.now(); if (state.weather) return; if (now - lastAir < (camHeight() > 1.0e6 ? 1000 : 250)) return; lastAir = now; Air.update(now); }, 250); }
 setInterval(() => Air.prune(), 30e3);
 
-/** Run a feed now and every `ms`. A failure is logged and retried on the next run; only one that keeps failing
- *  (three in a row) is mentioned, and not as a scary "Failed to fetch" on a first visit. */
-function every(ms, fn, label) {
-  let fails = 0;
-  const run = () => fn().then(() => { fails = 0; }, e => { console.warn(label, e); if (++fails === 3) toast(`${label} is unavailable right now; retrying`, 3500); });
-  run(); return setInterval(run, ms);
+/** Run a feed now and every `ms` (core/poll.js), resting while the tab is hidden: back in view, each feed that came due
+ *  runs once, a moment apart. A failure is logged and retried on the next run; only one that keeps failing (three in a
+ *  row) is mentioned, and not as a scary "Failed to fetch" on a first visit. A feed that can't answer on this page (the
+ *  website's relay doesn't carry it: env.js notCarried) stops for the visit, with no "retrying". */
+const poller = createPoller();
+document.addEventListener('visibilitychange', () => poller.setHidden(document.hidden));
+poller.setHidden(document.hidden);
+function every(ms, fn, label, { keep, onStop } = {}) {
+  return poller.add(ms, fn, { keep, onStop: e => { console.warn(label, e.message); onStop?.(e); },
+    onError: (e, fails) => { console.warn(label, e); if (fails === 3) toast(`${label} is unavailable right now; retrying`, 3500); } });
 }
+// the website carries no aircraft feed (layers.js names them "download version"): one line, once, and the header's AIR
+// and MIL give way to SAT and QK on phones (globe.html: body.no-air)
+function noAir() {
+  if (Air.offSite) return; Air.offSite = true; document.body.classList.add('no-air'); updateStats();
+  if (!EMBED && (L.air.on || L.mil.on)) toast('No live aircraft on the website: they come with the free download', 6000);
+}
+// a plane being watched for its landing (landwatch.js) or followed keeps its feeds running in a hidden tab
+const airKeep = () => LandWatch.map.size > 0 || Follow.obj?.kind === 'air';
 
 // boot: a mostly sunlit Earth, held behind the boot screen until the globe has something to show. Behind that screen the
 // camera first dips to 600 km for a moment: below ~800 km Cesium switches on fog and atmosphere in the globe's and the
@@ -197,8 +211,8 @@ Sats.ready = Sats.load().catch(e => toast('Satellites failed: ' + e.message));  
     setTimeout(function warm() { if (PHONE && performance.now() - lastInput < 3000) return setTimeout(warm, 2000); Weather.prewarm(); }, 6000);   // weather's first open would otherwise freeze the globe ~0.6 s
   }, 1000);
 }
-every(AIR_TTL.point * 1000, () => Air.civil(), 'Civil aircraft');   // OpenSky every 15 min with the helper, adsb.lol near the camera on the website
-every(60e3, () => Air.military(), 'Military aircraft');
+every(AIR_TTL.point * 1000, () => Air.civil(), 'Civil aircraft', { keep: airKeep, onStop: noAir });   // OpenSky every 15 min with the helper, adsb.lol near the camera where the website's relay carries it
+every(60e3, () => Air.military(), 'Military aircraft', { keep: airKeep, onStop: noAir });
 every(10 * 60e3, () => Quakes.load(), 'Earthquakes');
 every(30 * 60e3, () => Storms.load(), 'Tropical cyclones');
 setInterval(() => Aurora.apply(), 60e3);   // refreshes itself every 10 minutes while the layer is on
