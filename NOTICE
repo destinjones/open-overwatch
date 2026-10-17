@@ -21,5 +21,28 @@ Third-party data in this repository with its own licence (not MIT):
   brand/tools/make_lightpollution.py. Remove it from any commercial fork.
 - data/deepsky.json: CC-BY-SA-4.0, derived from OpenNGC v20260501 (https://github.com/mattiaverga/OpenNGC, Mattia
   Verga and contributors), selected and reformatted by brand/tools/make_deepsky.py.
+- data/solar/stars.bin and data/solar/stars.json: CC BY-SA 4.0, derived from the HYG star database v4.1
+  (https://github.com/astronexus/HYG-Database, David Nash / astronexus), converted by brand/tools/make_stars.py.
+- data/lighthouses.json: (c) OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright), queried
+  through the Overpass API and trimmed by brand/tools/make_lighthouses.py.
+- data/constellations.json: BSD 3-Clause, Copyright (c) 2015, Olaf Frohn, from d3-celestial
+  (https://github.com/ofrohn/d3-celestial), reformatted by brand/tools/make_constellations.py. Its licence terms:
+
+    Copyright (c) 2015, Olaf Frohn. All rights reserved.
+    Redistribution and use in source and binary forms, with or without modification, are permitted provided that
+    the following conditions are met:
+    1. Redistributions of source code must retain the above copyright notice, this list of conditions and the
+       following disclaimer.
+    2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
+       following disclaimer in the documentation and/or other materials provided with the distribution.
+    3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote
+       products derived from this software without specific prior written permission.
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+    INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+    DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+    SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+    SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+    WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+    USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 The full list of data sources and their terms is in docs/DATA_SOURCES.md.
