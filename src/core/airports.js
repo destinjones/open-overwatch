@@ -138,7 +138,7 @@ export function makeBoard(ap, aircraft, { others = [], opt = BOARD, max = 40, no
   }
   arriving.sort((a, b) => (a.etaS ?? 1e9) - (b.etaS ?? 1e9) || a.km - b.km);
   departing.sort((a, b) => a.km - b.km);
-  ground.sort((a, b) => (b.status === 'taxiing') - (a.status === 'taxiing') || a.km - b.km);
+  ground.sort((a, b) => +(b.status === 'taxiing') - +(a.status === 'taxiing') || a.km - b.km);
   recent.sort((a, b) => b.at - a.at);
   return { arriving: arriving.slice(0, max), departing: departing.slice(0, max), ground: ground.slice(0, max), recent: recent.slice(0, max) };
 }

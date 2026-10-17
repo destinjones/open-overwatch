@@ -7,7 +7,7 @@
 // longer each time; when every server fails, everything waits longer too.
 const ENDPOINTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
 const health = ENDPOINTS.map((url, i) => ({ url, ms: 3000 * (i + 1), fails: 0, until: 0 }));   // in order of preference until measured
-let queue = Promise.resolve(), lastEnd = 0, lastCost = 0, pause = 0;
+let queue = /** @type {Promise<unknown>} */ (Promise.resolve()), lastEnd = 0, lastCost = 0, pause = 0;
 
 /** Run an Overpass QL query (JSON output) in turn: resolves to the parsed answer. `gap`: least ms after the previous one. */
 export function overpass(query, { timeout = 30000, gap = 1000, fetch: f = globalThis.fetch } = {}) {

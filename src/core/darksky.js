@@ -148,6 +148,7 @@ export function moonOver(lat, lon, win, { step = 10 * 60e3 } = {}) {
   return { lit: ph.lit, name: ph.name, upHours: up * h, darkHours: n * h, moonless: (n - up) * h, moonlessFrom: best ? best.from : null, moonlessTo: best ? best.to : null, mcd: up ? sum / up : 0 };
 }
 
+/** @type {[number, string][]} */
 const WORDS = [[0.75, 'excellent'], [0.5, 'good'], [0.3, 'fair'], [0.12, 'poor'], [-1, 'not worth it']];
 
 /**

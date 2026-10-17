@@ -21,6 +21,7 @@ export function formatUtc(jd, { suffix = ' UTC' } = {}) {
  * "live" and follows Date.now() exactly instead of accumulating frame times.
  */
 export class SimClock {
+  /** @param {{ jd?: number, rate?: number, min?: number, max?: number, now?: () => number }} [opts] */
   constructor({ jd, rate = REAL_TIME, min = -Infinity, max = Infinity, now = () => Date.now() } = {}) {
     this.jd = jd ?? jdNow(now()); this.rate = rate; this.min = min; this.max = max; this.now = now;
     this.live = rate === REAL_TIME && Math.abs(this.jd - jdNow(now())) < 1 / 1440;

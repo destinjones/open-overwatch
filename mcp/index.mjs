@@ -13,6 +13,7 @@ export { VERSION, SITE };
  * { handle(message, { signal }) }. Options: site (links and data copies), fetchImpl, sgp4 (satellite.js or a stand-in), now,
  * log, importSgp4 (how satellite.js loads when sgp4 is not given); memo and shared (createFeeds': answers kept between servers, and a cache in front of the network); omit (names of
  * tools to leave out: the Worker's free plan can't afford the heaviest).
+ * @param {{ site?: string, fetchImpl?: typeof globalThis.fetch, sgp4?: any, now?: () => number, log?: (line: string) => void, importSgp4?: () => Promise<any>, memo?: any, shared?: any, omit?: string[] }} [opts]
  */
 export function createOverwatchServer({ site = SITE, fetchImpl, sgp4, now = Date.now, log = () => {}, importSgp4 = () => import('satellite.js'), memo, shared, omit = [] } = {}) {
   const base = new URL(site).href.replace(/\/?$/, '/');

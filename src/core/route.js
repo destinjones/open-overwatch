@@ -74,7 +74,7 @@ export function parseOsrm(d) {
 /** A route between { lat, lon } points (the globe's directions and both views' measure tools). */
 export async function fetchRoute(from, to, mode = 'drive', f = globalThis.fetch) {
   const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 20000);
-  let d;
+  /** @type {any} */ let d;
   try { const r = await f(osrmUrl(from, to, mode), { signal: ctl.signal }); d = await r.json().catch(() => null); if (!r.ok && !(d && d.code)) throw new Error('HTTP ' + r.status); }   // OSRM answers "no route" as HTTP 400 with a code
   catch (e) { throw e.name === 'AbortError' ? new Error('timeout') : e; }
   finally { clearTimeout(timer); }

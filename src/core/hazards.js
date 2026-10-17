@@ -155,7 +155,7 @@ export const fireLevel = km => km > 1200 ? 3 : km > 500 ? 4 : km > 150 ? 5 : 6;
 export function fireTilesWanted(lat, lon, r, level, max, now = Date.now()) {
   const day = ms => new Date(ms).toISOString().slice(0, 10), rl = r / Math.max(0.2, Math.cos(lat * Math.PI / 180));
   const near = fireTilesFor(Math.max(-180, lon - rl), Math.max(-90, lat - r), Math.min(180, lon + rl), Math.min(90, lat + r), level)
-    .map(t => { const d = fireTileDeg(t.level); return [t, Math.hypot(-180 + (t.col + 0.5) * d - lon, 90 - (t.row + 0.5) * d - lat)]; })
+    .map(t => { const d = fireTileDeg(t.level); return /** @type {[any, number]} */ ([t, Math.hypot(-180 + (t.col + 0.5) * d - lon, 90 - (t.row + 0.5) * d - lat)]); })
     .sort((a, b) => a[1] - b[1]).slice(0, level <= 3 ? 2 : max).map(a => a[0]);
   const out = [];
   for (const t of near) for (const sat of Object.keys(FIRE_LAYERS)) for (const d of [day(now), day(now - 864e5)])

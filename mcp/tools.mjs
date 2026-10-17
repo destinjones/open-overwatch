@@ -465,7 +465,7 @@ export function createTools(ctx) {
       if (showers.length) out.push(...showers.map(s => s.text)); data.meteor_showers = showers.map(s => ({ name: s.name, peak: iso(s.peakMs), active: s.active, per_hour_tonight: s.rate, text: s.text }));
       data.passes = [];
       if (dark) {
-        const sl = await ctx.sgp4(), o = observer(lat, lon, 0), seen = [];
+        const sl = await ctx.sgp4(), o = observer(lat, lon, 0), seen = /** @type {[string, any][]} */ ([]);
         for (const [id, short] of BRIGHT) {
           const [s] = await findSats(feeds, id, { signal, max: 1 }).catch(() => []); if (!s) continue;
           const ps = findPasses(ms => ecefAt(sl, s, ms), o, Math.max(t, dark.start - 30 * 60e3), dark.end + 30 * 60e3, { minEl: 10, sunAt: sunEcef }).filter(p => p.visible);

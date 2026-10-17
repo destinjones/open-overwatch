@@ -66,6 +66,7 @@ function describe(t) {
  * (base64), mimeType }], sent as image content after the text); prompts: [{ name, title, description, arguments: [{ name,
  * description, required }], render(args) -> text }] (one user message each); resources: [{ uri, name,
  * title, description, mimeType, text, _meta }]. handle(message, { signal }) resolves to the response, or null for notifications.
+ * @param {{ name: string, title?: string, version: string, instructions?: string, tools: any[], resources?: any[], prompts?: readonly any[], log?: (line: string) => void }} opts
  */
 export function createMcpServer({ name, title, version, instructions, tools, resources = [], prompts = [], log = () => {} }) {
   const byName = new Map(tools.map(t => [t.name, t])), byUri = new Map(resources.map(r => [r.uri, r]));
@@ -114,6 +115,7 @@ export function createMcpServer({ name, title, version, instructions, tools, res
     },
   };
   return {
+    /** @param {any} m @param {{ signal?: AbortSignal }} [opts] */
     async handle(m, { signal } = {}) {
       if (!isObj(m) || m.jsonrpc !== '2.0') return { jsonrpc: '2.0', id: (isObj(m) && m.id) ?? null, error: { code: E.REQUEST, message: 'Invalid JSON-RPC message' } };
       if (typeof m.method !== 'string') return null;   // a response to us: this server sends no requests

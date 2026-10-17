@@ -83,7 +83,11 @@ export const LAYERS = Object.freeze({
   history: { maxAgeMs: 200 * 365 * D, dataAt: 'the archived record\'s own time (time travel: a record of the past, never stale)' },
 });
 
-/** One source's report for a stamp: the catalogue's name, link and terms plus this report's times. */
+/**
+ * One source's report for a stamp: the catalogue's name, link and terms plus this report's times.
+ * @param {string} id
+ * @param {{ dataAt?: any, fetchedAt?: any, cached?: boolean, name?: string, url?: string }} [opts]
+ */
 export function rep(id, { dataAt = null, fetchedAt = null, cached = false, name = null, url } = {}) {
   const s = SOURCES[id] || {};
   return source({ id, name: name || s.name || id, url: url !== undefined ? url : s.url || null, licence: s.licence || null, dataAt, fetchedAt, cached });

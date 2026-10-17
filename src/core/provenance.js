@@ -24,7 +24,10 @@ export const CONFIDENCE = ['confirmed', 'reported', 'stale', 'unknown'];
 
 const ms = t => t == null || t === '' ? null : typeof t === 'number' ? (Number.isFinite(t) ? t : null) : (v => Number.isFinite(v) ? v : null)(Date.parse(t));
 
-/** One source's report, normalised (times to ms or null). */
+/**
+ * One source's report, normalised (times to ms or null).
+ * @param {{ id?: string, name?: string, url?: string, licence?: string, dataAt?: any, fetchedAt?: any, cached?: boolean }} [r]
+ */
 export function source({ id, name, url = null, licence = null, dataAt = null, fetchedAt = null, cached = false } = {}) {
   if (!id) throw new Error('provenance source needs an id');
   return { id: String(id), name: String(name || id), url, licence, dataAt: ms(dataAt), fetchedAt: ms(fetchedAt), cached: !!cached };

@@ -103,7 +103,8 @@ export function spaceTool(ctx) {
       if (!hit) throw new ToolError(`Nothing in the Solar System called "${q}" is known here (try a planet, moon, mission, comet or numbered asteroid)`, 'not_found');
       const ref = hit.ref, earth = j => earthPosition(j);
       // how to place it: a function of jd giving the heliocentric position (AU)
-      let at, extra = {}, words = [];
+      /** @type {Record<string, any>} */ let extra = {};
+      let at, words = [];
       if (ref.planet) {
         at = j => planetPosition(ref.planet, j);
         const p = planetFromEarth(ref.planet, jd); extra = { magnitude: r1(p.magnitude), lit_percent: Math.round(p.lit * 100) };

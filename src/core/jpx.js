@@ -217,15 +217,15 @@ export function jpxDecode(b) {
   if (u16(b, 0) !== 0xff4f) throw new Error('jpx: not a JPEG 2000 codestream');
   let p = 2, siz = null;
   const main = {}, tiles = new Map();
-  let tile = null;
+  /** @type {any} */ let tile = null;   // the tile part being read (its own COD/QCD), or null in the main header
   while (p < b.length) {
     const m = u16(b, p);
     if (m === 0xffd9) break;   // EOC
     const len = u16(b, p + 2), q = p + 4;
     if (m === 0xff51) {   // SIZ
-      siz = { w: u32(b, q + 2), h: u32(b, q + 6), x0: u32(b, q + 10), y0: u32(b, q + 14), tw: u32(b, q + 18), th: u32(b, q + 22), tx0: u32(b, q + 26), ty0: u32(b, q + 30), comps: u16(b, q + 34) };
+      siz = { w: u32(b, q + 2), h: u32(b, q + 6), x0: u32(b, q + 10), y0: u32(b, q + 14), tw: u32(b, q + 18), th: u32(b, q + 22), tx0: u32(b, q + 26), ty0: u32(b, q + 30), comps: u16(b, q + 34),
+        bits: (b[q + 36] & 0x7f) + 1, signed: !!(b[q + 36] & 0x80) };
       if (siz.comps !== 1) throw new Error('jpx: ' + siz.comps + ' components');
-      siz.bits = (b[q + 36] & 0x7f) + 1; siz.signed = !!(b[q + 36] & 0x80);
       if (b[q + 37] !== 1 || b[q + 38] !== 1) throw new Error('jpx: subsampled component');
     } else if (m === 0xff52) readCod(b, q, tile ? tile.cod : main);
     else if (m === 0xff53) readCoc(b, q + 2, tile ? tile.cod : main, b[q + 1] & 1);

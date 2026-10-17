@@ -87,7 +87,7 @@ export function parseFlares(doc) {
 /** A flare class from the long-channel flux: 2.2e-6 W/m² → "C2.2". X runs on past X9.9 (X12, X28). */
 export function flareClass(flux) {
   if (!fin(flux) || flux <= 0) return '';
-  const L = [['X', 1e-4], ['M', 1e-5], ['C', 1e-6], ['B', 1e-7], ['A', 1e-8]];
+  /** @type {[string, number][]} */ const L = [['X', 1e-4], ['M', 1e-5], ['C', 1e-6], ['B', 1e-7], ['A', 1e-8]];
   const hit = L.find(([, b]) => flux >= b * 0.99995), [c, base] = hit || L[L.length - 1], v0 = Math.floor(flux / base * 10 + 1e-6) / 10;
   const v = hit ? Math.max(1, v0) : v0;   // a flux a hair under a decade takes the higher letter, so it reads 1.0 there, never "X0.9"
   return c + (c === 'X' && v >= 10 ? Math.floor(v) : v.toFixed(1));
@@ -202,13 +202,17 @@ export function topAlerts(list, n = 3) {
     .filter(e => { if (!/^ALTK/.test(e.code)) return true; if (seen.has('k')) return false; seen.add('k'); return true; }).slice(0, n);
 }
 
-/** One message in plain words. */
+/** @typedef {{ kind: string, id: string, issued: number, from?: number, until: number, scale: string, cme: boolean, text?: string, active?: boolean, [k: string]: any }} SwEvent */
+/**
+ * One message in plain words.
+ * @returns {SwEvent | null}
+ */
 function describe({ f, head, kind, text, code, serial, issued }) {
   const scaleM = /\b([GRS][1-5])\b/.exec(f['noaa scale'] || ''), base = { id: code + ':' + serial, code, serial, issued, title: head, scale: scaleM ? scaleM[1] : '', cme: false, from: NaN };
   const kpM = /K-index of (\d)/.exec(head), comment = f.comment || '';
   if (kind === 'WARNING' || kind === 'EXTENDED WARNING') {
     const from = swpcTime(f['valid from']), until = swpcTime(f['now valid until'] || f['valid to']);
-    const e = { ...base, kind: 'warning', from: fin(from) ? from : issued, until: fin(until) ? until : issued + 6 * HOUR };
+    /** @type {SwEvent} */ const e = { ...base, kind: 'warning', from: fin(from) ? from : issued, until: fin(until) ? until : issued + 6 * HOUR };
     if (kpM) {
       const kp = +kpM[1], g = kpG(kp), more = /or greater/.test(head);
       e.scale = e.scale || (g ? 'G' + g : '');
@@ -260,7 +264,7 @@ function describe({ f, head, kind, text, code, serial, issued }) {
   }
   if (kind === 'SUMMARY') {
     const peak = swpcTime(f['maximum time']), at = fin(peak) ? peak : fin(swpcTime(f['observed'])) ? swpcTime(f['observed']) : fin(swpcTime(f['begin time'])) ? swpcTime(f['begin time']) : issued;
-    const e = { ...base, kind: 'summary', until: at };
+    /** @type {SwEvent} */ const e = { ...base, kind: 'summary', until: at };
     if (/X-?ray Event/i.test(head)) {
       const cls = (f['xray class'] || '').toUpperCase(), r = rScale(classFlux(cls)), loc = f.location || '';
       e.scale = e.scale || (r ? 'R' + r : '');
@@ -294,6 +298,8 @@ const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : NaN;
  *           begin, end, ongoing }), text, prov }
  *   alerts { active: [...], recent: [...] }  each entry from parseAlerts with its own `prov`
  * `opts` = { now, fetchedAt, cached, sparkH }.
+ * @param {{ mag?: any, wind?: any, xrays?: any, flare?: any, flares?: any, alerts?: any }} [feeds]
+ * @param {{ now?: number, fetchedAt?: number, cached?: boolean, sparkH?: number }} [opts]
  */
 export function sunNow({ mag, wind, xrays, flare, flares, alerts } = {}, opts = {}) {
   const now = opts.now ?? Date.now(), sparkH = opts.sparkH ?? 6, o = { fetchedAt: opts.fetchedAt, cached: opts.cached };

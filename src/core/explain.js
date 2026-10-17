@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // "What am I looking at?": one friendly sentence for a satellite card, from its name, its layer and its orbit. DOM-free.
 
+/** @type {[RegExp, string][]} */
 const NAMED = [
   [/^ISS\b|ZARYA/, 'The International Space Station: a football-pitch-sized lab with people aboard since 2000. Often the brightest thing in the night sky after the Moon and Venus.'],
   [/^CSS|TIANHE|TIANGONG/, "China's Tiangong space station, crewed since 2021."],

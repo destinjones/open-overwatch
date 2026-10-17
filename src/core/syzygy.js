@@ -81,7 +81,7 @@ export function lunations(eph, jd0, jd1) {
   const fNew = t => elongationLon(eph, t), fFull = t => wrapPi(elongationLon(eph, t) - Math.PI);
   for (let t = jd0; t < jd1; t += step) {
     const t1 = Math.min(t + step, jd1);
-    for (const [phase, f] of [['new', fNew], ['full', fFull]]) {
+    for (const [phase, f] of /** @type {[string, (t: number) => number][]} */ ([['new', fNew], ['full', fFull]])) {
       const a = f(t), b = f(t1);
       if (a < 0 && b >= 0 && b - a < Math.PI) out.push({ jd: root(f, t, t1, 1e-6), phase });
     }

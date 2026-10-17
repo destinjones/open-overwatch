@@ -17,6 +17,7 @@ export function cleanShot(s) {
   return { lon: r(lon, 5), lat: r(lat, 5), h: Math.round(h), heading: r(heading, 1) + 0, pitch: r(pitch, 1) + 0, roll: r(roll, 1) + 0, dur: r(dur, 1), hold: r(hold, 1), sensor: SENSORS.includes(s.sensor) ? s.sensor : 'normal' };
 }
 
+/* global Buffer -- Node only (the tests), behind the typeof checks below */
 const b64 = s => (typeof btoa === 'function' ? btoa(s) : Buffer.from(s, 'binary').toString('base64')).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const unb64 = s => { const t = s.replace(/-/g, '+').replace(/_/g, '/'); return typeof atob === 'function' ? atob(t) : Buffer.from(t, 'base64').toString('binary'); };
 

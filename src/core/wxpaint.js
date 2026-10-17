@@ -10,6 +10,7 @@ import { isolines, levels, extrema, labelSpots } from './contour.js';
 const RAD = Math.PI / 180;
 
 /** Temperature (°C) stops: violet at -40 through blue, green and yellow to red at 40. */
+/** @type {[number, number[]][]} */
 export const TEMP = [[-40, [120, 60, 200]], [-20, [70, 100, 240]], [0, [40, 190, 250]], [10, [40, 210, 140]], [20, [255, 230, 60]], [30, [255, 130, 40]], [40, [220, 30, 30]]];
 /** Rain rate (mm/h): the usual radar colours, see-through when light, nothing under 0.1 mm/h. */
 export const RAIN = [[0.1, [127, 214, 255, 70]], [1, [62, 224, 143, 150]], [4, [255, 224, 102, 185]], [10, [255, 159, 67, 205]], [25, [255, 77, 94, 220]]];

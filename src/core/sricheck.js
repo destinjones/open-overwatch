@@ -78,6 +78,8 @@ const allows = (list, url) => { const o = new URL(url).origin; return list.inclu
 /**
  * Problems on one page: [{ rule, line, what }]. `sha256(text)` returns base64; `sri` (optional) maps URL -> the
  * expected "sha384-…" so the same file carries the same hash on every page; `evalOk` lets the page allow 'unsafe-eval'.
+ * @param {string} html
+ * @param {{ sha256?: (text: string) => string, sri?: Map<string, string>, evalOk?: boolean }} [opts]
  */
 export function checkPage(html, { sha256, sri = null, evalOk = false } = {}) {
   const errs = [], err = (rule, line, what) => errs.push({ rule, line, what });

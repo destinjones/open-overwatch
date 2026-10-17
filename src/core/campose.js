@@ -14,6 +14,7 @@ export const PRESETS = Object.freeze({   // typical mounts per network
   caltrans: { height: 11, pitch: -9, fov: 50 }, finland: { height: 6, pitch: -13, fov: 62 }, default: { height: 8, pitch: -12, fov: 58 },
 });
 
+/** @type {[RegExp, number][]} */
 const BOUND = [[/\b(north[\s-]?bound|n\/b|nb)\b/, 0], [/\b(south[\s-]?bound|s\/b|sb)\b/, 180], [/\b(east[\s-]?bound|e\/b|eb)\b/, 90], [/\b(west[\s-]?bound|w\/b|wb)\b/, 270]];
 const COMPASS = { northeast: 45, northwest: 315, southeast: 135, southwest: 225, north: 0, south: 180, east: 90, west: 270 };
 const WORD = '(north[\\s-]?east|north[\\s-]?west|south[\\s-]?east|south[\\s-]?west|northeast|northwest|southeast|southwest|north|south|east|west)';

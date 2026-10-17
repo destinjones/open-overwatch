@@ -113,7 +113,7 @@ export function coopsUrl(id, what, { datum = 'MLLW', now = Date.now() } = {}) {
   const q = `${COOPS_API}?application=open_overwatch&station=${id}&datum=${datum}&units=metric&time_zone=gmt&format=json`;
   return what === 'hilo' ? `${q}&product=predictions&interval=hilo&begin_date=${ymd(now - 864e5)}&range=96` : `${q}&product=water_level&date=latest`;
 }
-const coopsTime = s => { const m = /^(\d{4})-(\d\d)-(\d\d) (\d\d):(\d\d)$/.exec(String(s || '').trim()); return m ? Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5]) : null; };
+const coopsTime = s => { const m = /^(\d{4})-(\d\d)-(\d\d) (\d\d):(\d\d)$/.exec(String(s || '').trim()); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : null; };
 /** The latest water level → { t, levelM, sigmaM, verified } or { error } (the API answers errors with HTTP 200). */
 export function parseCoopsLatest(json) {
   if (json?.error) return { error: String(json.error.message || 'no data').trim() };
@@ -210,8 +210,8 @@ export function parseAirQuality(json) {
   });
 }
 /** The US EPA's AQI bands: [lowest AQI, words, colour]. */
-export const US_AQI = Object.freeze([[301, 'Hazardous', '#7e0023'], [201, 'Very unhealthy', '#8f3f97'], [151, 'Unhealthy', '#ff0000'],
-  [101, 'Unhealthy for sensitive groups', '#ff7e00'], [51, 'Moderate', '#ffff00'], [0, 'Good', '#00e400']]);
+export const US_AQI = Object.freeze(/** @type {Array<[number, string, string]>} */ ([[301, 'Hazardous', '#7e0023'], [201, 'Very unhealthy', '#8f3f97'], [151, 'Unhealthy', '#ff0000'],
+  [101, 'Unhealthy for sensitive groups', '#ff7e00'], [51, 'Moderate', '#ffff00'], [0, 'Good', '#00e400']]));
 export function aqiLook(aqi) { if (aqi == null) return ['no data', '#9fb4c8']; const b = US_AQI.find(([min]) => aqi >= min) || US_AQI[US_AQI.length - 1]; return [b[1], b[2]]; }
 /** A grid of at most ~`max` points over a box (degrees; east may exceed 180 across the antimeridian), on round
  *  numbers so the same places come back as the view moves (and caches hit). */

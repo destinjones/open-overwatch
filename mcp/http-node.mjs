@@ -10,6 +10,8 @@ export const LOOPBACK_HOSTS = Object.freeze(['127.0.0.1', '::1', 'localhost']);
 /**
  * Listen on host:port (port 0 picks a free one) and answer MCP at /mcp. Resolves to { server, url, close() } once listening.
  * Options are createHttpHandler's (origins, path, …) plus host.
+ * @param {any} mcp
+ * @param {{ port?: number, host?: string, origins?: string[], path?: string, maxBody?: number, [k: string]: any }} [opts]
  */
 export async function serveHttp(mcp, { port, host = '127.0.0.1', ...opts } = {}) {
   if (!LOOPBACK_HOSTS.includes(host)) throw new Error(`--host must be a loopback address (${LOOPBACK_HOSTS.join(', ')}): this server has no authentication`);
@@ -41,6 +43,7 @@ export async function serveHttp(mcp, { port, host = '127.0.0.1', ...opts } = {})
   });
   server.headersTimeout = 30e3; server.requestTimeout = 120e3;
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, host, () => { server.off('error', reject); resolve(); }); });
-  const a = server.address(), shown = a.family === 'IPv6' ? `[${a.address}]` : a.address;
+  const a = /** @type {import('node:net').AddressInfo} */ (server.address());   // a TCP server's address is never a pipe name
+  const shown = a.family === 'IPv6' ? `[${a.address}]` : a.address;
   return { server, url: `http://${shown}:${a.port}${opts.path || '/mcp'}`, port: a.port, close: () => new Promise(r => { server.closeAllConnections?.(); server.close(() => r()); }) };
 }

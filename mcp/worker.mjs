@@ -71,6 +71,7 @@ export function settings(env = {}) {
 /**
  * A Worker: { fetch(request, env, ctx) }. Options (tests): fetchImpl, caches (a CacheStorage; default the runtime's),
  * sgp4, now. The default export is one with the runtime's own.
+ * @param {{ fetchImpl?: typeof globalThis.fetch, caches?: any, sgp4?: any, now?: () => number }} [opts]
  */
 export function createWorker({ fetchImpl, caches, sgp4, now = Date.now } = {}) {
   const memo = new Map();   // parsed answers, shared by every request this isolate serves

@@ -192,6 +192,17 @@ spec updated; see [TESTING.md](TESTING.md#end-to-end-browser-tests-playwright-in
   floors as whole numbers, so keep them integers; raise them when coverage rises. Node only counts files a test
   imports, so a new core module with no test doesn't lower the number: give it a test anyway.
 
+**Type check and lint** (dev dependencies only; nothing is built and nothing reaches the site or the .mcpb).
+`npm run typecheck` runs TypeScript as a checker (`tsconfig.json`: `checkJs`, `noEmit`) over `src/core/`, `mcp/` and
+`test/helpers/`: it reads the JSDoc, so a wrong argument count, a misspelt property or an option a function doesn't
+take fails. When it complains about an options object, give the function a `@param {{ … }} [opts]` line rather than
+an `any`; a typed constant (`/** @type {[string, RegExp][]} */`) settles arrays of pairs. `npm run lint` runs ESLint
+(`eslint.config.mjs`) over `src/`, `mcp/`, `test/`, `e2e/`, `brand/tools/`, `relay/`, `sw.js` and `serve.js` with
+bug rules only (undefined names with each folder's real globals, duplicate keys, unreachable code, constant
+conditions, self-assignment, switch fall-through; unused variables warn) and no style rules. A name a page puts on
+`window` before the modules run (Leaflet's `L`, `satellite`) goes in the config's lists, not in a disable comment.
+Both run in CI's test job.
+
 `.github/workflows/codeql.yml` runs CodeQL (JavaScript and the workflows) on pushes and pull requests to `main` and
 weekly, skipping `data/`, renders and fixtures; `.github/dependabot.yml` opens weekly grouped updates for npm and the
 workflows' actions against `main`.

@@ -203,6 +203,7 @@ export function airportWxLine(w) {
  * The weather at airports for cards that re-render: one Open-Meteo request per field (rounded to 0.05°) per `ttl`,
  * shared by every caller. `json(url)` is the view's fetch. get(ap) → Promise of airportWx's answer (null when it
  * failed); peek(ap) → that answer, or undefined while nothing has come back yet.
+ * @param {{ json?: (url: string) => Promise<any>, ttl?: number, now?: () => number }} [opts]
  */
 export function airportWxCache({ json, ttl = 15 * 60e3, now = () => Date.now() } = {}) {
   const cache = new Map();   // key -> { t, w, pending }

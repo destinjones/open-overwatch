@@ -170,7 +170,7 @@ export function tilesAround(lat, lon, radius, z) {
       // nearest point of the tile to the centre, in metres
       const nx = Math.max(cx + dx, Math.min(fx, cx + dx + 1)), latN = rowLat(ty), latS = rowLat(ty + 1), qlat = Math.max(latS, Math.min(latN, la));
       const d = Math.hypot((nx - fx) / n * EARTH * Math.cos(la * D), (qlat - la) * D * R);
-      if (d <= radius) out.push([`${z}/${tx}/${ty}`, d]);
+      if (d <= radius) out.push(/** @type {[string, number]} */ ([`${z}/${tx}/${ty}`, d]));
     }
   }
   return out.sort((a, b) => a[1] - b[1]).map(t => t[0]);
@@ -391,7 +391,7 @@ export function tilesInBox(w, s, e, n, z, max = Infinity) {
   if (e - w >= 360) { w = -180; e = 180 - 1e-9; }
   const x0 = Math.floor((w + 180) / 360 * N), x1 = Math.floor((e + 180) / 360 * N), y0 = row(n), y1 = row(s);
   const cx = (x0 + x1 + 1) / 2, cy = (y0 + y1 + 1) / 2, out = [];
-  for (let x = x0; x <= x1 && x - x0 < N; x++) for (let y = y0; y <= y1; y++) out.push([`${z}/${((x % N) + N) % N}/${y}`, Math.hypot(x + 0.5 - cx, y + 0.5 - cy)]);
+  for (let x = x0; x <= x1 && x - x0 < N; x++) for (let y = y0; y <= y1; y++) out.push(/** @type {[string, number]} */ ([`${z}/${((x % N) + N) % N}/${y}`, Math.hypot(x + 0.5 - cx, y + 0.5 - cy)]));
   return out.sort((a, b) => a[1] - b[1]).slice(0, max).map(t => t[0]);
 }
 /** A tile 'z/x/y' as [west, south, east, north] degrees, and whether it overlaps a TileJSON `bounds` (none: yes). */

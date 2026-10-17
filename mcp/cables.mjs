@@ -10,7 +10,7 @@ import { r1, r2, km, plural, areaData, limitProp } from './words.mjs';
 export function cablesTool(ctx) {
   const { feeds } = ctx, site = feeds.siteBase;
   let maps = null;
-  const both = ([url, mirror], signal) => feeds.json(url, { ttl: 864e5, timeout: 60e3, maxBytes: 40e6, signal }).catch(() => feeds.json(mirror, { ttl: 864e5, timeout: 60e3, maxBytes: 40e6, signal }));
+  const both = (/** @type {readonly string[]} */ [url, mirror], signal) => feeds.json(url, { ttl: 864e5, timeout: 60e3, maxBytes: 40e6, signal }).catch(() => feeds.json(mirror, { ttl: 864e5, timeout: 60e3, maxBytes: 40e6, signal }));
   const load = signal => (maps = maps || Promise.all([both(CABLE_URLS, signal), both(LANDING_URLS, signal)])
     .then(([c, l]) => ({ cables: derive(c, 'cables', parseCables), landings: derive(l, 'landings', parseLandings) }), e => { maps = null; throw e; }));
   const detail = (id, signal) => feeds.json(cableUrl(id), { ttl: 864e5, timeout: 20e3, signal }).then(parseCable, () => null);
@@ -37,7 +37,7 @@ export function cablesTool(ctx) {
       for (const s of stations) for (const c of s.cables) if (!atStation.has(c.id)) { atStation.set(c.id, s.name); told.set(c.id, c); }
       const byId = new Map(m.cables.map(c => [c.id, c])), near = new Map(passing.map(p => [p.id, p]));
       const ids = [...new Set([...atStation.keys(), ...passing.map(p => p.id)])].filter(id => byId.has(id) || atStation.has(id));
-      ids.sort((x, y) => (atStation.has(y) - atStation.has(x)) || ((near.get(x) || { km: 1e9 }).km - (near.get(y) || { km: 1e9 }).km));
+      ids.sort((x, y) => (+atStation.has(y) - +atStation.has(x)) || ((near.get(x) || { km: 1e9 }).km - (near.get(y) || { km: 1e9 }).km));
       const want = ids.slice(0, a.limit || 10), info = await Promise.all(want.slice(0, 12).map(id => detail(id, signal)));
       const rows = want.map((id, i) => {
         const d = info[i] || {}, c = byId.get(id) || {}, p = near.get(id), st = told.get(id) || {};   // the cable's own record, else what the map and the station say

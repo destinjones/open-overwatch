@@ -162,9 +162,9 @@ export const expected = (e, busy) => e.meas && e.meas.flow > 0 && e.meas.kmh > 3
 /** A wall-clock time in a time zone ("2026-10-10T15:31:06.000", "America/New_York") -> UTC ms. */
 export function zonedToUtc(local, tz) {
   const m = String(local || '').match(/^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)(?::(\d\d))?/); if (!m) return NaN;
-  const guess = Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+  const guess = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
   const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const off = t => { const p = Object.fromEntries(fmt.formatToParts(t).map(x => [x.type, x.value])); return Date.UTC(+p.year, p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second) - t; };
+  const off = t => { const p = Object.fromEntries(fmt.formatToParts(t).map(x => [x.type, x.value])); return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second) - t; };
   return guess - off(guess - off(guess));
 }
 
@@ -249,9 +249,12 @@ export function matchSpeeds(edges, points = [], links = []) {
  * circle is short of cars (after a move), else on a road leading in at the rim. Car: { e, s, v, lane, next, drv, len, i, born }.
  */
 export class Sim {
+  /** @param {{ rand?: () => number, onAdd?: (car: any) => void, onRemove?: (car: any) => void, proto?: object }} [opts] */
   constructor({ rand = Math.random, onAdd = () => {}, onRemove = () => {}, proto = Object.prototype } = {}) {   // proto: what cars inherit (cards, getters)
-    Object.assign(this, { rand, onAdd, onRemove, proto, g: { edges: [], out: new Map(), signals: new Map(), axis: 0 }, cars: [], clock: 0, tod: 0, busy: 1,
-      centre: null, R: 1000, w: null, rim: null, inside: 0, nextId: 1, live: new Set() });
+    this.rand = rand; this.onAdd = onAdd; this.onRemove = onRemove; this.proto = proto;
+    /** @type {any} */ this.g = { edges: [], out: new Map(), signals: new Map(), axis: 0 };
+    /** @type {any[]} */ this.cars = []; this.clock = 0; this.tod = 0; this.busy = 1;
+    /** @type {any} */ this.centre = null; this.R = 1000; /** @type {any} */ this.w = null; /** @type {any} */ this.rim = null; this.inside = 0; this.nextId = 1; this.live = new Set();
   }
   /** A new graph: cars keep their place (by way, direction and distance along the way); those whose road is gone leave. */
   setGraph(g) {

@@ -319,7 +319,7 @@ export function brightComets(rows, jd, { maxMag = 15, limit = 15, maxR = 6, span
     cometPosition(c, jd, p);
     const r = Math.hypot(p.x, p.y, p.z); if (r > maxR) continue;
     const delta = Math.hypot(p.x - earth.x, p.y - earth.y, p.z - earth.z), mag = cometMagnitude(c, r, delta);
-    if (mag != null && mag <= maxMag) out.push({ row, c, mag, r, delta });
+    if (mag != null && mag <= maxMag) out.push(/** @type {{ row: any, c: any, mag: number, r: number, delta: number, peak?: any }} */ ({ row, c, mag, r, delta }));
   }
   out.sort((a, b) => a.mag - b.mag);
   const top = out.slice(0, limit);

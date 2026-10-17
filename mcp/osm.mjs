@@ -49,8 +49,8 @@ export function createOsmTools(ctx, link) {
       const specs = got.filter(r => r.status === 'fulfilled').map(r => r.value);
       const lat = area.frameLat ?? area.lat, lon = area.frameLon ?? area.lon;
       if (!specs.some(s => inBounds(s.bounds, lat, lon))) {
-        const miss = got.findIndex((r, i) => r.status === 'rejected' && inBounds(ALPR_REACH[i], lat, lon));
-        if (miss >= 0) throw got[miss].reason;   // the down one covers it: say it is down, not that the place is outside
+        const miss = got.findIndex((r, i) => r.status === 'rejected' && inBounds(ALPR_REACH[i], lat, lon)), down = got[miss];
+        if (down && down.status === 'rejected') throw down.reason;   // the down one covers it: say it is down, not that the place is outside
         throw new ToolError(`The plate-reader tiles cover the United States and Canada only; ${area.label} is outside them`, 'not_found');
       }
       const down = ALPR_SOURCES.filter((u, i) => got[i].status === 'rejected').map(u => (/-ca-/.test(u) ? 'Canadian' : 'US'));

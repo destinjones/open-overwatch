@@ -1,0 +1,24 @@
+// Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
+// TypeScript as a checker only (npm run typecheck): it reads the JavaScript and its JSDoc and emits nothing, so the site
+// keeps loading src/ as plain ES modules. Scope: the DOM-free core, the MCP server and the test helpers, all of which run
+// in Node. Not strict yet: strictNullChecks alone finds ~500 places, most of them `let x = null` filled in later.
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "strictBindCallApply": true,
+    "strictFunctionTypes": true,
+    "noImplicitThis": true,
+    "noFallthroughCasesInSwitch": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ESNext",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "skipLibCheck": true
+  },
+  // the two workers add the WebWorker names with /// <reference lib="webworker" />
+  "include": ["src/core/**/*.js", "mcp/**/*.mjs", "test/helpers/**/*.mjs"]
+}

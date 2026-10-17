@@ -38,6 +38,7 @@ const BY_CODE = new Map();
 for (const [cls, s] of Object.entries(LIST)) for (const c of s.split(/\s+/)) if (c && !c.includes('?') && !BY_CODE.has(c)) BY_CODE.set(c, cls);
 
 // family patterns for designators not listed above (order matters: helicopters before light aircraft and so on)
+/** @type {[string, RegExp][]} */
 const FAMILIES = [
   ['helicopter', /^(EC\d|AS\d|H\d\d|MI\d|KA\d|B4\d\d|B2\d\d|A1\d\d|S6\d|S7\d|S9\d|R[246]\d)/],
   ['fighter', /^(F\d{1,3}[A-Z]?|SU\d\d|MG\d\d|J\d\d|MIR\d)$/],
@@ -53,6 +54,7 @@ const FAMILIES = [
 const CATEGORY = { A1: 'light', A2: 'bizjet', A3: 'narrowbody', A4: 'narrowbody', A5: 'widebody', A6: 'fighter', A7: 'helicopter', B1: 'glider', B2: 'glider', B4: 'glider', B6: 'drone' };
 
 // words in adsbdb's free text ("type" and "manufacturer"), for a plane with no designator
+/** @type {[string, RegExp][]} */
 const WORDS = [
   ['helicopter', /\b(helicopter|eurocopter|robinson|sikorsky|agusta|leonardo aw|airbus helicopters|bell (?:\d|helicopter)|mbb|kamov|mil mi|enstrom|schweizer|md helicopters)\b/i],
   ['widebody', /\b(a3[345]0|a350|a380|747|767|777|787|md-?11|dc-?10|il-?96)\b/i],
@@ -158,6 +160,7 @@ export function routeFit(route, p) {
 // ------------------------------------------------------------------------------- ICAO 24-bit address allocations
 // ICAO Annex 10 vol. III blocks for the larger states (start, size, country). A hex inside one was allocated to that
 // state; it says where the aircraft is registered, not who flies it.
+/** @type {[number, number, string][]} */
 const BLOCKS = [
   [0x008000, 0x8000, 'South Africa'], [0x010000, 0x8000, 'Egypt'], [0x020000, 0x8000, 'Morocco'], [0x040000, 0x1000, 'Ethiopia'],
   [0x0a0000, 0x8000, 'Algeria'], [0x0d0000, 0x8000, 'Mexico'], [0x100000, 0x100000, 'Russia'], [0x300000, 0x40000, 'Italy'],
@@ -183,6 +186,7 @@ export function hexCountry(hex) {
 }
 
 // ------------------------------------------------------------------------------------------------ search words
+/** @type {[string, RegExp][]} */
 const CLASS_WORDS = [
   ['helicopter', /^(helicopters?|helis?|choppers?|rotorcraft)$/],
   ['bizjet', /^(business ?jets?|bizjets?|private ?jets?|corporate jets?)$/],

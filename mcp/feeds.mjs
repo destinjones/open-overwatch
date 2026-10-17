@@ -77,6 +77,7 @@ export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntr
     return b;
   }
 
+  /** @param {string} url @param {{ as?: string, ttl?: number, headers?: Record<string, string>, timeout?: number, signal?: AbortSignal, method?: string, body?: any, maxBytes?: number }} [opts] */
   async function get(url, { as = 'json', ttl = 60e3, headers = {}, timeout = 20e3, signal, method = 'GET', body, maxBytes = 64e6 } = {}) {
     const u = new URL(url);
     if (/(^|\.)celestrak\.(org|com)$/i.test(u.hostname)) throw new ToolError('CelesTrak is never asked directly: satellite elements come from the website copy', 'unavailable');

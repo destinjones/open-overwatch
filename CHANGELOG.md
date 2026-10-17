@@ -8,6 +8,15 @@ file was built from.
 
 ## [Unreleased]
 
+### Added
+- A type check and a bug-finding linter, as dev dependencies only (the site still has no build step): `npm run
+  typecheck` runs TypeScript 6.0 over the JSDoc of `src/core/`, `mcp/` and the test helpers (`tsconfig.json`, no
+  output); `npm run lint` runs ESLint 10 with bug rules only (`eslint.config.mjs`). Both run in CI's test job.
+
+### Changed
+- JSDoc types where the checker could not infer them (option objects, tables of pairs), so it passes
+  with no errors and no `@ts-ignore`; `Sim` (core/traffic.js) assigns its fields one by one so they are typed.
+
 ## [0.9.2.15] - 2026-10-17
 
 Tonight for any place, and honest about what is live.

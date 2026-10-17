@@ -29,6 +29,9 @@ export async function loadGroup(feeds, group, signal) {
 /**
  * Find satellites by NORAD number or name: [{ id, name, l1, l2, group }] best first (an exact name, then a name that starts
  * with the words, then one that contains them; shorter names first). Throws not_found with a hint.
+ * @param {any} feeds
+ * @param {string} query
+ * @param {{ signal?: AbortSignal, max?: number }} [opts]
  */
 export async function findSats(feeds, query, { signal, max = 5 } = {}) {
   const raw = String(query ?? '').trim().slice(0, 80) || 'ISS', key = raw.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();

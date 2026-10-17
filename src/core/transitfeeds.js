@@ -89,9 +89,12 @@ export const sourcesAt = (lat, lon) => new Set(TRANSIT_AREAS.filter(a => inArea(
 /**
  * Run a polled source: now, then every `every` ms (longer after failures; MBTA answers 429 past its limit). Returns stop().
  * onFixes(fixes) gets each whole batch; view() gives the current view for sources that ask by area.
+ * @param {any} s
+ * @param {{ fetch?: typeof globalThis.fetch, onFixes: (fixes: any[]) => void, onError?: (e: Error) => void, view?: () => any, setTimer?: (fn: () => void, ms: number) => any, clearTimer?: (t: any) => void }} opts
  */
 export function startPoll(s, { fetch: f = globalThis.fetch, onFixes, onError = () => {}, view = () => null, setTimer = setTimeout, clearTimer = clearTimeout }) {
-  let timer = 0, ctl = null, dead = false;   // `dead`, not s.running: a quick stop + start must not leave two loops
+  /** @type {any} */ let timer = 0;
+  let ctl = null, dead = false;   // `dead`, not s.running: a quick stop + start must not leave two loops
   const run = async () => {
     ctl = new AbortController(); const kill = setTimer(() => ctl.abort(), 20e3);
     try { const fixes = await s.load({ fetch: f, signal: ctl.signal, view: view() }); if (!dead) { onFixes(fixes); s.fails = 0; } }
@@ -103,9 +106,14 @@ export function startPoll(s, { fetch: f = globalThis.fetch, onFixes, onError = (
 }
 
 /** HSL over MQTT on a WebSocket. Every vehicle reports each second (~500 messages/s at night, more by day), too much for
- *  a phone: after a 2 s full sweep to find everyone, only messages whose position changed by ~100 m come through. */
+ *  a phone: after a 2 s full sweep to find everyone, only messages whose position changed by ~100 m come through.
+ *  @param {any} s
+ *  @param {{ WebSocket?: any, onFixes: (fixes: any[]) => void, onError?: (e: Error) => void, clientId?: string }} opts */
 export function startHsl(s, { WebSocket: WS = globalThis.WebSocket, onFixes, onError = () => {}, clientId = 'oo-' + Math.random().toString(36).slice(2, 12) }) {
-  let ws = null, ping = 0, sweep = 0, retry = 0, live = true, read;
+  /** @type {ReturnType<typeof setTimeout>} */ let sweep;
+  /** @type {ReturnType<typeof setInterval>} */ let ping;
+  /** @type {ReturnType<typeof setTimeout>} */ let retry;
+  let ws = null, live = true, read;
   const open = () => {
     read = mqtt.reader();
     ws = new WS(HSL_URL, 'mqtt'); ws.binaryType = 'arraybuffer';

@@ -43,6 +43,8 @@ export async function runComplete(def, c, maxH, { fetch = globalThis.fetch, slee
  * One model, ready to be asked for moments. opts: { maxH (last hour shown), keep (forecast hours kept decoded), res (the
  * finest grid kept, degrees), ask (the worker's message function), fetch, sleep, now () → ms, cachePrefix }. The cache
  * name is shared by every view of the site, so a field the globe fetched costs the map nothing.
+ * @param {any} def
+ * @param {{ maxH?: number, keep?: number, res?: number, ask?: (msg: any) => Promise<any>, fetch?: typeof globalThis.fetch, sleep?: (ms: number) => Promise<any>, now?: () => number, cachePrefix?: string }} [opts]
  */
 export function makeModel(def, { maxH = 120, keep = 16, res = 0.5, ask, fetch = globalThis.fetch, sleep = pause, now = () => Date.now(), cachePrefix = 'oo3d-' } = {}) {
   const cache = cachePrefix + def.id, probe = c => runComplete(def, c, maxH, { fetch, sleep });

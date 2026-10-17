@@ -1,8 +1,9 @@
 # Tests and syntax checks on every push and pull request: Node's own test runner and parser, plus the one npm dependency
 # (satellite.js, the SGP4 library the MCP server's satellite tools use; the website loads the same version from a CDN).
 # A second job opens every page in headless Chromium (Playwright, a dev dependency) with the live feeds stubbed; it runs
-# beside the unit tests, so a flaky browser never holds them up. The test job also runs npm audit, a licence check and a
-# coverage floor (npm run coverage); CodeQL and Dependabot are in codeql.yml and ../dependabot.yml.
+# beside the unit tests, so a flaky browser never holds them up. The test job also runs a type check and a linter (dev
+# dependencies: tsconfig.json, eslint.config.mjs), npm audit, a licence check and a coverage floor (npm run coverage);
+# CodeQL and Dependabot are in codeql.yml and ../dependabot.yml.
 name: CI
 on:
   push:
@@ -28,6 +29,10 @@ jobs:
         run: node brand/tools/a11y_check.mjs
       - name: Install the MCP server's dependency
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Type check (TypeScript reads the JSDoc of src/core, mcp and the test helpers; it emits nothing)
+        run: npm run typecheck
+      - name: Lint for bugs (ESLint; undefined names, duplicate keys, unreachable code fail; unused variables only warn)
+        run: npm run lint
       - name: Known vulnerabilities in the dependency tree (fails on high or critical; dev dependencies included)
         run: npm audit --audit-level=high
       - name: Licences of the production dependencies (permissive only; brand/tools/license_check.mjs)

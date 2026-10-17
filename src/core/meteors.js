@@ -8,7 +8,7 @@ import { altAz, moonPhase, darkWindow } from './sky.js';
 import { compass } from './passes.js';
 
 // [name, peak [month, day], active from [m, d], to [m, d], radiant RA, Dec (deg), ZHR, speed km/s, parent]
-export const SHOWERS = Object.freeze([
+export const SHOWERS = Object.freeze(/** @type {Array<[string, [number, number], [number, number], [number, number], number, number, number, number, string]>} */ ([
   ['Quadrantids', [1, 3], [12, 28], [1, 12], 230, 49, 110, 41, 'asteroid 2003 EH1'],
   ['Lyrids', [4, 22], [4, 14], [4, 30], 271, 34, 18, 49, 'comet Thatcher'],
   ['Eta Aquariids', [5, 6], [4, 19], [5, 28], 338, -1, 50, 66, "Halley's Comet"],
@@ -19,7 +19,7 @@ export const SHOWERS = Object.freeze([
   ['Leonids', [11, 17], [11, 6], [11, 30], 152, 22, 15, 71, 'comet Tempel-Tuttle'],
   ['Geminids', [12, 14], [12, 4], [12, 20], 112, 33, 150, 35, 'asteroid 3200 Phaethon'],
   ['Ursids', [12, 22], [12, 17], [12, 26], 217, 76, 10, 33, 'comet Tuttle'],
-].map(([name, peak, from, to, ra, dec, zhr, kms, parent]) => ({ name, peak, from, to, ra, dec, zhr, kms, parent })));
+]).map(([name, peak, from, to, ra, dec, zhr, kms, parent]) => ({ name, peak, from, to, ra, dec, zhr, kms, parent })));
 
 const DAY = 86400e3;
 /** The UTC date (ms, 00:00) of month/day in the year that makes it nearest to `ms`. */

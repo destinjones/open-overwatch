@@ -8,7 +8,7 @@ import { nhcForecasts, gdacsForecast } from './hazards.js';
 import { parseEonet, eonetUrl } from './eonet.js';
 
 /** Saffir-Simpson by wind (kt): [lowest kt, category (0 tropical storm, -1 depression), colour]. */
-export const CYCLONE_CAT = Object.freeze([[137, 5, '#ff4df0'], [113, 4, '#ff4d5e'], [96, 3, '#ff7b4f'], [83, 2, '#ffb44d'], [64, 1, '#ffe36e'], [34, 0, '#7fd0ff'], [0, -1, '#9fb3bf']]);
+export const CYCLONE_CAT = /** @type {ReadonlyArray<[number, number, string]>} */ (Object.freeze([[137, 5, '#ff4df0'], [113, 4, '#ff4d5e'], [96, 3, '#ff7b4f'], [83, 2, '#ffb44d'], [64, 1, '#ffe36e'], [34, 0, '#7fd0ff'], [0, -1, '#9fb3bf']]));
 export const category = kt => CYCLONE_CAT.find(([min]) => (Number.isFinite(kt) ? kt : 0) >= min);
 export const catName = kt => { const c = category(kt)[1]; return c > 0 ? `Category ${c}` : c === 0 ? 'Tropical storm' : 'Depression or low'; };
 /** NHC's classification codes. */
@@ -176,6 +176,7 @@ export function mergeGdacs(list, gd) {
  * nhc: whether NHC's CurrentStorms.json can be reached (a relay); kept: a Map the caller keeps between loads (GDACS
  * geometry per event/episode, ~0.4 MB each and never changed); warn(what, error) reports a source that failed (the
  * others still count). EONET failing fails the whole load (it is the backbone).
+ * @param {{ json: (url: string, opts?: object) => Promise<any>, nhc?: boolean, kept?: Map<any, any>, now?: number, warn?: (what: string, e: Error) => void }} opts
  */
 export async function loadCyclones({ json, nhc = false, kept = new Map(), now = Date.now(), warn = () => {} }) {
   const list = stormsFromEonet(parseEonet(await json(eonetUrl({ days: 10, category: 'severeStorms' }), { timeout: 30000 })));

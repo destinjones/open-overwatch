@@ -6,7 +6,7 @@
 export const OVATION_URL = 'https://services.swpc.noaa.gov/json/ovation_aurora_latest.json';
 export const KP_URL = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json';
 /** The colour ramp: faint green through yellow to pink where it is strong ([% chance, [r, g, b]]). */
-export const AURORA_STOPS = Object.freeze([[3, [60, 255, 160]], [25, [110, 255, 110]], [55, [240, 255, 110]], [80, [255, 160, 90]], [100, [255, 80, 200]]]);
+export const AURORA_STOPS = /** @type {ReadonlyArray<[number, number[]]>} */ (Object.freeze([[3, [60, 255, 160]], [25, [110, 255, 110]], [55, [240, 255, 110]], [80, [255, 160, 90]], [100, [255, 80, 200]]]));
 export function auroraColor(p) {
   let i = 1; while (i < AURORA_STOPS.length - 1 && p > AURORA_STOPS[i][0]) i++;
   const [p0, a] = AURORA_STOPS[i - 1], [p1, b] = AURORA_STOPS[i], f = Math.max(0, Math.min(1, (p - p0) / (p1 - p0)));

@@ -51,6 +51,7 @@ export function createTleSource({ fetchText, cache, onSite = false, now = () => 
     catch (e) { if (!/^HTTP/.test(e.message)) celestrakDown = true; throw e; }
   };
   const fromMirror = group => fetchText(mirrorUrl(group), { timeout: 30000 });
+  /** @type {[string, (group: string) => Promise<string>][]} */
   const order = onSite ? [['mirror', fromMirror], ['celestrak', fromCelestrak]] : [['celestrak', fromCelestrak], ['mirror', fromMirror]];
 
   async function load(group) {

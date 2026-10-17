@@ -21,11 +21,13 @@ export const retryAfter = body => +(String(body && body.response || '').match(/(
  * An adsbdb client. opts: { store ({ get(k, d), set(k, v) }: the view's localStorage wrapper), fetch, now () → ms,
  * sleep (ms) → promise, warn (message) }. Returns { peek(r), get(r), limited } where r is any aircraft record with
  * .hex and .flight; get() also stores the answer on r.info.
+ * @param {{ store?: any, fetch?: typeof globalThis.fetch, now?: () => number, sleep?: (ms: number) => Promise<any>, warn?: (msg: string) => void }} [opts]
  */
-export function createAcInfo({ store = null, fetch = (...a) => globalThis.fetch(...a), now = () => Date.now(), sleep = ms => new Promise(res => setTimeout(res, ms)), warn = () => {} } = {}) {
+export function createAcInfo({ store = null, fetch = (url, init) => globalThis.fetch(url, init), now = () => Date.now(), sleep = ms => new Promise(res => setTimeout(res, ms)), warn = () => {} } = {}) {
   const mem = new Map();   // key -> { t, v: { aircraft, route } } or { pending }
   let saved = (store && store.get('adsbdb', {})) || {};
-  let blockedUntil = 0, chain = Promise.resolve(), last = -Infinity, saveTimer = 0;
+  let blockedUntil = 0, chain = Promise.resolve(), last = -Infinity;
+  /** @type {ReturnType<typeof setTimeout>} */ let saveTimer;
 
   function save() {   // trimmed to the newest KEEP and written at most every 2 s
     if (!store) return;

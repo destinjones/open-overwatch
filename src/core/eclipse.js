@@ -42,7 +42,7 @@ export function shadowCenter(sun, moon, e = WGS84) {
 
 /** Outline of a shadow on the ground: n points (km) where rays along the axis at radius r around it hit the Earth. */
 export function outline(sun, moon, which = 'umbra', n = 64, e = WGS84) {
-  const s = shadowCenter(sun, moon, e), c = s.cones, x = s.center ? s.x : Math.max(-dot(moon, c.axis), 0);
+  const s = shadowCenter(sun, moon, e), c = s.cones, x = 'x' in s ? s.x : Math.max(-dot(moon, c.axis), 0);   // x is there when the axis hits the Earth
   const r = Math.abs(radiiAt(c, x)[which]);
   const ref = Math.abs(c.axis.z) < 0.9 ? { x: 0, y: 0, z: 1 } : { x: 1, y: 0, z: 0 };
   const u = unit({ x: c.axis.y * ref.z - c.axis.z * ref.y, y: c.axis.z * ref.x - c.axis.x * ref.z, z: c.axis.x * ref.y - c.axis.y * ref.x });

@@ -68,6 +68,9 @@ const bboxRadiusKm = b => { const c = bboxCentre(b); return Math.max(haversine(c
 /**
  * The area a call is about, or null when it names none (unless `need`): { name, label, lat, lon, radiusKm, bbox, kind, country }.
  * A place with an outline keeps its box (and is framed on the box); radius_km turns it into a circle around its centre.
+ * @param {any} args
+ * @param {any} feeds
+ * @param {{ need?: boolean, pointKm?: number, signal?: AbortSignal }} [opts]
  */
 export async function resolveArea(args, feeds, { need = false, pointKm = 300, signal } = {}) {
   const a = args || {}, hasPt = a.lat != null || a.lon != null;

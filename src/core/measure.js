@@ -311,7 +311,7 @@ export function encodeDrawing(shapes) {
 /** A link's d= field back into shapes, keeping only what checks out: [] for anything unusable. */
 export function decodeDrawing(text) {
   const s = String(text || ''); if (!s || s.length > LINK_MAX) return [];   // each part is checked on its own: one mangled shape costs only itself
-  const out = []; let n = 0;
+  /** @type {any[]} */ const out = []; let n = 0;
   for (const part of s.split('.').slice(0, 200)) {
     if (/^o[A-Z]{2}$/.test(part)) { if (!out.some(o => o.iso === part.slice(1))) out.push({ kind: 'outline', iso: part.slice(1) }); continue; }
     const m = part.match(/^([pladD])([A-Za-z0-9_-]+)(?:\*([A-Za-z0-9_-]{2,320}))?$/); if (!m) continue;   // 60 characters of up to 4 bytes

@@ -71,6 +71,7 @@ function segDist(p, a, b) {
 
 // altitude ramp (feet -> colour), the one flight trackers use: ground grey, then orange low, through yellow, green,
 // cyan and blue to violet at cruise
+/** @type {[number, number[]][]} */
 const STOPS = [[0, [180, 180, 180]], [500, [255, 120, 30]], [4000, [255, 200, 40]], [10000, [120, 220, 60]], [20000, [40, 210, 200]], [30000, [60, 120, 255]], [40000, [190, 80, 255]]];
 /** [r, g, b] (0-255) for an altitude in metres; ground is grey. */
 export function altColor(altM, ground = false) {

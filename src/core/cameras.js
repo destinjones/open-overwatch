@@ -43,6 +43,7 @@ function caltrans(n) {
  * The networks: { name, box: [s, w, n, e], credit, url, relay (its list needs a relay: no CORS), xml (the answer is text),
  * group (the 2D map's picker: Caltrans districts share one), parse(answer) → cameras }.
  */
+/** @type {Readonly<Record<string, { name: string, place: string, box: number[], group?: string, [k: string]: any }>>} */
 export const CAMERA_NETS = Object.freeze({
   tfl: { name: 'TfL JamCams', place: 'London', box: [51.25, -0.56, 51.72, 0.34], credit: 'London cameras: Powered by TfL Open Data', url: 'https://api.tfl.gov.uk/Place/Type/JamCam',
     parse: d => (Array.isArray(d) ? d : []).filter(p => p && Number.isFinite(p.lat)).map(p => { const a = {}; for (const x of p.additionalProperties || []) if (x) a[x.key] = x.value;
@@ -120,7 +121,7 @@ export function camNetsNear(lat, lon, km = 0) {
     const [s, w, nn, e] = n.box;
     if (lat < s - padLat || lat > nn + padLat || lon < w - padLon || lon > e + padLon) continue;
     const dy = lat < s ? s - lat : lat > nn ? lat - nn : 0, dx = lon < w ? w - lon : lon > e ? lon - e : 0;
-    out.push([id, dy * dy + dx * dx]);
+    out.push(/** @type {[string, number]} */ ([id, dy * dy + dx * dx]));
   }
   return out.sort((a, b) => a[1] - b[1]).map(a => a[0]);
 }

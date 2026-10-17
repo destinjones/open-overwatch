@@ -10,8 +10,8 @@ import { rep, lineFor } from '../src/core/liveprov.js';
 import { areaProps, resolveArea, distKm, frame, globeUrl } from './place.mjs';
 import { iso, r1, km, ago, plural, areaData, limitProp, take } from './words.mjs';
 
-const NYC = 'https://data.cityofnewyork.us/resource/i4gi-tjb9.json', NYC_BOX = [40.47, -74.28, 40.93, -73.67];
-const TMS = 'https://tie.digitraffic.fi/api/tms/v1/stations', FI_BOX = [59.6, 19.0, 70.2, 31.7], DT = { 'Digitraffic-User': 'OpenOverwatch-MCP/0.2' };
+const NYC = 'https://data.cityofnewyork.us/resource/i4gi-tjb9.json', NYC_BOX = /** @type {[number, number, number, number]} */ ([40.47, -74.28, 40.93, -73.67]);
+const TMS = 'https://tie.digitraffic.fi/api/tms/v1/stations', FI_BOX = /** @type {[number, number, number, number]} */ ([59.6, 19.0, 70.2, 31.7]), DT = { 'Digitraffic-User': 'OpenOverwatch-MCP/0.2' };
 const inBox = ([s, w, n, e], lat, lon) => lat >= s && lat <= n && lon >= w && lon <= e;
 const NYC_MAX_AGE = 48 * 3600e3, FI_MAX_AGE = 20 * 60e3;
 

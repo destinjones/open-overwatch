@@ -23,6 +23,7 @@ import { compass } from './gfs.js';
 
 export const SENSORS = Object.freeze(['normal', 'nvg', 'flir', 'flirbh', 'iron', 'crt', 'noir']);
 
+/** @type {[RegExp, string][]} */
 const SENSOR_WORDS = [
   [/\b(night ?vision|nvg|night mode|green mode)\b/, 'nvg'],
   [/\bblack ?hot\b/, 'flirbh'],
@@ -33,6 +34,7 @@ const SENSOR_WORDS = [
   [/\b(normal|regular|true colou?r|daylight|visible|eo mode|clear (the )?filter|no filter)\b/, 'normal'],
 ];
 // views the globe can open, by what people say
+/** @type {[RegExp, string][]} */
 const VIEWS = [
   [/\b(tonight|above me|overhead tonight|what can i see|passes)\b/, 'tonight'],
   [/\b(look up|sky mode|point (my )?phone)\b/, 'lookup'],
@@ -59,12 +61,14 @@ export function normalize(text) {
 
 const onOff = s => OFF.test(s) ? false : ON.test(s) ? true : null;
 const ORDINAL = { first: 1, '1st': 1, one: 1, second: 2, '2nd': 2, two: 2, third: 3, '3rd': 3, three: 3, fourth: 4, '4th': 4, four: 4, fifth: 5, '5th': 5, five: 5, sixth: 6, six: 6 };
+/** @type {[RegExp, string][]} */
 const COUNTED = [[/sat/, 'sat'], [/quake/, 'quake'], [/military/, 'mil'], [/plane|aircraft|flight|jet/, 'air'], [/ship|boat|vessel/, 'ship'], [/bus|train|tram|metro|vehicle/, 'transit'], [/camera/, 'cam']];
 const HERE = /^(here|there|now|right|right now|today|outside)$/;
 const clean = s => s.replace(/^(the|a|an|to|at|on|over)\s+/, '').replace(/\s+(please|now|for me|right now)$/, '').trim();
 
 // ---- draw and measure (checked first: "stop drawing" is not "stop", "draw a line from A to B" is not a route)
 const DRAWN = 'drawings?|measurements?|measures?|lines?|outlines?|borders?|pins?|markers?|areas?|shapes?|arrows?|sketch(?:es)?|polygons?|ruler';
+/** @type {[RegExp, string][]} */
 const MODES = [[/^(pins?|markers?|points?)$/, 'pin'], [/^(lines?|paths?|ruler|length)$/, 'line'], [/^(areas?|polygons?|shapes?|regions?|zones?|fields?)$/, 'area'], [/^(distances?|arrows?|distance arrows?)$/, 'arrow']];
 const modeOf = w => (MODES.find(([re]) => re.test(w)) || [])[1];
 function drawCommand(s) {
@@ -297,7 +301,10 @@ const WMO = { 0: 'clear skies', 1: 'mostly clear', 2: 'partly cloudy', 3: 'overc
   56: 'freezing drizzle', 57: 'freezing drizzle', 61: 'light rain', 63: 'rain', 65: 'heavy rain', 66: 'freezing rain', 67: 'freezing rain', 71: 'light snow', 73: 'snow',
   75: 'heavy snow', 77: 'snow grains', 80: 'rain showers', 81: 'rain showers', 82: 'heavy showers', 85: 'snow showers', 86: 'heavy snow showers', 95: 'thunderstorms',
   96: 'thunderstorms with hail', 99: 'thunderstorms with hail' };
-/** The sky in a few words: from a WMO weather code if there is one, else from cloud cover (%) and rain (mm/h). */
+/**
+ * The sky in a few words: from a WMO weather code if there is one, else from cloud cover (%) and rain (mm/h).
+ * @param {{ code?: number, cloud?: number, rain?: number, temp?: number }} w
+ */
 export function skyWords({ code, cloud, rain, temp }) {
   if (Number.isFinite(code) && WMO[code]) return WMO[code];
   if (Number.isFinite(rain) && rain >= 0.2) return (Number.isFinite(temp) && temp < 0 ? 'snow' : rain >= 4 ? 'heavy rain' : rain >= 1 ? 'rain' : 'light rain');

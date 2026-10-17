@@ -26,7 +26,7 @@ export function volcanoesTool(ctx) {
       const box = area.bbox && area.radiusKm > 150 ? area.bbox : null, t = ctx.now();   // a country or region: inside it; a town: around it (Vesuvius is not in Naples)
       const radius = box ? null : Math.max(area.radiusKm, area.kind === 'point' ? 0 : 60);
       const inside = (lat, lon) => (box ? (() => { const [w, s, e, n] = box; return lat >= s && lat <= n && (w <= e ? lon >= w && lon <= e : lon >= w || lon <= e); })() : distKm(area, lat, lon) <= radius);
-      const list = [];
+      /** @type {any[]} */ const list = [];
       for (const r of (d && d.rows) || []) {
         const lat = +r[iLat], lon = +r[iLon]; if (!Number.isFinite(lat) || !Number.isFinite(lon) || !inside(lat, lon)) continue;
         list.push({ name: String(r[iN] || 'Volcano').replace(/\s+/g, ' ').trim(), lat, lon, country: iC >= 0 && r[iC] ? String(r[iC]) : null, type: iT >= 0 && r[iT] ? String(r[iT]) : null, wiki: iW >= 0 && /^Q\d+$/.test(r[iW] || '') ? r[iW] : null, km: distKm(area, lat, lon) });
@@ -39,7 +39,7 @@ export function volcanoesTool(ctx) {
         v.quakes = q.length ? { count: q.length, strongest: Math.max(...q.map(x => x.magnitude)), latest: Math.max(...q.map(x => x.t)) } : null;
       }
       // around a point: erupting first, then the nearest; in a region (no centre that means anything): erupting, then the restless, then by name
-      let rows = list.sort((x, y) => (!!y.eruption - !!x.eruption) || (box ? ((y.quakes ? y.quakes.count : 0) - (x.quakes ? x.quakes.count : 0)) || x.name.localeCompare(y.name) : x.km - y.km));
+      let rows = list.sort((x, y) => (+!!y.eruption - +!!x.eruption) || (box ? ((y.quakes ? y.quakes.count : 0) - (x.quakes ? x.quakes.count : 0)) || x.name.localeCompare(y.name) : x.km - y.km));
       if (a.erupting_only) rows = rows.filter(v => v.eruption);
       const shown = take(rows, a.limit || 10);
       const where = box ? `in ${area.label}` : `within ${km(radius)} of ${area.label}`;

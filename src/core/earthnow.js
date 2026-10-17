@@ -255,7 +255,10 @@ export const windWords = ms => fin(ms) ? `${Math.round(ms * 3.6)} km/h · ${Math
 /** 41.2, -12.5 → "41.2°N 12.5°W". */
 export const latLonWords = (lat, lon) => `${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'W'}`;
 
-/** Weather model extremes in one go: { hottest, coldest, windiest } from { temp (K field), wind ({ u, v }) }. */
+/**
+ * Weather model extremes in one go: { hottest, coldest, windiest } from { temp (K field), wind ({ u, v }) }.
+ * @param {{ temp?: any, wind?: any }} [fields]
+ */
 export function weatherExtremes({ temp, wind } = {}) {
   const t = fieldExtremes(temp);
   return { hottest: t ? t.max : null, coldest: t ? t.min : null, windiest: windiest(wind) };

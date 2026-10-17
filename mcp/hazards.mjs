@@ -18,7 +18,9 @@ const emscKept = new WeakMap();   // feeds.scope (the memo, shared by every serv
  *  when nothing matches, and parsed once per body: the memo hands back the same string) so a quake both list reads
  *  "confirmed"; EMSC failing or slow (10 s) falls back to that summary's last EMSC list, as the browser views do, else
  *  leaves the answer USGS's alone. The last list is kept beside the feeds' memo, so the Worker (a server per request,
- *  one memo per isolate) keeps it from one request to the next; feeds without a scope (the tests' own) keep their own. */
+ *  one memo per isolate) keeps it from one request to the next; feeds without a scope (the tests' own) keep their own.
+ *  @param {any} feeds
+ *  @param {{ min?: number, period?: string, signal?: AbortSignal, emsc?: boolean, now?: number }} [opts] */
 export async function loadQuakes(feeds, { min = 2.5, period = 'day', signal, emsc = false, now = Date.now() } = {}) {
   const feed = usgsFeedFor(min, period), owner = feeds.scope || feeds;
   if (emsc && !emscKept.has(owner)) emscKept.set(owner, new Map());
@@ -38,13 +40,14 @@ export async function loadQuakes(feeds, { min = 2.5, period = 'day', signal, ems
     lat: r2(q.lat), lon: r2(q.lon), tsunami: q.tsunami, alert: q.alert, felt_reports: q.felt || 0, url: q.url || null }));
 }
 
+/** @type {[number, string][]} */
 const CAT = [[137, 'Category 5'], [113, 'Category 4'], [96, 'Category 3'], [83, 'Category 2'], [64, 'Category 1'], [34, 'tropical storm strength'], [0, 'depression strength']];
 /** Every active tropical cyclone: NOAA NHC's advisories, and GDACS for every basin (merged by name). Throws when neither answers. */
 export async function loadStorms(feeds, now, signal) {
   const [nhc, gd] = await Promise.all([feeds.json(NHC_CURRENT, { ttl: 10 * 60e3, signal }).catch(() => null),
     feeds.json(gdacsTcUrl(now), { ttl: 15 * 60e3, timeout: 30e3, signal }).catch(() => null)]);
   if (!nhc && !gd) throw new ToolError('Neither NOAA NHC nor GDACS answered; try again in a few minutes', 'unavailable');
-  const list = [];
+  /** @type {any[]} */ const list = [];
   for (const s of parseNhcCurrent(nhc)) {
     list.push({ _r: { src: 'nhc', t: Date.parse(s.advisory) || null, lat: s.lat, lon: s.lon }, name: s.name, class: NHC_CLASS[s.code] || s.code || 'Storm', wind_kt: s.kt, strength: s.kt != null ? CAT.find(([m]) => s.kt >= m)[1] : null,
       pressure_mb: s.pressure, movement: s.movement, lat: s.lat, lon: s.lon, updated: s.advisory, advisory: s.url || null, source: 'NOAA NHC' });
@@ -63,7 +66,9 @@ export async function loadStorms(feeds, now, signal) {
   });
 }
 
-/** NASA EONET's open events active in the last `days` (optionally one category), at their latest position, newest first (`now` ages the provenance). */
+/** NASA EONET's open events active in the last `days` (optionally one category), at their latest position, newest first (`now` ages the provenance).
+ *  @param {any} feeds
+ *  @param {{ days?: number, category?: string, signal?: AbortSignal, now?: number }} [opts] */
 export async function loadEvents(feeds, { days = 30, category, signal, now = Date.now() } = {}) {
   const d = await feeds.json(eonetUrl({ days, category: category || '' }), { ttl: 15 * 60e3, timeout: 40e3, signal });
   return newestFirst(parseEonet(d)).map(e => ({ provenance: provLine(stamp({}, 'events', [rep('eonet', { dataAt: e.date })]), now), id: e.id, title: e.title, categories: e.cats, latest: e.date ? e.date.replace('.000Z', 'Z') : null,

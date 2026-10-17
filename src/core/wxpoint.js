@@ -122,6 +122,7 @@ export function modelSpread(d) {
  */
 export function spreadLine(days, dayName = d => d, { imperial = false } = {}) {
   if (!days.length) return '';
+  /** @type {Record<string, [number | null, string, number?]>} */
   const U = imperial ? { rain: [1 / 25.4, 'in', 2], high: [null, '°F'], gust: [2.23694, 'mph'] } : { rain: [1, 'mm'], high: [null, '°C'], gust: [3.6, 'km/h'] };
   const groups = [];
   for (const x of days) {
