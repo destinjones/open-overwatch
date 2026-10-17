@@ -14,7 +14,7 @@ export function observer(lat, lon, h = 0) {
   };
 }
 
-/** Unit vector from the Earth's centre toward the Sun, Earth-fixed, at ms (J2000 RA/Dec turned by sidereal time: ~0.4 deg). */
+/** Unit vector from the Earth's centre toward the Sun, Earth-fixed, at ms (sky.js subsolar: precessed to the equator of date). */
 export function sunEcef(ms) {
   const s = subsolar(ms), h = s.lon * D, d = s.lat * D;   // the point under the Sun, as a direction
   return { x: Math.cos(d) * Math.cos(h), y: Math.cos(d) * Math.sin(h), z: Math.sin(d) };

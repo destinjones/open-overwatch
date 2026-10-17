@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { parseDeepsky, loadDeepsky, filterDeepsky, altAzOf, visibleTonight, label, TYPES } from '../src/core/deepsky.js';
-import { gmst } from '../src/core/sky.js';
+import { icrfToFixed } from '../src/core/eclipselocal.js';
 import { jdFromMs } from '../src/core/time.js';
 
 const DOC = JSON.parse(readFileSync(new URL('../data/deepsky.json', import.meta.url), 'utf8'));
@@ -54,12 +54,15 @@ test('deepsky: filters by magnitude, group, type and Messier', () => {
   assert.ok(filterDeepsky(ALL, { unknownMag: true }).some(o => o.name === 'Horsehead Nebula'));
 });
 
-test('deepsky: an object at the meridian at its own declination is overhead', () => {
-  const ms = Date.UTC(2026, 9, 15, 22), m31 = byM(31);
-  const lon = ((m31.ra - gmst(jdFromMs(ms))) % 360 + 540) % 360 - 180;
-  near(altAzOf(m31, m31.dec, lon, ms).alt, 90, 0.01, 'zenith');
-  near(altAzOf(m31, m31.dec - 30, lon, ms).alt, 60, 0.01, '30° south of it');
-  near(altAzOf(m31, m31.dec - 30, lon, ms).az, 0, 0.01, 'due north');
+test('deepsky: an object at the meridian at its own declination of date is overhead', () => {
+  const ms = Date.UTC(2026, 9, 15, 22), m31 = byM(31), D = Math.PI / 180;
+  // the catalogue's J2000 place turned to the equator and sidereal time of date: the ground point right under M31
+  const M = icrfToFixed(jdFromMs(ms)), u = [Math.cos(m31.dec * D) * Math.cos(m31.ra * D), Math.cos(m31.dec * D) * Math.sin(m31.ra * D), Math.sin(m31.dec * D)];
+  const f = M.map(r => r[0] * u[0] + r[1] * u[1] + r[2] * u[2]), lat = Math.asin(f[2]) / D, lon = Math.atan2(f[1], f[0]) / D;
+  near(lat - m31.dec, 0.147, 0.01, 'precession in Dec since J2000 (20.04"/yr x cos RA x 26.8 yr)');
+  near(altAzOf(m31, lat, lon, ms).alt, 90, 0.01, 'zenith');
+  near(altAzOf(m31, lat - 30, lon, ms).alt, 60, 0.01, '30° south of it');
+  near(altAzOf(m31, lat - 30, lon, ms).az, 0, 0.01, 'due north');
 });
 
 test('deepsky: visible tonight in October from London and from Sydney', async () => {

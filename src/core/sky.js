@@ -2,8 +2,11 @@
 // Your sky tonight, in plain words: where the Sun, Moon and planets are for an observer on the ground, the Moon's phase,
 // which planets are worth stepping outside for, the aurora chance at your spot (from NOAA's OVATION grid), satellite
 // passes as a sentence, and which Starlink launches are still flying as a "train". DOM-free; times are ms since 1970.
-// Accuracy is "where to look" (a degree or so): RA/Dec are J2000 against the mean sidereal time of date.
+// RA/Dec are J2000 (bodyRaDec here, catalogue positions from deepsky.js and meteors.js); altAz() and subsolar() turn them
+// to the equator and apparent sidereal time of date with eclipselocal.js's precession and nutation, so rise and set
+// times are good to the minute. Positions are "where to look" (planets.js: an arcminute or so).
 import { DEG, eclToEq } from './units.js';
+import { icrfToFixed } from './eclipselocal.js';
 import { jdFromMs } from './time.js';
 import { planetPosition, earthPosition, moonGeocentric } from './planets.js';
 import { compass } from './passes.js';
@@ -26,9 +29,20 @@ export function bodyRaDec(key, jd) {
   const p = planetPosition(key, jd); return raDec(p.x - E.x, p.y - E.y, p.z - E.z);
 }
 
-/** Altitude and azimuth (deg, azimuth from north through east) of RA/Dec for an observer at lat/lon (deg) at jd. */
-export function altAz({ ra, dec }, lat, lon, jd) {
-  const H = (gmst(jd) + lon - ra) * DEG, d = dec * DEG, f = lat * DEG;
+// the J2000 -> Earth-fixed rotation by jd, for the last few hundred instants (deep-sky lists walk the same night's times
+// for every object; riseSet and darkWindow ask for each instant more than once)
+const FIXED = new Map();
+const fixedAt = jd => { let M = FIXED.get(jd); if (!M) { if (FIXED.size >= 512) FIXED.clear(); FIXED.set(jd, M = icrfToFixed(jd)); } return M; };
+/** Where a J2000 RA/Dec (deg) is at jd in Earth-fixed axes: { lon (the Greenwich longitude it is over), dec } (deg, of date). */
+function overhead({ ra, dec }, jd) {
+  const M = fixedAt(jd), a = ra * DEG, d = dec * DEG, x = Math.cos(d) * Math.cos(a), y = Math.cos(d) * Math.sin(a), z = Math.sin(d);
+  const fx = M[0][0] * x + M[0][1] * y + M[0][2] * z, fy = M[1][0] * x + M[1][1] * y + M[1][2] * z, fz = M[2][0] * x + M[2][1] * y + M[2][2] * z;
+  return { lon: Math.atan2(fy, fx) / DEG, dec: Math.asin(Math.max(-1, Math.min(1, fz))) / DEG };
+}
+
+/** Altitude and azimuth (deg, azimuth from north through east) of a J2000 RA/Dec for an observer at lat/lon (deg) at jd. */
+export function altAz(radec, lat, lon, jd) {
+  const o = overhead(radec, jd), H = (lon - o.lon) * DEG, d = o.dec * DEG, f = lat * DEG;
   const alt = Math.asin(Math.sin(f) * Math.sin(d) + Math.cos(f) * Math.cos(d) * Math.cos(H));
   const az = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(f) - Math.tan(d) * Math.cos(f)) / DEG + 180;
   return { alt: alt / DEG, az: (az + 360) % 360 };
@@ -38,8 +52,8 @@ export const sunAlt = (lat, lon, ms) => altAz(bodyRaDec('sun', jdFromMs(ms)), la
 
 /** Where the Sun is straight overhead at ms: { lat, lon } (deg; the same Sun as sunAlt, so the two agree). */
 export function subsolar(ms) {
-  const jd = jdFromMs(ms), s = bodyRaDec('sun', jd);
-  return { lat: s.dec, lon: ((s.ra - gmst(jd)) % 360 + 540) % 360 - 180 };
+  const jd = jdFromMs(ms), o = overhead(bodyRaDec('sun', jd), jd);
+  return { lat: o.dec, lon: (o.lon % 360 + 540) % 360 - 180 };
 }
 
 /**
@@ -163,10 +177,10 @@ export function starlinkTrains(tles, { min = 5 } = {}) {
 
 /**
  * When a body crosses altitude h0 (deg) in the next `hours`: { rise, set } (ms, either may be null), plus up: true/false if
- * it never crosses (always up / always down). Sun h0 -0.833 (refraction + the disc's edge), Moon +0.125 (its parallax),
- * civil twilight -6, astronomical darkness -18.
+ * it never crosses (always up / always down). Sun h0 -0.833 (refraction + the disc's edge), Moon +0.125 (its parallax;
+ * the default for 'moon'), civil twilight -6, astronomical darkness -18.
  */
-export function riseSet(key, lat, lon, t0, { h0 = -0.833, hours = 24, step = 10 * 60e3 } = {}) {
+export function riseSet(key, lat, lon, t0, { h0 = key === 'moon' ? 0.125 : -0.833, hours = 24, step = 10 * 60e3 } = {}) {
   const alt = t => { const jd = jdFromMs(t); return altAz(bodyRaDec(key, jd), lat, lon, jd).alt - h0; };
   const edge = (a, b) => { let fa = alt(a); for (let k = 0; k < 24 && b - a > 20e3; k++) { const m = (a + b) / 2, fm = alt(m); if ((fm > 0) === (fa > 0)) { a = m; fa = fm; } else b = m; } return Math.round((a + b) / 2); };
   let rise = null, set = null, prev = alt(t0), tp = t0;
