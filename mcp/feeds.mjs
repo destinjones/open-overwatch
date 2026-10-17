@@ -9,10 +9,29 @@ export const SITE = 'https://destinjones.github.io/open-overwatch/';
 export const USER_AGENT = `open-overwatch-mcp/${VERSION} (+https://github.com/destinjones/open-overwatch)`;
 const STALE_OK_MS = 24 * 3600e3;
 
-/** A failure the person asking should hear about: `code` is 'invalid_arguments', 'not_found', 'unavailable' or 'retry_later'. */
+/**
+ * A failure the person asking should hear about: `code` is 'invalid_arguments', 'not_found', 'unavailable', 'retry_later'
+ * or 'unsupported' (a real place outside a source's coverage: ships_baltic, transit_vehicles, road_speeds).
+ */
 export class ToolError extends Error {
   constructor(message, code = 'unavailable') { super(message); this.code = code; }
 }
+
+const built = new WeakMap();   // an answer object -> what was built from it, by kind
+/**
+ * What make(src) builds from an answer the feeds hand out (a parsed data copy, a grid's bytes), built once per isolate:
+ * the memo hands every server the same object for as long as it keeps it, and the Worker makes a server per request, so
+ * an index kept in a tool's closure would be built again for every question. Not an object: built each time.
+ * derive.builds counts the builds (the tests check that a second server builds nothing).
+ */
+export function derive(src, kind, make) {
+  if (!src || typeof src !== 'object') return make(src);
+  let m = built.get(src);
+  if (!m) built.set(src, (m = new Map()));
+  if (!m.has(kind)) { m.set(kind, make(src)); derive.builds++; }
+  return m.get(kind);
+}
+derive.builds = 0;
 
 const local = u => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(u.hostname);
 

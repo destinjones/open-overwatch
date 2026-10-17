@@ -33,7 +33,9 @@ export const CONNECTOR_ORIGINS = Object.freeze(['https://claude.ai', 'https://ch
  * vector tiles, fire tiles and GTFS-RT feeds grows with the area; ships_baltic and traffic_cameras can need more than 50
  * look-ups. Everything else answers in 0.1-4 ms once its data is in the isolate (where_in_space 1-2 ms, sun_and_moon 4).
  * A fresh isolate's first call that parses a big data copy (eclipses, countries, small bodies: 15-150 ms) can still
- * overrun the free plan; the answer is cached after that. PLAN = "paid" lists everything.
+ * overrun the free plan; after that the parsed copy stays in the memo and what the tools build from it (prepared borders,
+ * eclipse tracks, the cable map, the light pollution grid) in feeds.mjs derive(), so a new question costs 1-3 ms
+ * (country_briefing, eclipses with a place), not the build again. PLAN = "paid" lists everything.
  */
 export const HEAVY = Object.freeze(['satellite_passes', 'night_sky', 'close_approaches', 'reentries', 'where_is_satellite', 'solar_system', 'wildfires', 'plate_readers', 'military_areas', 'ships_baltic', 'traffic_cameras', 'transit_vehicles', 'dark_sky']);
 /** Subrequests (fetches and Cache API calls together) one request may make: Cloudflare's 50 / 10,000, less a margin. */
@@ -84,7 +86,9 @@ export function createWorker({ fetchImpl, caches, sgp4, now = Date.now } = {}) {
       // who is asking: the token in the path (/mcp/<token>), in the Authorization header, or nobody needed
       let path = url.pathname;
       if (path.startsWith('/mcp/')) {
-        if (!cfg.token || !same(decodeURIComponent(path.slice(5)), cfg.token)) return text(404, 'Not found\n', cors);   // a wrong secret URL is just a page that isn't there
+        let given = null;
+        try { given = decodeURIComponent(path.slice(5)); } catch { /* a malformed escape (/mcp/%zz) is a wrong secret too */ }
+        if (!cfg.token || given == null || !same(given, cfg.token)) return text(404, 'Not found\n', cors);   // a wrong secret URL is just a page that isn't there
         path = '/mcp';
       } else if (path === '/mcp' && request.method !== 'OPTIONS' && !cfg.open) {
         const got = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');

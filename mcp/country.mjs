@@ -6,7 +6,7 @@
 import { prepare, inCountry, countryAt, mainBox } from '../src/core/borders.js';
 import { multiPolygonArea } from '../src/core/measure.js';
 import { weatherSentence } from '../src/core/voicecmd.js';
-import { ToolError } from './feeds.mjs';
+import { ToolError, derive } from './feeds.mjs';
 import { geocode, frame, globeUrl } from './place.mjs';
 import { loadQuakes, loadStorms, loadEvents } from './hazards.mjs';
 import { coord, big, ago, utc } from './words.mjs';
@@ -34,11 +34,14 @@ export function findCountry(facts, q) {
   return null;
 }
 
+/** data/borders.json's outlines, prepared for countryAt and inCountry once per isolate (on a copy: the answer stays as sent). */
+export const preparedBorders = b => derive(b, 'borders', x => prepare(Array.isArray(x) ? x.map(y => ({ ...y })) : []));
+
 export function countryTool(ctx) {
   const { feeds } = ctx, site = feeds.siteBase;
   let loaded = null;
   const load = signal => (loaded = loaded || Promise.all([feeds.json(feeds.site('data/countries.json'), { ttl: 864e5, signal }), feeds.json(feeds.site('data/borders.json'), { ttl: 864e5, timeout: 60e3, signal })])
-    .then(([c, b]) => ({ facts: (c && c.countries) || {}, credit: c && c.source, updated: c && c.updated, borders: prepare(Array.isArray(b) ? b.map(x => ({ ...x })) : []) }), e => { loaded = null; throw e; }));
+    .then(([c, b]) => ({ facts: (c && c.countries) || {}, credit: c && c.source, updated: c && c.updated, borders: preparedBorders(b) }), e => { loaded = null; throw e; }));
 
   return {
     name: 'country_briefing',
@@ -72,7 +75,7 @@ export function countryTool(ctx) {
 
       // the live parts, side by side; any one failing leaves its line out
       const capitalAt = f.capital ? geocode(feeds, `${f.capital}, ${name}`, signal).catch(() => null) : Promise.resolve(null);
-      const [quakes, events, storms, cap, cos] = await Promise.all([loadQuakes(feeds, { min: 2.5, period: 'week', signal }).catch(() => null), loadEvents(feeds, { days: 30, signal }).catch(() => null),
+      const [quakes, events, storms, cap, cos] = await Promise.all([loadQuakes(feeds, { min: 2.5, period: 'week', signal, now: t }).catch(() => null), loadEvents(feeds, { days: 30, signal, now: t }).catch(() => null),
         loadStorms(feeds, t, signal).catch(() => null), capitalAt, feeds.json(feeds.site('data/companies.json'), { ttl: 864e5, signal }).catch(() => null)]);
       const employers = (() => {   // the biggest companies headquartered inside it (Wikidata, as the globe's country card shows)
         if (!cos || !b) return null;

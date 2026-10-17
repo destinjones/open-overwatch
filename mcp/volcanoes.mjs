@@ -19,7 +19,7 @@ export function volcanoesTool(ctx) {
     },
     async run(a, { signal }) {
       const [d, area, events, quakes] = await Promise.all([feeds.json(feeds.site('data/volcanoes.json'), { ttl: 864e5, timeout: 60e3, signal }), resolveArea(a, feeds, { need: true, pointKm: 300, signal }),
-        loadEvents(feeds, { days: 60, category: 'volcanoes', signal }).catch(() => null), loadQuakes(feeds, { min: 2.5, period: 'week', signal }).catch(() => null)]);
+        loadEvents(feeds, { days: 60, category: 'volcanoes', signal, now: ctx.now() }).catch(() => null), loadQuakes(feeds, { min: 2.5, period: 'week', signal, now: ctx.now() }).catch(() => null)]);
       const cols = (d && d.cols) || [], ix = k => cols.indexOf(k);
       const [iN, iLat, iLon, iC, iT, iW] = ['name', 'lat', 'lon', 'country', 'type', 'wiki'].map(ix);
       if (iN < 0 || iLat < 0 || iLon < 0) throw new ToolError('The volcano list came back in an unexpected shape', 'unavailable');

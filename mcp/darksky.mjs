@@ -4,13 +4,14 @@
 // means for the eye, the nearest darker sky and which way; tonight's quality from the sky, the Moon and Open-Meteo's
 // cloud forecast; and the deep-sky objects (OpenNGC, CC-BY-SA-4.0, data/deepsky.json) that eyes, binoculars or a small
 // telescope can find there tonight. The maths and the words are the website's (src/core/darksky.js).
-import { ToolError } from './feeds.mjs';
+import { ToolError, derive } from './feeds.mjs';
+import { preparedBorders } from './country.mjs';
 import { areaProps, resolveArea, frame, globeUrl } from './place.mjs';
 import { iso, areaData, clocks, r2 } from './words.mjs';
 import { provenance, provenanceText } from '../src/core/provenance.js';
 import { decodeAtlas, skyAt } from '../src/core/lightpollution.js';
 import { parseDeepsky } from '../src/core/deepsky.js';
-import { prepare, countryAt } from '../src/core/borders.js';
+import { countryAt } from '../src/core/borders.js';
 import { darkWindow } from '../src/core/sky.js';
 import { hoursOf, night } from '../src/core/clouds.js';
 import { skyWords, nearestDarker, darkText, moonOver, tonightQuality, deepSkyTonight, gearLimits, GEAR, ATLAS_CREDIT, NGC_CREDIT } from '../src/core/darksky.js';
@@ -21,9 +22,9 @@ const DAY = 864e5;
 export function darkSkyTool(ctx) {
   const { feeds } = ctx, site = feeds.siteBase;
   const memo = (f, k = { p: null }) => signal => k.p || (k.p = f(signal).catch(e => { k.p = null; throw e; }));
-  const atlas = memo(async signal => decodeAtlas((await feeds.bytes(feeds.site('data/lightpollution.bin'), { ttl: 7 * DAY, timeout: 90e3, maxBytes: 4e6, signal })).bytes));
-  const catalogue = memo(async signal => parseDeepsky(await feeds.json(feeds.site('data/deepsky.json'), { ttl: 7 * DAY, signal })));
-  const borders = memo(async signal => { const b = await feeds.json(feeds.site('data/borders.json'), { ttl: DAY, timeout: 60e3, signal }); return prepare(Array.isArray(b) ? b.map(x => ({ ...x })) : []); });
+  const atlas = memo(async signal => derive(await feeds.bytes(feeds.site('data/lightpollution.bin'), { ttl: 7 * DAY, timeout: 90e3, maxBytes: 4e6, signal }), 'atlas', r => decodeAtlas(r.bytes)));
+  const catalogue = memo(async signal => derive(await feeds.json(feeds.site('data/deepsky.json'), { ttl: 7 * DAY, signal }), 'deepsky', parseDeepsky));
+  const borders = memo(async signal => preparedBorders(await feeds.json(feeds.site('data/borders.json'), { ttl: DAY, timeout: 60e3, signal })));
   return {
     name: 'dark_sky',
     title: 'Dark sky: light pollution and deep-sky objects tonight',

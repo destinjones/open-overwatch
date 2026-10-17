@@ -4,10 +4,11 @@
 // when it starts, peaks and ends in local time and how much of the Sun is covered (src/core/eclipselocal.js). Each links
 // to the globe's eclipse card, which plays the Moon's shadow across the Earth.
 import { greatestEclipse, localEclipse } from '../src/core/eclipselocal.js';
-import { prepare, countryAt } from '../src/core/borders.js';
+import { countryAt } from '../src/core/borders.js';
 import { oceanAt } from '../src/core/explain.js';
 import { msFromJd } from '../src/core/time.js';
-import { ToolError } from './feeds.mjs';
+import { ToolError, derive } from './feeds.mjs';
+import { preparedBorders } from './country.mjs';
 import { areaProps, resolveArea, panelUrl } from './place.mjs';
 import { iso, r1, coord, plural, areaData, clocks, zoneAt, limitProp } from './words.mjs';
 
@@ -16,10 +17,9 @@ const dur = s => `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')} s
 
 export function eclipsesTool(ctx) {
   const { feeds } = ctx, site = feeds.siteBase;
-  const greatest = new Map();   // date -> greatest eclipse (the minute tables turned Earth-fixed once)
   let borders = null;
   const whereIs = async (lat, lon, signal) => {
-    if (!borders) borders = feeds.json(feeds.site('data/borders.json'), { ttl: 864e5, timeout: 60e3, signal }).then(b => prepare(b.map(x => ({ ...x }))), e => { borders = null; throw e; });
+    if (!borders) borders = feeds.json(feeds.site('data/borders.json'), { ttl: 864e5, timeout: 60e3, signal }).then(preparedBorders, e => { borders = null; throw e; });
     const b = await borders.catch(() => null), c = b && countryAt(b, lon, lat);
     return c ? c.name : oceanAt(lat, lon);
   };
@@ -39,8 +39,7 @@ export function eclipsesTool(ctx) {
       const tz = area ? await zoneAt(ctx, area.lat, area.lon, signal) : null, c = clocks(tz);
       const rows = [];
       for (const e of all) {
-        if (!greatest.has(e.date)) greatest.set(e.date, greatestEclipse(e));
-        const g = greatest.get(e.date), place = await whereIs(g.lat, g.lon, signal);
+        const g = derive(e, 'greatest', greatestEclipse), place = await whereIs(g.lat, g.lon, signal);
         const here = area ? localEclipse(e, area.lat, area.lon) : null;
         if (a.only_visible && area && !here) continue;
         rows.push({ date: e.date, kind: e.type, greatest: { at: iso(g.at), lat: r1(g.lat), lon: r1(g.lon), where: place, duration_s: g.duration_s, path_width_km: g.width_km ? Math.round(g.width_km) : null, sun_altitude_deg: r1(g.sun_alt), magnitude: g.magnitude != null ? Math.round(g.magnitude * 1000) / 1000 : null },
