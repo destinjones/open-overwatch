@@ -8,6 +8,8 @@ file was built from.
 
 ## [Unreleased]
 
+## [0.9.2.15] - 2026-10-17
+
 Tonight for any place, and honest about what is live.
 
 ### Added

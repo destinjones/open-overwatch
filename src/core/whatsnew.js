@@ -16,7 +16,7 @@ export const MAX_LINES = 3;
  *  it is published). */
 export const RELEASES = Object.freeze([
   {
-    version: '0.9.2.15', date: null, title: 'Tonight for any place, and honest about what is live',
+    version: '0.9.2.15', date: '2026-10-17', title: 'Tonight for any place, and honest about what is live',
     go: 'tonight.html',
     lines: [
       'Tonight for any place, not only where you are.',
