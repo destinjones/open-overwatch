@@ -3,6 +3,11 @@
 ## Unit tests
 `node --test` from the repo root (the browser tests are separate: [below](#end-to-end-browser-tests-playwright-in-ci)): the maths in `src/core/` against JPL Horizons fixtures and textbook identities, the country lookup (`core/borders.js`: cities land in their countries, ocean is nobody's, every border has facts) and the share-link format (`core/viewlink.js`: round trip, bad links refused)
 (no dependencies). CI runs them on every push, plus a syntax check of every module and a link check of every page.
+[DEVELOPING.md](DEVELOPING.md#3-tests) has the table of what each file covers. Two kinds behave differently: the site
+build's tests (`sitebuild`, `sitebudget`, `tlearchive`) run `.github/build_site.py` in Python and are skipped without
+it, and `test/india.test.mjs` reads the real date: from two weeks before an ISRO track runs out (Chandrayaan-2 on
+2026-11-08, Aditya-L1 on 2027-01-19) it prints a `WARNING` diagnostic, without failing, that names the refresh
+(`python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"`).
 
 ## End-to-end browser tests (Playwright, in CI)
 `npm run e2e` (or `npx playwright test`) opens every page in headless Chromium against `serve.js` and drives it like a
@@ -21,8 +26,8 @@ npx playwright test -g "share link"          # by name
 **Which browser.** Playwright's Chromium when it is installed (`npx playwright install chromium`; CI installs
 `--only-shell chromium`); on Windows without it, the installed Edge, so nothing has to be downloaded. `OO_E2E_CHANNEL=chrome`
 or `msedge` picks one. WebGL is **software** (SwiftShader) by default: slower (the globe boots in ~20 s), but the same
-picture every run and no GPU needed. `OO_E2E_GPU=1` uses the GPU and skips the picture checks. Two workers by default
-(`OO_E2E_WORKERS`): three software-WebGL browsers at once starve each other and the Solar System stalls.
+picture every run and no GPU needed. `OO_E2E_GPU=1` uses the GPU and skips the picture checks. Two workers by default,
+one on CI (`OO_E2E_WORKERS`): three software-WebGL browsers at once starve each other and the Solar System stalls.
 
 **No live data.** `e2e/support/net.mjs` sits in front of every request:
 - **CelesTrak is refused** before it leaves the browser (counted; the tests check the pages asked and were refused).
@@ -30,10 +35,13 @@ picture every run and no GPU needed. `OO_E2E_GPU=1` uses the GPU and skips the p
 - Pinned libraries and fonts (jsDelivr, cdnjs, Google Fonts) are fetched once into `e2e/.cache/` (git-ignored; CI keeps
   it between runs), so reruns are offline and byte-identical.
 - Feeds get canned answers from `e2e/support/feeds.mjs`, in each feed's real shape and relative to the moment of the
-  request: USGS quakes (the largest an M6.1 off Hachinohe), EONET, NOAA Kp and OVATION, NWS/NHC/GDACS (empty), the readsb
+  request: USGS quakes (the largest an M6.1 off Hachinohe), EMSC's catalogue (its own solution of that quake, so it
+  reads "confirmed"), EONET, NOAA Kp and OVATION and SWPC's Sun data, NWS/NHC/GDACS (empty), the readsb
   aircraft feeds (three military, one Cessna squawking 7700), OpenSky, the TLE mirror (`test/fixtures/stations.tle`),
-  launches and astronauts (`test/fixtures/ll2_*.json`), the ISS position, GitHub's latest release, `versions.json`, and
-  one Open-Meteo point forecast for Tonight. Open-Meteo grids (the weather panel) are never answered: its per-IP quota.
+  launches and astronauts (`test/fixtures/ll2_*.json`), near misses (`data/socrates.json` from
+  `test/fixtures/socrates-small.csv`), RainViewer's radar frames, the ISS position, GitHub's latest release,
+  `versions.json`, and one Open-Meteo point forecast for Tonight. Open-Meteo grids (the weather panel) are never
+  answered: its per-IP quota.
 - Video (`.mp4`, `.webm`: the landing page's hero and demo clips) is refused. With request interception on, a playing
   `<video>` in headless Chromium stalled every later request of the page (modules, fonts, fixtures) and, through the
   shared browser, the next tests too; the clips are decoration with still fallbacks, so the tests check which clip is
@@ -49,13 +57,14 @@ error status for one of the site's own files (`e2e/support/fixtures.mjs`); a tes
 
 | Spec | What it drives |
 |---|---|
-| `landing.spec.mjs` | the live strip (ISS, quakes, launch countdown), the version picker re-pointing the launch buttons, `?v=`, the fleet viewer, the phone demo tabs, every link into the site |
+| `landing.spec.mjs` | the live strip (ISS, quakes, launch countdown), the version picker re-pointing the launch buttons, a retired version listed as a download (not in the picker), `?v=`, the fleet viewer, the phone demo tabs, every link into the site |
+| `india.spec.mjs` | the India page: English by default and the Hindi toggle (remembered), `?lang=hi`, utm tags removed from the address and from shared links, the live strip, launches and the pass table, the phone demo, every link into the site; `india/hi/` opening in Hindi at its own address, with every link resolving |
 | `guide.spec.mjs` | every link in the guide and about page (in-page sections, pages across the site, https outside), the "on this page" links, section labels, the skip link, the buttons into each view |
 | `map.spec.mjs` | the 2D map: counters from the feeds, layers that stick across a reload, a click on a quake, view presets, the welcome card, the balloon layer's warning (Esc refuses, accept once per session), intel tabs and log, search (coordinates, a satellite), keyboard shortcuts, the share link round trip with a drawing, the 3D globe button (also on a middle-click), a globe link opening here, a hostile link |
-| `globe.spec.mjs` | the globe: counters, the layer dock (persisted), the time bar, search (ISS, a country), launches and eclipses, Measure (`M`) and a drawing in a link (London-Paris 343.9 km), the share link round trip (camera, layers, paused time), "Classic map" on the same place, a hostile link |
-| `solar.spec.mjs` | the Solar System: boot, search (Mars, Voyager, Halley, arrow keys, Esc, nothing found), a link with a body, moment and distance, `#q=`, Share, the clock buttons, layers and the mission and comet lists |
-| `tonight.spec.mjs` | Tonight with the clock fixed at 2026-10-13 19:00 UTC in London: planets, meteors, Moon, the 2027 eclipse, clouds, launches, the ISS and crew; remembering and forgetting the place, Greenwich without permission, a launch's Details to the globe, Share |
-| `phone.spec.mjs` | the `phone` project (Pixel 7, touch): every page fits the width, the 2D map's bottom bar and sheets, a tapped quake, the globe's phone dock and sheets, the Solar System's menu and search, tap-target sizes |
+| `globe.spec.mjs` | the globe: counters, the layer dock (persisted), the time bar, search (ISS, a country), launches and eclipses, time travel back to the quake catalogue and Now, Measure (`M`) and a drawing in a link (London-Paris 343.9 km), the share link round trip (camera, layers, paused time), "Classic map" on the same place, a hostile link; panels opened from a link (Earth now, falling soon, near misses, people in space, flybys, find a flight), weather mode on RainViewer's frames, an Ops look from a link and a voice command; and the hand-off: zoomed out to 400,000 km the Solar System takes over with the globe's clock and distance while the globe stops drawing, and its way home hands back |
+| `solar.spec.mjs` | the Solar System: boot, search (Mars, Voyager, Halley, arrow keys, Esc, nothing found), a link with a body, moment and distance, `#q=`, Share, the clock buttons, layers and the mission and comet lists, Chandrayaan-2 circling the Moon on screen with its height on the card |
+| `tonight.spec.mjs` | Tonight with the clock fixed at 2026-10-13 19:00 UTC in London: planets, meteors, Moon, the 2027 eclipse, clouds, launches, the ISS and crew; remembering and forgetting the place, Greenwich without permission, a launch's Details to the globe, Share; a `#at=lat,lon` link (answers for that place, saves nothing), a typed place (only the words go to Photon), the embed (`#embed=1`: chosen sections, no location buttons or toasts) |
+| `phone.spec.mjs` | the `phone` project (Pixel 7, touch): every page fits the width, the 2D map's bottom bar and sheets, a tapped quake, the globe's phone dock and sheets (and its Low level: 30 fps cap, 0.66 render scale, no FXAA, Starlink off), the Solar System's menu and search, tap-target sizes |
 | `visual.spec.mjs` | picture checks of five still views (below) |
 
 **Picture checks** (`visual.spec.mjs`, `e2e/support/snap.mjs`): the globe over Europe and Saturn at fixed moments with the
@@ -66,6 +75,9 @@ by more than 48 goes over the view's limit; the log prints both numbers every ru
 thumbnail and a red difference picture are attached to the report, and the thumbnail is also left in
 `e2e/.results/snapshots-actual/` under the reference's name. A changed heading in the guide scores ~17 (limit 5); reruns
 on the same machine score 0.
+- The globe over Europe is skipped on CI unless `OO_E2E_ALL=1` (GitHub's runner draws it two ways from run to run). Its
+  reference, `globe-europe.png`, was taken at the old Low level, which no current level matches: refresh it on the next
+  GitHub run with `OO_E2E_ALL=1 OO_E2E_UPDATE=1` and look at it before committing.
 - `OO_E2E_UPDATE=1 npx playwright test visual` rewrites the references: look at them before committing.
 - Fonts render differently per system. If CI's Linux pictures drift past the limits, give it its own references:
   `OO_E2E_UPDATE=platform` writes `<name>.<platform>.png` (`linux`, `win32`), which wins over `<name>.png` on that

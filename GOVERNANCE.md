@@ -25,8 +25,8 @@ Open an issue and say so.
 | Feed copies on the website | `data/tle/`, `data/launches.json`, `data/astronauts.json`, `data/flybys.json`, `data/socrates.json`, `data/news.json`, `data/wind.json` | made by that same build every 6 hours; a feed it can't refresh keeps the last good copy | nothing; the build is the only automated client of CelesTrak, once per 6 hours |
 | Releases | GitHub releases: `open-overwatch.zip` (the download) and `open-overwatch.mcpb` (the Claude Desktop extension) | the Release workflow (`.github/workflows/release.yml`) on every `v*` tag | nothing besides the repository |
 | Archived versions | `/v/<tag>/` on the website for the newest 6 tags (`ARCHIVE_KEEP` in build_site.py); older tags get a page linking to their release zip | rebuilt from the tags by every site build | Pages' 1 GB limit: ~30 MB a version; pages.yml warns over 900 MB and fails over 950 MB |
-| The public relay | Cloudflare Worker `open-overwatch-relay` (`relay/`) on the owner's account | `npx wrangler deploy` from `relay/` | the Cloudflare account; free plan; a WAF rate-limit rule on its route |
-| The MCP Worker | `mcp-worker/` (code in `mcp/worker.mjs`) | deployed (2026-10-13) as `open-overwatch-mcp` on the owner's Cloudflare account, behind a secret token; [mcp-worker/README.md](mcp-worker/README.md) has the steps | a Cloudflare account and an `MCP_TOKEN` secret |
+| The public relay | Cloudflare Worker `open-overwatch-relay` (`relay/`) on the owner's account | `npx wrangler deploy` from `relay/`, on the owner's explicit OK; last redeployed 2026-10-17 | the Cloudflare account; free plan; a WAF rate-limit rule on its route |
+| The MCP Worker | `mcp-worker/` (code in `mcp/worker.mjs`) | deployed (2026-10-13) as `open-overwatch-mcp` on the owner's Cloudflare account, behind a secret token, and not redeployed since (later server changes are not live there); [mcp-worker/README.md](mcp-worker/README.md) has the steps | a Cloudflare account and an `MCP_TOKEN` secret |
 | The npm package | `open-overwatch-mcp` (`package.json`) | **not published yet**; `npm publish` | an npm account |
 | The DOI | Zenodo, [10.5281/zenodo.23348946](https://doi.org/10.5281/zenodo.23348946) | Zenodo's GitHub integration archives each GitHub release | the owner's Zenodo account linked to the repository |
 
@@ -34,16 +34,19 @@ Open an issue and say so.
 
 1. Work lands on `main` through pull requests (the owner works on a local `rebuild` branch and merges it; a local
    pre-push hook stops accidental pushes).
-2. Move CHANGELOG.md's "Unreleased" section under the new version and date. Versions are small four-part steps:
-   after v0.9.2.11 comes v0.9.2.12.
+2. Move CHANGELOG.md's "Unreleased" section under the new version and date, and give that version's entry in
+   `src/core/whatsnew.js` the same date (the What's new card; `test/whatsnew.test.mjs` fails while a version with a
+   CHANGELOG.md heading has none). Versions are small four-part steps: after v0.9.2.11 comes v0.9.2.12.
 3. Run `node --test`; CI must be green on the commit.
 4. Run `Publish Update.bat` (Windows; on another system do the same by hand): it fetches `origin/main` and
    fast-forwards the current branch to it (and stops, changing nothing, if that is not a fast-forward: merge
-   `origin/main` first, for example after a Dependabot PR was merged on GitHub), writes the version into `OW_VERSION`
-   in `src/map/version.js`, commits, creates the annotated tag `v<version>` and pushes the branch to `main` with its
-   tags in one atomic push. If the push fails it deletes the tag and takes back the commit, so a second run is clean.
-   The tag's message is the release note: write a short paragraph a visitor would understand.
-5. GitHub then rebuilds the site (about a minute, with the new version at the root and under `/v/<tag>/`) and builds the
+   `origin/main` first, for example after a Dependabot PR was merged on GitHub), shows which branch goes to `main`,
+   writes the version into `OW_VERSION` in `src/map/version.js`, commits, creates the annotated tag `v<version>` and
+   pushes the branch to `main` with its tags in one atomic push. If the push fails it deletes the tag and takes back the
+   commit (the changes stay staged; `version.js` already holds the new number, so enter the same one again), so a
+   second run is clean. The tag's message is the release note: write a short paragraph a visitor would understand.
+5. GitHub then rebuilds the site (about a minute, with the new version at the root and under `/v/<tag>/`; the release that
+   falls out of the newest 6 becomes a page that links to its zip) and builds the
    release with its two files. Bump the MCP version (`VERSION` in `mcp/feeds.mjs`, `package.json`,
    `mcp/manifest.json`) when the server changed; the tests check they agree.
 6. Afterwards: the status line in `CLAUDE.md` and the boxes in ROADMAP.md, the version and date in `CITATION.cff`.
@@ -55,17 +58,22 @@ checks the zip against README.txt, the data files the views fetch and the pages 
 
 ## The relay and the MCP Worker
 
-**The public relay** lets the website read the few feeds that send no CORS headers (NOAA hurricane advisories, some
-camera lists and stills, the submarine cable map). It only carries the hosts in `PUBLIC_RELAY_HOSTS`
-(`src/core/relay.js`), each limited to its feed paths, GET only, for the published site's origin. To change it:
-edit `relay/worker.js`, run `node --test` (`test/relay.test.mjs`), then `npx wrangler login` and `npx wrangler deploy`
-from `relay/`. Adding a host needs the feed owner's agreement; the ADS-B networks and OpenSky refuse cloud servers, and
-the relay must not be disguised to get past that. If the relay goes down, those layers say they need the download
-version; nothing else breaks. Details: docs/NOTES.md, "Public relay".
+**The public relay** lets the website read the few feeds that send no CORS headers (NOAA hurricane advisories, NDBC
+buoys and DART files and tsunami.gov's message feeds; NYC's cameras, some camera lists and stills; the submarine cable
+map). It only carries the hosts in `PUBLIC_RELAY_HOSTS` (`src/core/relay.js`), each limited to its feed paths, GET
+only, in one request form, for the published site's origin. It carries no aircraft: adsb.lol answers Cloudflare's
+servers with 429, and OpenSky's, adsb.fi's, airplanes.live's and adsb.one's terms don't allow it, so live aircraft come
+only with the download. To change it: edit `relay/worker.js` (and `src/core/relay.js`, `NEEDS_RELAY`, `serve.js`,
+`serve.py`: `test/relayhosts.test.mjs` checks they agree), run `node --test` (`test/relay.test.mjs`), and only with
+the owner's explicit OK `npx wrangler login` and `npx wrangler deploy` from `relay/`. Adding a host needs the feed
+owner's agreement; the relay must not be disguised to get past a refusal. Until a change is deployed, or if the relay
+goes down, the affected layers say they need the download version; nothing else breaks. It was last redeployed on
+2026-10-17. Details: docs/NOTES.md, "Public relay".
 
-**The MCP Worker** would serve the MCP tools to claude.ai and ChatGPT connectors. Deploying it is a production change
-with a running cost on the free plan's quotas: a token (`MCP_TOKEN`), a rate limit and the free plan's smaller tool list
-are built in. Its README has the deploy and the connector steps.
+**The MCP Worker** serves the MCP tools to claude.ai and ChatGPT connectors (deployed 2026-10-13, not redeployed
+since). A redeploy is a production change with a running cost on the free plan's quotas, so it is the owner's call
+too: a token (`MCP_TOKEN`), a rate limit and the free plan's smaller tool list are built in. Its README has the deploy
+and the connector steps.
 
 **Accounts.** Both Workers run on the owner's Cloudflare account (`destinjones123.workers.dev`). A new owner deploys
 them to their own account and changes the URLs: `PUBLIC_RELAY` in `src/core/relay.js` for the relay (search for

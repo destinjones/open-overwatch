@@ -69,7 +69,10 @@ floor ([docs/DEVELOPING.md](docs/DEVELOPING.md#3-tests)).
    functions write vectors into an `out` object (see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)).
 3. **Escape every upstream string** before it goes into HTML: `esc()` (and `isHttp()` for links). Feeds are other
    people's data and some of it is user-submitted. A host that needs the relay goes into `NEEDS_RELAY` in
-   `src/map/util.js` **and** `ALLOWED_HOSTS` in both `serve.js` and `serve.py`.
+   `src/map/util.js` **and** `ALLOWED_HOSTS` in both `serve.js` and `serve.py` (`test/relayhosts.test.mjs` checks the
+   lists agree). Putting it on the website's public relay as well needs the feed owner's agreement and a redeploy of the
+   Worker, which only the owner does ([GOVERNANCE.md](GOVERNANCE.md#the-relay-and-the-mcp-worker)); until then the
+   website says that layer needs the download version.
 4. **Never point automated runs at CelesTrak.** It firewalled the owner's network once after a day of renders. The site
    mirrors the element sets; scripts and tests use the mirror or fixtures. Renders go through
    `brand/tools/globe_shot.mjs`, which blocks it.
@@ -88,9 +91,14 @@ floor ([docs/DEVELOPING.md](docs/DEVELOPING.md#3-tests)).
 2. Open a pull request. The template asks what changed, how you checked it and which docs you touched. CI runs on it.
 3. The owner reviews and merges. Small focused PRs get merged fastest.
 4. Releases are small four-part versions (v0.9.2.11, then v0.9.2.12, …), cut by the owner with `Publish Update.bat`: it
-   stamps the version, tags it and pushes. The Website workflow then rebuilds the site with every older version frozen
-   under `/v/<tag>/`, and the Release workflow attaches the download zip and the Claude Desktop extension to a GitHub
-   release. What changed goes into [CHANGELOG.md](CHANGELOG.md) under "Unreleased" until then.
+   catches up with `origin/main` first (and stops, changing nothing, if that would need a merge), stamps the version,
+   tags it and pushes, and takes the tag and commit back if the push fails. The Website workflow then rebuilds the site
+   with the newest 6 releases frozen under `/v/<tag>/` (older ones link to their release zip), and the Release workflow
+   attaches the download zip and the Claude Desktop extension to a GitHub release. What changed goes into
+   [CHANGELOG.md](CHANGELOG.md) under "Unreleased" until then.
+5. The site leaves the dev-only folders off (`test/`, `e2e/`, `notes/`, `relay/`, `mcp-worker/`, `brand/clip/`), so a
+   file a page loads at run time can't live there unless it is listed in `KEEP_ROOT` in `.github/build_site.py`
+   (`test/sitebudget.test.mjs` checks).
 
 The details (what the site build mirrors, how the relays are deployed) are in
 [docs/DEVELOPING.md](docs/DEVELOPING.md#10-publishing) and [GOVERNANCE.md](GOVERNANCE.md).

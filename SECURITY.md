@@ -19,15 +19,17 @@ advisory and the changelog unless you'd rather not.
 
 | Part | Where | What would be a problem |
 |---|---|---|
-| The pages | `*.html`, `src/` | script injection: an upstream feed string, a share link (`#c=…`, `d=`, `scene=`), a search or a voice command that ends up as live HTML or a `javascript:` link; a share link that does something the visitor didn't ask for |
+| The pages | `*.html`, `src/` | script injection: an upstream feed string, a share link (`#c=…`, `d=`, `scene=`), a search or a voice command that ends up as live HTML or a `javascript:` link; a share link that does something the visitor didn't ask for; a CDN file loaded without its pinned `integrity` hash, a page's Content-Security-Policy letting in a script that is neither the site's own files, one of its hashed inline scripts, nor from the CDN origins it names, or `src/vendor/satellite.min.js` (the satellite workers' copy, which `importScripts` can't check) differing from the release the pages pin |
 | The service worker | `sw.js` | serving one page's or one version's content for another, caching something it shouldn't |
 | The local helper | `serve.js`, `serve.py` | its relay used by another website or for a host off its allowlist, reading files outside the folder, DNS rebinding, a request that kills it |
-| The public relay | `relay/worker.js` (a Cloudflare Worker) | relaying a host or path off its allowlist, use from origins other than the published site, cache poisoning, a way past its size or method limits |
+| The public relay | `relay/worker.js` (a Cloudflare Worker) | relaying a host or path off its allowlist, use from origins other than the published site, cache poisoning, a way past its size or method limits, a second spelling of the same feed that gets past its one request form (`/?url=` + `encodeURIComponent` of the normalised URL, optionally `&t=<digits>`; anything else is a 400) and so becomes a new cache entry and a new upstream request |
 | The MCP server | `mcp/` (stdio and `--http`) | a tool argument that reaches a URL, file or host it shouldn't; the HTTP transport answering other origins or other machines |
 | The MCP Worker | `mcp-worker/`, `mcp/worker.mjs` | a way past the token, the rate limit or the free plan's tool list; answers leaking across callers through the cache |
 | The site build | `.github/build_site.py`, `.github/workflows/` | a mirrored feed that can inject into the published site, a workflow that runs untrusted code with write access |
 
-The MCP Worker is in the repository but not deployed yet; reports on its code are still welcome.
+The MCP Worker runs on the owner's Cloudflare account, behind a token, since 2026-10-13. It has not been redeployed
+since, so the code here can be newer than what runs; reports on either are welcome. The public relay was last
+redeployed on 2026-10-17.
 
 ## What isn't
 
@@ -38,7 +40,8 @@ The MCP Worker is in the repository but not deployed yet; reports on its code ar
   Open Overwatch uses them makes it worse.
 - Rate limits and quotas of the free services it reads.
 - Archived versions under `/v/<tag>/` on the website: they are frozen copies of past releases and don't get patched. A
-  fix lands in the next release; tell us if an old version is dangerous enough to take down.
+  fix lands in the next release; tell us if an old version is dangerous enough to take down. Only the newest 6
+  releases keep a copy online; older ones are a page pointing at their release zip.
 
 ## Supported versions
 
