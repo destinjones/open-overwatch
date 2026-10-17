@@ -29,16 +29,23 @@ export const fromIndia = r => {
 };
 /** A raw LL2 launch's precision code (src/core/launches.js precisionCode: 'DAY', 'M', 'Q4', …). */
 const precisionOf = r => precisionCode(r && r.net_precision && (r.net_precision.abbrev || r.net_precision.name));
+const IST = 5.5 * 3600e3;
+/** The end (ms) of the day in India that a time falls on (the day launchWhen shows for a DAY launch). */
+const istDayEnd = t => Math.floor((t + IST) / 864e5) * 864e5 + 864e5 - IST;
 /** India's launches still to come, soonest first: under an hour past a precise time, or until the end of the day,
- *  month or quarter an imprecise one names (a "NET October" launch stays listed through 31 October). */
+ *  month or quarter an imprecise one names (a "NET October" launch stays listed through 31 October, when the data
+ *  still has it); a launch dated to the day stays to the end of that day in India too, the day the page shows. */
 export function indianLaunches(results, now = Date.now()) {
   return (Array.isArray(results) ? results : []).filter(r => r && typeof r === 'object' && fromIndia(r))
-    .filter(r => { const t = Date.parse(r.net); return !Number.isFinite(t) || listedUntil(t, precisionOf(r), 3600e3) > now; })
+    .filter(r => {
+      const t = Date.parse(r.net), p = precisionOf(r);
+      return !Number.isFinite(t) || Math.max(listedUntil(t, p, 3600e3), ['DAY', 'AM', 'PM'].includes(p) ? istDayEnd(t) : -Infinity) > now;
+    })
     .sort((a, b) => (Date.parse(a.net) || 9e15) - (Date.parse(b.net) || 9e15));
 }
 const ORDINAL_HI = ['पहली', 'दूसरी', 'तीसरी', 'चौथी'];
 /** When a launch is due, only as precisely as Launch Library 2 says (net_precision, its codes SEC MIN HR AM PM DAY WK M
- *  Q1-Q4 H1 H2 Y …): a time, a day, a month, a quarter or half, or a year, in India's time zone. */
+ *  Q1-Q4 H1 H2 Y FY DEC): a time, a day, a month, a quarter or half, a (fiscal) year or a decade, in India's time zone. */
 export function launchWhen(r, lang) {
   const t = Date.parse(r && r.net), p = precisionOf(r), hi = lang === 'hi', target = hi ? 'लक्ष्य: ' : 'target: ';
   if (!Number.isFinite(t)) return hi ? 'तारीख़ तय नहीं' : 'date to be set';
@@ -47,6 +54,8 @@ export function launchWhen(r, lang) {
   if (p === 'M' || p === 'WK') return target + fmtIST(t, lang, { month: 'long', year: 'numeric' });
   const year = fmtIST(t, 'en', { year: 'numeric' }), part = /^([QH])([1-4])$/.exec(p);
   if (part) return target + (hi ? `${year} की ${ORDINAL_HI[+part[2] - 1]} ${part[1] === 'Q' ? 'तिमाही' : 'छमाही'}` : `${p} ${year}`);
+  if (p === 'FY') return target + (hi ? `वित्त वर्ष ${year}` : `FY ${year}`);
+  if (p === 'DEC') { const dec = Math.floor(+year / 10) * 10; return target + (hi ? `${dec} का दशक` : `the ${dec}s`); }
   return target + year;
 }
 

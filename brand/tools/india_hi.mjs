@@ -20,6 +20,15 @@ export const HI = {
   imageAlt: 'कक्षा से रात का भारत, जगमगाते शहर, और शब्द India, live from space',
   ld: 'इसरो के लॉन्च, भारत के उपग्रह, भारतीय शहरों के ऊपर ISS के पास, चक्रवात, हिमालय के भूकंप और हवा की गुणवत्ता, एक मुफ़्त लाइव 3D पृथ्वी पर।',
 };
+/** The body's English aria-labels and their Hindi (india/india.js setLang says the same), so a Hindi screen reader hears
+ *  Hindi before the module runs, or when it fails. The language button names the other language, in that language. */
+export const LABELS = Object.freeze([
+  ['aria-label="यह पेज हिन्दी में पढ़ें" lang="hi"', 'aria-label="Read this page in English" lang="en"'],
+  ['aria-label="Menu"', 'aria-label="मेन्यू"'],
+  ['aria-label="Clips"', 'aria-label="क्लिप"'],
+  ['aria-label="A recording of the globe over India"', 'aria-label="भारत के ऊपर ग्लोब की एक रिकॉर्डिंग"'],
+  ['aria-label="Play the recordings"', 'aria-label="रिकॉर्डिंग चलाएँ"'],
+]);
 const attr = s => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 
 /** india/index.html → india/hi/index.html. Every change must find its spot exactly once, so a reworded English page
@@ -54,6 +63,7 @@ export function hindiPage(en, sha256) {
   let alts = 0;
   h = h.replace(/ alt="([^"]*)" data-alt-hi="([^"]*)"/g, (m, a, b) => { alts++; return ` alt="${b}" data-alt-hi="${b}" data-alt-en="${a}"`; });
   if (!alts || alts !== want) throw new Error(`india_hi: ${alts} of ${want} data-alt-hi images written as alt="…" data-alt-hi="…"`);
+  for (const [en, hi] of LABELS) once(en, hi);
   // one folder deeper: the site's pages and files are ../../, india.js is ../
   h = h.replace(/ (href|src|srcset|poster)="\.\.\//g, ' $1="../../');
   once(' src="india.js"', ' src="../india.js"');

@@ -9,7 +9,8 @@ const T = s => Date.parse(s), iso = ms => new Date(ms).toISOString();
 
 test('precision codes: LL2 abbrevs and names read the same', () => {
   for (const [p, c] of [['DAY', 'DAY'], ['Day', 'DAY'], ['D', 'DAY'], ['M', 'M'], ['Month', 'M'], ['Q4', 'Q4'], ['Quarter 4', 'Q4'], ['H1', 'H1'], ['Half 1', 'H1'],
-    ['WK', 'WK'], ['Week', 'WK'], ['MIN', 'MIN'], ['Minute', 'MIN'], ['Second', 'SEC'], ['Year', 'Y'], ['Fiscal Year', 'FY'], ['Decade', 'DEC'], ['', ''], [undefined, '']])
+    ['WK', 'WK'], ['Week', 'WK'], ['MIN', 'MIN'], ['Minute', 'MIN'], ['Second', 'SEC'], ['Year', 'Y'], ['Fiscal Year', 'FY'], ['Decade', 'DEC'], ['', ''], [undefined, ''],
+    ['Morning (local time)', 'AM'], ['Afternoon (local time)', 'PM'], ['AM', 'AM'], ['PM', 'PM']])
     assert.equal(precisionCode(p), c, String(p));
 });
 
@@ -17,7 +18,9 @@ test('periodEnd: the end of the UTC day, week, month, quarter, half, year or dec
   const at = T('2026-10-31T00:00:00Z');
   assert.equal(iso(periodEnd(at, 'DAY')), '2026-11-01T00:00:00.000Z');
   assert.equal(iso(periodEnd(T('2026-10-29T15:00:00Z'), 'PM')), '2026-10-30T00:00:00.000Z');
-  assert.equal(iso(periodEnd(at, 'WK')), '2026-11-07T00:00:00.000Z');
+  assert.equal(iso(periodEnd(at, 'WK')), '2026-11-01T00:00:00.000Z', 'a week ends with the day LL2 dates it on');
+  assert.equal(iso(periodEnd(T('2027-03-31T00:00:00Z'), 'FY')), '2027-04-01T00:00:00.000Z', 'so does a fiscal year (not the calendar one)');
+  assert.equal(iso(periodEnd(T('2026-10-29T06:00:00Z'), 'Morning (local time)')), '2026-10-30T00:00:00.000Z');
   assert.equal(iso(periodEnd(at, 'M')), '2026-11-01T00:00:00.000Z');
   assert.equal(iso(periodEnd(T('2026-12-31T00:00:00Z'), 'M')), '2027-01-01T00:00:00.000Z', 'December rolls into the next year');
   assert.equal(iso(periodEnd(T('2026-12-31T00:00:00Z'), 'Q4')), '2027-01-01T00:00:00.000Z');
@@ -51,4 +54,16 @@ test('when: the time only as precisely as announced', () => {
   assert.equal(when({ net: T('2026-10-29T00:00:00Z'), precision: 'DAY' }), '2026-10-29 (time not set)');
   assert.equal(when({ net: T('2026-10-31T00:00:00Z'), precision: 'M' }), 'October 2026 (no date yet)');
   assert.equal(when({ net: T('2026-12-31T00:00:00Z'), precision: 'Q4' }), 'Q4 2026 (no date yet)');
+  // LL2's names read as its codes, and every code says only what LL2 knows
+  assert.equal(when({ net: T('2026-12-31T00:00:00Z'), precision: 'Quarter 4' }), 'Q4 2026 (no date yet)');
+  assert.equal(when({ net: T('2026-10-29T00:00:00Z'), precision: 'Day' }), '2026-10-29 (time not set)');
+  assert.equal(when({ net: T('2026-10-29T06:00:00Z'), precision: 'AM' }), '2026-10-29 (time not set)');
+  assert.equal(when({ net: T('2026-11-07T00:00:00Z'), precision: 'WK' }), 'November 2026 (no date yet)');
+  assert.equal(when({ net: T('2027-06-30T00:00:00Z'), precision: 'Half 1' }), 'H1 2027 (no date yet)');
+  assert.equal(when({ net: T('2027-03-31T00:00:00Z'), precision: 'FY' }), 'FY 2027 (no date yet)');
+  assert.equal(when({ net: T('2029-12-31T00:00:00Z'), precision: 'DEC' }), 'the 2020s (no date yet)');
+  assert.equal(when({ net: T('2027-12-31T00:00:00Z'), precision: 'Y' }), '2027 (no date yet)');
+  assert.equal(when({ net: T('2026-10-29T09:30:00Z'), precision: 'Minute' }), '2026-10-29 09:30 UTC');
+  assert.equal(when({ net: T('2026-10-29T09:30:00Z'), precision: '' }), '2026-10-29 09:30 UTC');
+  assert.equal(when({ net: NaN, precision: 'M' }), 'Date not set');
 });

@@ -12,7 +12,7 @@ import { LAYERS, WEATHER } from '../mcp/place.mjs';
 import { parseTle } from '../src/core/tle.js';
 import { ecfAt } from '../src/core/passes.js';
 import { cleanUrl, fromIndia, indianLaunches, launchWhen, dir8, CITIES, cityPasses, overIndia, inSouthAsia } from '../src/core/india.js';
-import { build, hindiPage, EN_URL, HI_URL, HI } from '../brand/tools/india_hi.mjs';
+import { build, hindiPage, EN_URL, HI_URL, HI, LABELS } from '../brand/tools/india_hi.mjs';
 
 const root = new URL('../', import.meta.url);
 const read = p => readFileSync(new URL(p, root), 'utf8');
@@ -145,6 +145,11 @@ test('launches from India, and when they are due only as precisely as announced'
   assert.match(launchWhen({ net: '2026-11-30T00:00:00Z', net_precision: { abbrev: 'M' } }, 'hi'), /^लक्ष्य: नवंबर 2026$/u);
   assert.equal(launchWhen({ net: '2026-11-30T00:00:00Z', net_precision: { abbrev: 'WK' } }, 'en'), 'target: November 2026');
   assert.equal(launchWhen({ net: '2027-12-31T00:00:00Z', net_precision: { abbrev: 'Y' } }, 'hi'), 'लक्ष्य: 2027');
+  assert.equal(launchWhen({ net: '2027-03-31T00:00:00Z', net_precision: { abbrev: 'FY' } }, 'en'), 'target: FY 2027');
+  assert.equal(launchWhen({ net: '2027-03-31T00:00:00Z', net_precision: { abbrev: 'FY' } }, 'hi'), 'लक्ष्य: वित्त वर्ष 2027');
+  assert.equal(launchWhen({ net: '2029-12-31T00:00:00Z', net_precision: { abbrev: 'DEC' } }, 'en'), 'target: the 2020s', 'a decade, not a year');
+  assert.equal(launchWhen({ net: '2029-12-31T00:00:00Z', net_precision: { abbrev: 'DEC' } }, 'hi'), 'लक्ष्य: 2020 का दशक');
+  assert.equal(launchWhen({ net: '2026-10-29T06:00:00Z', net_precision: { name: 'Morning (local time)' } }, 'en'), '29 Oct 2026');
   assert.equal(launchWhen({ net: 'soon' }, 'en'), 'date to be set');
 });
 
@@ -163,6 +168,13 @@ test('an imprecise Indian launch stays listed until the period it names is over'
   assert.deepEqual(ids('2026-11-01T03:00:00Z'), ['q4'], 'October is over');
   assert.deepEqual(ids('2026-12-31T23:00:00Z'), ['q4']);
   assert.deepEqual(ids('2027-01-01T00:00:01Z'), []);
+  // a day launch late in the UTC day shows as the next day in India, and stays listed through that day in India
+  const late = [{ id: 'late', net: '2026-10-20T20:00:00Z', net_precision: { abbrev: 'DAY' }, pad: shar }];
+  assert.equal(launchWhen(late[0], 'en'), '21 Oct 2026');
+  const lateIds = at => indianLaunches(late, Date.parse(at)).map(r => r.id);
+  assert.deepEqual(lateIds('2026-10-21T12:00:00Z'), ['late'], '21 Oct, 17:30 IST: still the day it shows');
+  assert.deepEqual(lateIds('2026-10-21T18:29:00Z'), ['late'], '23:59 IST');
+  assert.deepEqual(lateIds('2026-10-21T18:31:00Z'), [], '22 Oct in India');
 });
 
 test('screen readers: a quiet live strip, a pausable demo with real tabs, and labels in the language they are in', () => {
@@ -193,6 +205,14 @@ test('screen readers: a quiet live strip, a pausable demo with real tabs, and la
   // the Clips list and the recording are named in the page's language too
   assert.match(js, /\$\('\.tabs'\)\.setAttribute\('aria-label', l === 'hi' \? 'क्लिप' : 'Clips'\)/);
   assert.match(js, /\$\('#phoneVid'\)\.setAttribute\('aria-label', l === 'hi' \? '[^']*[ऀ-ॿ][^']*' : 'A recording of the globe over India'\)/u);
+  // and named in Hindi on the Hindi page before india.js runs: the same words setLang writes
+  const hiBody = hiHtml.slice(hiHtml.indexOf('<body'));
+  for (const [en, hi] of LABELS) {
+    assert.ok(body.includes(en) && !hiBody.includes(en), en);
+    assert.ok(hiBody.includes(hi), hi);
+    assert.ok(js.includes(`'${/aria-label="([^"]*)"/.exec(hi)[1]}'`), `india.js setLang says ${hi}`);
+  }
+  assert.doesNotMatch(hiBody, / aria-label="[A-Za-z][^"]*"(?! lang="en")/, 'no English aria-label left on the Hindi page');
 });
 
 test('the forecast promise matches the globe: five days, three on phones', () => {
@@ -229,8 +249,8 @@ const linkTags = h => [...h.slice(0, h.indexOf('</head>')).matchAll(/<link rel="
 test('india/hi/index.html is india/index.html made Hindi, and up to date (node brand/tools/india_hi.mjs)', () => {
   assert.equal(hiHtml, build(root), 'india/hi/index.html is out of date: run node brand/tools/india_hi.mjs');
   const hiBody = hiHtml.slice(hiHtml.indexOf('<body'));
-  // the same page one folder deeper: the body differs only in its paths and the picture's alt text
-  const norm = b => b.replace(/ src="(\.\.\/)?india\.js"/, ' src="INDIA_JS"').replace(/ (href|src|srcset|poster)="(\.\.\/)+/g, ' $1="UP/').replace(/ alt="[^"]*" data-alt-hi="([^"]*)"(?: data-alt-en="[^"]*")?/g, ' data-alt-hi="$1"');
+  // the same page one folder deeper: the body differs only in its paths, the picture's alt text and the aria-labels
+  const norm = b => LABELS.reduce((t, [en, hi]) => t.replace(hi, en), b).replace(/ src="(\.\.\/)?india\.js"/, ' src="INDIA_JS"').replace(/ (href|src|srcset|poster)="(\.\.\/)+/g, ' $1="UP/').replace(/ alt="[^"]*" data-alt-hi="([^"]*)"(?: data-alt-en="[^"]*")?/g, ' data-alt-hi="$1"');
   assert.equal(norm(hiBody), norm(body));
   assert.match(hiHtml, /<html lang="hi" data-lang="hi" data-home="hi">/, 'opens in Hindi');
   assert.match(hiHtml, /<script type="module" src="\.\.\/india\.js"><\/script>/, 'the same india.js');
