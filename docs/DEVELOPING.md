@@ -27,7 +27,9 @@ A static site with no build step. Each page loads ES modules straight from `src/
 CDN, pinned to exact versions (CesiumJS 1.146 and satellite.js 5.0.0 as classic scripts in `globe.html`, three.js via an
 import map in `solar.html`, Leaflet in `open-overwatch.html`), each with an `integrity` hash, and every page carries a
 Content-Security-Policy `<meta>`: after editing an inline `<script>` run `node brand/tools/sri.mjs --csp` (docs/NOTES.md,
-"Supply chain").
+"Supply chain"). The satellite workers (globe and 2D map) load satellite.js from the site's own copy,
+`src/vendor/satellite.min.js`, because `importScripts` checks no hash; `test/sri.test.mjs` checks it is byte for byte
+the file `globe.html` pins.
 
 | Path | What |
 |---|---|
@@ -96,8 +98,9 @@ node mcp/server.mjs --site http://localhost:8787/    # links and the chat panel 
 machine only; `--allow-origin` lists web origins that may call it). `node mcp/server.mjs --version` prints the version. See [mcp/README.md](../mcp/README.md) for installing it into an MCP
 client.
 
-`mcp-worker/` deploys the same server to Cloudflare Workers for claude.ai and ChatGPT connectors (not deployed; steps in
-[mcp-worker/README.md](../mcp-worker/README.md)). `npx wrangler deploy --dry-run --outdir dist` there builds the bundle
+`mcp-worker/` deploys the same server to Cloudflare Workers for claude.ai and ChatGPT connectors (deployed 2026-10-13 on
+the owner's account and not redeployed since, so later server changes are not live there; a redeploy is a production
+change and needs the owner's OK; steps in [mcp-worker/README.md](../mcp-worker/README.md)). `npx wrangler deploy --dry-run --outdir dist` there builds the bundle
 without uploading; `npx wrangler dev` runs it in a local workerd.
 
 ## 3. Tests
@@ -116,7 +119,7 @@ Runs every `test/*.test.mjs` with Node's own runner. No dependencies except `sat
 | `tle.test.mjs`, `socrates.test.mjs` | element-set sources and parsing; close-approach CSV |
 | `geo.test.mjs`, `measure.test.mjs`, `borders.test.mjs`, `route.test.mjs` | great circles and dead reckoning; WGS84 distances and areas against GeographicLib; the country lookup; routes |
 | `viewlink.test.mjs`, `scene.test.mjs` | share links and Director scenes: round trips, hostile input refused |
-| `voice.test.mjs` | voice command parsing |
+| `voice.test.mjs` | voice command parsing, the main commands in Hindi, and which language the recogniser listens in |
 | `gfs.test.mjs`, `wxmodels.test.mjs`, `grib2.test.mjs`, `aec.test.mjs`, `contour.test.mjs`, `wxload.test.mjs`, `wxpaint.test.mjs` | the weather timeline, the GFS and ECMWF files, GRIB2 decoding (simple, complex, JPEG 2000, CCSDS) checked against eccodes, model fields, isobars; loading a moment (runs, retries, blending, the decoded-hours cache) and how fields are drawn, for both views |
 | `solar.test.mjs` | comets on any conic and their magnitudes, spacecraft tracks (Juno around Jupiter through its perijoves), the "where is it now?" search, Solar System links and sky positions, against JPL Horizons |
 | `syzygy.test.mjs` | eclipses and lunar occultations 2026-2030: the Sun and Moon fit against Horizons, the eclipses against NASA's canon and the globe's own eclipse code, occultations against published predictions |
@@ -136,6 +139,26 @@ Runs every `test/*.test.mjs` with Node's own runner. No dependencies except `sat
 | `docs.test.mjs` | these docs against the code: layer ids, link parameters, voice examples, band buttons, core modules and their exports |
 | `license.test.mjs` | the licence check of the dependency tree (`brand/tools/license_check.mjs`): SPDX expressions against the allowlist |
 | `e2esupport.test.mjs` | the browser tests' machinery without a browser: the PNG codec and picture comparison, every feed fixture read by the real parsers, which URL gets which fixture |
+| `relayhosts.test.mjs`, `airgrid.test.mjs`, `globesite.test.mjs`, `poll.test.mjs` | the relay host lists agree (`PUBLIC_RELAY_HOSTS` = the Worker's table ⊆ `NEEDS_RELAY` ⊆ both helpers, no dead entries) and the Worker's own refusal is told apart from a feed's 403; the 2D map's 250 nm aircraft grid and that no aircraft feed goes through the website's relay; the globe on the published site (a refused host stops for the visit, no 0 shown for aircraft no feed sent); feed timers that rest in a hidden tab |
+| `globeux.test.mjs`, `quality.test.mjs` | the globe's boot watchdog, push-to-talk's Space guard and the phone layout's CSS; the graphics levels (render scale, FXAA, limb halo, cloud taps), the automatic step-down, Starlink off by default on phones |
+| `ecfvel.test.mjs`, `decay.test.mjs`, `smallbodies.test.mjs` | the satellite workers' Earth-fixed velocity from one SGP4 run (on `src/vendor/satellite.min.js`, so no npm install); re-entry windows against published re-entries (Tiangong-1, GOCE); the packed small-body format (near-parabolic comets stay below e = 1) |
+| `darksky.test.mjs`, `lightpollution.test.mjs`, `deepsky.test.mjs`, `spaceweather.test.mjs`, `alerts.test.mjs` | dark skies in words and the nearest darker sky; the light pollution grid at known places; the OpenNGC catalogue and what is up tonight; SWPC's Sun data from captured answers; reminders that fire once, on time or late after the tab slept |
+| `earthnow.test.mjs`, `history.test.mjs`, `tlearchive.test.mjs` | the Earth-now sums from captured USGS, SWPC and EONET answers; time travel (the quake catalogue by day, storms where they were, past element sets); the site build's element-set archive |
+| `metar.test.mjs`, `eta.test.mjs` | METAR and TAF decoding against AWC's own decode of 191 METARs and 41 TAFs; arrival estimates and the runway history read from trails, on Denver's runways |
+| `provenance.test.mjs`, `liveprov.test.mjs`, `export.test.mjs` | confirmed, reported and stale, with the data time as the age; agreeing reports across feeds (aircraft, quakes, storms); the CSV, GeoJSON and KML exports |
+| `sri.test.mjs`, `localpaths.test.mjs` | the supply chain: CDN files at exact versions with matching hashes, a CSP on every page that matches its inline scripts, workers loading only `src/vendor/`; no local home folder in any published file |
+| `release.test.mjs`, `sitebuild.test.mjs`, `sitebudget.test.mjs` | the download zip's file list against what the pages fetch and link to, and `Publish Update.bat` catching up with `origin/main` before it tags and undoing the tag when the push fails; the site build's fallbacks (news, TLE ages) and the sitemap's git dates; the Pages budget (the newest 6 releases under `/v/<tag>/`, the dev-only folders off the site) |
+| `whatsnew.test.mjs` | the What's new card and the install sheet's images; it fails when a version has a CHANGELOG.md heading but no date in `src/core/whatsnew.js` |
+| `landing.test.mjs`, `india.test.mjs` | the landing pages promise only what the website shows (live aircraft only with the download), no hand-kept numbers, lighter on phones; the India page's links, both languages, no tracking, and its ISRO mission links (date-sensitive, below) |
+
+The tests of `.github/build_site.py` (`sitebuild`, `sitebudget`, `tlearchive`) run it in Python with the network
+replaced by a fake, and are skipped when no Python is installed.
+
+**One check reads the real date.** `test/india.test.mjs` warns, without failing, from two weeks before an ISRO track it
+links to runs out (Chandrayaan-2 on 2026-11-08, Aditya-L1 on 2027-01-19): a `WARNING` diagnostic in the test output that
+names the refresh, `python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"` (JPL Horizons, a few
+requests: downloading is the owner's call). After that date the India page's "now" links show the craft with no
+published position until the data is rebuilt and republished.
 
 Run one file with `node --test test/measure.test.mjs`. CI (`.github/workflows/ci.yml`) runs on every push: a syntax
 check of every module and tool (`node --check`, `py_compile`), a check that every `src/…` module a page loads exists,
@@ -151,7 +174,8 @@ numbers the code produced itself. A bug that reached a user gets a line in `regr
 
 **End-to-end browser tests** (`e2e/*.spec.mjs`, Playwright, a dev dependency): `npm run e2e` opens every page in headless
 Chromium against `serve.js` on port 8805 with the live feeds stubbed (CelesTrak refused, the rest from
-`e2e/support/feeds.mjs`), clicks through the main controls, checks phone layouts and compares five still views with
+`e2e/support/feeds.mjs`), clicks through the main controls and panels, zooms the globe out to the
+Solar System and back, checks phone layouts and compares five still views with
 small reference pictures in `e2e/snapshots/`. CI runs them as their own job. A change to a page's controls may need its
 spec updated; see [TESTING.md](TESTING.md#end-to-end-browser-tests-playwright-in-ci).
 
@@ -164,7 +188,7 @@ spec updated; see [TESTING.md](TESTING.md#end-to-end-browser-tests-playwright-in
   are understood; a missing or unknown licence fails. satellite.js 5.0.0 is MIT. `--dev` checks Playwright too
   (Apache-2.0).
 - `npm run coverage`: the whole suite with Node's coverage over `src/core/` and `mcp/` only, failing below the floors
-  in `package.json` (lines 96, branches 81, functions 91; measured 2026-10-14: 99.3 / 84.2 / 94.3). Node 22 reads the
+  in `package.json` (lines 96, branches 83, functions 91; measured 2026-10-17: 99.4 / 85.0 / 94.9). Node 22 reads the
   floors as whole numbers, so keep them integers; raise them when coverage rises. Node only counts files a test
   imports, so a new core module with no test doesn't lower the number: give it a test anyway.
 
@@ -317,11 +341,18 @@ relays, and both only carry an allowlist:
 - **The public relay** (`relay/worker.js`, a Cloudflare Worker on the owner's account) for the website: the hosts in
   `PUBLIC_RELAY_HOSTS` (`src/core/relay.js`) = the Worker's `TTL` table, each limited to its feed paths (`PATHS`), GET
   only, an Origin header required, a fixed `Accept`, HTML never cached, `Access-Control-Allow-Origin` fixed to the
-  published site. `test/relay.test.mjs` runs the Worker against a stand-in upstream.
+  published site. It takes one request form only: `relayUrl(url)` builds it (`PUBLIC_RELAY` +
+  `encodeURIComponent(new URL(url).href)`, optionally `&t=<digits>` for a camera still's refresh), and any other
+  spelling of the same feed gets a 400, so it can't become a second cache entry. Feed URLs carry no query string.
+  `test/relay.test.mjs` runs the Worker against a stand-in upstream; `test/relayhosts.test.mjs` checks the host lists
+  agree. Last redeployed 2026-10-17 (NDBC and tsunami.gov in, adsb.lol out); it carries no aircraft at all.
 
 In the globe, `relayed(url)` and `getJSON(url, { relay: true })` in `src/globe/env.js` pick the local helper when the
 page is served from localhost, else the public relay for the hosts it carries, else nothing (the layer says it needs
-the download version).
+the download version). When the deployed Worker refuses a host with its own 403 ("host not on the relay allowlist", a
+redeploy not done yet or rolled back), `relayRefused` tells it from a feed's own 403 and `markNotCarried` stops asking
+that host for the rest of the visit; a refused path on a carried host gets a different text ("path not on the relay
+allowlist").
 
 Adding a host to the public relay needs the feed owner's agreement (the ADS-B networks and OpenSky refuse cloud servers;
 don't disguise the relay to get past that) and a redeploy (`npx wrangler deploy` from `relay/`), which is the owner's
@@ -338,7 +369,7 @@ wording: `iso`, `km`, `plural`, `areaData`, `limitProp`, `take`…) + `hazards.m
 core parsers) + `sats.mjs` (element sets and SGP4) + `feeds.mjs` (fetch with a cache, stale-if-error) + `prompts.mjs`
 (the ready-made prompts) + `panel.mjs` (the globe in the chat, an MCP App). Transports: `stdio.mjs` (newline-delimited JSON on
 stdin/stdout), `http.mjs` (Streamable HTTP on web Request/Response), `http-node.mjs` (serving it from Node), `worker.mjs`
-(the Cloudflare Worker: tokens, the Cache API, the free plan's tool list; deployed from `mcp-worker/`, not yet). Keep
+(the Cloudflare Worker: tokens, the Cache API, the free plan's tool list; deployed from `mcp-worker/`). Keep
 Node built-ins out of everything but `stdio.mjs`, `http-node.mjs` and `server.mjs`: `test/mcpworker.test.mjs` walks the
 Worker's imports. A tool that costs more than a few milliseconds of CPU once its data is cached, or more than ~40 fetches,
 goes into `HEAVY` in `worker.mjs`. No SDK; one dependency, satellite.js.
@@ -423,26 +454,38 @@ As it is today:
    set, which is done only on the owner's word.
 2. **Versions** are small four-part steps (v0.9.2.8, then v0.9.2.9, …), recorded in the status line of `CLAUDE.md` and
    in `ROADMAP.md`.
-3. **`Publish Update.bat`** (Windows) asks for the version number and a one-line summary, writes the version into
-   `OW_VERSION` in `src/map/version.js`, commits everything, creates an annotated tag `v<version>` and pushes `main`
-   with its tags.
+3. **`Publish Update.bat`** (Windows) first fetches `origin/main` and fast-forwards the current branch to it; if that is
+   not a fast-forward (say a Dependabot PR was merged on GitHub) it stops with nothing changed: merge `origin/main` and
+   run it again. It then shows the current version and which branch goes to `main`, asks for the version number and a
+   one-line summary, writes the version into `OW_VERSION` in `src/map/version.js`, commits everything, creates an
+   annotated tag `v<version>` and pushes the branch to `main` with its tags in one atomic push. If the push fails it
+   deletes the tag and takes back the commit (the changes stay staged, and `version.js` already holds the new number,
+   so enter the same one again). Before that, give the version's entry in `src/core/whatsnew.js` its date:
+   `test/whatsnew.test.mjs` fails while a version with a CHANGELOG.md heading has none.
 4. **The Website workflow** (`.github/workflows/pages.yml` → `.github/build_site.py`) runs on every push to `main`, every
-   6 hours, and by hand. It builds the site with the current version at the root and every annotated `v*` tag frozen
-   under `/v/<tag>/` (only `APP_PATHS` in `build_site.py` are copied there, so add every new runtime asset to that list),
-   writes `versions.json` for the landing page's version picker, and refreshes the feed copies (TLE groups, launches,
-   crew, flybys, close approaches, headlines, wind). A copy it can't refresh keeps the live site's last good one. It
-   also stamps `sw.js`'s `BUILD` with the version and commit, so every published version is a new service worker
-   (visitors get a "new version" prompt).
+   6 hours, and by hand. It builds the site with the current version at the root and the newest 6 annotated `v*` tags
+   (`ARCHIVE_KEEP`) frozen under `/v/<tag>/`; an older tag gets a small page there that links to its release zip. Only
+   `APP_PATHS` in `build_site.py` are copied into a frozen version, so add every new runtime asset to that list. The dev-only
+   folders (`SKIP_ROOT`: test/, e2e/, notes/, relay/, mcp-worker/, brand/clip/) are left off the site, except the files
+   a page loads (`KEEP_ROOT`). It writes `versions.json` for the landing page's version picker (every tag; `online` is
+   how many have a frozen copy, `keep` the budget) and `sitemap.xml` with each page's `lastmod` from git, and refreshes
+   the feed copies (TLE groups, launches, crew, flybys, close approaches, headlines, wind). A copy it can't refresh keeps
+   the live site's last good one. It also stamps `sw.js`'s `BUILD` with the version and commit, so every published
+   version is a new service worker (visitors get a "new version" prompt). `pages.yml` warns when the site passes 900 MB
+   and fails over 950 MB (GitHub Pages allows 1 GB; a frozen version is ~30 MB).
 5. **The Release workflow** (`.github/workflows/release.yml`) runs on a `v*` tag: it builds `open-overwatch.zip` (the
-   download, with `sw.js` and `offline.html`; keep its file list in step when the app needs new files) and `open-overwatch.mcpb` (the MCP server as a
+   download, with `sw.js` and `offline.html`; keep its file list in step when the app needs new files: `test/release.test.mjs`
+   checks it against README.txt, the data files the views fetch and the pages they link to) and `open-overwatch.mcpb` (the MCP server as a
    Claude Desktop extension: `mcp/`, `src/core/`, satellite.js) and attaches both to a GitHub release. The landing
    page's download button points at `releases/latest/download/open-overwatch.zip`.
 6. **The relay** (`relay/`) is deployed separately with `npx wrangler deploy` on the owner's Cloudflare account, only
-   when the owner agrees; the website keeps working without the change until then.
+   on the owner's explicit OK, after the change is reviewed and `node --test` passes; the website keeps working without
+   the change until then (a host the deployed Worker doesn't carry yet says it needs the download version). The MCP
+   Worker (`mcp-worker/`) follows the same rule.
 7. **npm**: `npm publish` for `open-overwatch-mcp` needs the owner's npm login and has not been done.
 
-After a release: bump `lastmod` in `sitemap.xml` for pages that changed, tick `ROADMAP.md`, and note anything learned
-in NOTES.md.
+After a release: tick `ROADMAP.md` and note anything learned in NOTES.md. `sitemap.xml` needs no hand edits (the
+build dates it from git); a new page only needs its `<url>` line there.
 
 ## 11. House rules
 
