@@ -28,6 +28,7 @@ export const Ascent = {
     ctrl.enableInputs = false;
     frame = scene.preUpdate.addEventListener(() => this.tick());
     this.card(); ui = setInterval(() => this.readout(), 100);
+    hooks.onCardClosed?.('data-as', () => this.stop());   // Esc, a globe click, the phone's Layers button, another card: the replay ends with its card
   },
   tick() {
     const now = performance.now(), dt = (now - this.last) / 1000; this.last = now;
@@ -50,7 +51,7 @@ export const Ascent = {
   },
   card() {
     const c = $('#card'), l = this.l, p = this.p; hooks.clearSelection?.();
-    c.innerHTML = `<button class="x" aria-label="Close">×</button><div class="k" style="--c:#ff9f5c">Launch replay · reconstructed estimate</div><h2>${esc(l.mission)}</h2>
+    c.innerHTML = `<button class="x" aria-label="Close">×</button><div class="k" data-as style="--c:#ff9f5c">Launch replay · reconstructed estimate</div><h2>${esc(l.mission)}</h2>
       <p class="lc-cd" id="asT">T+00:00</p><dl id="asRead"></dl>
       <input type="range" id="asScrub" min="0" max="${p.tEnd}" step="1" value="0" aria-label="Time after lift-off" style="width:100%;margin:10px 0 4px">
       <div class="acts" id="asRates">${[0.25, 1, 4, 16].map(r => `<button class="chipbtn" data-r="${r}">${r}×</button>`).join('')}<button class="chipbtn" id="asPlay">❚❚</button><button class="chipbtn" id="asCam">Free camera</button></div>
@@ -63,7 +64,8 @@ export const Ascent = {
     c.querySelector('#asCam').onclick = e => { this.chase = !this.chase; ctrl.enableInputs = !this.chase; e.target.textContent = this.chase ? 'Free camera' : 'Chase camera'; };
   },
   readout() {
-    const s = sample(this.p, this.t), el = id => document.getElementById(id); if (!el('asT')) { this.stop(); return; }
+    const s = sample(this.p, this.t), el = id => document.getElementById(id);
+    if (!el('asT') || !$('#card').classList.contains('show')) { this.stop(); return; }   // replaced, or hidden (Esc, the phone's Layers): no chase camera on a hidden card
     el('asT').textContent = `${tplus(this.t)} · ${eventAt(this.t, this.p.sub)}`;
     el('asRead').innerHTML = `<dt>Altitude</dt><dd>${fmt(s.altKm)} km</dd><dt>Speed</dt><dd>${(s.speedKms).toFixed(2)} km/s</dd><dt>Downrange</dt><dd>${fmt(s.downrangeKm)} km</dd>`;
     const sc = el('asScrub'); if (document.activeElement !== sc) sc.value = String(Math.round(this.t));
@@ -71,9 +73,11 @@ export const Ascent = {
     document.querySelectorAll('#asRates [data-r]').forEach(b => b.style.color = +b.dataset.r === this.rate ? '#ff9f5c' : '');
   },
   stop() {
-    if (frame) { frame(); frame = null; } clearInterval(ui);
+    const was = !!(frame || prims);
+    if (frame) { frame(); frame = null; } clearInterval(ui); ui = 0;
     if (prims) { scene.primitives.remove(prims.lines); scene.primitives.remove(prims.pts); scene.primitives.remove(prims.labels); prims = null; }
-    ctrl.enableInputs = true; this.playing = false;
+    if (was) ctrl.enableInputs = true;   // only a replay that ran gives the camera back (a second stop must not undo another mode's lock)
+    this.playing = false;
   },
 };
 hooks.ascent = l => Ascent.play(l);

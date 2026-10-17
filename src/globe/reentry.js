@@ -8,7 +8,7 @@ import { scene, camera } from './viewer.js';
 import { L, syncDock } from './layers.js';
 import { state, hooks } from './state.js';
 import { Sats } from './satellites.js';
-import { fallingSoon, corridor, windowWords, spanText, uncertaintyWords, whereWords, status } from '../core/decay.js';
+import { fallingSoon, corridor, windowWords, spanText, uncertaintyWords, whereWords, status, WINDOW_FRACTION } from '../core/decay.js';
 import { provBlock } from '../core/liveprov.js';
 
 const lines = scene.primitives.add(new C.PolylineCollection());   // the layer: every object's likeliest orbit
@@ -52,7 +52,7 @@ export const Reentry = {
   },
   async apply() {
     const on = L.reentry?.on && !state.lookup;
-    lines.show = !!on; picked.show = !state.lookup;
+    lines.show = !!on; picked.show = !state.lookup;   // the picked corridor is emptied when its card goes (onCardClosed in show)
     if (!on) return;
     await this.compute();
     if (!this.drawn) this.draw();
@@ -68,7 +68,7 @@ export const Reentry = {
     const now = Date.now();
     const rows = list.slice(0, 80).map((p, i) => `<button class="cj" data-i="${i}" style="--c:${RED}"><b>${esc(when(p, now).replace(/^in /, ''))}</b><span>${esc(p.name)}${p.working ? '' : ' · debris'}</span><small>${esc(windowWords(p))} · ±${Math.round(p.fraction * 100)}%</small></button>`).join('');
     card.innerHTML = head + `<p class="note">Predicted here from each object's public orbit (CelesTrak element sets) and the drag it is feeling now. ` +
-      `Each window is ±25% of the time it has left: the upper air swells and shrinks with the Sun. Satellites with fuel can still change course. ` +
+      `Each window is usually ±${Math.round(WINDOW_FRACTION * 100)}% of the time it has left, wider when the two drag estimates disagree: the upper air swells and shrinks with the Sun. Satellites with fuel can still change course. ` +
       `${Sats.list.length ? `${list.length} of ${Sats.list.length.toLocaleString('en-US')} loaded objects.` : ''}</p>` +
       `<div class="acts"><button class="chipbtn" id="reLayer">${L.reentry.on ? 'Hide' : 'Show'} all corridors</button></div>` +
       `<div class="cjl">${rows || '<p class="note">Nothing in the loaded groups is predicted to come down in the next 30 days.</p>'}</div>`;
@@ -84,7 +84,7 @@ export const Reentry = {
     this.sel = p; this.highlight();
     const now = Date.now(), c = p.corridor, sat = Sats.byId.get(p.id);
     const card = $('#card');
-    card.innerHTML = `<button class="x" aria-label="Close">×</button><div class="k" style="--c:${RED}">Re-entry · ${esc(when(p, now))}</div><h2>${esc(p.name)}</h2>
+    card.innerHTML = `<button class="x" aria-label="Close">×</button><div class="k" data-re style="--c:${RED}">Re-entry · ${esc(when(p, now))}</div><h2>${esc(p.name)}</h2>
       <p class="note" style="font-size:13px;color:var(--ink)">Coming down ${esc(whereWords(p, c))}.</p><dl>
       <dt>Likeliest</dt><dd>${new Date(p.reentryMs).toISOString().slice(0, 16).replace('T', ' ')} UTC</dd>
       <dt>Window</dt><dd>±${Math.round(p.fraction * 100)}% · ${esc(spanText((p.windowMs[1] - p.windowMs[0]) / 864e5))}</dd>
@@ -101,6 +101,7 @@ export const Reentry = {
     $('#reBack').onclick = () => this.openList();
     $('#reGo').onclick = () => this.fly(p);
     if (sat) $('#reSat').onclick = () => { this.unselect(); hooks.reselect?.(sat); };
+    hooks.onCardClosed?.('data-re', () => { if (this.sel === p) this.unselect(); });   // the bright corridor shows only while its card is up
     this.fly(p);
   },
   fly(p) {

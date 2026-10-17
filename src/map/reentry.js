@@ -9,14 +9,15 @@ import { Layers, Points, feed } from './engine.js';
 import { Detail } from './detail.js';
 import { lineLayer } from './feeds.js';
 import { Sats } from './satellites.js';
-import { fallingSoon, corridor, windowWords, whereWords, uncertaintyWords, spanText, status } from '../core/decay.js';
+import { fallingSoon, corridor, windowWords, whereWords, uncertaintyWords, spanText, status, WINDOW_FRACTION } from '../core/decay.js';
 import { num } from '../core/format.js';
 
 const GROUPS = ['stations', 'active', 'cosmos-2251-debris', 'iridium-33-debris', 'fengyun-1c-debris'];
 const RED = '#ff5a4f', NEAR_MS = 45 * 60e3, KEEP_MS = 2 * 3600e3;
 const texts = new Map();   // group -> { t, txt }: kept 2 h here too, so a full browser storage never means downloading again
+const WINDOWS = `windows usually ±${Math.round(WINDOW_FRACTION * 100)}% of the time left, wider when the two drag estimates disagree`;   // as the cards say (core/decay.js)
 
-export const lyReentry = Layers.add({ id: 'reentry', group: 'Space', name: 'Re-entries (next 30 days)', desc: 'Predicted here from CelesTrak element sets: n-dot and drag through a solar-scaled atmosphere · windows ±25% of the time left · the line is each object\'s likeliest orbit', color: RED, shape: 'round', default: false, points: 'reentry' });
+export const lyReentry = Layers.add({ id: 'reentry', group: 'Space', name: 'Re-entries (next 30 days)', desc: `Predicted here from CelesTrak element sets: n-dot and drag through a solar-scaled atmosphere · ${WINDOWS} · the line is each object's likeliest orbit`, color: RED, shape: 'round', default: false, points: 'reentry' });
 export const gReentry = lineLayer(lyReentry); Points.define('reentry', 'reentry');
 
 const when = (p, now) => { const d = (p.reentryMs - now) / 864e5; return status(p, now) === 'window' ? 'window open now' : 'in ' + spanText(d); };
@@ -58,5 +59,5 @@ feed(lyReentry, { interval: 1800, fetch: async () => {
     items.push({ lat: p.at.lat, lon: p.at.lon, r: 4, color: RED, fillAlpha: .9, stroke: true, kind: 'reentry', obj: p, tip: `${p.name} · ${when(p, now)} · ${windowWords(p)}` });
   }
   Points.set('reentry', items); lyReentry.feed.count = items.length;
-  lyReentry.desc = `${items.length} objects predicted to re-enter in the next 30 days (of ${fmt.n(sats.length)} in the loaded groups) · windows ±25% of the time left · the line is each one's likeliest orbit`;
+  lyReentry.desc = `${items.length} objects predicted to re-enter in the next 30 days (of ${fmt.n(sats.length)} in the loaded groups) · ${WINDOWS} · the line is each one's likeliest orbit`;
 } });

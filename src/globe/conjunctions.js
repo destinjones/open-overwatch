@@ -6,7 +6,7 @@
 import { C, $, esc, fmt, toast } from './env.js';
 import { viewer, orbitLines } from './viewer.js';
 import { L } from './layers.js';
-import { state } from './state.js';
+import { state, hooks } from './state.js';
 import { Follow } from './follow.js';
 import { Sats, SatModels } from './satellites.js';
 import { Time } from './time.js';
@@ -32,7 +32,7 @@ export const Conj = {
     await this.load();
     const now = Date.now(), rows = (this.data?.rows || []).filter(r => r.tca > now).slice(0, 60);
     const have = r => Sats.byId.has(r.a.id) || Sats.byId.has(r.b.id);
-    const list = rows.map((r, i) => `<button class="cj${have(r) ? '' : ' dim'}" data-i="${i}"><b>${km(r.rangeKm)}</b><span>${esc(r.a.name)} × ${esc(r.b.name)}</span><small>in ${ago(r.tca - now)} · ${r.speedKmS.toFixed(1)} km/s</small></button>`).join('');
+    const list = rows.map((r, i) => `<button class="cj${have(r) ? '' : ' dim'}" data-i="${i}"><b>${km(r.rangeKm)}</b><span>${esc(r.a.name)} × ${esc(r.b.name)}</span><small>in ${ago(r.tca - now)} · ${r.speedKmS.toFixed(1)} km/s${have(r) ? '' : ' · (not loaded)'}</small></button>`).join('');   // dim rows say why in words, not only in a fainter colour
     card.innerHTML = `<button class="x" aria-label="Close">×</button><div class="k" style="--c:#ff6b6b">Close approaches · next 7 days</div><h2>Near misses</h2>
       ${this.error ? `<p class="note">${esc(this.error)}</p>` : `<p class="note">Predicted by CelesTrak SOCRATES from public orbit data, updated ${esc((this.data.updated || '').slice(0, 16).replace('T', ' '))} UTC. Pick one to watch it happen.</p><div class="cjl">${list || '<p class="note">None listed.</p>'}</div>`}`;
     card.querySelector('.x').onclick = () => this.close();
@@ -58,6 +58,7 @@ export const Conj = {
     const lead = a || b;
     Follow.start(lead, t => { const st = SatModels.state(lead, t); return st.ok ? st.pos : null; }, 25000, this.marks[0], 0);
     clearInterval(this.hud); this.hud = setInterval(() => this.updateHud(), 100); this.updateHud(true);
+    hooks.onCardClosed?.('data-cj', () => this.stop(true));   // closed any other way (Esc, a click on the globe, another card): back to live
   },
   orbit(s, col) {
     const rec = s.rec || (s.rec = satellite.twoline2satrec(s.l1, s.l2)), t0 = Time.nowMs(), g = satellite.gstime(new Date(t0)), per = 2 * Math.PI / rec.no, pts = [];
@@ -70,8 +71,11 @@ export const Conj = {
   updateHud(first = false) {
     const x = this.active; if (!x) return;
     const t = viewer.clock.currentTime, sa = x.a && SatModels.state(x.a, t), sb = x.b && SatModels.state(x.b, t);
+    const card = $('#card');
+    // as eclipses.js: a card closed by Esc or a globe click, or taken by another one, ends the HUD (it never redraws a hidden card or someone else's)
+    if (!first && (!card.classList.contains('show') || !card.querySelector('[data-cj]'))) { this.stop(true); return; }
     const range = sa?.ok && sb?.ok ? C.Cartesian3.distance(sa.pos, sb.pos) / 1000 : null, dt = x.r.tca - Time.nowMs();
-    const html = `<button class="x" aria-label="Close">×</button><div class="k" style="--c:#ff6b6b">Close approach · ${dt > 0 ? 'in ' + ago(dt) : ago(dt) + ' ago'}</div>
+    const html = `<button class="x" aria-label="Close">×</button><div class="k" data-cj style="--c:#ff6b6b">Close approach · ${dt > 0 ? 'in ' + ago(dt) : ago(dt) + ' ago'}</div>
       <h2>${km(x.r.rangeKm)}</h2><dl>
       <dt>Objects</dt><dd><span style="color:#7dffa6">${esc(x.r.a.name)}</span><br><span style="color:#ff6b6b">${esc(x.r.b.name)}</span></dd>
       <dt>Apart now</dt><dd>${range == null ? '— (not loaded)' : km(range)}</dd>
@@ -80,7 +84,7 @@ export const Conj = {
       <dt>Max probability</dt><dd>${x.r.maxProb != null ? x.r.maxProb.toExponential(1) : '—'}</dd></dl>
       <p class="note">Range "now" is our own SGP4 from the same public element sets; SOCRATES predicted the minimum.</p>
       <div class="acts"><button class="chipbtn" id="cjBack">All close approaches</button><button class="chipbtn" id="cjNow">Back to live</button></div>`;
-    const card = $('#card'); card.innerHTML = html; if (first) card.classList.add('show');
+    card.innerHTML = html; if (first) card.classList.add('show');
     card.querySelector('.x').onclick = () => this.close();
     $('#cjBack').onclick = () => { this.stop(true); this.openList(); };
     $('#cjNow').onclick = () => this.close();

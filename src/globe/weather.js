@@ -321,7 +321,7 @@ export const Weather = {
     bar.querySelector('.ws-l').textContent = '◀ ' + this.model.def.short; bar.querySelector('.ws-r').textContent = this.other.def.short + ' ▶';
   },
   build() {
-    $('#wxSets').innerHTML = Object.entries(this.sets).map(([id, s]) => `<button class="chipbtn${s.on ? ' on' : ''}" data-set="${id}">${s.name}</button>`).join('');
+    $('#wxSets').innerHTML = Object.entries(this.sets).map(([id, s]) => `<button class="chipbtn${s.on ? ' on' : ''}" data-set="${id}" aria-pressed="${!!s.on}">${s.name}</button>`).join('');
     $('#wxModels').innerHTML = '<span>Model</span>' + Object.values(Models).map(m => `<button class="chipbtn${m.id === this.modelId ? ' on' : ''}" data-model="${m.id}" title="${m.def.name}, ${m.def.grid} (${m.def.licence})">${m.def.short}</button>`).join('')
       + `<button class="chipbtn${this.compare ? ' on' : ''}" data-compare="1" title="The two models side by side, a slider between them">Compare</button>`;
     const n = this.frames.length, obs = this.frames.filter(f => !f.fcst).length;
@@ -349,7 +349,7 @@ export function initWeather() {
   el.querySelector('.x').onclick = () => Weather.close();
   $('#wxPlay').onclick = () => Weather.play(!Weather.playing);
   $('#wxSlider').oninput = e => { Weather.play(false); Weather.set(+e.target.value); };
-  $('#wxSets').onclick = e => { const b = e.target.closest('[data-set]'); if (!b) return; const s = Weather.sets[b.dataset.set]; s.on = !s.on; b.classList.toggle('on', s.on); Weather.show(); };
+  $('#wxSets').onclick = e => { const b = e.target.closest('[data-set]'); if (!b) return; const s = Weather.sets[b.dataset.set]; s.on = !s.on; b.classList.toggle('on', s.on); b.setAttribute('aria-pressed', String(s.on)); Weather.show(); };
   $('#wxModels').onclick = e => {
     const b = e.target.closest('[data-model],[data-compare]'); if (!b) return;
     if (b.dataset.compare) Weather.setModel(Weather.modelId, !Weather.compare);

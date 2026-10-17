@@ -14,6 +14,7 @@ import { Time } from './time.js';
 import { explainSat } from '../core/explain.js';
 import { Crew } from './crew.js';
 import { provBlock } from '../core/liveprov.js';
+import { cardOwners } from '../core/cardowners.js';
 
 // ---- stats + altitude band
 export function updateStats() {
@@ -27,7 +28,7 @@ const RATE_TEXT = { '-3600': '1 h/s backwards', 0: 'paused', 1: 'live', 60: '1 m
 function syncTime() {
   const ms = Time.nowMs(), k = Time.live ? 1 : Time.rate;
   const iso = new Date(ms).toISOString();
-  $('#tNow').textContent = NARROW.matches ? iso.slice(5, 16).replace('T', ' ') : iso.slice(0, 16).replace('T', ' ') + ' UTC';   // phones: MM-DD hh:mm
+  $('#tNow').textContent = NARROW.matches ? iso.slice(5, 16).replace('T', ' ') + ' UTC' : iso.slice(0, 16).replace('T', ' ') + ' UTC';   // phones: MM-DD hh:mm UTC (no year, never no zone)
   const mode = Time.live ? 'live' : Time.offLive() ? (k === 1 ? 'real speed' : RATE_TEXT[k] || k + '×') + ' · not live' : RATE_TEXT[k] || k + '×';
   $('#tMode').textContent = mode; $('#tMode').classList.toggle('off', Time.offLive());
   document.querySelectorAll('#timebar [data-rate]').forEach(b => b.classList.toggle('on', +b.dataset.rate === (Time.live ? 1 : Time.rate)));
@@ -187,6 +188,25 @@ hooks.closeCard = () => closeCard();
 /** Another module is taking the card: drop the selected object and its orbit line / country outline, keep the card. */
 hooks.clearSelection = () => { state.selected = null; orbitLines.removeAll(); Country.clear(); };
 export function closeCard() { hooks.clearSelection(); $('#card').classList.remove('show'); }
+/* Close means stop. Modules that write #card themselves and start something with it (the near-miss HUD, a flyby's
+   rings, a launch replay, a re-entry corridor) call hooks.onCardClosed(marker, stop) with the attribute their card
+   carries: stop runs once that card is closed by any route (×, Esc, a click on empty globe, the phone's Layers button,
+   a module's own close) or another card replaces it. Watching the card itself covers the routes that only remove .show.
+   Focus: a card that held focus gives it back to what opened it (or the globe), as Earth now does. */
+const owners = cardOwners(), cardEl = $('#card');
+let cardOpen = cardEl.classList.contains('show'), opener = null;
+hooks.onCardClosed = (marker, stop) => owners.own(marker, stop);
+new MutationObserver(() => {
+  const shown = cardEl.classList.contains('show'), a = document.activeElement;
+  if (shown && !cardOpen) opener = a && a !== document.body && !cardEl.contains(a) ? a : null;
+  if (!shown && cardOpen) {
+    const back = opener && opener.isConnected && opener.getClientRects().length ? opener : $('#globe');
+    if (a && cardEl.contains(a)) back?.focus({ preventScroll: true });
+    opener = null;
+  }
+  cardOpen = shown;
+  owners.check(shown, m => !!cardEl.querySelector(`[${m}]`));
+}).observe(cardEl, { attributes: true, attributeFilter: ['class'], childList: true });
 export function flyToObject(o) {
   release();
   if (o.kind === 'sat') { const st = SatModels.state(o), p = st.ok ? st.pos : o.pt.position, h = C.Cartesian3.magnitude(p) - 6371000; camera.flyToBoundingSphere(new C.BoundingSphere(p, 1), { offset: new C.HeadingPitchRange(0, -0.6, Math.max(2.5e6, h * 0.6)), duration: 2.5 }); }

@@ -3,11 +3,12 @@
 // site build into data/flybys.json). A list card like Near misses; pick one for a countdown, how close, how fast, how big, and
 // "Show the scale", which flies out and draws the Moon's orbit and the object's closest distance as rings around the Earth.
 import { C, $, esc, fmt, toast } from './env.js';
-import { scene, camera } from './viewer.js';
-import { state } from './state.js';
+import { scene, camera, camHeight } from './viewer.js';
+import { state, hooks } from './state.js';
 import { fetchAsset } from '../core/assets.js';
 
 const LD_KM = 384400, AU_KM = 149597870.7;
+const HOLD_M = 2.5e8;   // the scale view sits past the Solar System hand-off (space.js hands over beyond 3.0e8 m)
 const rings = scene.primitives.add(new C.PolylineCollection());
 const ago = ms => { const s = Math.round(ms / 1000); return s < 0 ? 'passed' : s < 3600 ? Math.round(s / 60) + ' min' : s < 172800 ? Math.round(s / 3600) + ' h' : Math.round(s / 86400) + ' days'; };
 const sizeOf = r => r.km != null ? r.km : r.h != null ? 3553 * Math.pow(10, -r.h / 5) : null;   // km; from the brightness H with a typical albedo of 0.14
@@ -15,7 +16,7 @@ const compare = km => km == null ? '' : km < 0.004 ? 'about a car' : km < 0.012 
 const nice = km => km == null ? 'unknown' : km < 1 ? `${fmt(km * 1000)} m` : `${km.toFixed(1)} km`;
 
 export const Flybys = {
-  data: null, error: '',
+  data: null, error: '', tick: 0, hold: 0,
   async load() {
     if (this.data || this.error) return;
     try { this.data = await fetchAsset('data/flybys.json', 'json'); }
@@ -33,19 +34,22 @@ export const Flybys = {
     card.querySelectorAll('.cj').forEach(b => { b.onclick = () => this.show(rows[+b.dataset.i]); });
   },
   show(r) {
-    const card = $('#card'), d = r.au * AU_KM, size = sizeOf(r);
-    const upd = () => { const el = $('#fbIn'); if (el) el.textContent = r.tca > Date.now() ? 'closest approach in ' + ago(r.tca - Date.now()) : 'passed ' + ago(Date.now() - r.tca) + ' ago'; };
+    const card = $('#card'), d = r.au * AU_KM, size = sizeOf(r); this.clearRings();   // a new flyby starts without the last one's scale view
+    const upd = () => {
+      if (!card.classList.contains('show') || !card.querySelector('[data-fb]')) { this.end(); return; }   // closed or replaced: no rings, no countdown
+      const el = $('#fbIn'); if (el) el.textContent = r.tca > Date.now() ? 'closest approach in ' + ago(r.tca - Date.now()) : 'passed ' + ago(Date.now() - r.tca) + ' ago'; };
     const row = (k, v) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`, pct = Math.min(100, d / (LD_KM * 20) * 100);
-    card.innerHTML = `<button class="x" aria-label="Close">×</button><div class="k" style="--c:#ffb44d">Flyby</div><h2>${esc(r.name)}</h2><p id="fbIn" class="note" style="margin:0 0 8px"></p>
+    card.innerHTML = `<button class="x" aria-label="Close">×</button><div class="k" data-fb style="--c:#ffb44d">Flyby</div><h2>${esc(r.name)}</h2><p id="fbIn" class="note" style="margin:0 0 8px"></p>
       <dl>${row('Closest approach', new Date(r.tca).toISOString().slice(0, 16).replace('T', ' ') + ' UTC')}${row('Distance', `${fmt(d)} km · ${(d / LD_KM).toFixed(1)}× the Moon's`)}${row('Speed', r.kms.toFixed(1) + ' km/s · ' + fmt(r.kms * 3600) + ' km/h')}
       ${row('Size (estimate)', nice(size) + (size ? ' · ' + compare(size) : ''))}${r.h != null ? row('Brightness H', r.h.toFixed(1)) : ''}</dl>
       <div class="fb-scale" title="from Earth (left) to 20 lunar distances (right)"><i style="left:5%"></i><b style="left:${pct.toFixed(1)}%"></b><span>Earth</span><span style="left:5%">Moon</span><span style="left:100%">20 LD</span></div>
       <div class="acts"><button class="chipbtn" id="fbScale">Show the scale</button><button class="chipbtn" id="fbBack">All flybys</button></div><div class="note" style="margin-top:6px">NASA/JPL CNEOS close-approach data. Predictions shift as the orbit is refined.</div>`;
     card.classList.add('show'); card.querySelector('.x').onclick = () => this.close(); $('#fbBack').onclick = () => { this.clearRings(); this.openList(); };
-    $('#fbScale').onclick = () => this.scale(r); upd(); clearInterval(this.tick); this.tick = setInterval(upd, 30e3);
+    $('#fbScale').onclick = () => this.scale(r); clearInterval(this.tick); upd(); this.tick = setInterval(upd, 30e3);
+    hooks.onCardClosed?.('data-fb', () => this.end());   // Esc, a click on the globe, another card: the rings and the countdown go with it
   },
   scale(r) {   // the Moon's orbit (and, when it fits, this object's closest distance) as rings round the Earth's centre
-    this.clearRings(); const dKm = r.au * AU_KM, fits = dKm < LD_KM * 1.7;
+    this.removeRings(); const dKm = r.au * AU_KM, fits = dKm < LD_KM * 1.7;
     const ring = (km, rgba, w) => { const pts = []; for (let i = 0; i <= 180; i++) { const a = i / 180 * Math.PI * 2; pts.push(new C.Cartesian3(Math.cos(a) * km * 1000, Math.sin(a) * km * 1000, 0)); } rings.add({ positions: pts, width: w, material: C.Material.fromType('Color', { color: C.Color.fromCssColorString(rgba) }) }); };
     ring(LD_KM, 'rgba(200,210,225,0.55)', 1.5); ring(6371 + 35786, 'rgba(180,140,255,0.5)', 1); if (fits) ring(dKm, 'rgba(255,180,77,0.95)', 2.5);
     state.noHandoff = true;   // this view sits past the Solar System hand-off distance on purpose
@@ -53,6 +57,16 @@ export const Flybys = {
     camera.flyTo({ destination: C.Cartesian3.multiplyByScalar(dir, 5.2e8, new C.Cartesian3()), orientation: { direction: C.Cartesian3.negate(dir, new C.Cartesian3()), up: C.Cartesian3.UNIT_Z }, duration: 2.5 });
     toast(fits ? "Grey: the Moon's orbit · orange: how close it comes · violet: geostationary orbit" : `Grey: the Moon's orbit · violet: geostationary. This one passes ${(dKm / LD_KM).toFixed(1)}× further out than the Moon: off this picture`, 7000);
   },
-  clearRings() { rings.removeAll(); state.noHandoff = false; },
-  close() { clearInterval(this.tick); this.clearRings(); $('#card').classList.remove('show'); },
+  removeRings() { rings.removeAll(); clearInterval(this.hold); this.hold = 0; },
+  /** The rings go now; the Solar System hand-off comes back once the camera is inside the hand-off distance again
+      (closing the card out at the scale view would otherwise jump straight to the Solar System). */
+  clearRings() {
+    this.removeRings();
+    if (!state.noHandoff) return;
+    const free = () => { if (camHeight() > HOLD_M) return; state.noHandoff = false; clearInterval(this.hold); this.hold = 0; };
+    free(); if (state.noHandoff) this.hold = setInterval(free, 500);
+  },
+  /** Everything a flyby card started: its countdown and the scale view. */
+  end() { clearInterval(this.tick); this.tick = 0; this.clearRings(); },
+  close() { this.end(); $('#card').classList.remove('show'); },
 };

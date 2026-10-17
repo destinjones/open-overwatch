@@ -24,9 +24,11 @@ import { fetchAsset } from '../core/assets.js';
 import { bodyFact, starFact } from '../core/skyfacts.js';
 import { explainSat } from '../core/explain.js';
 import { moonGeocentric } from '../core/planets.js';
+import { speakGate } from '../core/speakgate.js';
 
 const D = Math.PI / 180, FAR = 1.0e9;   // planets and stars are drawn 1 million km out: beyond every satellite
 const FALLBACK = { lat: 51.4769, lon: -0.0005, name: 'Greenwich (example)' };   // #luInfo says why, in full (noLocation)
+const goSpeech = speakGate({ minMs: 3000 });   // "Find" read aloud: #luGo is not a live region (it is rewritten every frame)
 // the brightest stars (J2000 RA, Dec in degrees)
 const STARS = [['Sirius', 101.287, -16.716], ['Canopus', 95.988, -52.696], ['Arcturus', 213.915, 19.182], ['Vega', 279.234, 38.784], ['Capella', 79.172, 45.998],
   ['Rigel', 78.634, -8.202], ['Procyon', 114.825, 5.225], ['Betelgeuse', 88.793, 7.407], ['Achernar', 24.429, -57.237], ['Hadar', 210.956, -60.373],
@@ -91,7 +93,7 @@ function frame() {
   const dir = C.Cartesian3.normalize(enuToFixed(d[0], d[1], d[2]), new C.Cartesian3()), up = C.Cartesian3.normalize(enuToFixed(u[0], u[1], u[2]), new C.Cartesian3());
   camera.setView({ destination: S.obs.pos, orientation: { direction: dir, up } });
   const { az, el } = azEl(d);
-  const dirText = `${compass(az)} ${Math.round(az)}° · ${el >= 0 ? 'up' : 'down'} ${Math.abs(Math.round(el))}°`, dirEl = $('#luDir'); if (dirEl.textContent !== dirText) dirEl.textContent = dirText;   // per frame: write only on change (aria-live region)
+  const dirText = `${compass(az)} ${Math.round(az)}° · ${el >= 0 ? 'up' : 'down'} ${Math.abs(Math.round(el))}°`, dirEl = $('#luDir'); if (dirEl.textContent !== dirText) dirEl.textContent = dirText;   // per frame: write only on change (not a live region: it changes as the phone moves)
   // "Find": an arrow from the centre toward the chosen thing, and which way to turn
   const t = S.find && S.targets.get(S.find), arrow = $('#luArrow');
   if (!t) { arrow.classList.remove('on'); if (S.find) { S.find = ''; $('#luGo').textContent = ''; } return; }
@@ -100,6 +102,7 @@ function frame() {
   arrow.classList.add('on'); arrow.classList.toggle('there', g.text === 'There it is!');
   arrow.style.transform = g.text === 'There it is!' ? 'none' : `rotate(${g.arrow - 90}deg) translateX(70px)`; arrow.textContent = g.text === 'There it is!' ? '◎' : '➤';
   const goText = `${S.find}: ${g.text}`, goEl = $('#luGo'); if (goEl.textContent !== goText) goEl.textContent = goText;
+  const say = goSpeech.next(goText, performance.now()); if (say) window.OOApp?.announce?.(say);   // aloud only when the instruction changes kind, every 3 s at most
 }
 
 // ---- once a second: planets, star names, what is overhead
@@ -208,9 +211,9 @@ async function enter(target = null) {   // target: a deep-sky object from Tonigh
   S.ring = new C.LabelCollection(); scene.primitives.add(S.ring); placeRing();
   if (motionOk) { addEventListener('deviceorientationabsolute', onOrientation); addEventListener('deviceorientation', onOrientation); }
   $('#luHint').textContent = PHONE && motionOk ? 'Hold your phone up to the sky. (No movement? Drag to look around.) Tap anything to find out what it is.' : 'Drag to look around · pinch or scroll to zoom · tap a planet, star or satellite to find out what it is';
-  $('#luInfo').textContent = extraText(); S.find = S.extra ? S.extra.name : ''; $('#luGo').textContent = '';
+  $('#luInfo').textContent = extraText(); S.find = S.extra ? S.extra.name : ''; $('#luGo').textContent = ''; goSpeech.reset();
   if (!loc) noLocation(S.geoErr);
-  $('#luFind').onchange = e => { S.find = e.target.value; if (!S.find) { $('#luGo').textContent = ''; $('#luArrow').classList.remove('on'); } };
+  $('#luFind').onchange = e => { S.find = e.target.value; goSpeech.reset(); if (!S.find) { $('#luGo').textContent = ''; $('#luArrow').classList.remove('on'); } };
   // drag / zoom when there are no sensors (or as an override)
   const cv = scene.canvas; let last = null;
   let down = null; const ptrs = new Map(); let pinch = 0;   // two fingers: pinch to zoom (the page blocks the browser's own pinch)
