@@ -23,16 +23,23 @@ Object.assign(globalThis, {
 const env = await import('../src/globe/env.js');
 const { PUBLIC_RELAY } = await import('../src/core/relay.js');
 
-test('globe site: the Worker refusing adsb.lol stops it for the visit after one request', async () => {
+test('globe site: adsb.lol is not on the public relay, so aircraft fail as not carried without a request', async () => {
   assert.equal(env.ON_SITE, true); assert.equal(env.RELAY, null);
-  const mil = 'https://api.adsb.lol/v2/mil', tile = 'https://api.adsb.lol/v2/point/50.054/0/250';
-  answer = () => new Response('host not on the relay allowlist: api.adsb.lol', { status: 403 });
   calls.length = 0;
-  const e = await env.getJSON(mil, { relay: true }).then(() => null, x => x);
+  const e = await env.getJSON('https://api.adsb.lol/v2/mil', { relay: true }).then(() => null, x => x);
   assert.ok(e && e.notCarried, 'a typed, permanent error'); assert.match(e.message, /download version/);
-  assert.deepEqual(calls, [PUBLIC_RELAY + encodeURIComponent(mil)], 'asked once, through the public relay');
-  assert.equal(env.carried(mil), false); assert.equal(env.relayed(tile), null, 'the host is off for every query');
-  const again = await env.getJSON(tile, { relay: true }).then(() => null, x => x);
+  assert.equal(calls.length, 0, 'nothing is asked');
+});
+
+test('globe site: a deployed Worker refusing a host it should carry stops that host for the visit after one request', async () => {
+  const geo = 'https://www.submarinecablemap.com/api/v3/cable/cable-geo.json', other = 'https://www.submarinecablemap.com/api/v3/landing-point/landing-point-geo.json';
+  answer = () => new Response('host not on the relay allowlist: www.submarinecablemap.com', { status: 403 });
+  calls.length = 0;
+  const e = await env.getJSON(geo, { relay: true }).then(() => null, x => x);
+  assert.ok(e && e.notCarried); assert.match(e.message, /download version/);
+  assert.deepEqual(calls, [PUBLIC_RELAY + encodeURIComponent(geo)], 'asked once, through the public relay');
+  assert.equal(env.carried(geo), false); assert.equal(env.relayed(other), null, 'the host is off for every query');
+  const again = await env.getJSON(other, { relay: true }).then(() => null, x => x);
   assert.ok(again && again.notCarried); assert.equal(calls.length, 1, 'and asks no more');
 });
 

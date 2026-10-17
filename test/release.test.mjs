@@ -7,10 +7,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const root = new URL('../', import.meta.url);
 const read = path => readFileSync(new URL(path, root), 'utf8').replace(/\r\n/g, '\n');
 const exists = path => existsSync(new URL(path, root));
+// committed to git (an ignored local copy of a build output, e.g. data/flybys.json from a test build, does not count)
+const tracked = path => spawnSync('git', ['ls-files', '--error-unmatch', path], { cwd: fileURLToPath(root) }).status === 0;
 
 // data/ files the site build makes every 6 hours (.github/build_site.py) and never commits: the download does without
 // them (the views hide what needs them, or fall back to the live feed), so they are not in the zip.
@@ -86,7 +90,7 @@ test('release: every data/ file the views fetch is in the zip or is a site-only 
   for (const must of ['data/airports.json', 'data/runways.json', 'data/deepsky.json', 'data/lightpollution.bin']) assert.ok(fetched.has(must), must);
   assert.deepEqual([...fetched].filter(p => !shipped(p) && !siteOnly(p)), [], 'fetched by the views, missing from the zip');
   // the site-only list is only for build outputs: a dataset in the repository belongs in the zip
-  assert.deepEqual(SITE_ONLY.filter(p => exists(p) && !p.endsWith('/')), [], 'committed, so ship it');
+  assert.deepEqual(SITE_ONLY.filter(p => !p.endsWith('/') && tracked(p)), [], 'committed, so ship it');
 });
 
 test('release: the light-pollution atlas ships with its CC BY-NC licence note', () => {

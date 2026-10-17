@@ -16,6 +16,7 @@ programmer would enjoy reading, not three big HTML files.
 - [x] 2D map split into modules (`src/map/`, generated from an AST analysis of the old script), keeping its layer contract; satellites via `src/core/tle.js`
 - [x] CI: syntax check, page→module links, tests on every push (`.github/workflows/ci.yml`; runs once we publish)
 - [x] `docs/DATA_SOURCES.md` (every feed: what, licence, refresh, accuracy)
+- [ ] Refresh ISRO spacecraft tracks before they run out (Chandrayaan-2 2026-11-08, Aditya-L1 2027-01-19): `python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"` (JPL Horizons, public domain); test/india.test.mjs warns two weeks ahead
 - [ ] Honest README with a demo clip (do with Stage 3, once the zoom exists)
 
 Housekeeping before publishing: `src`, `earth_fx_2k.jpg` and `brand/textures/moons` are now in `APP_PATHS` / the release zip;

@@ -35,7 +35,8 @@ SITE_BUDGET = 900 * 1000 * 1000   # warn above this; .github/workflows/pages.yml
 # falls back to the site root for them, which keeps each archived version small.
 APP_PATHS = ['open-overwatch.html', 'globe.html', 'solar.html', 'tonight.html', 'manifest.webmanifest', 'README.txt', 'src', 'brand/emblem', 'brand/fonts', 'brand/hero', 'brand/sprites',
              'brand/models', 'brand/textures/night', 'brand/textures/earth_fx_8k.jpg', 'brand/textures/earth_fx_4k.jpg', 'brand/textures/earth_fx_2k.jpg',
-             'brand/textures/sky', 'brand/textures/sky_1k', 'brand/social/og-1200x630.png']
+             'brand/textures/sky', 'brand/textures/sky_1k', 'brand/social/og-1200x630.png',
+             'brand/social/screen-narrow.jpg', 'brand/social/screen-wide.jpg']
 SKIP_VERSION = ('brand/models/previews/', 'brand/sprites/raw/')
 # every group globe.html (LAYERS sat:) and open-overwatch.html (Sats.GROUPS) can ask for
 TLE_GROUPS = ['stations', 'visual', 'last-30-days', 'military', 'radar', 'gps-ops', 'glo-ops', 'galileo', 'beidou',
