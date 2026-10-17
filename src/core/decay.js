@@ -148,7 +148,8 @@ export function lifetime(el, B, solar = DEFAULT_SOLAR, { keepPath = false } = {}
   return { days: hp <= END_KM ? t : Infinity, path };
 }
 
-const fracOf = (dn, db) => (dn && db && Number.isFinite(dn) && Number.isFinite(db) && Math.max(dn / db, db / dn) > DISAGREE_RATIO ? DISAGREE_FRACTION : WINDOW_FRACTION);
+// Days against "more than 25 years" (Infinity) is the widest disagreement of all; only both saying 25+ years agree
+const fracOf = (dn, db) => (dn && db && (Number.isFinite(dn) || Number.isFinite(db)) && Math.max(dn / db, db / dn) > DISAGREE_RATIO ? DISAGREE_FRACTION : WINDOW_FRACTION);
 
 /**
  * The re-entry prediction for one TLE. Returns null when neither n-dot nor B* says anything, else

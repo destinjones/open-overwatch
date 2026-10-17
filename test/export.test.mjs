@@ -31,7 +31,7 @@ test('CSV: quoted where needed, formulas defused, numbers left alone', () => {
   assert.equal(csvCell('=HYPERLINK("x")'), `"'=HYPERLINK(""x"")"`); assert.equal(csvCell('-5'), "'-5"); assert.equal(csvCell(-5), '-5');
   assert.equal(csvCell(null), ''); assert.equal(csvCell('two\nlines'), '"two\nlines"');
   const lines = toCSV(exportRows([quake()], { now })).split('\r\n');
-  assert.match(lines[0], /^id,name,lat,lon,mag,place,time,provenance,confidence,sources,agree,of,data_time,data_age_s$/);
+  assert.match(lines[0], /^\uFEFFid,name,lat,lon,mag,place,time,provenance,confidence,sources,agree,of,data_time,data_age_s$/);
   assert.match(lines[1], /^us7000,"Off ""Coast"", <Japan>",35\.123457,140\.5,5\.2,/);
 });
 
@@ -50,4 +50,6 @@ test('exportFile names the file and refuses unknown formats', () => {
     assert.equal(out.name, `open-overwatch-earth-quakes-20261014-1200.${EXPORT_FORMATS[f].ext}`); assert.equal(out.count, 1); assert.ok(out.text.length > 50);
   }
   assert.throws(() => exportFile('xls', []));
+  assert.equal(exportFile('csv', [quake()], { now }).text.charCodeAt(0), 0xFEFF);      // so Excel reads the '·' as UTF-8
+  assert.notEqual(exportFile('geojson', [quake()], { now }).text.charCodeAt(0), 0xFEFF);   // GeoJSON and KML need none
 });

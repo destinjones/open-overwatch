@@ -348,8 +348,9 @@ details.setup[open] > summary::before{transform:rotate(90deg)}
   #rail,#panel{position:absolute;left:0;right:0;bottom:0;width:auto;height:min(48vh,460px);z-index:1001;border:0;border-top:1px solid var(--line-strong);border-radius:10px 10px 0 0;padding-bottom:env(safe-area-inset-bottom,0px)}
   #rail.hidden,#panel.hidden{display:none}
   #mobilebar{display:flex;flex:0 0 auto;border-top:1px solid var(--line);background:var(--panel-solid);padding-bottom:env(safe-area-inset-bottom,0px);z-index:1300}
-  #mobilebar button{flex:1;background:none;border:0;padding:10px 4px;font-family:var(--font-display);font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:12.5px;color:var(--ink-dim)}
+  #mobilebar button{flex:1;background:none;border:0;padding:12px 4px;min-height:44px;font-family:var(--font-display);font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:12.5px;color:var(--ink-dim)}
   #mobilebar button.on{color:var(--accent)}
+  .tabs button{min-height:44px}   /* a finger's 44 px, like the bar above */
   .det h2{font-size:24px}
   .wgrid{grid-template-columns:1fr}
   #hud{bottom:30px}

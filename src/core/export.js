@@ -61,11 +61,12 @@ export function csvCell(v) {
   return /[",\r\n]/.test(s) || s !== s.trim() ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 
-/** Rows → CSV text (RFC 4180, CRLF), the columns in first-seen order with id, name, lat, lon first. */
+/** Rows → CSV text (RFC 4180, CRLF), the columns in first-seen order with id, name, lat, lon first. It starts with a
+ *  byte-order mark: Excel opening the file from disk reads it as UTF-8 then, not the ANSI code page ('·' as 'Â·'). */
 export function toCSV(rows) {
   const cols = [];
   for (const r of rows) for (const k of Object.keys(r)) if (!cols.includes(k)) cols.push(k);
-  return [cols.map(csvCell).join(','), ...rows.map(r => cols.map(c => csvCell(r[c])).join(','))].join('\r\n') + '\r\n';
+  return '\uFEFF' + [cols.map(csvCell).join(','), ...rows.map(r => cols.map(c => csvCell(r[c])).join(','))].join('\r\n') + '\r\n';
 }
 
 const xml = s => String(s ?? '').replace(/[<>&'"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c]))

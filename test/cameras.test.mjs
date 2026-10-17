@@ -50,6 +50,8 @@ test('Caltrans, DriveBC, Calgary, Singapore', () => {
   assert.equal(yyc[0].image, 'https://trafficcam.calgary.ca/loc50.jpg'); assert.equal(yyc[0].id, 'yyc:loc50'); assert.equal(yyc[0].view, 'NE Calgary');
   const sg = parseSingapore({ items: [{ cameras: [{ camera_id: '1001', timestamp: '2026-10-12T10:00:00+08:00', image: 'https://images.data.gov.sg/x.jpg', location: { latitude: 1.3, longitude: 103.8 } }] }] });
   assert.equal(sg[0].fresh, true); assert.equal(sg[0].view, 'Expressway camera · 2026-10-12 10:00');
+  assert.equal(sg[0].t, Date.parse('2026-10-12T02:00:00Z'));   // the still's own time, so its provenance is not 'unknown'
+  assert.equal(parseSingapore({ items: [{ cameras: [{ camera_id: '1002', image: 'https://images.data.gov.sg/y.jpg', location: { latitude: 1.3, longitude: 103.8 } }] }] })[0].t, null);
 });
 
 test('Hong Kong XML, entities and CDATA', () => {

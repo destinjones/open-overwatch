@@ -27,7 +27,8 @@ export const SG_URL = 'https://api.data.gov.sg/v1/transport/traffic-images';
 /** Singapore's cameras (its stills change address each capture: re-read the list for fresh pictures). */
 export const parseSingapore = d => (((d && d.items) || [])[0]?.cameras || []).filter(c => c && c.location).map(c => ({ net: 'sg', id: 'sg:' + c.camera_id, name: 'Traffic camera ' + c.camera_id,
   view: c.timestamp ? 'Expressway camera · ' + s(c.timestamp).replace('T', ' ').slice(0, 16) : 'Expressway camera', lat: +c.location.latitude, lon: +c.location.longitude,
-  image: https(c.image), fresh: true, cors: false, online: true, link: 'https://data.gov.sg/' })).filter(c => okLL(c) && c.image);
+  image: https(c.image), fresh: true, cors: false, online: true, link: 'https://data.gov.sg/',
+  t: Number.isFinite(Date.parse(c.timestamp)) ? Date.parse(c.timestamp) : null })).filter(c => okLL(c) && c.image);   // when the still was taken
 
 function caltrans(n) {
   return d => ((d && d.data) || []).map(r => (r && r.cctv) || r).filter(x => x && x.location && +x.location.latitude).map(x => {

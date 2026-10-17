@@ -51,6 +51,11 @@ test('darksky: the nearest darker sky is on land, near, and the right way', () =
   assert.ok(lon && !lon.fallback && lon.km > 150 && lon.km < 350 && lon.dir.includes('W'), JSON.stringify(lon));
   const off = nearestDark(grid, 51.507, -0.128, { maxKm: 1000 });   // without the land test the sea wins
   assert.ok(!land(off.lat, off.lon), 'offshore');
+  assert.equal(off.unchecked, true); assert.equal(lon.unchecked, undefined);
+  const tokyo = nearestDarker(grid, 35.68, 139.69, { land: null });   // the callers' path when borders.json fails: flagged, and said
+  assert.equal(tokyo.unchecked, true);
+  assert.match(darkText(tokyo), /\(as the crow flies\)\. The land map did not load: it may be at sea\.$/);
+  assert.doesNotMatch(darkText(den), /may be at sea/);
   assert.deepEqual(nearestDark(grid, 41.66, -77.82).here, true);
   assert.match(darkText(den), /^The nearest dark sky \(Bortle [123]\) is about \d+ km to the (west|west-south-west|west-north-west|south-west)/);
   assert.match(darkText(null), /No Bortle 3 or 4 sky within 1,000 km/);

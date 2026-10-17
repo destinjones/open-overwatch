@@ -63,7 +63,7 @@ export const Airports = {
 };
 
 /** The weather at a field, 15 minutes (core/aloft.js, as the globe's): what is known now; the card re-renders on news. */
-const fieldWx = airportWxCache({ json: url => fetch(url).then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))) });
+const fieldWx = airportWxCache({ json: url => Net.json(url, { timeout: 15000 }) });   // a timeout, so a hung request frees the card
 function fieldWeather(ap) {
   const had = fieldWx.peek(ap);
   fieldWx.get(ap).then(w => { if (w !== had && Sel.kind === 'airport' && Sel.obj === ap) Detail.render(); });
@@ -181,7 +181,7 @@ let aloftAsking = null;
 function aloftAt(p) {
   const q = aloftUrl(p.lat, p.lon, p.alt), c = aloft.get(q.key);
   if ((c && Date.now() - c.t < 10 * 60e3) || aloftAsking) return c ? c.json : undefined;
-  aloftAsking = fetch(q.url).then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+  aloftAsking = Net.json(q.url, { timeout: 15000 })   // the timeout always releases the one-at-a-time latch
     .then(json => { aloft.set(q.key, { t: Date.now(), json }); if (aloft.size > 12) aloft.delete(aloft.keys().next().value); if (Sel.kind === 'air') Detail.render(); })
     .catch(() => aloft.set(q.key, { t: Date.now() - 9 * 60e3, json: null }))   // failed: try again in a minute
     .finally(() => { aloftAsking = null; });
