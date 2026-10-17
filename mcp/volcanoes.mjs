@@ -34,10 +34,11 @@ export function volcanoesTool(ctx) {
       const near = (lat, lon, list2, k) => (list2 || []).filter(x => Math.abs(x.lat - lat) < 1 && distKm({ lat, lon }, x.lat, x.lon) <= k);
       for (const v of list) {
         const ev = near(v.lat, v.lon, events, 25);
-        v.eruption = ev.length ? { title: ev[0].title, since: ev[0].latest, source: ev[0].sources[0] || ev[0].link || null } : null;
+        v.eruption = ev.length ? { title: ev[0].title, since: ev[0].latest, source: ev[0].sources[0] || ev[0].link || null, provenance: ev[0].provenance || null } : null;
         const q = near(v.lat, v.lon, quakes, 30);
         v.quakes = q.length ? { count: q.length, strongest: Math.max(...q.map(x => x.magnitude)), latest: Math.max(...q.map(x => x.t)) } : null;
       }
+      if (a.erupting_only && !events) throw new ToolError("NASA EONET did not answer, so eruptions can't be listed; try again in a few minutes", 'unavailable');   // not "none erupting"
       // around a point: erupting first, then the nearest; in a region (no centre that means anything): erupting, then the restless, then by name
       let rows = list.sort((x, y) => (+!!y.eruption - +!!x.eruption) || (box ? ((y.quakes ? y.quakes.count : 0) - (x.quakes ? x.quakes.count : 0)) || x.name.localeCompare(y.name) : x.km - y.km));
       if (a.erupting_only) rows = rows.filter(v => v.eruption);
@@ -48,8 +49,9 @@ export function volcanoesTool(ctx) {
       const lines = shown.map(v => `${v.name}${v.type ? ` (${v.type})` : ''}${v.country ? `, ${v.country}` : ''}${box ? '' : ` · ${km(v.km)} away`}${v.eruption ? ` · ERUPTING: ${v.eruption.title}` : ''}${v.quakes ? ` · ${plural(v.quakes.count, 'earthquake')} M2.5+ within 30 km this week (strongest M${v.quakes.strongest}, latest ${ago(v.quakes.latest, t)})` : ''}`);
       const camera = shown.length === 1 ? frame(shown[0].lat, shown[0].lon, 30, { tilt: 55 }) : frameArea(box ? area : { ...area, bbox: null, frameLat: null, frameLon: null, radiusKm: radius });
       const url = globeUrl(site, { camera, on: ['volcanoes', 'quakes'] });
-      return { text: [head, ...lines, `${events ? '' : '(NASA EONET did not answer: eruptions are not marked.) '}Volcanoes on the globe: ${url}`].join('\n'),
-        data: { total: rows.length, volcanoes: shown.map(v => ({ name: v.name, type: v.type, country: v.country, lat: r2(v.lat), lon: r2(v.lon), distance_km: r1(v.km), eruption: v.eruption, quakes_week: v.quakes && { ...v.quakes, latest: new Date(v.quakes.latest).toISOString() },
+      const missing = `${events ? '' : '(NASA EONET did not answer: eruptions are not marked.) '}${quakes ? '' : '(USGS did not answer: earthquakes are not counted.) '}`;
+      return { text: [head, ...lines, `${missing}Volcanoes on the globe: ${url}`].join('\n'),
+        data: { total: rows.length, eruptions_known: !!events, quakes_known: !!quakes, volcanoes: shown.map(v => ({ name: v.name, type: v.type, country: v.country, lat: r2(v.lat), lon: r2(v.lon), distance_km: r1(v.km), eruption: v.eruption, quakes_week: v.quakes && { ...v.quakes, latest: new Date(v.quakes.latest).toISOString() },
           wikidata: v.wiki ? `https://www.wikidata.org/wiki/${v.wiki}` : null })), area: areaData(area), url, source: 'Wikidata (CC0) via the Open Overwatch website; NASA EONET; USGS' } };
     },
   };

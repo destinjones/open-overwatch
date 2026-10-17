@@ -232,6 +232,9 @@ export function etaText(s) {
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
 }
 
+const normName = s => String(s || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9à-ÿ ]/g, ' ').replace(/\s+/g, ' ').trim();
+const NORMED = new WeakMap();   // airport -> [name, city] normalised
+
 /** The airport someone means: a code ("LHR", "EGLL"), a name ("Heathrow", "Charles de Gaulle", "JFK International")
  *  or a city ("Denver", "New York": its largest field). Returns the airport or null. */
 export function findAirport(list, query) {
@@ -241,11 +244,12 @@ export function findAirport(list, query) {
   if (/^[A-Z0-9]{3,4}$/.test(code)) { const c = list.find(a => a.iata === code) || list.find(a => a.icao === code); if (c) return c; }
   const q = raw.toLowerCase().replace(/[’']/g, '').replace(/\b(the|airport|international|intl|aeroporto|aeropuerto|aéroport|flughafen)\b/g, ' ').replace(/[^a-z0-9à-ÿ ]/g, ' ').replace(/\s+/g, ' ').trim();
   if (!q) return null;
-  const norm = s => String(s || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9à-ÿ ]/g, ' ').replace(/\s+/g, ' ').trim();
   const words = q.split(' ');
   let best = null, bestScore = 0;
   for (const a of list) {
-    const name = norm(a.name), city = norm(a.city);
+    let n = NORMED.get(a);   // normalised once per airport object: a list kept between searches costs no regex work
+    if (!n) NORMED.set(a, (n = [normName(a.name), normName(a.city)]));
+    const [name, city] = n;
     let s = 0;
     if (city === q) s = 50;
     else if (name.includes(q)) s = name.startsWith(q) || name.includes(' ' + q) ? 60 : 40;

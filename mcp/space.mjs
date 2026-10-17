@@ -10,7 +10,7 @@ import { planetPosition, earthPosition, moonGeocentric, PHYSICAL } from '../src/
 import { SKY_PLANETS, planetFromEarth } from '../src/core/solarsys.js';
 import { moonOffset, moonPeriod } from '../src/core/moons.js';
 import { trackPosition, missionPhase, eventsAround, relativeTime, missionDays, missionsNow, moonCenterAt } from '../src/core/craft.js';
-import { cometFromRow, cometPosition, cometPeriodYears, cometClass, cometNames, cometsNearNow, COMET_FACTS } from '../src/core/comets.js';
+import { cometFromRow, cometPosition, cometPeriodYears, cometClass, cometNames, cometsNearNow, cometMagnitude, orbitFresh, COMET_FACTS } from '../src/core/comets.js';
 import { positionAt } from '../src/core/kepler.js';
 import { nearestConstellation, formatRaDec, skyPhrase } from '../src/core/skyplace.js';
 import { altAz, moonPhase } from '../src/core/sky.js';
@@ -19,7 +19,7 @@ import { encodeSolarView } from '../src/core/solarlink.js';
 import { jdFromMs, msFromJd } from '../src/core/time.js';
 import { ToolError } from './feeds.mjs';
 import { areaProps, resolveArea } from './place.mjs';
-import { iso, r1, r2, areaData } from './words.mjs';
+import { iso, r1, r2, areaData, parseTime, timeHasZone, timeReadAs, zoneAt } from './words.mjs';
 
 const DAY = 864e5, TTL = 24 * 3600e3;
 const PLANETS = SKY_PLANETS.map(key => ({ key, name: PHYSICAL[key].name }));
@@ -28,6 +28,13 @@ const indexOf = (src, items, make = indexCatalogue) => { let ix = memo.get(src);
 const EMPTY = {};
 /** The perihelion nearest jd for a periodic comet (its last one on file moved on by whole periods), or the one on file. */
 const nearestPerihelion = (c, jd) => { const P = cometPeriodYears(c) * 365.25, k = Number.isFinite(P) ? Math.round((jd - c.tp) / P) : 0; return { jd: c.tp + k * P, moved: k !== 0 }; };
+/** The day the small-body copy was made (its 'made' field, when the file has one), or null. */
+const asOf = small => (small && typeof small.made === 'string' && /^\d{4}-\d\d-\d\d/.test(small.made) ? small.made.slice(0, 10) : null);
+// Apophis: two-body from the shared epoch is good to a few thousand km now, but its 13 April 2029 Earth flyby (JPL: closest
+// at about 21:46 UTC, some 38,000 km from Earth's centre) bends its orbit, which these elements cannot follow
+const APOPHIS = /^99942\b/, APOPHIS_FLYBY_JD = jdFromMs(Date.UTC(2029, 3, 13, 21, 46));
+const APOPHIS_BEFORE = "Its Earth flyby on 13 April 2029 (JPL: closest at about 21:46 UTC, some 38,000 km from Earth's centre) is not modelled here: positions near it are only approximate.";
+const APOPHIS_AFTER = "This is at or after its 13 April 2029 Earth flyby (JPL: about 38,000 km from Earth's centre), which is not modelled here: Earth's pull changes its orbit then, so this position may be off by tenths of an AU.";
 
 export function spaceTool(ctx) {
   const { feeds } = ctx, site = feeds.siteBase;
@@ -61,11 +68,15 @@ export function spaceTool(ctx) {
           source: "JPL Horizons spacecraft tracks (the website's copy)" } };
     }
     const small = await json('data/solar/small_bodies.json', signal), near = cometsNearNow(small.comets, jd, E, { maxR: 4, limit: 10 });
-    const rows = near.map(x => { const n = cometNames(x.row[0]), P = cometPeriodYears(x.c); return { name: n.display, designation: n.designation, class: cometClass(x.c), sun_au: r2(x.r), earth_au: r2(x.delta),
-      period_years: Number.isFinite(P) ? r1(P) : null, perihelion: iso(msFromJd(nearestPerihelion(x.c, jd).jd)), perihelion_estimated: nearestPerihelion(x.c, jd).moved, url: solarAt('comet:' + x.row[0]) }; });
-    const lines = rows.map(c => `${c.name}: ${c.sun_au} AU from the Sun, ${c.earth_au} AU from Earth · ${c.class} · perihelion ${c.perihelion_estimated ? `around ${c.perihelion.slice(0, 7)}` : c.perihelion.slice(0, 10)}`);
-    return { text: [`The comets best placed on ${when.slice(0, 10)} (closest to the Sun and Earth together; how bright each is isn't in the data):`, ...lines, `Comets in the 3D Solar System: ${site}solar.html`].join('\n'),
-      data: { at: when, comets: rows, url: `${site}solar.html`, note: "ranked by distance from the Sun and Earth (5 log Δ + 10 log r), not by brightness: the comets' absolute magnitudes are not in the data", source: "JPL Small-Body Database elements (the website's copy)" } };
+    const rows = near.map(x => {
+      const n = cometNames(x.row[0]), P = cometPeriodYears(x.c), fresh = orbitFresh(x.c, jd), m = fresh ? cometMagnitude(x.c, x.r, x.delta) : null;
+      return { name: n.display, designation: n.designation, class: cometClass(x.c), sun_au: r2(x.r), earth_au: r2(x.delta), magnitude: m == null ? null : r1(m),
+        period_years: Number.isFinite(P) ? r1(P) : null, perihelion: iso(msFromJd(nearestPerihelion(x.c, jd).jd)), perihelion_estimated: nearestPerihelion(x.c, jd).moved,
+        position_uncertain: !fresh, orbit_epoch: x.c.epoch != null ? iso(msFromJd(x.c.epoch)) : null, url: solarAt('comet:' + x.row[0]) };
+    });
+    const lines = rows.map(c => `${c.name}: ${c.sun_au} AU from the Sun, ${c.earth_au} AU from Earth · ${c.class}${c.magnitude != null ? ` · about magnitude ${c.magnitude}` : ''} · perihelion ${c.perihelion_estimated ? `around ${c.perihelion.slice(0, 7)}` : c.perihelion.slice(0, 10)}${c.position_uncertain ? ` · orbit data from ${String(c.orbit_epoch).slice(0, 4)}: position uncertain` : ''}`);
+    return { text: [`The comets best placed on ${when.slice(0, 10)} (closest to the Sun and Earth together, not the brightest):`, ...lines, `Comets in the 3D Solar System: ${site}solar.html`].join('\n'),
+      data: { at: when, comets: rows, url: `${site}solar.html`, note: 'ranked by distance from the Sun and Earth (5 log Δ + 10 log r), not by brightness; a magnitude is predicted where SBDB fits one (comets often stray from it)', source: `JPL Small-Body Database elements (the website's copy${asOf(small) ? `, made ${asOf(small)}` : ''})` } };
   }
 
   return {
@@ -77,15 +88,22 @@ export function spaceTool(ctx) {
       properties: {
         name: { type: 'string', maxLength: 80, description: 'What to find: "Voyager 1", "JWST", "Halley", "67P", "Ceres", "Pluto", "Apophis", "Titan", "Mars". Leave out to get a list.' },
         list: { type: 'string', enum: ['missions', 'comets'], description: 'Without a name: every deep-space mission and how far it is (nearest first, with its signal time and next event), or the comets best placed now (near the Sun and Earth). Default missions.' },
-        time: { type: 'string', maxLength: 40, description: 'A moment, ISO 8601 (default now). Between 1900 and 2100.' },
+        time: { type: 'string', maxLength: 40, description: 'A moment, ISO 8601 (default now), between 1900 and 2100. Give Z or an offset to be exact; a time without one is read as the place\'s local time, or as UTC without a place.' },
         ...areaProps(null),
       },
     },
     async run(a, { signal }) {
-      let t = ctx.now();
-      if (a.time != null) { t = Date.parse(a.time); if (!Number.isFinite(t) || t < Date.UTC(1900, 0, 1) || t > Date.UTC(2100, 0, 1)) throw new ToolError('time must be an ISO 8601 date between 1900 and 2100', 'invalid_arguments'); }
+      const bad = () => new ToolError('time must be an ISO 8601 date between 1900 and 2100', 'invalid_arguments');
+      const inRange = ms => Number.isFinite(ms) && ms >= Date.UTC(1900, 0, 1) && ms <= Date.UTC(2100, 0, 1);
+      if (a.time != null && !inRange(parseTime(a.time))) throw bad();   // before any network
+      const named = !!(a.name && a.name.trim());
+      const area = named ? await resolveArea(a, feeds, { signal }) : null;
+      // a time without a zone is the place's clock (UTC without a place), whichever host runs this
+      const tz = area && a.time != null && !timeHasZone(a.time) ? await zoneAt(ctx, area.lat, area.lon, signal) : null;
+      const t = a.time != null ? parseTime(a.time, tz) : ctx.now();
+      if (!inRange(t)) throw bad();
       const jd = jdFromMs(t);
-      if (!a.name || !a.name.trim()) return listing(a.list || 'missions', t, jd, signal);
+      if (!named) return listing(a.list || 'missions', t, jd, signal);
       const q = a.name.trim();
       // Look in the small lists first and only load the big ones when they are needed (they cost a Worker's CPU)
       const moons = (await json('data/solar/moons.json', signal).catch(() => null))?.moons || [];
@@ -140,6 +158,10 @@ export function spaceTool(ctx) {
           perihelion: iso(msFromJd(peri)), perihelion_note: Number.isFinite(P) && jd > c.tp && P > 1 ? 'the next return, from its last perihelion and period (planets shift it by days to months)' : null };
         const fact = COMET_FACTS[n.designation] || COMET_FACTS[n.designation.split('/')[0]];
         words.push(`A ${cometClass(c)}${Number.isFinite(P) ? `, around the Sun every ${r1(P)} years` : ''}; perihelion ${r2(c.q)} AU from the Sun, ${jd < peri ? 'next' : 'last'} ${extra.perihelion_note ? `around ${iso(msFromJd(peri)).slice(0, 7)} (the planets' pull moves it by weeks)` : `on ${iso(msFromJd(peri)).slice(0, 10)}`}.${fact ? ' ' + fact : ''}`);
+        if (!orbitFresh(c, jd)) {   // the same caveat as the Solar System view's comet card
+          extra.orbit_epoch = iso(msFromJd(c.epoch)); extra.position_uncertain = true;
+          words.push(`Orbit data from ${extra.orbit_epoch.slice(0, 4)}: placed two-body from then, so it may be well off its real place, and its perihelion date with it (the planets, Jupiter most, have pulled on it since).`);
+        }
       } else {
         small = small || await json('data/solar/small_bodies.json', signal);
         const row = ref.asteroid, el = await asteroidElements(row, small, signal), cls = (small.classes || EMPTY)[row[5]] || null;
@@ -148,17 +170,20 @@ export function spaceTool(ctx) {
         extra = { class: cls, absolute_magnitude: row[3], diameter_km: row[4], orbit: { a_au: r2(el.a), e: Number(el.e.toFixed(3)), inclination_deg: r1(el.i * 180 / Math.PI), period_years: r2(P), perihelion_au: r2(el.a * (1 - el.e)), aphelion_au: r2(el.a * (1 + el.e)) } };
         const what = hit.kind === 'dwarf planet' ? 'dwarf planet' : CLASS_WORDS[cls] || 'asteroid';
         words.push(`${/^[aeiou]/i.test(what) ? 'An' : 'A'} ${what}${row[4] ? `, about ${row[4] < 10 ? r1(row[4]) : Math.round(row[4]).toLocaleString('en-US')} km across` : ''}: around the Sun every ${r2(P)} years, ${r2(el.a * (1 - el.e))} to ${r2(el.a * (1 + el.e))} AU out.`);
+        // two-body from one epoch: a close pass by a planet is not modelled (Apophis's 2029 Earth flyby above all)
+        const note = APOPHIS.test(row[2]) ? (jd < APOPHIS_FLYBY_JD - 1 ? APOPHIS_BEFORE : APOPHIS_AFTER)
+          : cls === 'Near-Earth' && Math.abs(jd - small.epoch_jd) > 2 * 365.25 ? `A two-body estimate from its ${iso(msFromJd(small.epoch_jd)).slice(0, 4)} elements: close passes by the planets are not modelled, so this far from then it may be well off.` : null;
+        if (note) { words.push(note); extra.accuracy_note = note; }
       }
       const s = stateAt(at, earth, jd);
       if (!s) throw new ToolError(`${hit.name} can't be placed at that time`, 'not_found');
       if (ref.asteroid && Number.isFinite(ref.asteroid[3])) extra.magnitude = r1(hgMagnitude(ref.asteroid[3], s.sun_au, s.earth_au, s.phase_deg));
       const figs = await json('data/constellations.json', signal).then(d => d.figures, () => null), near = figs ? nearestConstellation(s.ra, s.dec, figs) : null;
       const con = near && { ...near, name: IAU_NAMES[near.id] || near.name };
-      const area = await resolveArea(a, feeds, { signal });
       const sky = area ? altAz({ ra: s.ra, dec: s.dec }, area.lat, area.lon, jd) : null;
       const solar = `${site}solar.html#${encodeSolarView({ focus: hit.key, jd: a.time != null ? jd : null, rate: 0 })}`;
       const self = !!ref.moon;
-      const when = a.time != null ? ` on ${iso(t).replace('T', ' ').replace('Z', ' UTC')}` : ' now';
+      const when = a.time != null ? ` on ${iso(t).replace('T', ' ').replace('Z', ' UTC')}${timeReadAs(a.time, tz)}` : ' now';
       const lead = `${hit.name} (${hit.kind})${when}: ${ref.moon ? '' : `${r2(s.sun_au)} AU from the Sun, `}${distanceWords(s.earth_au)} from Earth${self ? ', centre to centre' : ''} (${lightWords(s.light_s)}${ref.craft ? ' for its radio signal' : ''}).`;
       const motion = s.speed_km_s != null ? `Moving ${r1(s.speed_km_s)} km/s around the Sun${s.range_rate_km_s != null && !ref.moon ? `, ${s.range_rate_km_s >= 0 ? 'receding from' : 'approaching'} Earth at ${r1(Math.abs(s.range_rate_km_s))} km/s` : ''}.` : '';
       const look = `In the sky: ${formatRaDec(s)}${con ? `, ${con.sep < 3 ? 'in' : 'near'} ${con.name}` : ''}, ${Math.round(s.elongation)}° from the Sun (${skyPhrase({ elong: s.elongation, east: s.east })})${extra.magnitude != null ? `, magnitude ${extra.magnitude > 0 ? '+' : ''}${extra.magnitude}${seeingWords(extra.magnitude) ? ` (needs ${seeingWords(extra.magnitude)})` : ''}` : ''}.`;
@@ -169,7 +194,7 @@ export function spaceTool(ctx) {
         ra_deg: r2(s.ra), dec_deg: r2(s.dec), constellation: con ? con.name : null, elongation_deg: r1(s.elongation), sky_side: s.east ? 'evening' : 'morning', ...extra,
         place: areaData(area), ...(sky ? { altitude_deg: r1(sky.alt), azimuth_deg: Math.round(sky.az), up: sky.alt > 0 } : {}),
         also_matching: hits.slice(1, 5).filter(h => h.score >= 400).map(h => ({ name: h.name, kind: h.kind })), url: solar,
-        source: 'JPL Horizons spacecraft tracks, JPL Small-Body Database elements and the Open Overwatch planet and moon maths (the website\'s data copies)' } };
+        source: `JPL Horizons spacecraft tracks, JPL Small-Body Database elements${asOf(small) ? ` (as of ${asOf(small)})` : ''} and the Open Overwatch planet and moon maths (the website's data copies)` } };
     },
   };
 }

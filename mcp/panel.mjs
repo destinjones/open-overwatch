@@ -60,20 +60,29 @@ function page(site, version) {
     if (c.displayMode) { mode = c.displayMode; document.body.classList.toggle('full', mode === 'fullscreen'); fullBtn.textContent = mode === 'fullscreen' ? 'Back to the chat' : 'Full screen'; }
     if (Array.isArray(c.availableDisplayModes)) fullBtn.hidden = !c.availableDisplayModes.includes('fullscreen');
   };
-  // only links to the site itself are shown: the frame never goes anywhere else
-  const ours = u => typeof u === 'string' && u.indexOf(cfg.site) === 0 && /^[^#]*\\/globe\\.html#/.test(u);
+  // only links to the site's own pages are shown, the frame never goes anywhere else: the globe (with a view), the 3D
+  // Solar System (where_in_space's links) and the Tonight card
+  const pageOf = u => {
+    if (typeof u !== 'string' || u.indexOf(cfg.site) !== 0) return null;
+    const m = /^(globe|solar|tonight)\\.html([?#]|$)/.exec(u.slice(cfg.site.length));
+    return !m ? null : m[1] === 'globe' ? (m[2] === '#' ? 'globe' : null) : m[1] === 'tonight' && m[2] === '?' ? null : m[1];
+  };
+  let page = null;   // the page in the frame
   function show(result) {
-    const sc = result && result.structuredContent, u = sc && sc.url;
+    const sc = result && result.structuredContent, u = sc && sc.url, kind = pageOf(u);
     if (result && result.isError) { if (!url) say('The question could not be answered, so there is nothing to show.'); return; }
-    if (!ours(u)) { if (!url) say('This answer has no view to show on the globe.'); return; }
+    if (!kind) { if (!url) say('This answer has no view to show.'); return; }
     url = u; openBtn.hidden = false;
-    const embed = u.replace('#', '#embed=1&');
-    if (!frame.getAttribute('src')) {
-      say('Loading the live globe…');
-      clearTimeout(timer); timer = setTimeout(() => { if (!ready) say('The globe has not appeared here. This app host may not allow it: open it in your browser instead.', true); }, 45000);
+    const src = kind === 'globe' ? u.replace('#', '#embed=1&') : u;   // the globe in embed mode; the other pages as they are
+    if (kind !== page) {   // a new page loads; the same one only changes its hash and moves to the new view
+      ready = false; page = kind;
+      say(kind === 'globe' ? 'Loading the live globe…' : kind === 'solar' ? 'Loading the Solar System…' : 'Loading tonight\\'s sky…');
+      clearTimeout(timer); timer = setTimeout(() => { if (!ready) say('The view has not appeared here. This app host may not allow it: open it in your browser instead.', true); }, 45000);
     }
-    frame.src = embed;   // after the first load only the hash changes: the globe flies to the new view
+    frame.src = src;
   }
+  // the globe says when it is ready (oo:ready); the other pages are ready when they have loaded
+  frame.addEventListener('load', () => { if (page && page !== 'globe' && frame.getAttribute('src')) { ready = true; clearTimeout(timer); veil.hidden = true; } });
   // a host whose sandbox refuses the frame (no frameDomains support) reports a CSP violation at once: offer the link then
   document.addEventListener('securitypolicyviolation', e => {
     if (!ready && url && /^(frame|child)-src/.test(e.effectiveDirective || e.violatedDirective || '')) { clearTimeout(timer); say('This app does not allow the live globe inside the chat. Open it in your browser instead.', true); }

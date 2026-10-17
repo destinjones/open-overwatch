@@ -10,7 +10,7 @@ import { VALID_JD } from '../src/core/planets.js';
 import { compass } from '../src/core/passes.js';
 import { ToolError } from './feeds.mjs';
 import { areaProps, resolveArea, frame, globeUrl, panelUrl } from './place.mjs';
-import { iso, r1, r2, areaData, clocks, zoneAt } from './words.mjs';
+import { iso, r1, r2, areaData, clocks, zoneAt, parseTime, timeReadAs } from './words.mjs';
 
 const BODIES = ['all', ...SKY_PLANETS, 'moon'];
 const lightAge = min => (min < 1 ? `${Math.round(min * 60)} light-seconds` : min < 90 ? `${r1(min)} light-minutes` : `${r1(min / 60)} light-hours`);
@@ -32,16 +32,17 @@ export function solarTool(ctx) {
       properties: {
         body: { type: 'string', enum: BODIES, description: 'One planet, the moon, or all (default all).' },
         ...areaProps(null),
-        time: { type: 'string', maxLength: 40, description: 'A moment, ISO 8601 (default now). Between 1800 and 2050.' },
+        time: { type: 'string', maxLength: 40, description: 'A moment, ISO 8601 (default now), between 1800 and 2050. Give Z or an offset to be exact; a time without one is read as the place\'s local time, or as UTC without a place.' },
       },
     },
     async run(a, { signal }) {
-      let t = ctx.now();
-      if (a.time != null) { t = Date.parse(a.time); if (!Number.isFinite(t)) throw new ToolError('time must be an ISO 8601 date, e.g. 2026-12-25T21:00:00Z', 'invalid_arguments'); }
-      const jd = jdFromMs(t);
-      if (jd < VALID_JD[0] || jd > VALID_JD[1] - 800) throw new ToolError('The planet tables are good from 1800 to 2050 (and the look-ahead needs two years before 2050)', 'invalid_arguments');
+      const inRange = ms => { const j = jdFromMs(ms); if (j < VALID_JD[0] || j > VALID_JD[1] - 800) throw new ToolError('The planet tables are good from 1800 to 2050 (and the look-ahead needs two years before 2050)', 'invalid_arguments'); };
+      if (a.time != null) { const t0 = parseTime(a.time); if (!Number.isFinite(t0)) throw new ToolError('time must be an ISO 8601 date, e.g. 2026-12-25T21:00:00Z', 'invalid_arguments'); inRange(t0); }   // before any network
       const area = await resolveArea(a, feeds, { signal }), body = a.body || 'all';
       const tz = area ? await zoneAt(ctx, area.lat, area.lon, signal) : null, c = clocks(tz);
+      const t = a.time != null ? parseTime(a.time, tz) : ctx.now();   // a time without a zone: the place's clock (UTC without a place)
+      inRange(t);
+      const jd = jdFromMs(t);
       const keys = body === 'all' ? SKY_PLANETS : body === 'moon' ? [] : [body];
       const sky = key => {   // where it is in the place's sky, and when it rises and sets
         if (!area) return null;
@@ -57,7 +58,7 @@ export function solarTool(ctx) {
           next: ev.map(e => ({ event: e.kind, date: iso(msFromJd(e.jd)), elongation_deg: r1(e.elongation) })), sky: sky(key), solar_url: `${site}solar.html?focus=${key}` };
       });
       const out = [], data = { at: iso(t), place: areaData(area), timezone: tz };
-      const when = a.time != null ? ` on ${c.full(t)}` : ' now';
+      const when = a.time != null ? ` on ${c.full(t)}${timeReadAs(a.time, tz)}` : ' now';
       if (planets.length) {
         out.push(area ? `The planets from ${area.label}${when} (times ${tz || 'UTC'}):` : `The planets${when}:`);
         for (const p of planets) {

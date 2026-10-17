@@ -7,9 +7,13 @@
 import { readDetails, readMarine, modelSpread, spreadLine, capeWords, visibilityWords, uvWords, MODELS } from '../src/core/wxpoint.js';
 import { skyWords } from '../src/core/voicecmd.js';
 import { compass } from '../src/core/passes.js';
+import { rep, lineFor } from '../src/core/liveprov.js';
 import { ToolError } from './feeds.mjs';
 import { areaProps, resolveArea, frame, globeUrl } from './place.mjs';
 import { r1, areaData } from './words.mjs';
+
+/** A height the way forecasts give the freezing level: metres to the nearest 100 ("1,500 m"), or feet to the nearest 100. */
+export const heightWords = (m, imperial) => `${(Math.round((imperial ? m * 3.28084 : m) / 100) * 100).toLocaleString('en-US')} ${imperial ? 'ft' : 'm'}`;
 
 const METEO = 'https://api.open-meteo.com/v1/forecast', MARINE = 'https://marine-api.open-meteo.com/v1/marine';
 const VARS = 'pressure_msl,wind_speed_10m,wind_gusts_10m,cape,visibility,freezing_level_height,uv_index';
@@ -53,7 +57,7 @@ export function weatherDetailsTool(ctx) {
         + `${n.beaufort ? ` Wind force ${n.beaufort.force} (${n.beaufort.name}), ${W(n.wind_ms)}${n.wind_from_deg != null ? ` from the ${compass(n.wind_from_deg)}` : ''}, gusts ${W(n.gusts_ms)}.` : ''}`
         + `${n.temperature_c != null ? ` ${T(n.temperature_c)}, dew point ${T(n.dew_point_c)}${skyWords({ code: n.weather_code }) ? `, ${skyWords({ code: n.weather_code })}` : ''}.` : ''}`);
       const extras = [visibilityWords(n.visibility_m) && `${visibilityWords(n.visibility_m)} (visibility ${L(n.visibility_m)})`, capeWords(n.cape_j_kg) && `${capeWords(n.cape_j_kg)} (CAPE ${Math.round(n.cape_j_kg)} J/kg)`,
-        n.freezing_level_m != null && `freezing level ${L(n.freezing_level_m)}`, n.uv_index != null && n.uv_index >= 1 && `UV ${n.uv_index} (${uvWords(n.uv_index)})`,
+        n.freezing_level_m != null && `freezing level ${heightWords(n.freezing_level_m, imp)}`, n.uv_index != null && n.uv_index >= 1 && `UV ${n.uv_index} (${uvWords(n.uv_index)})`,
         [n.cloud_low_percent, n.cloud_mid_percent, n.cloud_high_percent].every(v => v != null) && `cloud low ${n.cloud_low_percent}%, mid ${n.cloud_mid_percent}%, high ${n.cloud_high_percent}%`].filter(Boolean);
       if (extras.length) { const e = extras.join('; '); out.push(e[0].toUpperCase() + e.slice(1) + '.'); }
       const next = [`In the next ${ah.hours} hours:`,
@@ -74,7 +78,9 @@ export function weatherDetailsTool(ctx) {
       if (agree) out.push(agree);
       const layers = ['pres', 'gust', ...(marine ? ['wave'] : [])], url = globeUrl(site, { camera: frame(area.lat, area.lon, 3000), weather: layers });   // weather mode wants the whole Earth below 3,000 km
       out.push(`Isobars, gusts${marine ? ' and waves' : ''} on the globe: ${url}`);
-      return { text: out.join('\n'), data: { place: areaData(area), timezone: d.timezone, units: imp ? 'imperial' : 'metric', now: n, pressure_tendency_hpa_3h: d.tendency_hpa, pressure_tendency: d.tendency || null,
+      const at = Date.parse(String(n.time || '') + 'Z') - (+fc.utc_offset_seconds || 0) * 1000;   // the model hour, from its local time
+      const provenance = lineFor('weather', [rep('openmeteo', { name: 'Open-Meteo (model)', dataAt: Number.isFinite(at) ? at : null })], { now: ctx.now() });
+      return { text: out.join('\n'), data: { provenance, place: areaData(area), timezone: d.timezone, units: imp ? 'imperial' : 'metric', now: n, pressure_tendency_hpa_3h: d.tendency_hpa, pressure_tendency: d.tendency || null,
         ahead: ah, sea: marine, models: spread, url, source: 'Open-Meteo.com forecast, marine and multi-model APIs (CC BY 4.0): ECMWF IFS, NOAA GFS, DWD ICON and wave models' } };
     },
   };
