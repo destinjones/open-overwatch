@@ -48,9 +48,9 @@ jobs:
       - name: Tests (the whole suite, including test/npmpack.test.mjs on the tarball's file list)
         if: steps.have.outputs.skip == 'false'
         run: node --test
-      - name: The npm page shows the MCP server's README (relative links point at GitHub)
+      - name: The npm page shows the MCP server's README (../ and ./ links point at GitHub; npmpack.test.mjs allows no other relative links)
         if: steps.have.outputs.skip == 'false'
-        run: sed 's#](\.\./#](https://github.com/destinjones/open-overwatch/blob/main/#g' mcp/README.md > README.md
+        run: sed -e 's#](\.\./#](https://github.com/destinjones/open-overwatch/blob/main/#g' -e 's#](\./#](https://github.com/destinjones/open-overwatch/blob/main/mcp/#g' mcp/README.md > README.md
       - name: Publish with provenance
         if: steps.have.outputs.skip == 'false'
         env:

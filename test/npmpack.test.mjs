@@ -47,6 +47,25 @@ test('npm pack: the tarball is the server and what it imports, plus the package 
   assert.deepEqual([...bare].sort(), Object.keys(pkg.dependencies).sort(), 'bare imports are exactly the dependencies');
 });
 
+test('npm pack: every load in the graph is one the scan can follow (no computed imports or runtime file reads)', () => {
+  // The scan above only sees string literals. A template or computed import(), import.meta.url outside
+  // new URL('./…', import.meta.url), require() or a file read would load something the test cannot check, so it fails here.
+  for (const f of importGraph('mcp/server.mjs').files) {
+    const src = readFileSync(new URL(f, root), 'utf8').replace(/^\s*\/\/.*$/gm, '');
+    for (const m of src.matchAll(/\bimport\(\s*([^)]*)\)/g)) assert.match(m[1], /^(['"])[^'"`]+\1\s*$/, `${f}: import(${m[1]}) is not a plain string literal`);
+    assert.equal(src.replace(/new URL\(\s*['"]\.{1,2}\/[^'"]+['"]\s*,\s*import\.meta\.url\s*\)/g, '').match(/import\.meta\.(?:url|dirname|filename|resolve)/), null, `${f}: import.meta used outside new URL('./…', import.meta.url)`);
+    assert.equal(src.match(/\b(?:require|createRequire|readFileSync|readFile|__dirname|__filename)\b/), null, `${f}: loads files at run time`);
+  }
+});
+
+test('npm pack: mcp/README.md (the npm page) links only to absolute URLs, #anchors or ](../ and ](./ (rewritten in npm.yml)', () => {
+  const md = readFileSync(new URL('mcp/README.md', root), 'utf8');
+  const ok = /^(?:https?:|mailto:|#)/, md_ = [...md.matchAll(/\]\(\s*([^)\s]+)/g)].map(m => m[1]);
+  const html = [...md.matchAll(/\b(?:src|href)=["']([^"']+)/g)].map(m => m[1]);
+  assert.deepEqual(md_.filter(l => !ok.test(l) && !/^\.{1,2}\//.test(l)), [], 'a bare relative link breaks on npmjs.com: start it with ./ or ../, or make it absolute');
+  assert.deepEqual(html.filter(l => !ok.test(l)), [], 'HTML src/href is not rewritten for npm: make it absolute');
+});
+
 test('npm pack: the bin runs on any OS (node shebang, LF endings) and the package is set up for provenance', () => {
   assert.deepEqual(pkg.bin, { 'open-overwatch-mcp': 'mcp/server.mjs' });
   const bin = readFileSync(new URL(pkg.bin['open-overwatch-mcp'], root), 'utf8');

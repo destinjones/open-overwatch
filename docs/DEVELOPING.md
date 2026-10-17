@@ -490,6 +490,9 @@ As it is today:
    with npm trusted publishing and provenance, and skips a version npm already has. It is skipped until the owner links
    the workflow as the package's trusted publisher on npmjs.com and sets the repository variable `NPM_PUBLISH` to
    `true`. The MCP Registry entry is `mcp/server.json` (`mcp-publisher publish` from `mcp/`, the owner's GitHub login).
+   A publish by hand from a PC needs `npm publish --provenance=false` (provenance only works in CI). npm ships only the
+   `src/core/` modules the server imports (`test/npmpack.test.mjs`); the `.mcpb` still carries all of `src/core/`.
+   Links in `mcp/README.md` (the npm page) must be absolute, `../`, `./` or `#anchors`.
 
 After a release: tick `ROADMAP.md` and note anything learned in NOTES.md. `sitemap.xml` needs no hand edits (the
 build dates it from git); a new page only needs its `<url>` line there.

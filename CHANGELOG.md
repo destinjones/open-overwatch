@@ -13,7 +13,9 @@ file was built from.
   `open-overwatch-mcp` with trusted publishing and provenance once the owner turns it on (`NPM_PUBLISH`), skipping a
   version npm already has; `mcp/server.json` is the registry entry (`io.github.destinjones/open-overwatch`).
 - `test/npmpack.test.mjs`: the npm tarball holds exactly what `mcp/server.mjs` imports, checked with
-  `npm pack --dry-run --json` against the import graph.
+  `npm pack --dry-run --json` against the import graph. It also fails on a load the scan cannot follow (a computed
+  `import()`, `import.meta.url` outside `new URL('./…', import.meta.url)`, a run-time file read) and on a link in
+  `mcp/README.md` that would break on the npm page.
 
 ### Changed
 - The npm package ships 105 files instead of 154: only the 62 `src/core/` modules the server imports (not the
