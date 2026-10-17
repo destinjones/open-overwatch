@@ -3,21 +3,31 @@
 
     python .github/build_site.py [out_dir]          (default: _site)
 
-- Root: everything committed at HEAD except bulky sources the site never loads (brand/source, brand/blend).
-- /v/<tag>/: the app files of each `v*` tag, taken straight from git (git archive), so old versions keep working
-  exactly as released without storing copies in the repo.
-- /versions.json: the list the landing page reads for its version picker and version history.
+- Root: everything committed at HEAD except bulky sources the site never loads (brand/source, brand/blend) and the
+  dev-only folders (tests, browser-test snapshots, working notes, the Workers' source, promo clips).
+- /v/<tag>/: the app files of the newest ARCHIVE_KEEP `v*` tags, taken straight from git (git archive), so recent
+  versions keep working exactly as released without storing copies in the repo. Each copy costs ~30 MB of the 1 GB
+  Pages limit, so older tags get a small page in their place that points at their GitHub release zip.
+- /versions.json: the list the landing page reads for its version picker and version history (every tag; the older
+  ones with no map/globe/solar, only their zip).
 - /sw.js: the service worker (the installable app), stamped with this build's version and commit so every published
   version is a new worker and the pages offer a reload. Archived versions never get a worker of their own.
 - /data/tle/<group>.txt: a copy of each CelesTrak satellite group the apps use (the workflow also runs every 6 h to
   refresh it). The website reads these instead of CelesTrak, which firewalls networks that download too often; the
   download version falls back to them when CelesTrak fails.
 """
-import re, io, json, os, socket, subprocess, sys, tarfile, time, urllib.request
+import re, io, json, os, socket, subprocess, sys, tarfile, time, urllib.parse, urllib.request
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 OUT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, '_site'))
-SKIP_ROOT = ('brand/source/', 'brand/blend/', '.github/', 'brand/models/previews/')
+SKIP_ROOT = ('brand/source/', 'brand/blend/', '.github/', 'brand/models/previews/',
+             'test/', 'e2e/', 'notes/', 'relay/', 'mcp-worker/', 'brand/clip/')   # dev-only: no page loads these
+# ...except these, which a page does load: the Solar view's "Accuracy vs NASA JPL" table (src/solar/nerd.js). Archived
+# versions and the download version fetch it from the site root too (src/core/assets.js), so it must stay here.
+KEEP_ROOT = ('test/fixtures/horizons_2026-10-02.json',)
+ARCHIVE_KEEP = 6   # releases kept online under /v/<tag>/; older ones are their release zip (see online_tags)
+RELEASES = 'https://github.com/destinjones/open-overwatch/releases'
+SITE_BUDGET = 900 * 1000 * 1000   # warn above this; .github/workflows/pages.yml fails at 950 MB (GitHub's limit: 1 GB)
 # everything an archived app loads at run time (missing ones are skipped per tag); keep in sync with what the pages fetch.
 # solar.html's big data/textures (data/solar, brand/textures/planets, sky_equirect) are NOT copied per version: the page
 # falls back to the site root for them, which keeps each archived version small.
@@ -42,12 +52,51 @@ def exists(ref, path):
     return subprocess.run(['git', 'cat-file', '-e', f'{ref}:{path}'], cwd=ROOT, capture_output=True).returncode == 0
 
 
-def extract(ref, paths, dest, skip):
+def published(name, skip, keep=()):
+    """Whether a path from git archive goes on the site: not under a skipped prefix, unless keep names it. Folders end
+    in '/' (tarfile drops it; extract adds it back), so a skipped folder isn't left behind empty."""
+    return name in keep or not name.startswith(skip)
+
+
+def extract(ref, paths, dest, skip, keep=()):
     data = git('archive', '--format=tar', ref, '--', *paths, binary=True)
-    with tarfile.open(fileobj=io.BytesIO(data)) as t:
-        members = [m for m in t.getmembers() if not m.name.startswith(skip)]
+    with tarfile.open(fileobj=io.BytesIO(data)) as t:   # a kept file's folders are made as it is extracted
+        members = [m for m in t.getmembers() if published(m.name + '/' if m.isdir() else m.name, skip, keep)]
         t.extractall(dest, members=members, filter='data')
     return len(members)
+
+
+def version_key(tag):
+    """'v0.9.2.10' -> (0, 9, 2, 10), so v0.9.2.10 is newer than v0.9.2.9 (as git's -v:refname sorts them)."""
+    return tuple(int(n) for n in re.findall(r'\d+', tag))
+
+
+def online_tags(tags, keep=ARCHIVE_KEEP):
+    """The tags whose full copy stays online under /v/<tag>/: the newest `keep` by version number. The rest are retired:
+    a small page in place of their copy and a zip link in versions.json."""
+    return set(sorted(tags, key=version_key, reverse=True)[:max(0, keep)])
+
+
+def retired_page(tag):
+    """The page left at /v/<tag>/<page>.html once a version's copy is no longer hosted, so old shared links still lead
+    somewhere: its release zip and notes on GitHub, and the current site. No script, nothing else to load."""
+    import html
+    t, q = html.escape(tag), urllib.parse.quote(tag)
+    return ('<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">\n'
+            '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'">\n'
+            f'<meta name="robots" content="noindex"><title>Open Overwatch {t}</title>\n'
+            '<style>body{margin:0;padding:48px 16px;background:#05070a;color:#d8dee6;font:16px/1.6 system-ui,sans-serif}'
+            'main{max-width:560px;margin:0 auto}a{color:#7fd1ff}h1{font-size:22px;line-height:1.3}</style></head>\n'
+            f'<body><main><h1>Open Overwatch {t} is no longer online</h1>\n'
+            f'<p>The website keeps the newest {ARCHIVE_KEEP} releases online. This one is still a download: '
+            f'<a href="{RELEASES}/download/{q}/open-overwatch.zip">open-overwatch.zip for {t}</a> '
+            f'(unzip it and open the page in a browser), with its <a href="{RELEASES}/tag/{q}">release notes</a>.</p>\n'
+            '<p><a href="../../index.html#launch">The current version and the recent ones</a></p>\n'
+            '</main></body></html>\n')
+
+
+def dir_size(path):
+    return sum(os.path.getsize(os.path.join(d, f)) for d, _, files in os.walk(path) for f in files)
 
 
 SITE = 'https://destinjones.github.io/open-overwatch/'
@@ -423,16 +472,23 @@ def mirror_astronauts(path):
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    n = extract('HEAD', ['.'], OUT, SKIP_ROOT)
+    n = extract('HEAD', ['.'], OUT, SKIP_ROOT, KEEP_ROOT)
     print(f'root: {n} entries from HEAD')
     print(f'sw.js: build {stamp_worker(OUT)}')
     versions = []
-    for tag in git('tag', '-l', 'v*', '--sort=-v:refname').split():
+    tags = [t for t in git('tag', '-l', 'v*', '--sort=-v:refname').split() if exists(t, 'open-overwatch.html')]
+    online = online_tags(tags)
+    for tag in tags:
         paths = [p for p in APP_PATHS if exists(tag, p)]
-        if 'open-overwatch.html' not in paths:
-            continue
-        n = extract(tag, paths, os.path.join(OUT, 'v', tag), SKIP_VERSION)
-        fix_archived_links(os.path.join(OUT, 'v', tag))
+        live, dest = tag in online, os.path.join(OUT, 'v', tag)
+        if live:
+            n = extract(tag, paths, dest, SKIP_VERSION)
+            fix_archived_links(dest)
+        else:   # retired: a pointer to the zip wherever an old link may land
+            os.makedirs(dest, exist_ok=True)
+            for page in ['index.html'] + [p for p in paths if p.endswith('.html')]:
+                with open(os.path.join(dest, page), 'w', encoding='utf-8', newline='\n') as f:
+                    f.write(retired_page(tag))
         notes = git('tag', '-l', '--format=%(contents)', tag) or git('log', '-1', '--format=%B', tag)
         lines = [l for l in notes.splitlines() if l.strip() and not l.startswith(('-----BEGIN', 'Co-Authored-By'))]
         versions.append({
@@ -440,14 +496,16 @@ def main():
             'date': git('log', '-1', '--format=%cI', tag + '^{commit}'),
             'title': lines[0] if lines else tag,
             'notes': '\n'.join(lines[1:]),
-            'map': f'v/{tag}/open-overwatch.html',
-            'globe': f'v/{tag}/globe.html' if 'globe.html' in paths else None,
-            'solar': f'v/{tag}/solar.html' if 'solar.html' in paths else None,
+            'online': live,   # false: no map/globe/solar on the site any more, only the zip
+            'map': f'v/{tag}/open-overwatch.html' if live else None,
+            'globe': f'v/{tag}/globe.html' if live and 'globe.html' in paths else None,
+            'solar': f'v/{tag}/solar.html' if live and 'solar.html' in paths else None,
+            'zip': f'{RELEASES}/download/{urllib.parse.quote(tag)}/open-overwatch.zip',
         })
-        print(f'{tag}: {n} entries ({", ".join(paths)})')
+        print(f'{tag}: {n} entries ({", ".join(paths)})' if live else f'{tag}: retired (its release zip)')
     with open(os.path.join(OUT, 'versions.json'), 'w', encoding='utf-8') as f:
-        json.dump({'latest': versions[0]['tag'] if versions else None, 'versions': versions}, f, indent=1)
-    print(f'versions.json: {len(versions)} versions')
+        json.dump({'latest': versions[0]['tag'] if versions else None, 'online': ARCHIVE_KEEP, 'releases': RELEASES, 'versions': versions}, f, indent=1)
+    print(f'versions.json: {len(versions)} versions, {len(online)} online')
     tles = mirror_tles(os.path.join(OUT, 'data', 'tle'))
     try:
         archive_tles(os.path.join(OUT, 'data', 'tle'), kept=tles['kept'], cache=os.environ.get('OO_TLE_HISTORY') or None)
@@ -459,6 +517,8 @@ def main():
     mirror_launches(os.path.join(OUT, 'data', 'launches.json'))
     mirror_astronauts(os.path.join(OUT, 'data', 'astronauts.json'))
     mirror_news(os.path.join(OUT, 'data', 'news.json'), os.path.join(OUT, 'data', 'countries.json'))
+    size = dir_size(OUT)
+    print(f'site: {size / 1e6:.1f} MB of the 1 GB Pages limit' + (' (WARNING: over the budget; lower ARCHIVE_KEEP)' if size > SITE_BUDGET else ''))
 
 
 if __name__ == '__main__':
