@@ -11,7 +11,7 @@ import {
   chebEval, createEphemeris, minimize, root, lunations, earthShadow, lunarEclipse, solarEclipse, findEclipses,
   occultationGeometry, findOccultations, planetGeocentric, subPoint, toFixed, eventTitle, R_EARTH, DANJON, OCCULT_STARS,
 } from '../src/core/syzygy.js';
-import { greatestEclipse } from '../src/core/eclipselocal.js';
+import { greatestEclipse, icrfToFixed } from '../src/core/eclipselocal.js';
 import { interp, R_MOON } from '../src/core/eclipse.js';
 import { eqToEcl, radecToEcl, AU_KM } from '../src/core/units.js';
 import { jdFromMs } from '../src/core/time.js';
@@ -177,7 +177,11 @@ test('syzygy: planets from Earth: light-time corrected geocentric places (Jupite
   assert.ok(au(J) > 3.9 && au(J) < 6.5 && au(V) > 0.25 && au(V) < 1.75);
   // Earth-fixed turn: the Sun's sub-point at a June solstice noon UT is near 23.4 N, 0 E
   const s = subPoint(eph.sun(jd('2027-06-21T12:00')), jd('2027-06-21T12:00'));
-  assert.ok(Math.abs(s.lat - 23.4) < 0.3 && Math.abs(s.lon) < 1.5, `${s.lat} ${s.lon}`);
+  assert.ok(Math.abs(s.lat - 23.44) < 0.05 && Math.abs(s.lon) < 1.5, `${s.lat} ${s.lon}`);
+  // a far direction 45 deg north of the equator of date: the ground's normal points at it from geodetic latitude 45 (not 45.1)
+  const M = icrfToFixed(t), f = [Math.SQRT1_2, 0, Math.SQRT1_2], q = [0, 1, 2].map(j => M[0][j] * f[0] + M[1][j] * f[1] + M[2][j] * f[2]);
+  const n = subPoint(eqToEcl(q[0] * 1e9, q[1] * 1e9, q[2] * 1e9), t);
+  assert.ok(Math.abs(n.lat - 45) < 0.01 && Math.abs(n.lon) < 1e-6, `${n.lat} ${n.lon}`);
   assert.ok(Math.abs(Math.hypot(...Object.values(toFixed({ x: 1, y: 2, z: 3 }, t))) - Math.hypot(1, 2, 3)) < 1e-12);
   assert.ok(OCCULT_STARS.every(s => Math.abs(radecToEcl(s.ra, s.dec).z) < Math.sin(7 * Math.PI / 180)), 'every listed star is near the ecliptic');
 });

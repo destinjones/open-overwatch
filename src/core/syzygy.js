@@ -140,8 +140,9 @@ export function toFixed(p, jd) {
   const q = eclToEq(p.x, p.y, p.z), M = icrfToFixed(jd);
   return { x: M[0][0] * q.x + M[0][1] * q.y + M[0][2] * q.z, y: M[1][0] * q.x + M[1][1] * q.y + M[1][2] * q.z, z: M[2][0] * q.x + M[2][1] * q.y + M[2][2] * q.z };
 }
-/** The ground point (lat, lon degrees) under a geocentric direction at jd. */
-export function subPoint(p, jd) { const f = toFixed(p, jd), r = len(f), g = geodetic({ x: f.x / r * R_EARTH, y: f.y / r * R_EARTH, z: f.z / r * WGS84.b }); return { lat: g.lat, lon: g.lon }; }
+/** The ground point (lat, lon degrees) under a geocentric direction at jd: where the ground's normal points at a far body,
+ *  so the geodetic latitude is the direction's declination. */
+export function subPoint(p, jd) { const f = toFixed(p, jd), r = len(f); return { lat: Math.asin(f.z / r) * 180 / Math.PI, lon: Math.atan2(f.y, f.x) * 180 / Math.PI }; }
 
 /**
  * The solar eclipse at a new Moon, or null: { kind: 'total' | 'annular' | 'hybrid' | 'partial', jd (greatest: the
@@ -258,7 +259,7 @@ function describeOccultation(eph, T, jd, G) {
   let ground = foot;
   const c = G.d < R_EARTH;
   if (c) { const h = Math.sqrt(R_EARTH * R_EARTH - G.d * G.d); ground = { x: foot.x - ax.x * h, y: foot.y - ax.y * h, z: foot.z - ax.z * h }; }   // the near side (facing the target)
-  const at = subPoint(ground, jd), gl = len(ground), up = { x: ground.x / gl, y: ground.y / gl, z: ground.z / gl };
+  const at = geodetic(toFixed(ground, jd)), gl = len(ground), up = { x: ground.x / gl, y: ground.y / gl, z: ground.z / gl };   // a place near the ground (not a far direction): the ellipsoid point under it
   const toSun = { x: sun.x - ground.x, y: sun.y - ground.y, z: sun.z - ground.z }, sunAlt = Math.asin(dot(up, toSun) / len(toSun)) * 180 / Math.PI;
   const elongation = angle(moon, sun) * 180 / Math.PI;
   const planetMag = T.kind === 'planet' ? null : T.mag;
