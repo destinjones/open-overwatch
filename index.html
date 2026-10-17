@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-THwjsLsA5VP1APunjwL4TfyEjzOP6vOOtmDUdz7mC9Q='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-Ke4Mv3YFs0ccKh5cQD27WSlKDCoiVrwAagj7T96ie6Q='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#04060a">
 <title>Open Overwatch · the whole planet, live</title>
@@ -598,15 +598,15 @@ footer a{color:var(--ink-dim)}
     <p class="lede rv">Version 0.5 went live on 1 October. By 6 October it was 0.9.2.5, picking up a 3D globe, a Solar System view out to the cosmic web, Tonight above you, rocket launch countdowns, people in space and flight search along the way. You're not downloading a finished product. You're joining a build, and every step of it is public.</p>
     <div class="launch rv">
       <div>
-        <label class="lab" for="verSel">Every release stays online, exactly as it shipped</label>
+        <label class="lab" for="verSel">Recent releases stay online, exactly as they shipped</label>
         <select id="verSel" aria-describedby="verNotes"><option value="">Current</option></select>
-        <p class="vnotes" id="verNotes">The newest version is selected. Every earlier release stays online, exactly as it shipped.</p>
+        <p class="vnotes" id="verNotes">The newest version is selected. The recent releases stay online, exactly as they shipped; older ones are a download from GitHub.</p>
       </div>
       <div class="lbtns">
         <a class="btn primary" id="goMap" href="open-overwatch.html">Launch the live map</a>
         <a class="btn" id="goGlobe" href="globe.html">Launch the 3D globe <span class="mono" style="color:var(--ink-faint)">beta</span></a>
         <a class="btn" id="goSolar" href="solar.html">Explore the Solar System <span class="mono" style="color:var(--ink-faint)">new</span></a>
-        <p class="lnote">Pick an old version and launch it to see how far it has come. Full notes are on <a href="https://github.com/destinjones/open-overwatch/releases">the changelog</a>.</p>
+        <p class="lnote">Pick an old version and launch it to see how far it has come. Older releases are a .zip in the version history below. Full notes are on <a href="https://github.com/destinjones/open-overwatch/releases">the changelog</a>.</p>
       </div>
     </div>
     <div class="vh rv">
@@ -871,9 +871,9 @@ fetch('https://api.github.com/repos/' + REPO + '/releases/latest').then(r => r.o
 const RELEASES = 'https://github.com/' + REPO + '/releases';
 const fmtDate = iso => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 fetch('versions.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : Promise.reject()).then(data => {
-  const vs = data.versions || []; if (!vs.length) throw 0;
-  const sel = $('#verSel'), byTag = Object.fromEntries(vs.map(v => [v.tag, v]));
-  sel.innerHTML = vs.map((v, i) => `<option value="${esc(v.tag)}">${esc(v.tag)}${i ? '' : ' · latest'} · ${esc(fmtDate(v.date))}</option>`).join('');
+  const vs = data.versions || [], live = vs.filter(v => v.map); if (!live.length) throw 0;   // older ones: no map, only their zip
+  const sel = $('#verSel'), byTag = Object.fromEntries(live.map(v => [v.tag, v]));
+  sel.innerHTML = live.map((v, i) => `<option value="${esc(v.tag)}">${esc(v.tag)}${i ? '' : ' · latest'} · ${esc(fmtDate(v.date))}</option>`).join('');
   const want = new URLSearchParams(location.search).get('v');
   if (want && byTag[want]) sel.value = want;
   const apply = () => {
@@ -888,7 +888,7 @@ fetch('versions.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : Promis
     <div class="vt">${esc(v.tag)}${i ? '' : '<small>latest</small>'}</div>
     <div class="vd">${esc(fmtDate(v.date))}</div>
     <div class="vs">${esc(v.title)}</div>
-    <div class="vl"><a href="${esc(v.map)}">Map</a>${v.globe ? `<a href="${esc(v.globe)}">3D globe</a>` : '<span>no 3D globe</span>'}<a href="${RELEASES}/tag/${encodeURIComponent(v.tag)}">Notes</a><a href="${RELEASES}/download/${encodeURIComponent(v.tag)}/open-overwatch.zip">.zip</a></div>
+    <div class="vl">${v.map ? `<a href="${esc(v.map)}">Map</a>${v.globe ? `<a href="${esc(v.globe)}">3D globe</a>` : '<span>no 3D globe</span>'}` : '<span>download only</span>'}<a href="${RELEASES}/tag/${encodeURIComponent(v.tag)}">Notes</a><a href="${RELEASES}/download/${encodeURIComponent(v.tag)}/open-overwatch.zip">.zip</a></div>
   </div>`).join('');
 }).catch(() => { // no versions.json (e.g. opened from a local copy): launch what is in this folder
   $('#verSel').innerHTML = '<option>This copy</option>'; $('#verSel').disabled = true;

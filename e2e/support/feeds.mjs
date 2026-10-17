@@ -183,10 +183,13 @@ export const wheretheiss = now => ({ name: 'iss', id: 25544, latitude: 50.2, lon
 /** GitHub's latest release, for the landing page's version line. */
 export const githubRelease = () => ({ tag_name: 'v0.9.2.9', name: 'v0.9.2.9', published_at: '2026-10-13T12:00:00Z', html_url: 'https://github.com/destinjones/open-overwatch/releases/tag/v0.9.2.9' });
 
-/** versions.json (the site build writes it): two versions, the older one without a Solar System view. */
-export const versions = () => ({ versions: [
-  { tag: 'v0.9.2.9', date: '2026-10-13', title: 'The growth push', notes: 'Weather 2.0, solar missions and comets, aviation.', map: 'v/v0.9.2.9/open-overwatch.html', globe: 'v/v0.9.2.9/globe.html', solar: 'v/v0.9.2.9/solar.html' },
-  { tag: 'v0.9.1', date: '2026-10-02', title: 'The rebuild', notes: '', map: 'v/v0.9.1/open-overwatch.html', globe: 'v/v0.9.1/globe.html' },
+/** versions.json (the site build writes it): two versions online, the older one without a Solar System view, and one
+ *  retired (no longer hosted: only its release zip). */
+export const versions = () => ({ online: 2, keep: 6, versions: [
+  { tag: 'v0.9.2.9', date: '2026-10-13', title: 'The growth push', notes: 'Weather 2.0, solar missions and comets, aviation.', online: true, map: 'v/v0.9.2.9/open-overwatch.html', globe: 'v/v0.9.2.9/globe.html', solar: 'v/v0.9.2.9/solar.html' },
+  { tag: 'v0.9.1', date: '2026-10-02', title: 'The rebuild', notes: '', online: true, map: 'v/v0.9.1/open-overwatch.html', globe: 'v/v0.9.1/globe.html' },
+  { tag: 'v0.5', date: '2026-10-01', title: 'The first public version', notes: '', online: false, map: null, globe: null, solar: null,
+    zip: 'https://github.com/destinjones/open-overwatch/releases/download/v0.5/open-overwatch.zip' },
 ] });
 
 /** The USGS catalogue (time travel): the real M6+ quakes of 2011-03-11 (test/fixtures/history) for that day, none for any other. */

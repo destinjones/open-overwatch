@@ -1,6 +1,6 @@
 # Builds and deploys the website on every push to main (Publish Update.bat pushes the commit and its tag together):
-# the current version at the root, plus every released version under /v/<tag>/ and versions.json for the landing
-# page's version picker. See .github/build_site.py.
+# the current version at the root, plus the newest released versions under /v/<tag>/ and versions.json for the
+# landing page's version picker (older ones point at their release zip). See .github/build_site.py.
 name: Website
 on:
   push:
@@ -28,15 +28,18 @@ jobs:
           path: .tle-history
           key: tle-history-${{ github.run_id }}
           restore-keys: tle-history-
-      - name: Build the site with every released version
+      - name: Build the site with the recent released versions
         run: python3 .github/build_site.py _site
         env:
           OO_TLE_HISTORY: .tle-history
-      - name: Site size (GitHub Pages refuses a site over 1 GB)
+      # GitHub Pages sites may be no larger than 1 GB. Stop here, with the live site left as it is, rather than upload
+      # one GitHub may refuse or time out on; the fix is a lower ARCHIVE_KEEP in build_site.py.
+      - name: Check the site's size against the Pages limit
         run: |
-          du -sh _site
-          mb=$(du -sm _site | cut -f1)
-          if [ "$mb" -gt 900 ]; then echo "::warning::the site is $mb MB, close to the 1 GB GitHub Pages limit"; fi
+          size=$(du -sb _site | cut -f1)
+          echo "site: $((size / 1000000)) MB"
+          if [ "$size" -gt 900000000 ]; then echo "::warning::the site is $((size / 1000000)) MB, near GitHub Pages' 1 GB limit"; fi
+          if [ "$size" -gt 950000000 ]; then echo "::error::the site is $((size / 1000000)) MB, over the 950 MB budget"; exit 1; fi
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: _site
