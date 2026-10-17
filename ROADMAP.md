@@ -329,9 +329,10 @@ Round 2 (2026-10-10, local):
       the keyboard, the Solar System's search is a combobox; reduced motion stops CSS animation everywhere
 - [x] Contrast: the faint text colour #55667a (3.1-3.5:1) is now #738599 (4.6-5.4:1) on every page; symbol-only time
       buttons and the Solar System search got names. HTML check (core/a11ycheck.js) in the tests and in CI
-- [ ] Solar System camera flights still swoop with reduced motion on (the globe's already jump): src/solar is another
-      session's this round. Done on rebuild (src/solar/util.js CALM, used by focusOn, flyDist and the hand-over roll);
-      tick it together with taking it off CONTRIBUTING.md's good first issues and test/docs.test.mjs's open-items list
+- [ ] Solar System camera flights still swoop with reduced motion on in v0.9.2.14 (the globe's already jump). Fixed on
+      rebuild: src/solar/util.js CALM, used by focusOn, flyDist and the hand-over roll. The box stays open only
+      because CONTRIBUTING.md still lists it as a good first issue and test/docs.test.mjs expects it open (and checks
+      CALM in src/globe/viewer.js, not src/solar/util.js); tick it in the same change that takes it off both
 - [ ] Real-phone check of install + offline (iOS: Add to Home Screen from Safari's Share menu; no install prompt there)
 
 ### Earth now dashboard (grow2-dashboard, 2026-10-13, local)
@@ -367,16 +368,18 @@ Round 2 (2026-10-10, local):
       layouts (Pixel 7), five picture checks against small thumbnails; its own CI job (docs/TESTING.md)
 - [x] Fixed on the way: the 2D map's "3D globe" button lost the view on a middle-click
 - [ ] At 1366x820 the globe's zoom pad covers the right end of the band (Measure, Eclipses, Solar system ↗)
-- [ ] The 2D map's phone bar buttons are 37.5 px tall: under the 44-48 px a finger wants. Done on rebuild (44 px,
-      open-overwatch.html `#mobilebar button`; e2e/phone.spec.mjs checks 44); tick it together with taking it off
-      CONTRIBUTING.md's good first issues and test/docs.test.mjs's open-items list
+- [ ] The 2D map's phone bar buttons are 37.5 px tall in v0.9.2.14: under the 44-48 px a finger wants. Fixed on
+      rebuild: 44 px (open-overwatch.html `#mobilebar button`; e2e/phone.spec.mjs checks 44). The box stays open only
+      because CONTRIBUTING.md still lists it as a good first issue and test/docs.test.mjs expects it open; tick it in
+      the same change that takes it off both
 - [x] First CI run on Linux: if fonts push the picture checks past their limits, add `<name>.linux.png` references
       (e2e/snapshots/tonight-phone.linux.png)
 - [ ] Refresh e2e/snapshots/globe-europe.png on the next GitHub run (`OO_E2E_ALL=1 OO_E2E_UPDATE=1`): it was taken at
       the old Low quality level, which no level now matches; look at it before committing it
 - [ ] Run the browser tests written on 2026-10-17 on GitHub (a push to ci-e2e needs the owner's OK): the globe to
       Solar System hand-off and back, the #go= panels, weather mode, an Ops look, voice, Tonight's #at= links and embed,
-      the phone Low tier with Starlink off, the delayed no-aircraft line, and the EMSC mock
+      the phone Low tier with Starlink off, and the EMSC mock. The delayed no-aircraft line has no browser test (only
+      source checks in test/globesite.test.mjs): look for it on a normal globe run there
 ### Oceans and air (grow3-ocean, 2026-10-13, local)
 - [x] Globe and 2D map: NOAA NDBC buoys and coastal stations (`buoys`, ~870, coloured by wave height), DART tsunami
       buoys (`dart`, ~75; the card reads the buoy's file: water column, event mode), NOAA CO-OPS tide gauges (`tides`,
@@ -404,8 +407,9 @@ Round 2 (2026-10-10, local):
       to main, weekly; data, renders and fixtures skipped), `npm audit --audit-level=high` and a licence allowlist
       check (`brand/tools/license_check.mjs`, no new dependency) in the test job, and a coverage floor (`npm run
       coverage`: src/core and mcp, lines 96 / branches 81 / functions 91 against 99.3 / 84.2 / 94.3 measured)
-- [ ] Raise the branch floor as the MCP tools' error paths get tests (airportwx, hazards, ocean are 51-59 % branches);
-      83 since the 2026-10-17 MCP error-path tests (package.json `coverage`)
+- [ ] Raise the branch floor as the MCP tools' error paths get tests: 83 since the 2026-10-17 MCP error-path tests
+      (package.json `coverage`; 84.96 % measured). Lowest now: mcp/wxdetail.mjs 46 %, airportwx.mjs 53 %,
+      volcanoes.mjs 62 % branches
 
 ### Provenance on every live layer (provenance-layers, 2026-10-14, local)
 - [x] Every live card on the globe and the 2D map says who reported it, how many sources agree, how old the data is
