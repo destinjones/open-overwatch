@@ -28,14 +28,27 @@ test('the version picker re-points the launch buttons', async ({ page }) => {
   await expect(page.locator('#goSolar')).toHaveAttribute('aria-disabled', 'true');   // the Solar System came later
   await expect(page.locator('#goSolar')).not.toHaveAttribute('href', /./);
   await expect(page.locator('#verNotes')).toContainText('The rebuild');
-  await expect(page.locator('#verList .vrow')).toHaveCount(2);
+  await expect(page.locator('#verList .vrow')).toHaveCount(3);
   await expect(page.locator('#verList .vrow').nth(1).locator('a', { hasText: '.zip' })).toHaveAttribute('href', 'https://github.com/destinjones/open-overwatch/releases/download/v0.9.1/open-overwatch.zip');
+});
+
+test('a retired version is in the history as a download, not in the picker', async ({ page }) => {
+  await expect(page.locator('#verSel option')).toHaveCount(2);
+  await expect(page.locator('#verSel option', { hasText: 'v0.5' })).toHaveCount(0);
+  const row = page.locator('#verList .vrow').nth(2);
+  await expect(row).toContainText('v0.5');
+  await expect(row).toContainText('download only');
+  await expect(row.locator('a', { hasText: 'Map' })).toHaveCount(0);
+  await expect(row.locator('a', { hasText: '.zip' })).toHaveAttribute('href', 'https://github.com/destinjones/open-overwatch/releases/download/v0.5/open-overwatch.zip');
 });
 
 test('?v= opens the picker on that version', async ({ page }) => {
   await page.goto('index.html?v=v0.9.1');
   await expect(page.locator('#verSel')).toHaveValue('v0.9.1');
   await expect(page.locator('#goSolar')).toHaveAttribute('aria-disabled', 'true');
+  await page.goto('index.html?v=v0.5');   // retired: the newest one, rather than a launch button that leads nowhere
+  await expect(page.locator('#verSel')).toHaveValue('v0.9.2.9');
+  await expect(page.locator('#goMap')).toHaveAttribute('href', 'v/v0.9.2.9/open-overwatch.html');
 });
 
 test('the fleet viewer swaps models and their specs', async ({ page }) => {
