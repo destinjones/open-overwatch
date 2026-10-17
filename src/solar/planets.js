@@ -6,12 +6,13 @@ import { PLANET_KEYS, PHYSICAL, planetElements, planetPosition, earthPosition, m
 import { bodyAxes } from '../core/rotation.js';
 import { orbitPath, periodDays } from '../core/kepler.js';
 import { distance, lightTime, period } from '../core/format.js';
-import { surfaceMaterial, loadTexture, planetTexture, sharpTexture, swapTexture, Sharpen, glowTexture, STAR_TEXTURE, toVector3 } from './util.js';
+import { J2000 } from '../core/time.js';
+import { surfaceMaterial, loadTexture, planetTexture, sharpTexture, swapTexture, Sharpen, glowTexture, STAR_TEXTURE, toVector3, flatTexture, rebasedLine, rebase } from './util.js';
 
 const HAS_4K = new Set(['earth', 'venus', 'mars', 'jupiter', 'saturn', 'moon']);
 const SHARP = 0.22;   // a body gets its 4k map once its radius covers this share of the window height
-/** The first (2k) texture, unless a sharper one already arrived. */
-const firstTexture = (u, t) => { if (!t) return; if (u.value) t.dispose(); else u.value = t; };
+/** The first (2k) texture, unless a sharper one already arrived (it replaces a flat stand-in). */
+const firstTexture = (u, t) => { if (!t) return; if (u.value && !u.value.userData.flat) t.dispose(); else swapTexture(u, t); };
 import { addBody, byKey, ORIGIN, layerOn, onLayers } from './world.js';
 
 const STYLE = { // label/orbit colour, atmosphere [rgb, strength], gas giant (soft terminator)
@@ -100,8 +101,10 @@ export function createPlanets({ scene, sunView, renderer }) {
     const R = radiusKm * KM_AU, group = new THREE.Group(), spin = new THREE.Group(); scene.add(group); group.add(spin);
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, key === 'earth' ? 128 : 96, key === 'earth' ? 64 : 48), globeMaterial(sunView, { atm: atm || [0, 0, 0], atmK, wrap: gas ? 0.05 : 0 }));
     const flat = key === 'earth' ? 0 : flattening; // Earth's 0.3% would only matter to its clouds; skip it
-    mesh.scale.set(R, R * (1 - flat), R); mesh.visible = false; spin.add(mesh);
-    const firstMap = t => { firstTexture(mesh.material.uniforms.map, t); mesh.visible = !!mesh.material.uniforms.map.value; };
+    // a flat globe in its own colour until the map lands, so a planet bigger than its dot is never just a halo (or, for
+    // Mercury, nothing)
+    mesh.material.uniforms.map.value = flatTexture(color); mesh.scale.set(R, R * (1 - flat), R); spin.add(mesh);
+    const firstMap = t => firstTexture(mesh.material.uniforms.map, t);
     if (key === 'earth') loadTexture(planetTexture(key)).then(firstMap);   // the others once they are more than a dot
     if (atm) { const h = halo(sunView, atm, key === 'earth' ? 1.1 : 0.6); h.scale.set(R, R * (1 - flat), R); spin.add(h); }
     const b = addBody({ key, name, kind: 'planet', color, radius: R, pos: new THREE.Vector3(), group, spin, mesh, big: true, fact: FACTS[key],
@@ -112,7 +115,7 @@ export function createPlanets({ scene, sunView, renderer }) {
         return [['Distance from Sun', distance(b.pos.length())], ['From Earth', key === 'earth' ? '—' : distance(dE) + ' · light ' + lightTime(dE)],
           ['Year', period(periodDays(el.a))], ['Radius', Math.round(radiusKm).toLocaleString('en-US') + ' km'], ['Orbit tilt', (el.i / DEG).toFixed(2) + '°']];
       } });
-    if (key !== 'earth') Sharpen.need(() => Sharpen.px(b) > 1.5, planetTexture(key), firstMap);
+    if (key !== 'earth') Sharpen.need(() => Sharpen.px(b) > 0.5, planetTexture(key), firstMap);
     if (HAS_4K.has(key)) Sharpen.add(() => Sharpen.px(b) > innerHeight * SHARP, sharpTexture(key), t => swapTexture(mesh.material.uniforms.map, t));
     if (key === 'earth') addEarthExtras(b, sunView, R);
     if (key === 'saturn') addRings(b, sunView, R, ringTex);
@@ -132,17 +135,16 @@ export function createPlanets({ scene, sunView, renderer }) {
     Sharpen.add(() => Sharpen.px(b) > innerHeight * SHARP, sharpTexture('moon'), t => swapTexture(mesh.material.uniforms.map, t));
   }
 
-  // ---- orbits (rebuilt every ten simulated years: the elements drift slowly)
+  // ---- orbits, each drawn relative to its planet and refilled from the elements at the time it is refilled: they
+  // drift (Jupiter's by ~1e4 km in ten years), and the planet sits on that jd's ellipse (Earth: the Earth-Moon
+  // barycentre's, within 4,700 km)
   const orbits = new THREE.Group(); scene.add(orbits);
-  let orbitsJd = null;
-  function rebuildOrbits(jd) {
-    orbitsJd = jd;
-    for (const c of [...orbits.children]) { orbits.remove(c); c.geometry.dispose(); }
-    for (const key of PLANET_KEYS) {
-      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(orbitPath(planetElements(key, jd)), 3));
-      orbits.add(new THREE.LineLoop(g, new THREE.LineBasicMaterial({ color: STYLE[key][0], transparent: true, opacity: 0.4, depthWrite: false })));
-    }
-  }
+  let orbitsJd = J2000;
+  const orbitOf = Object.fromEntries(PLANET_KEYS.map(key => {
+    const l = rebasedLine(720, new THREE.LineBasicMaterial({ color: STYLE[key][0], transparent: true, opacity: 0.4, depthWrite: false }),
+      (out, origin) => orbitPath(planetElements(key, orbitsJd), 720, { origin, out, through: true }));
+    orbits.add(l); return [key, l];
+  }));
   onLayers(() => { orbits.visible = layerOn('orbits'); });
 
   // ---- dots, so planets stay visible when their real disc is under a few pixels
@@ -160,7 +162,7 @@ export function createPlanets({ scene, sunView, renderer }) {
   const ringN = new THREE.Vector3();
   return {
     update(jd) {
-      if (orbitsJd === null || Math.abs(jd - orbitsJd) > 3650) rebuildOrbits(jd);
+      orbitsJd = jd;
       for (const k of PLANET_KEYS) byKey[k].jd = jd;
       orient('sun', jd, sunMesh.quaternion);
     },
@@ -168,6 +170,7 @@ export function createPlanets({ scene, sunView, renderer }) {
       sunStar.scale.setScalar(0.035 + 0.02 * (1 - fade(50, 5e4, camSun)));
       sunStar.material.opacity = Math.max(0.15, 1 - fade(30, 3000, camSun, 'ly'));
       orbits.children.forEach(c => { c.material.opacity = 0.42 * (1 - fade(2000, 3e4, camSun)); });
+      if (orbits.visible) for (const k of PLANET_KEYS) rebase(orbitOf[k], byKey[k].pos, camera);
       const sizes = dots.geometry.attributes.size, P = dots.geometry.attributes.position, pxPerRad = innerHeight / (2 * Math.tan(camera.fov * DEG / 2));
       dotKeys.forEach((k, i) => {
         const b = byKey[k]; P.setXYZ(i, b.pos.x, b.pos.y, b.pos.z);

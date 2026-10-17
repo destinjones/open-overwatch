@@ -65,7 +65,7 @@ const sunView = new THREE.Vector3();   // the Sun in view space: every lit shade
 const sky = createSky(scene);
 const planets = createPlanets({ scene, sunView, renderer });
 const moons = createMoons({ scene, sunView, renderer });
-const small = createSmallBodies({ scene, renderer });
+const small = createSmallBodies({ scene, renderer, focus: () => nav.focus });
 const craft = createSpacecraft({ scene });
 const comets = createComets({ scene, focus: () => nav.focus });
 const deep = createDeepSpace({ scene, camera, renderer });
@@ -117,6 +117,7 @@ exo.onChange = () => { applyLayers(); ui.renderLayers(); };
 const nerd = createNerd({ renderer, quality, small, exo, moons });
 document.querySelector('#bNerd').onclick = () => nerd.toggle();
 small.onChange = () => ui.renderLayers();
+small.onNamed = b => find.flyTo(b);
 if (quality.software) setTimeout(() => ui.caption('Slow graphics', SOFTWARE_HINT, '', 15000), 10e3);
 
 // ---- the loop
@@ -174,7 +175,7 @@ const smallLoad = small.load().then(() => comets.init(small.S.comets, clock.jd, 
 const loads = [moons.load(), smallLoad, craft.load(), eclipses.load()];   // eclipses: 200 KB of Sun and Moon, so links to an event resolve   // stars, galaxies and most textures load as you approach them
 deep.onStars = () => { applyLayers(); ui.renderLayers(); };
 if (!PHONE) setTimeout(() => { deep.needStars(); web.load().catch(e => console.warn(e)).finally(() => applyLayers()); }, 6000);   // desktops: in the background
-document.querySelector('#q').addEventListener('focus', () => deep.needStars(), { once: true });   // searching for a star
+document.querySelector('#q').addEventListener('focus', () => { deep.needStars(); if (!EMBED) small.defer(false); }, { once: true });   // searching for a star, or a named asteroid in the big file
 loads.forEach(settle);
 // a shared link (solar.html#f=craft:Juno&t=...): applied once the bodies it may name exist
 const linked = !EMBED && !!location.hash && location.hash.length > 3;

@@ -7,7 +7,7 @@ import { orbitPath } from '../core/kepler.js';
 import { moonOffset, moonPeriod } from '../core/moons.js';
 import { fetchAsset } from '../core/assets.js';
 import { distance } from '../core/format.js';
-import { STAR_TEXTURE, swapTexture, Sharpen } from './util.js';
+import { STAR_TEXTURE, swapTexture, Sharpen, flatTexture } from './util.js';
 import { globeMaterial } from './planets.js';
 import { addBody, byKey, layer, layerOn, onLayers } from './world.js';
 
@@ -65,10 +65,6 @@ function surfaceTexture(seed, hex, style) {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
 const NO_MAP = new Set(['Titan']);
-function flatTexture(hex) {
-  const n = parseInt(hex.slice(1), 16), t = new THREE.DataTexture(new Uint8Array([n >> 16, n >> 8 & 255, n & 255, 255]), 1, 1);   // sRGB bytes
-  t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true; return t;
-}
 /** Iapetus' map has its brightness evened out; darken the leading hemisphere (Cassini Regio) as it really looks. */
 function darkenLeading(tex) {
   const img = tex.image, c = document.createElement('canvas'), g = c.getContext('2d'); c.width = img.width; c.height = img.height;

@@ -77,3 +77,34 @@ export function smoothLog(a, b, x) {
 }
 
 export const toVector3 = (o, out = new THREE.Vector3()) => out.set(o.x, o.y, o.z);
+
+/** A 1-pixel texture in one colour (sRGB '#rrggbb'): a globe's stand-in until its map arrives. */
+export function flatTexture(hex) {
+  const n = parseInt(hex.slice(1), 16), t = new THREE.DataTexture(new Uint8Array([n >> 16, n >> 8 & 255, n & 255, 255]), 1, 1);   // sRGB bytes
+  t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true; t.userData.flat = true; return t;
+}
+
+/**
+ * A line (an orbit) drawn relative to its body. Meshes stay steady far out because three.js composes model-view
+ * matrices in float64 on the CPU, but a line's vertices go to the GPU as float32: at 39 AU that is ~570 km (Saturn
+ * 143 km, Eris 1,100 km), so absolute orbit lines jitter and miss their bodies close up. The line sits at an origin
+ * (its Object3D position) and holds path minus origin; fill(out, origin) writes its n points (orbitPath's origin) with
+ * one vertex on the origin (orbitPath through, conicArc at), so the body never sits mid-chord, where a 720-point line
+ * passes 56,000 km from Pluto. reach: how far the body may move, in camera distances, before the line is refilled
+ * around it (the chord then sags from it by reach * (2pi/n) / 2 of the camera distance, well under a pixel).
+ */
+export function rebasedLine(n, material, fill, { Line = THREE.LineLoop, reach = 0.1 } = {}) {
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  const line = new Line(g, material); Object.assign(line.userData, { fill, reach, based: false }); return line;
+}
+/** New points for a rebasedLine (the next rebase writes them). */
+export function refill(line, fill) { line.userData.fill = fill; line.userData.based = false; }
+/** Refill a rebasedLine around `to` (its body) once the body has moved `reach` camera distances from its origin, or its
+ *  points changed. The float32 error near the body is then a few ulps of that distance: nothing on screen. */
+export function rebase(line, to, camera) {
+  const u = line.userData;
+  if (u.based && line.position.distanceTo(to) <= u.reach * camera.position.distanceTo(to)) return false;
+  const a = line.geometry.attributes.position;
+  u.fill(a.array, to); a.needsUpdate = true; line.position.copy(to); line.geometry.computeBoundingSphere(); u.based = true;
+  return true;
+}

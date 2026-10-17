@@ -7,7 +7,8 @@ import { positionAt, orbitPath, periodDays } from '../core/kepler.js';
 import { CLASSES, viewSmallBodies, decodeElements, cometElements, packSmallBodies, DEFAULT_EPOCH } from '../core/smallbodies.js';
 import { fetchAsset } from '../core/assets.js';
 import { distance, period } from '../core/format.js';
-import { LOGDEPTH_V, LOGDEPTH_F, PHONE } from './util.js';
+import { decodeSolarView } from '../core/solarlink.js';
+import { LOGDEPTH_V, LOGDEPTH_F, PHONE, rebasedLine, refill, rebase } from './util.js';
 import { addBody, removeBody, byKey, bodies, layer, layerOn, onLayers } from './world.js';
 
 const CLASS_STYLE = [ // colour, per-point brightness (the main belt is 1.47M points: keep each faint), default on
@@ -52,8 +53,17 @@ const FRAG = LOGDEPTH_F + `uniform float uFade; varying vec3 vC;
     #include <colorspace_fragment>
   }`;
 
-export function createSmallBodies({ scene, renderer }) {
-  const S = { epoch: DEFAULT_EPOCH, named: [], comets: [], files: [], points: [], cometPoints: null, loadingAll: false, full: !PHONE };
+const LEAVE_EARTH = 1.5;   // AU from the Sun: the camera is on its way out, so the big asteroid file is worth fetching
+
+export function createSmallBodies({ scene, renderer, focus: focusOf = () => null }) {
+  // defer 'near': hold the big file back until the camera first leaves Earth's neighbourhood (frame) or the search box
+  // is used (main.js); inside the globe main.js sets defer(true) until the view is entered
+  const S = { epoch: DEFAULT_EPOCH, named: [], comets: [], files: [], points: [], cometPoints: null, loadingAll: false, full: !PHONE, defer: 'near' };
+  // a shared link to (or a search for) a named asteroid kept in the big file needs that file before the link is applied
+  const linked = decodeSolarView(location.hash), q = linked?.query?.toLowerCase();
+  // (a #q= search only when it names one outright, "433 Eros" or "Eros": its top hit may well be a planet otherwise)
+  const isQuery = n => n[2].toLowerCase() === q || n[2].replace(/^\d+ /, '').toLowerCase() === q;
+  const linkNeedsBig = () => !!linked && S.named.some(n => n[0] === 'b' && (linked.focus ? linked.focus === 'ast:' + n[2] : !!q && isQuery(n)));
   const uniforms = {
     uDays: { value: 0 }, uFade: { value: 1 }, uShow: { value: CLASS_STYLE.map(() => 1) }, uSize: { value: PHONE ? 1.6 : 1.5 }, uPR: { value: renderer.getPixelRatio() },
     uCol: { value: CLASS_STYLE.map(([c, k]) => new THREE.Vector3(...c).multiplyScalar(k)) },
@@ -75,19 +85,25 @@ export function createSmallBodies({ scene, renderer }) {
   async function load() {
     const meta = await fetchAsset('data/solar/small_bodies.json', 'json');
     S.epoch = meta.epoch_jd; S.named = meta.named; S.comets = meta.comets;
+    const needAll = S.defer !== true && linkNeedsBig(); if (needAll) S.defer = false;   // (true: inside the globe)
     S.files[0] = pointsFor(await fetchAsset('data/solar/asteroids_a.bin'));
     layer('asteroids').n = count();
     addNamedWorlds(); addComets();
-    if (S.full) loadAll();
+    if (S.full) { const all = loadAll(); if (needAll) await all; }   // the link is applied once load() is done
   }
   async function loadAll() { // the other 1.27M (19 MB): only on the higher quality levels (quality.js), and not while
-    // preloaded inside the globe (S.defer) where most visitors never come out this far
+    // the camera sits at Earth or is preloaded inside the globe (S.defer), where most visitors never come out this far
     if (S.defer) return;
     if (S.loadingAll || S.files[1]) return; S.loadingAll = true;
-    try { S.files[1] = pointsFor(await fetchAsset('data/solar/asteroids_b.bin')); S.files[1].points.visible = layerOn('asteroids') && S.full; layer('asteroids').n = count(); onChange(); }
+    try {
+      S.files[1] = pointsFor(await fetchAsset('data/solar/asteroids_b.bin')); S.files[1].points.visible = layerOn('asteroids') && S.full; layer('asteroids').n = count(); onChange();
+      // an asteroid searched for (or linked to) while the file was on its way: there now, unless the view moved on
+      const p = S.pendingNamed; S.pendingNamed = null;
+      if (p && focusOf() === p.focus) { const b = asteroidBody(p.n); if (b) onNamed(b); }
+    }
     catch (e) { console.warn('asteroids_b', e); } finally { S.loadingAll = false; }
   }
-  let onChange = () => {};
+  let onChange = () => {}, onNamed = () => {};
 
   function addNamedWorlds() {
     for (const [label, name, rkm, color, fact] of DWARFS) {
@@ -102,9 +118,10 @@ export function createSmallBodies({ scene, renderer }) {
           ['Radius', rkm < 10 ? rkm + ' km' : Math.round(rkm).toLocaleString('en-US') + ' km'], ['Orbit', 'a ' + el.a.toFixed(2) + ' AU · e ' + el.e.toFixed(3)]] });
     }
   }
-  function orbitLine(el, color, opacity, n = 720) {
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(orbitPath(el, n), 3));
-    const l = new THREE.LineLoop(g, new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false })); l.userData.opacity = opacity; scene.add(l); return l;
+  const fillOrbit = (el, n) => (out, origin) => orbitPath(el, n, { origin, out, through: true });
+  function orbitLine(el, color, opacity, n = 720) {   // drawn relative to its body (util.js rebase), re-based in frame()
+    const l = rebasedLine(n, new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false }), fillOrbit(el, n));
+    l.userData.opacity = opacity; scene.add(l); return l;
   }
 
   function addComets() {   // every closed-orbit comet as a point; the ones with names, comae and tails are comets.js
@@ -117,7 +134,11 @@ export function createSmallBodies({ scene, renderer }) {
   const picked = orbitLine({ a: 1, e: 0, i: 0, node: 0, peri: 0 }, '#ffffff', 0.6); picked.visible = false;
   function asteroidBody(n) {
     const [file, idx, label, H, diam, cls] = n, key = 'ast:' + label; if (byKey[key]) return byKey[key];
-    const el = elementsOf(file, idx); if (!el) return null;
+    const el = elementsOf(file, idx);
+    if (!el) {   // its file is still to come: fetched now, whatever the layer, and the asteroid flown to when it lands
+      if (file === 'b' && S.full) { S.pendingNamed = { n, focus: focusOf() }; S.defer = false; loadAll(); }
+      return null;
+    }
     for (const old of bodies.filter(x => x.transient)) { removeBody(old); scene.remove(old.group); }
     const group = new THREE.Group(); scene.add(group);
     const kind = cls === 0 ? 'main-belt asteroid' : (CLASSES[cls] || 'asteroid').replace(/s$/, '').replace(/ & beyond$/, ' object').toLowerCase();
@@ -125,7 +146,7 @@ export function createSmallBodies({ scene, renderer }) {
       update(jd) { positionAt(el, jd, b.pos); },
       info: () => [['Distance from Sun', distance(b.pos.length())], ['From Earth', distance(b.pos.distanceTo(byKey.earth.pos))], ['Year', period(periodDays(el.a))],
         ['Size', diam ? diam + ' km across' : 'unknown (H ' + H + ')'], ['Orbit', 'a ' + el.a.toFixed(2) + ' AU · e ' + el.e.toFixed(3) + ' · i ' + (el.i / DEG).toFixed(1) + '°']] });
-    picked.geometry.attributes.position.array.set(orbitPath(el)); picked.geometry.attributes.position.needsUpdate = true; picked.visible = true;
+    refill(picked, fillOrbit(el, 720)); picked.userData.body = key; picked.visible = true;
     return b;
   }
   function pickAsteroid(x, y, jd, screenOf) {
@@ -148,24 +169,31 @@ export function createSmallBodies({ scene, renderer }) {
     if (layerOn('asteroids') && S.full && S.files[0]) loadAll();
   });
 
+  function defer(on) { S.defer = on; if (!on && S.full && S.files[0] && layerOn('asteroids')) loadAll(); }
+
   return {
     /** All 1.57M asteroids (true) or the brightest 300k (false); the second file loads on first use. */
     setFull(on) {
       S.full = on; if (S.files[1]) S.files[1].points.visible = on && layerOn('asteroids'); else if (on && S.files[0] && layerOn('asteroids')) loadAll();
       layer('asteroids').n = S.files[0] ? S.files[0].view.N + (on && S.files[1] ? S.files[1].view.N : 0) : 0; onChange();
     },
-    /** Inside the globe: hold the big file back until the view is actually entered. */
-    defer(on) { S.defer = on; if (!on && S.full && S.files[0] && layerOn('asteroids')) loadAll(); },
+    /** Hold the big file back (inside the globe: until the view is actually entered; true, or 'near': until the camera
+     *  leaves Earth), or false to let it load now. */
+    defer,
     S, load, asteroidBody, pickAsteroid, set onChange(fn) { onChange = fn; },
+    /** fn(body): a named asteroid asked for before its file had loaded, now made (main.js flies to it). */
+    set onNamed(fn) { onNamed = fn; },
     update(jd) { uniforms.uDays.value = jd - S.epoch; },
-    frame({ camSun, fade }) {
+    frame({ camera, camSun, fade }) {
+      if (S.defer === 'near' && camSun > LEAVE_EARTH) defer(false);
       uniforms.uPR.value = renderer.getPixelRatio();
       uniforms.uFade.value = (1 - fade(500, 3000, camSun)) * (1 - 0.88 * fade(12, 120, camSun)); // the belt piles into a blob from far out
       // faded out = not drawn: from far out the asteroids land on a few pixels and additive blending serialises them
       // (42 ms a frame from light-years away, 24 ms at 2,000 AU). The faint 1.27M go first: beyond 250 AU they add nothing.
       const drawn = uniforms.uFade.value > 0.002 && layerOn('asteroids');
       S.files.forEach((f, i) => { if (f) f.points.visible = drawn && (i === 0 || (S.full && camSun < 250)); });
-      for (const b of bodies) if (b.orbit && b.layer === 'dwarfs') b.orbit.material.opacity = b.orbit.userData.opacity * (1 - fade(2000, 3e4, camSun));
+      for (const b of bodies) if (b.orbit && b.layer === 'dwarfs') { b.orbit.material.opacity = b.orbit.userData.opacity * (1 - fade(2000, 3e4, camSun)); if (b.orbit.visible) rebase(b.orbit, b.pos, camera); }
+      const pb = byKey[picked.userData.body]; if (pb && picked.visible) rebase(picked, pb.pos, camera);
     },
   };
 }
