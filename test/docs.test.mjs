@@ -127,11 +127,9 @@ test('docs: files CONTRIBUTING.md and GOVERNANCE.md point at are real, and the g
   }
   const contrib = read('CONTRIBUTING.md'), header = read('serve.js').split('\n')[1];
   assert.ok(contrib.includes(header), 'CONTRIBUTING.md quotes the copyright line every source file starts with');
-  assert.match(read('open-overwatch.html'), /#mobilebar button\{/, 'good first issue: the phone bar buttons');
-  assert.match(read('src/globe/viewer.js'), /export const CALM = /, 'good first issue: reduced motion in the Solar System');
   // a good first issue that is done should leave the list: ROADMAP ticks it, this fails, CONTRIBUTING.md loses it
   const open = read('ROADMAP.md').split('\n').filter(l => l.startsWith('- [ ]')).join('\n');
-  for (const item of ['phone bar buttons are 37.5 px', 'zoom pad covers', 'still swoop with reduced motion', 'An `earth_now` MCP tool', 'the route arc are still globe-only', 'Uranus'])
+  for (const item of ['zoom pad covers', 'An `earth_now` MCP tool', 'the route arc are still globe-only', 'Uranus'])
     assert.ok(open.includes(item), `ROADMAP no longer has "${item}" open: take it off CONTRIBUTING.md's good first issues`);
 });
 

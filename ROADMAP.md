@@ -329,7 +329,7 @@ Round 2 (2026-10-10, local):
       the keyboard, the Solar System's search is a combobox; reduced motion stops CSS animation everywhere
 - [x] Contrast: the faint text colour #55667a (3.1-3.5:1) is now #738599 (4.6-5.4:1) on every page; symbol-only time
       buttons and the Solar System search got names. HTML check (core/a11ycheck.js) in the tests and in CI
-- [ ] Solar System camera flights still swoop with reduced motion on in v0.9.2.14 (the globe's already jump). Fixed on
+- [x] Solar System camera flights still swoop with reduced motion on in v0.9.2.14 (the globe's already jump). Fixed on
       rebuild: src/solar/util.js CALM, used by focusOn, flyDist and the hand-over roll. The box stays open only
       because CONTRIBUTING.md still lists it as a good first issue and test/docs.test.mjs expects it open (and checks
       CALM in src/globe/viewer.js, not src/solar/util.js); tick it in the same change that takes it off both
@@ -368,7 +368,7 @@ Round 2 (2026-10-10, local):
       layouts (Pixel 7), five picture checks against small thumbnails; its own CI job (docs/TESTING.md)
 - [x] Fixed on the way: the 2D map's "3D globe" button lost the view on a middle-click
 - [ ] At 1366x820 the globe's zoom pad covers the right end of the band (Measure, Eclipses, Solar system ↗)
-- [ ] The 2D map's phone bar buttons are 37.5 px tall in v0.9.2.14: under the 44-48 px a finger wants. Fixed on
+- [x] The 2D map's phone bar buttons are 37.5 px tall in v0.9.2.14: under the 44-48 px a finger wants. Fixed on
       rebuild: 44 px (open-overwatch.html `#mobilebar button`; e2e/phone.spec.mjs checks 44). The box stays open only
       because CONTRIBUTING.md still lists it as a good first issue and test/docs.test.mjs expects it open; tick it in
       the same change that takes it off both

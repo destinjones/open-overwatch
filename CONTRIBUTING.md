@@ -114,14 +114,8 @@ of change: `src/globe/volcanoes.js` (a globe layer, 28 lines), `src/map/feeds.js
 Real open items from the roadmap, roughly smallest first. Say in an issue which one you're taking so two people don't
 do the same one.
 
-- **The 2D map's phone bar buttons are too small.** They are 37.5 px tall; a finger wants 44-48. The CSS is
-  `#mobilebar button` in `open-overwatch.html`; then raise the floor in `e2e/phone.spec.mjs` (`expectTappable(…, 36)`)
-  and run `npx playwright test --project=phone`.
 - **The globe's zoom pad covers the end of the band at 1366x820** (Measure, Eclipses, Solar system). `#navpad` and
   `#band` in `globe.html`'s styles; the browser tests' desktop window is exactly that size.
-- **Solar System camera flights ignore reduced motion.** The globe already jumps instead of flying when
-  `prefers-reduced-motion` is on (`CALM` in `src/globe/viewer.js`); the Solar System still swoops. Do the same in
-  `src/solar/`.
 - **An `earth_now` MCP tool.** The globe's "Earth now" panel sums are already in `src/core/earthnow.js` (tested); a tool
   in `mcp/` that returns the same summary needs a file like `mcp/volcanoes.mjs`, a test in `test/mcp.test.mjs` and a
   line in `mcp/manifest.json` and `mcp/README.md` ([DEVELOPING.md section 8](docs/DEVELOPING.md#8-adding-an-mcp-tool)).
