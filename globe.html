@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one);
      'unsafe-eval' because Cesium's widgets run on Knockout (eval at load, new Function per data-bind). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-eval' 'sha256-5H6UXlGmXVotIBnP0qK/nVs2xzlTS5hqO9Buf31xh7s=' 'sha256-P5skaw/CUJLcCGM1kcv/zrG7kvCOWsU/C6sLyGeX7cM=' 'sha256-j+uHiFPkO8OJxchEN9a0y0gvpF97+ceq/1EKpvxrVSE=' 'sha256-yCrdYMG9/cGcwFrlJjf+2+T9U0UOLHA110Mwi25YYqQ=' 'sha256-xIrUzJZ182Rpedv+vhIMDAp7UfcnYTGlJ+BRQ5mgDCY=' 'sha256-mrjerRp10Etjs0MhXq/ngp49RNU0I523nZn7Qi6nr7U='; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; child-src 'self' blob: https://cdn.jsdelivr.net; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-eval' 'sha256-5H6UXlGmXVotIBnP0qK/nVs2xzlTS5hqO9Buf31xh7s=' 'sha256-P5skaw/CUJLcCGM1kcv/zrG7kvCOWsU/C6sLyGeX7cM=' 'sha256-j+uHiFPkO8OJxchEN9a0y0gvpF97+ceq/1EKpvxrVSE=' 'sha256-yCrdYMG9/cGcwFrlJjf+2+T9U0UOLHA110Mwi25YYqQ=' 'sha256-HzDiltcmbR3hAhPKgaIqtBUG7puL/Yh0hokK2GcDAa0=' 'sha256-mrjerRp10Etjs0MhXq/ngp49RNU0I523nZn7Qi6nr7U='; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; child-src 'self' blob: https://cdn.jsdelivr.net; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <script type="importmap">{ "integrity": { "https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.light.mjs": "sha384-OQpxx4NyhnwaH6BpRnuHkLoE710dl+R2jDCUYLeXFVi1Msn+cqfvyy9F0Tt0FmXP" } }</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <script>/* iOS ignores user-scalable=no: stop its page pinch-zoom too (the views handle pinch themselves) */ addEventListener('gesturestart', e => e.preventDefault(), { passive: false });</script>
@@ -227,7 +227,7 @@ body.lookup #navpad{display:none}
 @media (max-width:900px){ .tt-st{grid-template-columns:auto 1fr} }
 body.m #tt{left:10px;right:10px;width:auto;transform:none;bottom:calc(86px + env(safe-area-inset-bottom,0px));max-height:52dvh}
 body.tt-open #wx{display:none}
-body.m.tt-open #card{bottom:calc(52dvh + 96px + env(safe-area-inset-bottom,0px));max-height:max(120px,calc(48dvh - 166px - env(safe-area-inset-bottom,0px) - env(safe-area-inset-top,0px)))}   /* a card above the strip, not under it (as radio.css does for the tuner) */
+body.m.tt-open #card.show{bottom:calc(52dvh + 96px + env(safe-area-inset-bottom,0px));max-height:max(120px,calc(48dvh - 166px - env(safe-area-inset-bottom,0px) - env(safe-area-inset-top,0px)))}   /* a shown card above the strip, not under it; a closed one keeps its slot, so its slide-out still clears the screen */
 @media (pointer:coarse){ .tt-st .tt-on{min-height:36px;padding:6px 10px} #tt .x,.wx-head .x{font-size:24px;padding:8px 14px} }   /* after the rules they bump: same specificity, so order decides */
 body.lookup #tt,body.embed #tt{display:none!important}
 /* provenance block on live cards (core/liveprov.js + provenance.js): its own dark backing so it reads on any page or theme;
@@ -314,13 +314,15 @@ if (typeof OffscreenCanvas === 'undefined') window.OffscreenCanvas = class Offsc
    never runs and the boot screen would say "Initialising" forever. Say what failed instead, with a retry and the 2D map.
    main.js sets window.OO3D as soon as its modules have run, so a healthy boot, however slow, is never touched. */
 (() => {
-  let failed = false;
+  let failed = false, blocked = false;   // blocked: a script that failed to load, not one still on its way
   const show = () => {
     const boot = document.getElementById('boot'), box = boot && boot.firstElementChild;
     if (!box || window.OO3D || location.protocol === 'file:') return;   // booted, or the file:// note below says it already
     let gl = false;
     try { const c = document.createElement('canvas'); gl = !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) { /* no canvas at all */ }
-    const why = typeof Cesium === 'undefined' ? "The 3D library didn't load from cdn.jsdelivr.net. A network filter, firewall or browser extension may be blocking it."
+    const noLib = typeof Cesium === 'undefined';
+    const why = noLib && blocked ? "The 3D library didn't load from cdn.jsdelivr.net. A network filter, firewall or browser extension may be blocking it."
+      : noLib && !failed ? 'The 3D library is still downloading from cdn.jsdelivr.net; a slow connection can take a while.'
       : !gl ? 'This browser has no WebGL, which the 3D globe needs. Turning on hardware acceleration, or another browser, may help.'
       : failed ? 'The 3D globe could not start in this browser.' : 'The 3D globe is taking much longer than it should to start.';
     const retry = document.createElement('a'), map = document.createElement('a'), links = document.createElement('p');
@@ -328,9 +330,11 @@ if (typeof OffscreenCanvas === 'undefined') window.OffscreenCanvas = class Offsc
     map.href = 'open-overwatch.html'; map.textContent = 'Open the 2D map';
     links.append(retry, ' · ', map); box.textContent = why; box.append(links); boot.classList.add('fail');
   };
-  // a script that failed to load (capture: load errors don't bubble), or an error thrown while the globe's modules ran
+  // a script that failed to load (capture: load errors don't bubble), or an error thrown by the globe's own code or the
+  // CDN libraries (not the shell, nor a browser extension or anything else the page did not ship)
   addEventListener('error', e => {
-    const t = e.target, script = !!t && t.tagName === 'SCRIPT', thrown = e instanceof ErrorEvent && !/\/src\/app\//.test(e.filename || '');
+    const t = e.target, script = !!t && t.tagName === 'SCRIPT', thrown = e instanceof ErrorEvent && /\/src\/(globe|core)\/|cdn\.jsdelivr\.net/.test(e.filename || '');
+    if (script) blocked = true;
     if (script || thrown) { failed = true; setTimeout(show, 1500); }
   }, true);
   setTimeout(show, 20000);

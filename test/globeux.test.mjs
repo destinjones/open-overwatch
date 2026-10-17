@@ -17,7 +17,7 @@ class El {
   get textContent() { return this.text + this.children.map(c => typeof c === 'string' ? c : c.textContent).join(''); }
   set textContent(t) { this.text = String(t); this.children = []; }
   get firstElementChild() { return this.children.find(c => typeof c !== 'string') || null; }
-  get classList() { return { add: c => this.classes.add(c), contains: c => this.classes.has(c) }; }
+  get classList() { return { add: c => this.classes.add(c), remove: c => this.classes.delete(c), contains: c => this.classes.has(c) }; }
   append(...xs) { this.children.push(...xs); }
   addEventListener(type, fn) { this.listeners[type] = fn; }
   getContext() { return null; }
@@ -72,6 +72,12 @@ test('boot watchdog: no WebGL, a thrown error, a timeout, and what it ignores', 
   assert.match(thrown.box.textContent, /could not start/);
   const slow = page(); slow.run();
   assert.match(slow.box.textContent, /taking much longer/);
+  const downloading = page({ cesium: false }); downloading.run();
+  assert.match(downloading.box.textContent, /still downloading/, 'a slow Cesium.js on the 20 s timer');
+  assert.doesNotMatch(downloading.box.textContent, /blocking/, 'is not called blocked');
+  const ext = page({ cesium: false });
+  ext.fire(new ext.win.ErrorEvent({ filename: 'chrome-extension://abc/content.js' })); ext.fire(new ext.win.ErrorEvent({ filename: '' }));
+  assert.equal(ext.timers.length, 1, 'an extension or injected script throwing is not the globe failing');
   const quiet = page();
   quiet.fire({ target: { tagName: 'IMG' } }); quiet.fire(new quiet.win.ErrorEvent({ filename: 'https://example.org/src/app/shell.js' }));
   assert.equal(quiet.timers.length, 1, 'an image that failed, or the shell, is not the globe failing');
@@ -114,8 +120,9 @@ test('phones: the dock and the card never share their slot', () => {
 
 test('phones: a card opened under Time travel sits above the strip', () => {
   const strip = css.match(/body\.m #tt\{[^}]*max-height:(\d+)dvh/)[1];
-  const card = css.match(/body\.m\.tt-open #card\{bottom:calc\((\d+)dvh \+ 96px[^;]*\);max-height:max\(120px,calc\((\d+)dvh/);
-  assert.ok(card, 'a body.m.tt-open #card rule');
+  const card = css.match(/body\.m\.tt-open #card\.show\{bottom:calc\((\d+)dvh \+ 96px[^;]*\);max-height:max\(120px,calc\((\d+)dvh/);
+  assert.ok(card, 'a body.m.tt-open #card.show rule');
+  assert.doesNotMatch(css, /body\.m\.tt-open #card\{/, 'only a shown card moves up: a closed one lifted that high would not slide off screen');
   assert.equal(card[1], strip, 'the card starts where the strip ends');
   assert.equal(+card[1] + +card[2], 100);
 });
