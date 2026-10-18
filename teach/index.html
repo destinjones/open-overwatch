@@ -1,0 +1,651 @@
+<!doctype html>
+<!-- Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE). -->
+<!-- For teachers (https://destinjones.github.io/open-overwatch/teach/): what Open Overwatch is, why it fits a classroom,
+     twelve ready activities by age group with deep links into the globe, the Solar System view and Tonight, how to cite
+     it and what it does (and doesn't do) with pupils' data. Prints well: print the whole page or one activity (teach.js).
+     The links follow docs/LINK_FORMAT.md; test/teach.test.mjs decodes every one with the real decoders, checks the facts
+     the page states against the data (eclipses, TRAPPIST-1, Halley), the citation against CITATION.cff, the CSP and the
+     accessibility rules. No inline script: teach.js is a file, so the CSP needs no hash. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". No inline scripts on this page (teach.js is a file). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https:; media-src 'self'; connect-src 'self' https:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04060a">
+<title>For teachers: classroom activities | Open Overwatch</title>
+<meta name="description" content="Twelve free classroom activities for ages 7 to 18 on a live 3D Earth and Solar System: day and night, the Moon, earthquakes and plate boundaries, the ISS, seasons, light pollution, Kepler's laws, exoplanets and the eclipses of 2027 to 2030. No account, no install, no tracking; prints on paper; citable with a DOI.">
+<meta name="author" content="Destin Jones">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://destinjones.github.io/open-overwatch/teach/">
+<link rel="icon" href="../brand/emblem/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../brand/emblem/apple-touch-icon.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Open Overwatch">
+<meta property="og:title" content="Teach with the live Earth | Open Overwatch">
+<meta property="og:description" content="Free classroom activities for ages 7 to 18 on a live 3D Earth and Solar System. No account, no install, no tracking.">
+<meta property="og:url" content="https://destinjones.github.io/open-overwatch/teach/">
+<meta property="og:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Open Overwatch, a live picture from open feeds: the night side of the Earth with satellite orbits arcing over it">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Teach with the live Earth | Open Overwatch">
+<meta name="twitter:description" content="Free classroom activities for ages 7 to 18 on a live 3D Earth and Solar System. No account, no install, no tracking.">
+<meta name="twitter:image" content="https://destinjones.github.io/open-overwatch/brand/social/og-1200x630.png">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"WebPage","@id":"https://destinjones.github.io/open-overwatch/teach/","url":"https://destinjones.github.io/open-overwatch/teach/","name":"For teachers: classroom activities | Open Overwatch","inLanguage":"en",
+  "isPartOf":{"@type":"WebSite","name":"Open Overwatch","url":"https://destinjones.github.io/open-overwatch/"},"about":{"@id":"https://destinjones.github.io/open-overwatch/teach/#app"}},
+ {"@type":"SoftwareApplication","@id":"https://destinjones.github.io/open-overwatch/teach/#app","name":"Open Overwatch","applicationCategory":"EducationalApplication","operatingSystem":"Any (web browser)",
+  "url":"https://destinjones.github.io/open-overwatch/","license":"https://opensource.org/licenses/MIT","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
+  "sameAs":"https://doi.org/10.5281/zenodo.23348946","author":{"@type":"Person","name":"Destin Jones","url":"https://destinjones.github.io/open-overwatch/about.html"}},
+ {"@type":"LearningResource","name":"Classroom activities with Open Overwatch","url":"https://destinjones.github.io/open-overwatch/teach/#activities","learningResourceType":"lesson plan","educationalLevel":["ages 7-11","ages 11-14","ages 14-18"],
+  "teaches":["day and night","phases of the Moon","scale of the Solar System","weather and storms","earthquakes and plate boundaries","orbits","seasons and time zones","light pollution","Kepler's laws","exoplanets and habitable zones","solar eclipses"],"isAccessibleForFree":true,"inLanguage":"en"}
+]}
+</script>
+<link rel="stylesheet" href="../brand/fonts/fonts.css">
+<style>
+:root{
+  --bg:#04060a; --panel:#080c12; --panel-2:#0e141c; --line:#182230; --line-strong:#26343f;
+  --ink:#e6edf3; --ink-dim:#8b9bab; --ink-faint:#738599; --accent:#7dffa6; --accent-dim:rgba(125,255,166,.14);
+  --young:#ffd45c; --mid:#5fd3ff; --old:#d9ccff;
+  --display:"Big Shoulders Display","Arial Narrow",sans-serif; --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --gut:clamp(16px,4vw,56px); --max:1100px; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 var(--body);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit} img{display:block;max-width:100%}
+a:focus-visible,button:focus-visible,pre:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.skip{position:absolute;left:-999px;top:8px;background:var(--accent);color:#04060a;padding:8px 12px;z-index:200;border-radius:6px} .skip:focus{left:8px}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gut)}
+.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:22px;height:1px;background:currentColor}
+h1,h2,h3,h4{font-family:var(--display);font-weight:900;text-transform:uppercase;letter-spacing:.01em;line-height:.95;margin:0}
+h1{font-size:clamp(50px,9vw,112px)} h2{font-size:clamp(34px,5vw,58px)} h3{font-size:clamp(24px,3vw,30px)}
+h5{font:600 12px/1.3 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim);margin:18px 0 6px}
+body>nav{position:sticky;top:0;z-index:50;background:rgba(4,6,10,.84);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:24px;height:64px;max-width:none}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;font:900 21px/1 var(--display);letter-spacing:.08em;text-transform:uppercase}
+.brand img{width:32px;height:32px}
+nav .links{display:flex;gap:24px;margin-left:auto;font:500 13px var(--mono);letter-spacing:.12em;text-transform:uppercase;flex-wrap:wrap;justify-content:flex-end}
+nav .links a{text-decoration:none;color:var(--ink-dim)} nav .links a:hover,nav .links a[aria-current]{color:var(--ink)} nav .links a[aria-current]{border-bottom:1px solid var(--accent)}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border:1px solid var(--line-strong);background:rgba(8,12,18,.7);color:var(--ink);text-decoration:none;font:600 13px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;transition:background .2s,transform .2s;cursor:pointer}
+.btn:hover{background:var(--panel-2);transform:translateY(-1px)} .btn.primary{background:var(--accent);color:#04060a;border-color:var(--accent);box-shadow:0 0 36px rgba(125,255,166,.3)} .btn.primary:hover{background:#a6ffc2}
+.btn.small{padding:9px 14px;font-size:11.5px}
+.hero{padding:clamp(56px,9vw,110px) 0 clamp(40px,6vw,80px);background:radial-gradient(900px 420px at 80% 0%,rgba(125,255,166,.07),transparent),radial-gradient(700px 400px at 0% 100%,rgba(95,211,255,.06),transparent)}
+.hero p.sub{font:500 14px/1.5 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:18px 0 26px}
+.hero .lede{font-size:clamp(18px,2.1vw,22px);max-width:40em;margin:0 0 14px}
+.hero .lede+.lede{color:var(--ink-dim)}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+.toc{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:34px}
+.toc a{background:var(--bg);padding:14px 18px;text-decoration:none;font:500 12.5px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim)} .toc a:hover{color:var(--accent);background:var(--panel)}
+section{padding:clamp(54px,8vw,100px) 0;border-top:1px solid var(--line)}
+section>.wrap>.eyebrow{margin-bottom:16px} section h2{margin-bottom:28px}
+.note{color:var(--ink-dim);max-width:46em}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
+.card{background:var(--bg);padding:24px}
+.card h3{font-size:22px;color:var(--accent);margin-bottom:10px} .card p{color:var(--ink-dim);margin:0;font-size:16px}
+code,kbd{font:500 .86em var(--mono);color:var(--ink)} p code,li code{overflow-wrap:anywhere}
+kbd{display:inline-block;min-width:1.7em;text-align:center;padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:5px;background:var(--panel)}
+ul,ol{padding-left:1.3em} li{margin:4px 0}
+.age{margin-top:clamp(40px,6vw,70px)} .age:first-of-type{margin-top:0}
+.age>h3{font-size:clamp(28px,4vw,44px);color:var(--c);margin-bottom:8px} .age>p{color:var(--ink-dim);margin:0 0 22px;max-width:46em}
+.activity{background:var(--panel);border:1px solid var(--line-strong);border-left:3px solid var(--c,var(--accent));padding:clamp(18px,3vw,30px);margin:0 0 18px}
+.activity h5:first-of-type{margin-top:14px}
+.activity>header h4{font-size:clamp(24px,3.2vw,32px)}
+.meta{font:500 12px/1.5 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);margin:8px 0 0}
+.goal{font-size:18px;margin:12px 0 0}
+.opens{list-style:none;padding:0;margin:6px 0 0;display:grid;gap:10px}
+.opens li{margin:0}
+.opens a{font:600 13px/1.4 var(--mono);letter-spacing:.06em;color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent-dim)} .opens a:hover{border-color:var(--accent)}
+.url{display:block;font-size:12px;color:var(--ink-faint);overflow-wrap:anywhere;margin-top:2px}
+.std{font-size:14px;color:var(--ink-faint);margin:16px 0 0}
+.tools{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.cols{display:grid;grid-template-columns:repeat(2,1fr);gap:28px 44px} .cols h3{font-size:22px;color:var(--accent);margin-bottom:8px} .cols p{margin:0;color:var(--ink-dim)}
+.cite{background:var(--panel);border:1px solid var(--line-strong);padding:18px 20px;font:500 14px/1.6 var(--mono);color:var(--ink);overflow-x:auto;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
+.cite-row{margin:0 0 22px} .cite-row h3{font-size:22px;margin-bottom:10px} .cite-row .tools{margin-top:10px}
+.status{min-height:1.4em;font:500 13px var(--mono);color:var(--accent)}
+footer{border-top:1px solid var(--line);padding:40px 0 60px;font-size:14px;color:var(--ink-faint)}
+footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margin:0 0 8px} footer a{color:var(--ink-dim)}
+#printOne{display:none}
+@media (max-width:860px){.grid,.cols{grid-template-columns:1fr}.toc{grid-template-columns:repeat(2,1fr)}footer .wrap{grid-template-columns:1fr}nav .links a:nth-child(-n+2){display:none}}
+@media (max-width:480px){.brand{font-size:16px}.brand img{width:26px;height:26px}nav .links{gap:14px;font-size:11.5px}nav .links a:nth-child(3){display:none}.toc{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn{transition:none}.btn:hover{transform:none}}
+/* Paper: black on white, no navigation or buttons, every link's address written out, an activity never split across pages
+   where it fits on one. "Print this activity" (teach.js) copies one activity into #printOne and prints only that. */
+@media print{
+  @page{margin:16mm 14mm}
+  html,body{background:#fff !important;color:#000 !important;font-size:11pt;line-height:1.45}
+  nav,footer,.skip,.cta,.tools,.toc,.status,.hero .sub{display:none !important}
+  .hero,section{background:none !important;padding:10pt 0 !important;border:0 !important}
+  .wrap{max-width:none;padding:0}
+  h1{font-size:30pt} h2{font-size:22pt;margin-bottom:8pt} h3,.activity>header h4{font-size:15pt} h5{color:#333 !important;font-size:8.5pt;margin:8pt 0 2pt}
+  h1,h2,h3,h4,.eyebrow,.age>h3,.card h3,.cols h3{color:#000 !important}
+  .eyebrow::before{background:#000}
+  p,li,.note,.meta,.goal,.std,.card p,.cols p,.age>p,.hero .lede{color:#000 !important}
+  .card,.activity{background:#fff !important;border:1px solid #999 !important;border-left:3px solid #000 !important;box-shadow:none}
+  .grid{background:none;border:0;gap:6pt}
+  .activity{break-inside:avoid;page-break-inside:avoid;padding:8pt 10pt;margin:0 0 8pt}
+  .age{break-before:page;page-break-before:always;margin-top:0} .age:first-of-type{break-before:auto;page-break-before:auto}
+  .opens a{color:#000 !important;border:0;text-decoration:underline}
+  .url,code,kbd{color:#000 !important;background:none !important}
+  .url{font-size:8.5pt}
+  .cite{background:#fff !important;color:#000 !important;border:1px solid #999 !important}
+  a{color:#000 !important}
+  body.print-one>*:not(#printOne){display:none !important}
+  body.print-one #printOne{display:block !important}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<nav aria-label="Main">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../brand/emblem/emblem-256.png" alt="">Open Overwatch</a>
+    <div class="links"><a href="#why">Why use it</a><a href="#activities">Activities</a><a href="#cite">Cite</a><a href="../guide.html">Guide</a><a href="https://github.com/destinjones/open-overwatch">GitHub</a></div>
+  </div>
+</nav>
+
+<main id="main">
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">For teachers</div>
+    <h1>Teach with the live Earth</h1>
+    <p class="sub">Free · no account · no install · no tracking</p>
+    <p class="lede">Open Overwatch is a free, open source live view of the planet, built only from public data. It runs in a web browser as a 3D globe with real day and night, satellites at their real heights, earthquakes, storms, weather and how dark the night sky is; keep zooming out and the same view becomes the Solar System, the nearest stars, the Milky Way and the galaxies beyond. A Tonight card says what is in the sky above your school, and a lighter 2D map works on older machines.</p>
+    <p class="lede">This page has twelve ready classroom activities for ages 7 to 18. Each one has a goal, steps for 15 to 45 minutes, a link that opens the right view, questions to ask and what to check. Print the whole page, or one activity at a time.</p>
+    <div class="cta">
+      <a class="btn primary" href="#activities">The activities</a>
+      <a class="btn" href="../globe.html">Open the 3D globe</a>
+      <a class="btn" href="../solar.html">The Solar System</a>
+      <button type="button" class="btn" data-print="all" hidden>Print this page</button>
+    </div>
+    <nav class="toc" aria-label="On this page">
+      <a href="#why">Why it fits a classroom</a><a href="#before">Before the lesson</a><a href="#ages-7-11">Ages 7-11</a>
+      <a href="#ages-11-14">Ages 11-14</a><a href="#ages-14-18">Ages 14-18</a><a href="#offline">Poor internet</a>
+      <a href="#links">Make your own links</a><a href="#cite">How to cite</a><a href="#privacy">Privacy for schools</a>
+    </nav>
+  </div>
+</header>
+
+<section id="why" aria-labelledby="why-h">
+  <div class="wrap">
+    <div class="eyebrow">Why use it</div>
+    <h2 id="why-h">Why it fits a classroom</h2>
+    <div class="grid">
+      <div class="card"><h3>Free, for good</h3><p>No price, no trial, no premium tier and no ads. The code is open source under the MIT licence, so it can't be taken away: anyone may copy it, run it and change it.</p></div>
+      <div class="card"><h3>No account</h3><p>Nobody signs up or logs in, so there are no pupil accounts, passwords or parental consent forms to manage. Open a link and it works.</p></div>
+      <div class="card"><h3>No install</h3><p>It is a web page. It runs in Chrome, Edge, Firefox and Safari on school computers, Chromebooks, tablets and phones, with nothing for the IT department to install.</p></div>
+      <div class="card"><h3>Phones and old laptops</h3><p>It is built to run on phones. The 3D globe lowers its quality on phones to stay smooth; the 2D map and the Tonight card are lighter still for old machines. The 3D views need WebGL, which most browsers from the last ten years have.</p></div>
+      <div class="card"><h3>Real data, credited</h3><p>Earthquakes from the USGS, storms from NOAA and NASA, satellites from published orbital elements, planets checked against NASA JPL. Every source and its licence is listed, so pupils can follow the data back to where it comes from.</p></div>
+      <div class="card"><h3>Citable</h3><p>It has a DOI, <a href="https://doi.org/10.5281/zenodo.23348946">10.5281/zenodo.23348946</a>, archived on Zenodo, so a project, a worksheet or a paper can cite it properly. See <a href="#cite">How to cite</a>.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="before" aria-labelledby="before-h">
+  <div class="wrap">
+    <div class="eyebrow">Ten minutes, once</div>
+    <h2 id="before-h">Before the lesson</h2>
+    <div class="cols">
+      <div><h3>Try the link on the room's machine</h3><p>Open the activity's link on the computer and projector you will use, the day before. The first visit downloads the views (a few megabytes); after that they open faster and keep working through a dropped connection.</p></div>
+      <div><h3>Learn the time bar</h3><p>At the top of the globe: <kbd>«</kbd> runs backwards an hour a second, <kbd>❚❚</kbd> pauses, <kbd>›</kbd> is a minute a second, <kbd>»</kbd> ten minutes a second, <kbd>⏩</kbd> an hour a second, and <b>NOW</b> comes back to the present. Most activities use it.</p></div>
+      <div><h3>Moving around</h3><p>Drag to turn the Earth, scroll or pinch to zoom, right-drag (or two fingers) to tilt. Click or tap anything for its card. <b>Search</b> finds a town, a satellite or a planet. The <a href="../guide.html">user guide</a> explains every button.</p></div>
+      <div><h3>Live means it changes</h3><p>Earthquakes, storms and clouds are live, so today's screen will not match last week's. That is the point: ask pupils what they see now. Where an activity needs a fixed moment, its link sets the clock to that date.</p></div>
+    </div>
+    <p class="note">If your device asks for reduced motion, the views stop their animations and camera flights jump instead of gliding. Every page has a skip link and focus rings, the globe turns and zooms from the keyboard, and a selected object is announced to screen readers; see <a href="../guide.html#app">App, offline and accessibility</a>.</p>
+  </div>
+</section>
+
+<section id="activities" aria-labelledby="activities-h">
+  <div class="wrap">
+    <div class="eyebrow">Ready to use</div>
+    <h2 id="activities-h">Classroom activities</h2>
+    <p class="note">Twelve activities in three age groups. The ages are a guide: many of the younger activities work as a warm-up for older pupils, and the older ones as a challenge. The curriculum links are examples from the US Next Generation Science Standards (NGSS) and the national curriculum in England; check them against your own.</p>
+
+    <div class="age" id="ages-7-11" style="--c:var(--young)">
+      <h3>Ages 7-11</h3>
+      <p>Grades 2-6, Key Stage 2. Looking, noticing and describing: day and night, the Moon, how big space is and how weather moves.</p>
+
+      <article class="activity" id="day-night" data-age="7-11" data-minutes="20" aria-labelledby="day-night-h">
+        <header><h4 id="day-night-h">Where is it night right now?</h4>
+          <p class="meta">Ages 7-11 · 20 minutes · Earth and space</p></header>
+        <p class="goal"><b>Goal:</b> see that half of the Earth is always in sunlight, and that night and day move round the world as the Earth turns.</p>
+        <h5>Open</h5>
+        <ul class="opens">
+          <li><a href="../globe.html#c=0,20,20000000&amp;a=sun,night">The Earth now, with the Sun overhead marked and the city lights on the night side</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html#c=0,20,20000000&amp;a=sun,night</code></li>
+        </ul>
+        <h5>Steps</h5>
+        <ol class="steps">
+          <li>Open the link. Ask: where is it daytime? Where is it night? How can you tell? (City lights only show on the night side.)</li>
+          <li>Find your own country (drag the Earth round). Is it day or night there? Does that match the window?</li>
+          <li>Find the spot where the Sun is straight overhead. Pupils point to it on a classroom globe or atlas.</li>
+          <li>Press <kbd>⏩</kbd> (an hour a second). Watch the line between day and night. Which way does it move? Count how many seconds a whole day takes.</li>
+          <li>Press <b>NOW</b> to come back. Pupils draw the Earth with its day half and night half, and the Sun.</li>
+        </ol>
+        <h5>Questions to ask</h5>
+        <ul class="ask">
+          <li>Why is only half of the Earth lit at a time?</li>
+          <li>When it is morning here, where is it evening?</li>
+          <li>Is the Sun moving, or is the Earth turning?</li>
+        </ul>
+        <h5>What to check</h5>
+        <p class="check">The lit half always faces the Sun. At an hour a second a full day takes 24 seconds. The night moves from east to west because the Earth turns from west to east, which is why the Sun rises in the east.</p>
+        <p class="std">NGSS 1-ESS1-1, 5-ESS1-2 · England Year 5 Earth and space</p>
+        <div class="tools"><button type="button" class="btn small" data-print="day-night" hidden>Print this activity</button></div>
+      </article>
+
+      <article class="activity" id="moon-phases" data-age="7-11" data-minutes="30" aria-labelledby="moon-phases-h">
+        <header><h4 id="moon-phases-h">The Moon's changing shape</h4>
+          <p class="meta">Ages 7-11 · 30 minutes, plus one look a day for a week · Earth and space</p></header>
+        <p class="goal"><b>Goal:</b> learn that the Moon is lit by the Sun, that we always see its sunlit half from a different angle, and that the pattern repeats about every 29½ days.</p>
+        <h5>Open</h5>
+        <ul class="opens">
+          <li><a href="../tonight.html">Tonight above your school: the Moon's phase, moonrise and moonset</a><code class="url">https://destinjones.github.io/open-overwatch/tonight.html</code></li>
+          <li><a href="../solar.html#f=earth&amp;t=2027-01-01T00:00&amp;r=1&amp;d=0.008">The Earth and the Moon from space, a day a second</a><code class="url">https://destinjones.github.io/open-overwatch/solar.html#f=earth&amp;t=2027-01-01T00:00&amp;r=1&amp;d=0.008</code></li>
+        </ul>
+        <h5>Steps</h5>
+        <ol class="steps">
+          <li>Open Tonight (allow the location, or type your town). Find the Moon: its phase, how much of it is lit, and when it rises.</li>
+          <li>Make a model: a lamp is the Sun, a ball on a stick is the Moon, a pupil's head is the Earth. The pupil turns slowly and watches the lit part of the ball change.</li>
+          <li>Open the second link. The clock runs a day a second: watch the Moon go round the Earth. Which side of the Moon faces the Sun?</li>
+          <li>Each day for a week, a pupil checks Tonight and draws the Moon on a class chart.</li>
+        </ol>
+        <h5>Questions to ask</h5>
+        <ul class="ask">
+          <li>Does the Moon make its own light?</li>
+          <li>Is the Moon's shape really changing, or only the part we see?</li>
+          <li>Is the lit part getting bigger or smaller this week?</li>
+        </ul>
+        <h5>What to check</h5>
+        <p class="check">The Moon shines by sunlight; half of it is always lit. We see more or less of that half as it goes round us. It goes once round the Earth in about 27 days (27 seconds in the second link), and the phases repeat every 29½ days because the Earth moves round the Sun meanwhile. "Waxing" means the lit part is growing.</p>
+        <p class="std">NGSS 1-ESS1-1, MS-ESS1-1 · England Year 5 Earth and space</p>
+        <div class="tools"><button type="button" class="btn small" data-print="moon-phases" hidden>Print this activity</button></div>
+      </article>
+
+      <article class="activity" id="scale" data-age="7-11" data-minutes="40" aria-labelledby="scale-h">
+        <header><h4 id="scale-h">How big is the Solar System?</h4>
+          <p class="meta">Ages 7-11 · 40 minutes · Earth and space, maths</p></header>
+        <p class="goal"><b>Goal:</b> feel how far apart the planets are by zooming out from your own town, then build a scale model in the corridor.</p>
+        <h5>Open</h5>
+        <ul class="opens">
+          <li><a href="../globe.html">The 3D globe: type your town in Search</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html</code></li>
+          <li><a href="../solar.html#f=earth&amp;d=0.008">The Earth and the Moon</a><code class="url">https://destinjones.github.io/open-overwatch/solar.html#f=earth&amp;d=0.008</code></li>
+          <li><a href="../solar.html#f=sun&amp;d=4.2">The inner planets</a><code class="url">https://destinjones.github.io/open-overwatch/solar.html#f=sun&amp;d=4.2</code></li>
+          <li><a href="../solar.html#f=sun&amp;d=85">All eight planets</a><code class="url">https://destinjones.github.io/open-overwatch/solar.html#f=sun&amp;d=85</code></li>
+        </ul>
+        <h5>Steps</h5>
+        <ol class="steps">
+          <li>On the globe, search for your town and zoom in on the school. Then zoom out slowly, without stopping: the town, the country, the whole Earth. Keep going and the Solar System view takes over.</li>
+          <li>Open the three Solar System links in turn. Each time, ask: how many Earths would fit between here and there?</li>
+          <li>Scale model: one sheet of toilet paper is about 15 million km. Mercury is 4 sheets from the Sun, Venus 7, Earth 10, Mars 15, Jupiter 52, Saturn 95, Uranus 191 and Neptune 300. Lay it out in the corridor or the playground.</li>
+          <li>In the Solar System view, press <b>Send a light pulse from the Sun</b> and see which planets the light reaches first.</li>
+        </ol>
+        <h5>Questions to ask</h5>
+        <ul class="ask">
+          <li>Which planets are close together, and which are far apart?</li>
+          <li>Why do pictures in books show the planets next to each other?</li>
+          <li>How long would a car at motorway speed take to drive to the Moon?</li>
+        </ul>
+        <h5>What to check</h5>
+        <p class="check">The four inner planets fit within the first 15 sheets; the outer planets are much further out (Neptune is 30 times as far from the Sun as the Earth). Book pictures squash the distances so everything fits on a page. The Moon is 384,400 km away: at 100 km/h that is 160 days of driving without a stop.</p>
+        <p class="std">NGSS MS-ESS1-3 · England Year 5 Earth and space</p>
+        <div class="tools"><button type="button" class="btn small" data-print="scale" hidden>Print this activity</button></div>
+      </article>
+
+      <article class="activity" id="storms" data-age="7-11" data-minutes="25" aria-labelledby="storms-h">
+        <header><h4 id="storms-h">Watching clouds and storms move</h4>
+          <p class="meta">Ages 7-11 · 25 minutes · weather, geography</p></header>
+        <p class="goal"><b>Goal:</b> see that weather moves across the Earth, follow a big cloud swirl, and see how a hurricane travels.</p>
+        <h5>Open</h5>
+        <ul class="opens">
+          <li><a href="../globe.html#c=-40,20,16000000&amp;w=ir,wind">Weather mode: the clouds from satellites and the wind</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html#c=-40,20,16000000&amp;w=ir,wind</code></li>
+          <li><a href="../globe.html#c=-82,26,4000000&amp;a=storms&amp;t=2459851.29514,0&amp;go=history">Hurricane Ian reaching Florida, 28 September 2022</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html#c=-82,26,4000000&amp;a=storms&amp;t=2459851.29514,0&amp;go=history</code></li>
+        </ul>
+        <h5>Steps</h5>
+        <ol class="steps">
+          <li>Open weather mode. Drag the timeline from the past (what satellites saw) into the forecast. Pick one big cloud swirl and follow it.</li>
+          <li>Find your own country. Is cloud coming towards it? From which direction?</li>
+          <li>Open the Hurricane Ian link. Its line shows where the storm came from. Press <kbd>⏩</kbd> to let the clock run.</li>
+          <li>Pupils draw a weather map for tomorrow from what they saw, with arrows for the wind.</li>
+        </ol>
+        <h5>Questions to ask</h5>
+        <ul class="ask">
+          <li>Do clouds stay still or move? Which way do most of them go where you live?</li>
+          <li>Which way does a hurricane spin, clockwise or anticlockwise?</li>
+          <li>Why do hurricanes get weaker over land?</li>
+        </ul>
+        <h5>What to check</h5>
+        <p class="check">In the middle latitudes (most of Europe and North America) weather mostly comes from the west. Hurricanes north of the equator spin anticlockwise, south of it clockwise. Over land a storm loses the warm sea water that feeds it. If there is no hurricane on the live layer today, that is normal: the Atlantic season runs from June to November.</p>
+        <p class="std">NGSS 3-ESS2-1, MS-ESS2-5 · England KS2 geography, physical geography</p>
+        <div class="tools"><button type="button" class="btn small" data-print="storms" hidden>Print this activity</button></div>
+      </article>
+    </div>
+
+    <div class="age" id="ages-11-14" style="--c:var(--mid)">
+      <h3>Ages 11-14</h3>
+      <p>Grades 6-9, Key Stage 3. Patterns and explanations: plate boundaries, orbits, the tilt of the Earth, and what we do to the night sky.</p>
+
+      <article class="activity" id="quakes" data-age="11-14" data-minutes="40" aria-labelledby="quakes-h">
+        <header><h4 id="quakes-h">Earthquakes along plate boundaries</h4>
+          <p class="meta">Ages 11-14 · 40 minutes · Earth science, geography</p></header>
+        <p class="goal"><b>Goal:</b> find the pattern in where earthquakes and volcanoes happen, and explain it with plate tectonics.</p>
+        <h5>Open</h5>
+        <ul class="opens">
+          <li><a href="../globe.html#c=170,5,22000000&amp;a=quakes,volcanoes">The Pacific: the last 24 hours of earthquakes and the world's volcanoes</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html#c=170,5,22000000&amp;a=quakes,volcanoes</code></li>
+          <li><a href="../globe.html#go=now">Earth now: the busiest earthquake regions and quakes per day</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html#go=now</code></li>
+          <li><a href="../globe.html#c=142.4,38.3,3000000&amp;a=quakes&amp;t=2455632.72917,0&amp;go=history">Japan, the first day after the Tōhoku earthquake of 11 March 2011 (05:30 UTC on 12 March)</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html#c=142.4,38.3,3000000&amp;a=quakes&amp;t=2455632.72917,0&amp;go=history</code></li>
+        </ul>
+        <h5>Steps</h5>
+        <ol class="steps">
+          <li>Open the first link. Turn the globe slowly. Pupils mark on a blank world map where they see earthquakes and volcanoes (click one to see which it is).</li>
+          <li>One day is not much data. Open Time travel and step back a day at a time (or open Earth now for the last 7 days) and keep adding to the map.</li>
+          <li>Lay a plate boundary map over the pupils' maps. Where do the dots line up with the boundaries? Where don't they?</li>
+          <li>Open the Tōhoku link: the globe shows the 24 hours before its clock, so you see the magnitude 9.1 earthquake (05:46 UTC on 11 March) and the day of aftershocks after it. Click a quake for its magnitude and depth.</li>
+        </ol>
+        <h5>Questions to ask</h5>
+        <ul class="ask">
+          <li>Why do earthquakes form lines and not spread evenly?</li>
+          <li>Why is the edge of the Pacific called the Ring of Fire?</li>
+          <li>Why does one big earthquake have hundreds of smaller ones after it?</li>
+        </ul>
+        <h5>What to check</h5>
+        <p class="check">Most quakes and volcanoes sit along plate boundaries, especially round the Pacific where ocean plates sink under others (subduction). Some appear far from boundaries (hot spots such as Hawaii, and old faults). Aftershocks happen as the rock round the break settles. A dot is where the rupture started (the epicentre); a quake's depth says how far down.</p>
+        <p class="std">NGSS MS-ESS2-3, MS-ESS3-2 · England KS3 geography, plate tectonics</p>
+        <div class="tools"><button type="button" class="btn small" data-print="quakes" hidden>Print this activity</button></div>
+      </article>
+
+      <article class="activity" id="iss" data-age="11-14" data-minutes="30" aria-labelledby="iss-h">
+        <header><h4 id="iss-h">The ISS: why you see it at night</h4>
+          <p class="meta">Ages 11-14 · 30 minutes, plus an evening's watching · physics, Earth and space</p></header>
+        <p class="goal"><b>Goal:</b> follow the International Space Station round the Earth, time an orbit, and work out why it is only visible soon after sunset or before sunrise.</p>
+        <h5>Open</h5>
+        <ul class="opens">
+          <li><a href="../globe.html#c=0,0,25000000&amp;a=stations,sun&amp;s=25544">Follow the ISS, with day and night</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html#c=0,0,25000000&amp;a=stations,sun&amp;s=25544</code></li>
+          <li><a href="../tonight.html">Tonight: when the ISS passes over your school</a><code class="url">https://destinjones.github.io/open-overwatch/tonight.html</code></li>
+        </ul>
+        <h5>Steps</h5>
+        <ol class="steps">
+          <li>Open the first link: the globe follows the ISS. Click it: its card gives the altitude, speed and orbit period. Compare its altitude with the Earth's radius (6,371 km).</li>
+          <li>Press <kbd>›</kbd> (a minute a second) and check the period with a stopwatch: each second is a minute.</li>
+          <li>Watch the ISS cross from the day side into the night side. How far north and south does it go?</li>
+          <li>Open Tonight for your school and find the next visible pass. Note the times. Set a reminder, go out and look.</li>
+        </ol>
+        <h5>Questions to ask</h5>
+        <ul class="ask">
+          <li>The ISS has no lights bright enough to see from the ground. So why does it shine?</li>
+          <li>Why are visible passes only at dusk and dawn, never at midnight or noon?</li>
+          <li>How many times a day does the crew see a sunrise?</li>
+        </ul>
+        <h5>What to check</h5>
+        <p class="check">It orbits about 400 km up (a scale of 1 cm for the Earth's radius puts it less than 1 mm above the surface) at about 27,600 km/h, once every 92 minutes or so: about 16 sunrises a day. It shines by reflected sunlight. You see it when you are in darkness and it is still high enough to be in sunlight: shortly after sunset or before sunrise. At midnight it is in the Earth's shadow too; at noon the sky is too bright. Its orbit is tilted 51.6°, so it passes over places between about 52° north and 52° south.</p>
+        <p class="std">NGSS MS-ESS1-2, HS-PS2-4 · England KS3 physics, space physics</p>
+        <div class="tools"><button type="button" class="btn small" data-print="iss" hidden>Print this activity</button></div>
+      </article>
+
+      <article class="activity" id="seasons" data-age="11-14" data-minutes="35" aria-labelledby="seasons-h">
+        <header><h4 id="seasons-h">Seasons, time zones and the day/night line</h4>
+          <p class="meta">Ages 11-14 · 35 minutes · Earth and space, geography</p></header>
+        <p class="goal"><b>Goal:</b> see how the Earth's tilt changes the day/night line through the year, and read the time anywhere from where the Sun is.</p>
+        <h5>Open</h5>
+        <ul class="opens">
+          <li><a href="../globe.html#c=0,0,25000000&amp;a=sun&amp;t=2461396,0">21 December 2026, 12:00 UTC (the December solstice)</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html#c=0,0,25000000&amp;a=sun&amp;t=2461396,0</code></li>
+          <li><a href="../globe.html#c=0,0,25000000&amp;a=sun&amp;t=2461485,0">20 March 2027, 12:00 UTC (the March equinox)</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html#c=0,0,25000000&amp;a=sun&amp;t=2461485,0</code></li>
+          <li><a href="../globe.html#c=0,0,25000000&amp;a=sun&amp;t=2461578,0">21 June 2027, 12:00 UTC (the June solstice)</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html#c=0,0,25000000&amp;a=sun&amp;t=2461578,0</code></li>
+        </ul>
+        <h5>Steps</h5>
+        <ol class="steps">
+          <li>Open the three links in turn (the clock is paused at each date). For each, sketch the day/night line and mark where the Sun is overhead.</li>
+          <li>Tilt the globe to look at the North Pole, then the South Pole. Which pole is in sunlight all day on each date?</li>
+          <li>On the June link, press <kbd>⏩</kbd>: does the North Pole ever go dark? Then try the December link.</li>
+          <li>Time zones: every link is set to 12:00 UTC. On the December link, find London, New York and Tokyo. It is noon in London; what time is it in the other two? Use the time-zone bands the Sun layer draws. Then try the June link, and allow for summer time.</li>
+        </ol>
+        <h5>Questions to ask</h5>
+        <ul class="ask">
+          <li>If the Earth were not tilted, what would the line look like all year?</li>
+          <li>Why are summer days long and winter days short?</li>
+          <li>Why does the world need time zones at all?</li>
+        </ul>
+        <h5>What to check</h5>
+        <p class="check">In June the Sun is overhead near the Tropic of Cancer (23.4° N) and the area round the North Pole stays lit all day; in December it is overhead near the Tropic of Capricorn and the South Pole has the endless day. At the equinox the line runs through both poles and day and night are about equal everywhere. On the December link it is 12:00 in London, 07:00 in New York and 21:00 in Tokyo. On the June link London and New York are on summer time, an hour ahead: 13:00 and 08:00. On the March link London is still on 12:00 but New York has already changed (US summer time starts in mid March): 08:00. Tokyo has no summer time, so it is 21:00 on every link. The Earth turns 15° an hour, which is why time zones are about 15° wide.</p>
+        <p class="std">NGSS MS-ESS1-1 · England KS3 physics, seasons and the Earth's tilt</p>
+        <div class="tools"><button type="button" class="btn small" data-print="seasons" hidden>Print this activity</button></div>
+      </article>
+
+      <article class="activity" id="light-pollution" data-age="11-14" data-minutes="30" aria-labelledby="light-pollution-h">
+        <header><h4 id="light-pollution-h">Light pollution in your town</h4>
+          <p class="meta">Ages 11-14 · 30 minutes, plus a star count at home · Earth and space, environment</p></header>
+        <p class="goal"><b>Goal:</b> find out how dark the sky is where pupils live on the Bortle scale, compare it with a measurement of their own, and think about what lighting does to the night.</p>
+        <h5>Open</h5>
+        <ul class="opens">
+          <li><a href="../globe.html#c=10,50,3500000&amp;a=lightpollution">Europe's night sky brightness</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html#c=10,50,3500000&amp;a=lightpollution</code></li>
+          <li><a href="../globe.html#c=-95,38,6000000&amp;a=lightpollution">North America's night sky brightness</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html#c=-95,38,6000000&amp;a=lightpollution</code></li>
+          <li><a href="../tonight.html">Tonight: "Your sky" gives the Bortle class at your school</a><code class="url">https://destinjones.github.io/open-overwatch/tonight.html</code></li>
+        </ul>
+        <h5>Steps</h5>
+        <ol class="steps">
+          <li>Open the map for your continent and zoom in on your town. The colours go from clear (dark sky) through blue, green, yellow, orange and red to white over city centres.</li>
+          <li>Open Tonight, then <b>Your sky</b>: the Bortle class (1 is the darkest sky, 9 an inner city), whether the Milky Way shows, and the nearest darker sky.</li>
+          <li>Homework: on a clear evening, pupils count the stars they can see inside a rectangle such as the body of Orion, or a square made from a cardboard tube, and bring the count back.</li>
+          <li>Compare the counts with the map. Who has the darkest sky? Does it match the Bortle class?</li>
+        </ol>
+        <h5>Questions to ask</h5>
+        <ul class="ask">
+          <li>Where does the light that brightens the sky come from?</li>
+          <li>What else besides astronomers is affected by bright nights (birds, insects, sleep)?</li>
+          <li>What could your town change without making streets less safe?</li>
+        </ul>
+        <h5>What to check</h5>
+        <p class="check">The map is a model of a clear, moonless night from satellite measurements (Falchi et al., 2016), so a counted sky can differ, especially with haze or the Moon up. In a city (Bortle 8-9) a pupil may count only a handful of stars; the Milky Way starts to show at about Bortle 5 and is easy at 4 or darker. Shielded lights that point down, warmer colours and switching off when nobody needs light all help. The class can send its counts to the Globe at Night citizen science project.</p>
+        <p class="std">NGSS MS-ESS3-3 · England KS3 geography, human impact on the environment</p>
+        <div class="tools"><button type="button" class="btn small" data-print="light-pollution" hidden>Print this activity</button></div>
+      </article>
+    </div>
+
+    <div class="age" id="ages-14-18" style="--c:var(--old)">
+      <h3>Ages 14-18</h3>
+      <p>Grades 9-12, Key Stages 4 and 5. Numbers and laws: Kepler's laws from real orbits, habitable zones from starlight, and why eclipses happen when they do.</p>
+
+      <article class="activity" id="orbits" data-age="14-18" data-minutes="45" aria-labelledby="orbits-h">
+        <header><h4 id="orbits-h">Orbits at three heights: Kepler's third law</h4>
+          <p class="meta">Ages 14-18 · 45 minutes · physics, maths</p></header>
+        <p class="goal"><b>Goal:</b> measure the periods of satellites at three heights and of the planets, and show that T² is proportional to a³.</p>
+        <h5>Open</h5>
+        <ul class="opens">
+          <li><a href="../globe.html#c=-40,0,160000000&amp;a=stations,gnss,geo">The space stations, the navigation satellites and the geostationary ring</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html#c=-40,0,160000000&amp;a=stations,gnss,geo</code></li>
+          <li><a href="../solar.html#f=sun&amp;d=4.2&amp;t=2027-01-01T00:00&amp;r=10">The inner planets, ten days a second</a><code class="url">https://destinjones.github.io/open-overwatch/solar.html#f=sun&amp;d=4.2&amp;t=2027-01-01T00:00&amp;r=10</code></li>
+        </ul>
+        <h5>Steps</h5>
+        <ol class="steps">
+          <li>Open the globe link. Click the ISS, a GPS satellite and a geostationary satellite; each card gives the altitude and the orbit period. Add the Earth's radius (6,371 km) to the altitude to get the orbit's radius a.</li>
+          <li>Speed the clock up (<kbd>»</kbd> or <kbd>⏩</kbd>) and check one period with a stopwatch. The geostationary ones seem not to move at all: why?</li>
+          <li>Work out T²/a³ for all three, in s² per km³. Then do the same with the planets: open the second link and time Mercury, Venus, Earth and Mars (each second is ten days).</li>
+          <li>Plot log T against log a for all seven, with T in seconds and a in km (a year is 31.6 million s, 1 AU is 149.6 million km). The satellites and the planets make two separate lines: find the gradient of each.</li>
+        </ol>
+        <h5>Questions to ask</h5>
+        <ul class="ask">
+          <li>Why does a satellite further out go round more slowly?</li>
+          <li>Why is the geostationary ring exactly where it is?</li>
+          <li>Why is T²/a³ different for the satellites and the planets?</li>
+        </ul>
+        <h5>What to check</h5>
+        <p class="check">ISS: a ≈ 6,790 km, T ≈ 92.8 min. GPS: a ≈ 26,560 km, T ≈ 11 h 58 min. Geostationary: a ≈ 42,164 km, T ≈ 23 h 56 min, one turn of the Earth, so it stays over one spot. T²/a³ comes out near 9.9 × 10⁻⁵ s²/km³ for all three, which is 4π²/GM for the Earth. The planets give 1 in years and astronomical units, a different constant because they orbit the Sun, which is 333,000 times as massive. Both lines have a log-log gradient of 1.5. They are parallel but not the same line: the planets' line sits lower by half the log of the mass ratio, log √333,000 ≈ 2.76.</p>
+        <p class="std">NGSS HS-ESS1-4, HS-PS2-4 · England GCSE and A level physics, orbits and gravitational fields</p>
+        <div class="tools"><button type="button" class="btn small" data-print="orbits" hidden>Print this activity</button></div>
+      </article>
+
+      <article class="activity" id="trappist" data-age="14-18" data-minutes="35" aria-labelledby="trappist-h">
+        <header><h4 id="trappist-h">TRAPPIST-1 and the habitable zone</h4>
+          <p class="meta">Ages 14-18 · 35 minutes · physics, astronomy</p></header>
+        <p class="goal"><b>Goal:</b> use the inverse square law to work out why the habitable zone of a dim red star is so close to it, and which of TRAPPIST-1's seven planets could have liquid water.</p>
+        <h5>Open</h5>
+        <ul class="opens">
+          <li><a href="../solar.html#f=exo:TRAPPIST-1&amp;d=0.17&amp;t=2027-01-01T00:00&amp;r=0.5">TRAPPIST-1, 40 light-years away, with its habitable zone in green, half a day a second</a><code class="url">https://destinjones.github.io/open-overwatch/solar.html#f=exo:TRAPPIST-1&amp;d=0.17&amp;t=2027-01-01T00:00&amp;r=0.5</code></li>
+          <li><a href="../solar.html#f=sun&amp;d=4.2">Our inner Solar System, for comparison</a><code class="url">https://destinjones.github.io/open-overwatch/solar.html#f=sun&amp;d=4.2</code></li>
+        </ul>
+        <h5>Steps</h5>
+        <ol class="steps">
+          <li>Open TRAPPIST-1. The clock runs half a day a second, so planet b goes round in 3 seconds and h in under 40. Which ones are inside the green ring? The star's card gives the zone's edges. The planets' distances from the star are b 0.012, c 0.016, d 0.022, e 0.029, f 0.038, g 0.047 and h 0.062 AU.</li>
+          <li>The star gives out about 0.00055 times the Sun's light. Using the inverse square law, at what distance would a planet get the same light as the Earth does from the Sun?</li>
+          <li>For planets d, e, f and g, work out the light each gets compared with the Earth: L ÷ a², with L in Suns and a in AU.</li>
+          <li>Open our inner Solar System and compare: where would all seven planets fit?</li>
+        </ol>
+        <h5>Questions to ask</h5>
+        <ul class="ask">
+          <li>Why is a "year" on TRAPPIST-1's planets only days long?</li>
+          <li>Does being in the habitable zone mean a planet has life? What else matters?</li>
+          <li>How do astronomers know these planets are there at all?</li>
+        </ul>
+        <h5>What to check</h5>
+        <p class="check">The square root of 0.00055 is about 0.0235, so a planet at 0.0235 AU gets the sunlight the Earth gets. Planets e, f and g are in the zone the card shows (about 0.025 to 0.050 AU) and get about 65%, 37% and 25% of the light the Earth gets; d, just inside it, gets about 1.1 times as much. All seven would fit well inside Mercury's orbit (0.39 AU). The years last from 1.5 to 19 days because the orbits are so small. The planets were found by the dips in starlight as they pass in front of the star (transits). Liquid water also needs an atmosphere, and a red dwarf's flares may strip one away.</p>
+        <p class="std">NGSS HS-ESS1-1 (a star's energy output) · England A level physics, astrophysics</p>
+        <div class="tools"><button type="button" class="btn small" data-print="trappist" hidden>Print this activity</button></div>
+      </article>
+
+      <article class="activity" id="eclipses" data-age="14-18" data-minutes="40" aria-labelledby="eclipses-h">
+        <header><h4 id="eclipses-h">The solar eclipses of 2027 to 2030</h4>
+          <p class="meta">Ages 14-18 · 40 minutes · physics, Earth and space</p></header>
+        <p class="goal"><b>Goal:</b> see the Moon's shadow cross the Earth, find out where each coming eclipse is total, annular or partial, and explain why eclipses don't happen every month.</p>
+        <h5>Open</h5>
+        <ul class="opens">
+          <li><a href="../globe.html#go=eclipses&amp;id=2027-08-02">The total eclipse of 2 August 2027 and its path</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html#go=eclipses&amp;id=2027-08-02</code></li>
+          <li><a href="../solar.html#f=earth&amp;t=2027-08-02T10:07&amp;d=0.0003">The Moon's shadow on the Earth at 10:07 UTC that day, from space</a><code class="url">https://destinjones.github.io/open-overwatch/solar.html#f=earth&amp;t=2027-08-02T10:07&amp;d=0.0003</code></li>
+          <li><a href="../globe.html#go=eclipses&amp;id=2030-11-25">The total eclipse of 25 November 2030</a><code class="url">https://destinjones.github.io/open-overwatch/globe.html#go=eclipses&amp;id=2030-11-25</code></li>
+        </ul>
+        <h5>Steps</h5>
+        <ol class="steps">
+          <li>Open the eclipse list. For each eclipse from 2027 to 2030, note the date, the type and where it can be seen.</li>
+          <li>Open 2 August 2027 and play it: watch the shadow cross the Earth. How wide is the path of totality?</li>
+          <li>Open the view from space. Find the Moon's dark shadow on the Earth; let the clock run (<kbd>▶</kbd> in the time bar).</li>
+          <li>Open Tonight for your school: when is the next eclipse you can see from home, and how much of the Sun will be covered?</li>
+        </ol>
+        <h5>Questions to ask</h5>
+        <ul class="ask">
+          <li>There is a new Moon every month. Why isn't there an eclipse every month?</li>
+          <li>Why is the path of totality so narrow, when the shadow of the whole Moon falls on the Earth?</li>
+          <li>What makes an eclipse annular (a ring of Sun) instead of total?</li>
+        </ul>
+        <h5>What to check</h5>
+        <p class="check">From 2027 to 2030 there are three total eclipses (2 August 2027, 22 July 2028, 25 November 2030), three annular ones (6 February 2027, 26 January 2028, 1 June 2030) and four partial ones in 2029. The Moon's orbit is tilted about 5° to the Earth's, so most new Moons pass above or below the Sun. Only the umbra, the dark cone where the Sun is fully hidden, gives totality, and it is at most a few hundred km wide at the Earth; the penumbra gives a partial eclipse thousands of km wide. When the Moon is near its farthest from the Earth it looks too small to cover the Sun: annular. Never look at the Sun without proper eclipse glasses.</p>
+        <p class="std">NGSS MS-ESS1-1, HS-ESS1-4 · England KS3-4 physics, the Earth-Sun-Moon system</p>
+        <div class="tools"><button type="button" class="btn small" data-print="eclipses" hidden>Print this activity</button></div>
+      </article>
+
+      <article class="activity" id="halley" data-age="14-18" data-minutes="30" aria-labelledby="halley-h">
+        <header><h4 id="halley-h">Halley's comet and Kepler's second law</h4>
+          <p class="meta">Ages 14-18 · 30 minutes · physics, maths</p></header>
+        <p class="goal"><b>Goal:</b> watch a comet speed up near the Sun and slow down far from it, and connect that to equal areas in equal times.</p>
+        <h5>Open</h5>
+        <ul class="opens">
+          <li><a href="../solar.html#f=comet:1P/Halley&amp;t=2061-01-01T00:00&amp;r=5&amp;d=3">Halley's comet from 1 January 2061, five days a second</a><code class="url">https://destinjones.github.io/open-overwatch/solar.html#f=comet:1P/Halley&amp;t=2061-01-01T00:00&amp;r=5&amp;d=3</code></li>
+        </ul>
+        <h5>Steps</h5>
+        <ol class="steps">
+          <li>Open the link. The camera follows the comet; the clock runs five days a second. Open the comet's card for its distance from the Sun.</li>
+          <li>Every 10 seconds of real time (50 days), write down the date and the distance from the Sun.</li>
+          <li>Pause near the closest point. Then let it run on and keep recording as it heads out again.</li>
+          <li>Sketch the orbit with the positions you recorded and shade the triangles from the Sun to each pair of points. Compare their areas.</li>
+        </ol>
+        <h5>Questions to ask</h5>
+        <ul class="ask">
+          <li>Where on its orbit is the comet fastest? Where is it slowest?</li>
+          <li>Why does it grow a tail only near the Sun?</li>
+          <li>Halley comes back about every 76 years. Will you see it?</li>
+        </ul>
+        <h5>What to check</h5>
+        <p class="check">The distance changes fastest near the Sun: the comet sweeps out equal areas in equal times (Kepler's second law), which is angular momentum being conserved. The tail is ice turning to gas in the Sun's heat, pushed away by sunlight and the solar wind, so it points away from the Sun. The view moves Halley on a plain ellipse from its 1986 orbit, which brings it closest on about 8 January 2062; astronomers, who add the pull of Jupiter and Saturn, predict 28 July 2061. The five-month gap is a good discussion of what a simple model leaves out.</p>
+        <p class="std">NGSS HS-ESS1-4, HS-PS2-4 · England A level physics, gravitational fields</p>
+        <div class="tools"><button type="button" class="btn small" data-print="halley" hidden>Print this activity</button></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="offline" aria-labelledby="offline-h">
+  <div class="wrap">
+    <div class="eyebrow">Slow or patchy internet</div>
+    <h2 id="offline-h">For schools with poor internet</h2>
+    <div class="cols">
+      <div><h3>Open it once, keep it</h3><p>Every page and its code is kept on the device once visited, so the views open again with no connection. Open each activity's link once on a good connection (before the lesson, at home or in the staff room). A banner says when you are offline and how old the saved data is.</p></div>
+      <div><h3>Install it</h3><p>In Chrome or Edge an <b>Install</b> button appears; on an iPad or iPhone use Safari's Share menu, then <b>Add to Home Screen</b>. It then opens full screen like an app, with shortcuts to Tonight and the 2D map.</p></div>
+      <div><h3>The download version</h3><p>Get <code>open-overwatch.zip</code> (about 70 MB) from the <a href="https://github.com/destinjones/open-overwatch/releases/latest">latest release</a> once, and copy it to each machine from a USB stick. On Windows double-click <b>Start Open Overwatch.bat</b>; on a Mac or Linux run <code>python3 serve.py</code> in the folder. Add <code>?sw=1</code> to the address once to keep an offline copy. Steps: <a href="../guide.html#download">the download version</a>.</p></div>
+      <div><h3>What needs a connection</h3><p>Live layers (earthquakes, storms, clouds and weather) need a connection to update; offline they show what was saved and say how old it is. The Sun, the Moon, the planets, eclipses and the day/night line are worked out on the device, so the Solar System activities work offline once the view has been opened.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="links" aria-labelledby="links-h">
+  <div class="wrap">
+    <div class="eyebrow">Your own lessons</div>
+    <h2 id="links-h">Make your own links</h2>
+    <ul class="note">
+      <li><b>Share</b> on the globe copies a link to exactly what you see: the camera, the layers, the clock, and any pins and lines you drew. Paste it into a worksheet, a slide or your learning platform.</li>
+      <li><b>Tonight for your school:</b> <code>tonight.html#at=51.51,-0.13&amp;name=Our%20school</code> opens Tonight at that place (latitude, longitude to two decimals) without asking anyone's location. On a phone, a long press on the globe shows any spot's coordinates.</li>
+      <li><b>On your school's website:</b> Tonight also comes as a small card for a web page: see <a href="../guide.html#share">Share and embed</a>.</li>
+      <li>The full list of what a link can carry is in the <a href="https://github.com/destinjones/open-overwatch/blob/main/docs/LINK_FORMAT.md">link format notes</a>.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="cite" aria-labelledby="cite-h">
+  <div class="wrap">
+    <div class="eyebrow">Use it, credit it</div>
+    <h2 id="cite-h">How to cite Open Overwatch</h2>
+    <p class="note">For a project, a worksheet or a paper. Both come from the repository's <a href="https://github.com/destinjones/open-overwatch/blob/main/CITATION.cff">CITATION.cff</a>; add the version you used (it is on the home page) if your style asks for one.</p>
+    <div class="cite-row">
+      <h3>APA</h3>
+      <pre class="cite" id="cite-apa" tabindex="0">Jones, D. (2026). Open Overwatch [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.23348946</pre>
+      <div class="tools"><button type="button" class="btn small" data-copy="cite-apa" hidden>Copy APA</button></div>
+    </div>
+    <div class="cite-row">
+      <h3>BibTeX</h3>
+      <pre class="cite" id="cite-bibtex" tabindex="0">@software{jones_open_overwatch_2026,
+  author    = {Jones, Destin},
+  title     = {Open Overwatch},
+  year      = {2026},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.23348946},
+  url       = {https://destinjones.github.io/open-overwatch/},
+  license   = {MIT}
+}</pre>
+      <div class="tools"><button type="button" class="btn small" data-copy="cite-bibtex" hidden>Copy BibTeX</button></div>
+    </div>
+    <p class="status" role="status" aria-live="polite"></p>
+    <p class="note">The data belongs to its sources (USGS, NOAA, NASA, OpenStreetMap, Wikidata and others); credit them too when you show their data. The light pollution map is Falchi et al. 2016, <a href="https://doi.org/10.5880/GFZ.1.4.2016.001">The New World Atlas of Artificial Night Sky Brightness</a>, licensed CC BY-NC 4.0: free for teaching and other non-commercial use.</p>
+  </div>
+</section>
+
+<section id="privacy" aria-labelledby="privacy-h">
+  <div class="wrap">
+    <div class="eyebrow">Pupils' data</div>
+    <h2 id="privacy-h">Privacy for schools</h2>
+    <ul class="note">
+      <li><b>No accounts, no ads, no cookies, no analytics, no tracking.</b> Nobody is asked for a name, an email address or a birthday, and nothing is collected about who uses it.</li>
+      <li><b>Location stays on the device.</b> Tonight asks for the device's location once, rounds it to about 1 km and keeps it in the browser's own storage; it is never put in a link. A pupil can type a town instead, or you can use a link with the school's place, so nobody has to share where they are.</li>
+      <li><b>What does leave the device.</b> The browser asks the public data providers (such as the USGS, NASA and the map tile servers) and a code library service (jsDelivr) for the data directly, so they see the device's IP address under their own policies and which part of the map is loaded. A typed place name is looked up by Photon (only the words typed are sent); the cloud forecast for Tonight gets the location rounded to about 10 km.</li>
+      <li><b>Everything is open.</b> The code is public, so your IT team can check all of this for themselves. Questions are welcome on <a href="https://github.com/destinjones/open-overwatch/issues">GitHub</a>. Full details: <a href="../guide.html#privacy">Privacy</a> in the user guide.</li>
+      <li><b>Not for safety decisions.</b> It is a learning and curiosity tool built on public data; for real warnings use your national weather and emergency services.</li>
+    </ul>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <p><a class="brand" href="../index.html" style="font-size:18px;color:var(--ink)"><img src="../brand/emblem/emblem-256.png" alt="" style="width:26px;height:26px">Open Overwatch</a></p>
+      <p>A free, open source project by <a href="../about.html">Destin Jones</a>, built on public data for awareness and curiosity, not for navigation, safety or operational decisions. No accounts, no ads, no tracking.</p>
+    </div>
+    <div>
+      <p><a href="../index.html">Home</a> · <a href="../globe.html">3D globe</a> · <a href="../solar.html">Solar System</a> · <a href="../tonight.html">Tonight</a> · <a href="../open-overwatch.html">2D map</a> · <a href="../guide.html">Guide</a></p>
+      <p><a href="https://github.com/destinjones/open-overwatch">Source on GitHub</a> · <a href="https://github.com/destinjones/open-overwatch/releases">Releases</a> · <a href="https://github.com/destinjones/open-overwatch/issues">Report a problem or suggest an activity</a></p>
+      <p><a href="../index.html#legal">Notices</a>: open source licences, no warranty, not for safety use.</p>
+    </div>
+  </div>
+</footer>
+<script type="module" src="teach.js"></script>
+<script type="module" src="../src/app/shell.js"></script>
+</body>
+</html>
