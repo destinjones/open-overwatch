@@ -62,7 +62,7 @@ part comes back, and older quakes can read "reported" for want of an EMSC soluti
 
 | Tool | Answers from | What you get |
 |---|---|---|
-| `show_on_globe` | (the globe itself) | the live 3D globe on a view: a place or point, a tilt, layers on or off, weather, a moment and clock speed, a satellite to follow, a flight to look for, a country's card, a camera look. Pass another answer's `url` to show exactly that |
+| `show_on_globe` | (the globe itself) | the live 3D globe on a view: a place or point, a tilt, layers on or off, weather, a moment and clock speed, a satellite to follow, a flight to look for (download version only: on the website it is left out of the link), a country's card, a camera look. Pass another answer's `url` (a globe, 3D Solar System or Tonight link, an archived copy's too) to show exactly that |
 | `earthquakes` | USGS, checked against EMSC | the last hour, day, week or month, worldwide or in an area, strongest or latest first, with tsunami flags and PAGER alerts |
 | `where_is_satellite` | CelesTrak element sets (the website's copy), SGP4 | where a satellite is now: the point below it, height, speed, orbit, sunlit or not. Its link follows it |
 | `satellite_passes` | the same | when it passes over a place in the next days, in that place's time zone, and which passes you can see |
@@ -89,17 +89,43 @@ part comes back, and older quakes can read "reported" for want of an EMSC soluti
 | `volcanoes` | Wikidata (the website's copy), NASA EONET, USGS | the volcanoes nearest a place, any open eruption, and this week's earthquakes next to them |
 | `road_speeds` | Fintraffic (Finland), NYC DOT | measured traffic speeds and volumes on the roads near a place |
 | `close_approaches` | CelesTrak SOCRATES (the website's copy), SGP4 | the closest coming encounters between satellites and debris, and where over the Earth they happen |
-| `reentries` | CelesTrak element sets (the website's copy), the globe's decay model (`src/core/decay.js`) | what is predicted to re-enter in the next 30 days, soonest first: the window (±25% of the time left), the orbit, working satellite or debris, provenance, and optionally the corridor (ground track over the window) |
+| `reentries` | CelesTrak element sets (the website's copy), the globe's decay model (`src/core/decay.js`) | what is predicted to re-enter in the next 30 days, soonest first: the window (usually ±25% of the time left, wider when the two drag estimates disagree), the orbit, working satellite or debris, provenance, and optionally the corridor (ground track over the window) |
 | `sun_and_moon` | the website's own sky maths | sunrise, sunset, day length, the twilights, golden and blue hours, and the Moon, at a place on any day |
 | `meteor_showers` | the IMO shower list, the website's sky maths | the coming showers, how many an hour you could really see from a place, and when to look |
 | `plate_readers` | OpenStreetMap via DeFlock and FlockHopper's hourly tiles | the licence-plate readers mapped near a place in the US or Canada: how many, makes, operators, facings, the nearest ones (a count only for a big area) |
 | `military_areas` | OpenStreetMap via OpenFreeMap's tiles | land mapped as military near a place (up to 150 km), worldwide: size, airfields inside, the nearest town, an OpenStreetMap link each |
 | `weather_details` | Open-Meteo forecast, marine and multi-model APIs (ECMWF IFS, NOAA GFS, DWD ICON) | at a point: sea-level pressure and its three-hour tendency, Beaufort force and gusts, thunderstorm energy (CAPE), fog, freezing level, UV, cloud at three heights; the lowest pressure and strongest gust ahead and when; at sea the waves (Douglas scale), swell, period, sea temperature and current; and whether the models agree on the coming days. The link opens the globe with isobars, gusts and waves |
-| `aircraft_lookup` | adsbdb | by registration or ICAO hex: type and type code, maker, class, registered owner, the country the address belongs to, a photo link; by callsign: the airline and the route on file, with both airports and the distance (the link draws it and looks for the flight) |
-| `where_in_space` | JPL Horizons tracks and JPL small-body elements (the website's copies), the site's planet and moon maths | where a planet, the Moon, a major moon, a mission (Voyager, JWST, Parker, Juno, ISRO's Chandrayaan-2 and Aditya-L1…), any comet or any of 26,000 named asteroids is now or at a time: distance from the Sun and Earth, light time, speed, RA/Dec and constellation, evening or morning sky, brightness, the mission's next event or the comet's next return; from a place, how high it is. Without a name, every mission nearest first (signal time, next event) or the comets best placed now. The link opens the 3D Solar System on it |
-| `airport_weather` | Aviation Weather Center (NOAA/NWS) data API; OurAirports runways (the website's copy) | an airport's METAR and TAF decoded into plain words, its flight category, the forecast period by period and the runway the wind favours |
+| `aircraft_lookup` | adsbdb | by registration or ICAO hex: type and type code, maker, class, registered owner, the country the address belongs to, a photo link; by callsign: the airline and the route on file, with both airports and the distance (the link draws the route; it looks for the live flight only in the download version) |
+| `where_in_space` | JPL Horizons tracks and JPL small-body elements (the website's copies), the site's planet and moon maths | where a planet, the Moon, a major moon, a mission (Voyager, JWST, Parker, Juno, ISRO's Chandrayaan-2 and Aditya-L1…), any comet or any of 26,000 named asteroids (Apophis on its own JPL Horizons track for 2026-2035, through its 13 April 2029 Earth flyby) is now or at a time: distance from the Sun and Earth, light time, speed, RA/Dec and constellation, evening or morning sky, brightness, the mission's next event or the comet's next return; from a place, how high it is. Without a name, every mission nearest first (signal time, next event) or the comets best placed now. The link opens the 3D Solar System on it |
+| `airport_weather` | Aviation Weather Center (NOAA/NWS) data API; OurAirports runways (the website's copy) | an airport's METAR and TAF decoded into plain words, its flight category, the forecast period by period and the runway the wind favours (live aircraft on its link only in the download version) |
 | `sea_conditions` | NOAA NDBC (latest observations, station list), NOAA CO-OPS (stations, water level, tide predictions) | the buoys and coastal stations nearest a place with their latest waves, wind and water temperature, and the nearest US tide gauge with the level now and the next high and low |
 | `air_quality` | Open-Meteo air-quality API (Copernicus CAMS model) | the US and European AQI, PM2.5, PM10, ozone, NO2, dust and aerosol depth at a place for this hour; a model, not a station measurement (OpenAQ needs a key) |
+
+**Times.** `show_on_globe`, `solar_system` and `where_in_space` take an ISO 8601 `time`. A Z or an offset is honoured;
+a time without one is read on the place's own clock, or as UTC when no place is given, never in the zone of the computer
+running the server (a PC's own zone, or the Worker's UTC, would answer the same question hours apart), and the answer
+says how it was read. `sun_and_moon`'s `date` is the place's own calendar day from its local midnight (23 or 25 hours on a clock-change
+day; from 01:00 where the clocks spring forward at midnight, as in Santiago or Cairo), and a day the place's clocks skipped
+is an error.
+
+**Places right round the world.** Photon gives the United States, Russia, Fiji, Alaska and Chukotka a box from -180 to
+180, which read as it stands is a band over every longitude. A country like that is its own outline in the website's
+`data/borders.json` plus the sea within 2.5° (about 280 km) of any of its parts where no other country is nearer:
+earthquakes and volcanoes in the United States take in Alaska, the Aleutians and Hawaii but not Baja California, Fiji
+includes its islands east of 180°, and Russia does not count quakes off the Aleutians or Hokkaido. Alaska and Chukotka
+are rougher: the country's land and sea inside the state's latitudes and near it. Every other place keeps its own box
+or circle.
+
+**Storms reach out to sea.** `tropical_storms`, and the severe storms of `natural_events`, let such a country reach 8°
+(about 890 km) out to sea, whichever coast is nearer, the same reach as `country_briefing`'s storms nearby: a hurricane in
+the central Gulf of Mexico (25°N 88°W) is the United States', one in the mid-Atlantic (35°N 40°W) is not. The reach is
+sea only: a storm over another country's land never counts (a typhoon over Hokkaido is not Russia's, one over Havana
+not the United States').
+
+**Live aircraft.** The published website has none (its relay does not carry the ADS-B networks), so links made for it
+leave out the `air` and `mil` layers and any flight to look for, and `aircraft_lookup`, `airport_weather` and
+`show_on_globe` say that live aircraft come with the download version. With `--site http://localhost:8787/` (the
+download's helper, or any `localhost`, `127.0.0.1` or `[::1]` address) links keep them.
 
 **Prompts.** Hosts that show MCP prompts (Claude Desktop lists them as slash commands) get five ready-made requests:
 `situation_report` (a place right now), `sky_tonight`, `country_brief`, `space_now` and `trip_check` (from, to, by). Each
@@ -153,7 +179,8 @@ tool's name and time).
 
 ## For developers
 
-- `node mcp/server.mjs --site http://localhost:8787/` points links (and the globe panel) at a local copy of the site.
+- `node mcp/server.mjs --site http://localhost:8787/` points links (and the globe panel) at a local copy of the site;
+  a local site counts as the download version, so its links may turn live aircraft on (`siteHasAircraft` in `mcp/feeds.mjs`).
 - `node --test` runs `test/mcp.test.mjs` with every source canned, a stdio round trip and the HTTP transport.
 - `node mcp/server.mjs --http 8793` serves Streamable HTTP (`mcp/http.mjs` is the transport on web Request/Response only,
   so it could run on a Worker; `mcp/http-node.mjs` serves it from Node). Tools may return images (MCP image content).
