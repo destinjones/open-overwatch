@@ -26,6 +26,12 @@ test('no IP-location lookup anywhere in the site code: a failed fix asks the vis
     assert.doesNotMatch(read(`${d}/${f}`), /ipapi|ipinfo\.io|ip-api\.com|geoip/i, `${d}/${f}`);
   for (const f of ['open-overwatch.html', 'globe.html', 'index.html', 'tonight.html']) assert.doesNotMatch(read(f), /ipapi\.co/, f);
   assert.match(presets, /keptPlace\(Store\.get\('pos', null\)\); if \(!kept\) Store\.del\('pos'\)/, 'an old or IP-derived kept position is removed at load');
+  assert.match(presets, /if \(!kept\) Store\.del\('pos'\); else Store\.set\('pos', kept\)/, 'a kept position an older version stored unrounded is written back rounded');
+  assert.match(presets, /get picking\(\) \{ return Date\.now\(\) < this\._pickUntil; \}/, 'a wanted place expires (no Escape on phones)');
+  assert.match(detail, /if \(!h && late\.Locate && late\.Locate\.pick\(/, 'a glyph tap opens its card even while a place is wanted');
+  // Follow ISS turns the auto ground track back on: the call must be code, not swallowed by a trailing comment
+  const follow = presets.slice(presets.indexOf('followIss()'), presets.indexOf('issInView()'));
+  assert.ok(follow.split('\n').some(l => { const i = l.indexOf("Presets.satOpt('sat_tracks', true)"); return i >= 0 && !l.slice(0, i).includes('//'); }), 'followIss still calls satOpt(sat_tracks, true) outside a comment');
   assert.match(presets, /makePlace\(lat, lon, how\)/, 'kept rounded (core/myplace.js)');
   assert.match(presets, /this\.picking = true; toast\(`No location: \$\{e\.message\}\. Tap the map/, 'the failure asks for a tap');
   assert.match(detail, /late\.Locate && late\.Locate\.pick\(e\.latlng\.lat, e\.latlng\.lng\)/, 'the next map tap is taken as the place');

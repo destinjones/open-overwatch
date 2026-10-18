@@ -84,8 +84,8 @@ map.on('zoomend', () => { const h = $('#hudPos'); if (h) h.textContent = `${fmt.
 map.on('mouseout', () => { if (Hover.el) { Hover.el.style.display = 'none'; $('#map').classList.remove('hit'); Hover.last = null; } });
 map.on('click', e => {
   if (late.Measure && late.Measure.armed) return;   // the measure tool takes the clicks
-  if (late.Locate && late.Locate.pick(e.latlng.lat, e.latlng.lng)) return;   // no location fix: this tap says where the visitor is
-  const h = glyphs.hitTest(e.containerPoint);
+  const h = glyphs.hitTest(e.containerPoint);   // a tap on an aircraft, quake... opens its card, even while a place is wanted
+  if (!h && late.Locate && late.Locate.pick(e.latlng.lat, e.latlng.lng)) return;   // no location fix: a tap on open ground says where the visitor is
   if (h) { if (h.kind === 'cluster') { map.flyTo([h.obj.lat, h.obj.lon], h.obj.z, { duration: .8 }); return; } Detail.show(h.kind, h.obj); return; }
   if (typeof late.cableHit === 'function') { const c = late.cableHit(e.latlng); if (c) { Detail.show('cable', c.properties, c.properties.id); return; } }
   late.Probe.open(e.latlng);

@@ -41,9 +41,12 @@ export function legendHtml() { return LEGEND.map(([n, c, cls]) => `<span><i clas
 /* ============================================================ LOCATION */
 // Only the device's own fix, or a place the visitor picks on the map: never an IP lookup. Kept rounded to 0.01° (about
 // 1 km) for 24 h (core/myplace.js); Setup → "Forget my location" removes it.
-const kept = keptPlace(Store.get('pos', null)); if (!kept) Store.del('pos');   // too old, or an older version's IP lookup
+const kept = keptPlace(Store.get('pos', null)); if (!kept) Store.del('pos'); else Store.set('pos', kept);   // too old, or an older version's IP lookup; else stored rounded
 export const Locate = {
-  _pos: kept, picking: false,
+  _pos: kept, _pickUntil: 0,
+  // a place is wanted after a failed fix: for 60 s only (phones have no Escape), so a much later tap is not taken as the place
+  get picking() { return Date.now() < this._pickUntil; },
+  set picking(v) { this._pickUntil = v ? Date.now() + 60e3 : 0; },
   get pos() { if (this._pos && !keptPlace(this._pos)) this.forget(true); return this._pos; },   // {lat, lon, how, t}, 24 h at most
   keep(lat, lon, how) { const p = makePlace(lat, lon, how); if (!p) return null; this._pos = p; Store.set('pos', p); return p; },
   forget(quiet = false) { this._pos = null; this.picking = false; Store.del('pos'); if (!quiet) { toast('Your location is forgotten on this device'); late.Brief.render(); } },
@@ -80,7 +83,7 @@ export const Fun = {
       if (!Layers.on('sats')) Layers.set('sats', true); if (!Sats.groupsOn().includes('stations')) Presets.satOpt('sat_groups', [...Sats.groupsOn(), 'stations']);
       this.issPending = Date.now(); toast('Loading the ISS orbit… the map will follow it once it is in'); return;
     }
-    this.issPending = 0; Detail.show('sat', iss, iss.id); const z = Math.max(map.getZoom(), 3); map.flyTo(sheetAware([iss.lat, iss.lon], z), z, { duration: 1 }); Sats.drawTrack(iss);   // the card first: on a phone its sheet decides where "centre" is if (!Layers.opt('sat_tracks')) Presets.satOpt('sat_tracks', true);
+    this.issPending = 0; Detail.show('sat', iss, iss.id); const z = Math.max(map.getZoom(), 3); map.flyTo(sheetAware([iss.lat, iss.lon], z), z, { duration: 1 }); Sats.drawTrack(iss); if (!Layers.opt('sat_tracks')) Presets.satOpt('sat_tracks', true);   // the card first: on a phone its sheet decides where "centre" is
     this.issFollow = true; toast('Following the ISS — pan the map to stop');
   },
   issInView() { const iss = Sats.iss(); if (!iss || iss.lat == null) return true; const b = map.getBounds(), c = b.getCenter(); return iss.lat >= b.getSouth() && iss.lat <= b.getNorth() && Math.abs(((iss.lon - c.lng) % 360 + 540) % 360 - 180) <= (b.getEast() - b.getWest()) / 2; },
