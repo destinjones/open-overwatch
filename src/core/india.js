@@ -4,6 +4,7 @@
 // tags taken out. DOM-free (test/india.test.mjs).
 import { findPasses } from './passes.js';
 import { observer, sunEcef } from './observer.js';
+import { precisionCode, listedUntil } from './launches.js';
 
 export const TZ = 'Asia/Kolkata';
 /** A time in India, in English or Hindi (Intl: hi-IN writes Hindi month and day names with Western digits). */
@@ -26,20 +27,36 @@ export const fromIndia = r => {
   const l = r && r.pad && r.pad.location;
   return !!l && (/\bIndia\b|Sriharikota|Satish Dhawan/i.test(l.name || '') || l.country_code === 'IND' || r.pad.country?.alpha_3_code === 'IND');
 };
-/** India's launches still to come (or under an hour past their time), soonest first. */
+/** A raw LL2 launch's precision code (src/core/launches.js precisionCode: 'DAY', 'M', 'Q4', …). */
+const precisionOf = r => precisionCode(r && r.net_precision && (r.net_precision.abbrev || r.net_precision.name));
+const IST = 5.5 * 3600e3;
+/** The end (ms) of the day in India that a time falls on (the day launchWhen shows for a DAY launch). */
+const istDayEnd = t => Math.floor((t + IST) / 864e5) * 864e5 + 864e5 - IST;
+/** India's launches still to come, soonest first: under an hour past a precise time, or until the end of the day,
+ *  month or quarter an imprecise one names (a "NET October" launch stays listed through 31 October, when the data
+ *  still has it); a launch dated to the day stays to the end of that day in India too, the day the page shows. */
 export function indianLaunches(results, now = Date.now()) {
   return (Array.isArray(results) ? results : []).filter(r => r && typeof r === 'object' && fromIndia(r))
-    .filter(r => { const t = Date.parse(r.net); return !Number.isFinite(t) || t > now - 3600e3; })
+    .filter(r => {
+      const t = Date.parse(r.net), p = precisionOf(r);
+      return !Number.isFinite(t) || Math.max(listedUntil(t, p, 3600e3), ['DAY', 'AM', 'PM'].includes(p) ? istDayEnd(t) : -Infinity) > now;
+    })
     .sort((a, b) => (Date.parse(a.net) || 9e15) - (Date.parse(b.net) || 9e15));
 }
-/** When a launch is due, only as precisely as Launch Library 2 says (net_precision): a time, a day, a month or a year. */
+const ORDINAL_HI = ['पहली', 'दूसरी', 'तीसरी', 'चौथी'];
+/** When a launch is due, only as precisely as Launch Library 2 says (net_precision, its codes SEC MIN HR AM PM DAY WK M
+ *  Q1-Q4 H1 H2 Y FY DEC): a time, a day, a month, a quarter or half, a (fiscal) year or a decade, in India's time zone. */
 export function launchWhen(r, lang) {
-  const t = Date.parse(r && r.net), p = r && r.net_precision && r.net_precision.abbrev, hi = lang === 'hi';
+  const t = Date.parse(r && r.net), p = precisionOf(r), hi = lang === 'hi', target = hi ? 'लक्ष्य: ' : 'target: ';
   if (!Number.isFinite(t)) return hi ? 'तारीख़ तय नहीं' : 'date to be set';
   if (['SEC', 'MIN', 'HR'].includes(p)) return fmtIST(t, lang, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' IST';
-  if (p === 'D') return fmtIST(t, lang, { day: 'numeric', month: 'short', year: 'numeric' });
-  if (p === 'M' || p === 'W') return (hi ? 'लक्ष्य: ' : 'target: ') + fmtIST(t, lang, { month: 'long', year: 'numeric' });
-  return (hi ? 'लक्ष्य: ' : 'target: ') + fmtIST(t, lang, { year: 'numeric' });
+  if (['DAY', 'AM', 'PM'].includes(p)) return fmtIST(t, lang, { day: 'numeric', month: 'short', year: 'numeric' });
+  if (p === 'M' || p === 'WK') return target + fmtIST(t, lang, { month: 'long', year: 'numeric' });
+  const year = fmtIST(t, 'en', { year: 'numeric' }), part = /^([QH])([1-4])$/.exec(p);
+  if (part) return target + (hi ? `${year} की ${ORDINAL_HI[+part[2] - 1]} ${part[1] === 'Q' ? 'तिमाही' : 'छमाही'}` : `${p} ${year}`);
+  if (p === 'FY') return target + (hi ? `वित्त वर्ष ${year}` : `FY ${year}`);
+  if (p === 'DEC') { const dec = Math.floor(+year / 10) * 10; return target + (hi ? `${dec} का दशक` : `the ${dec}s`); }
+  return target + year;
 }
 
 /** The six cities on the page: English name, Hindi name, latitude, longitude (city centres; Delhi is India Gate). */

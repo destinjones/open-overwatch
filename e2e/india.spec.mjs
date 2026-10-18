@@ -79,6 +79,19 @@ test('the phone demo plays the tab that was picked', async ({ page }) => {
   await tab.click();
   await expect(tab).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#phoneVid')).toHaveAttribute('src', new URL('../brand/india/clips/lookup.mp4', page.url()).href);
+  // a real tab list: the phone screen is the panel, one tab in the tab order, the arrow keys move the selection
+  await expect(tab).toHaveAttribute('aria-controls', 'clipPanel');
+  await expect(tab).toHaveAttribute('tabindex', '0');
+  await expect(page.locator('#clipPanel')).toHaveAttribute('aria-labelledby', await tab.getAttribute('id'));
+  await tab.press('ArrowUp');
+  const airq = page.locator('.tab[data-clip="airq"]');
+  await expect(airq).toHaveAttribute('aria-selected', 'true');
+  await expect(airq).toBeFocused();
+  await expect(tab).toHaveAttribute('tabindex', '-1');
+  await expect(page.locator('#phoneVid')).toHaveAttribute('src', /airq\.mp4$/);
+  // the play/pause button stays on screen once a clip is up
+  await expect(page.locator('#phonePlay')).toBeVisible();
+  await expect(page.locator('#phonePlay')).toHaveAttribute('aria-label', /^(Pause|Play) the recordings$/);
   for (const c of ['india_sats', 'delhi_dive', 'airq', 'lookup']) expect((await page.request.head(`brand/india/clips/${c}.jpg`)).status(), c).toBe(200);
 });
 
