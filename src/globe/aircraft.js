@@ -65,9 +65,9 @@ const AX = new C.Cartesian3(), POS = new C.Cartesian3(), UPD = {}, D2R = Math.PI
 /** An adsb.lol (readsb) aircraft as one of ours; mil: true for the /mil feed, else from its database flags. */
 export function fromAdsb(a, now, mil = false) {   // read by core/aircraft.js, like the 2D map's; null without a position
   const x = readsb(a, { mil }); if (!x) return null;
-  return { hex: x.hex, flight: x.flight, type: x.type, reg: x.reg, desc: x.desc, op: x.ownOp, cat: x.category, lon: x.lon, lat: x.lat, alt: x.altM || 0, ground: x.ground,
+  return { hex: x.hex, flight: x.flight, type: x.type, reg: x.reg, desc: x.desc, op: x.ownOp, cat: x.category, lon: x.lon, lat: x.lat, alt: x.altM ?? x.geomM ?? 0, ground: x.ground,   // barometric, else geometric (as the 2D map): never a cruiser at 0 m
     altG: x.geomM,   // readsb: geometric, WGS84 ellipsoid
-    gs: x.gsMs, track: x.track, vr: x.rateMs ?? 0, squawk: x.squawk, emerg: EMERGENCY.includes(x.squawk), mil: x.mil, ts: now - x.seenPos * 1000, src: 'adsb.lol' };
+    gs: x.gsMs, track: x.track, vr: x.rateMs ?? 0, squawk: x.squawk, emergency: x.emergency, emerg: x.emerg, mil: x.mil, ts: now - x.seenPos * 1000, src: 'adsb.lol' };   // emerg (core): a 7500/7600/7700 squawk or a declared emergency
 }
 
 const layerOf = r => L[r.mil ? 'mil' : 'air'];
@@ -124,7 +124,7 @@ export const Air = {
     }
     const now = Date.now(), ts = (c && rows === c.rows) ? c.t : now;
     for (const [hex, flight, country, lon, lat, alt, ground, gs, track, squawk, vr, tpos, geo] of rows)   // dead-reckon from when each position was heard, not when we asked (rows: core/aircraft.js openskyState, cached)
-      this.upsert({ hex, flight, country, lon, lat, alt: alt || 0, ground: !!ground, gs, track, vr: vr ?? 0, squawk, emerg: EMERGENCY.includes(squawk), mil: false,
+      this.upsert({ hex, flight, country, lon, lat, alt: alt ?? geo ?? 0, ground: !!ground, gs, track, vr: vr ?? 0, squawk, emerg: EMERGENCY.includes(squawk), mil: false,
         ts: tpos > 0 && tpos * 1000 <= ts && ts - tpos * 1000 < DR_MAX_S * 1000 ? tpos * 1000 : ts, altG: !ground && geo != null ? geo : null, src: 'OpenSky' }, { cached: ts !== now });
     this.snapshotAt = ts; this.answered.air = true; setCount('air', rows.length); hooks.updateStats();
   },

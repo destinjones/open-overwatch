@@ -7,6 +7,9 @@ import { agreeingIds, stampReports } from './liveprov.js';
 
 export const EMERGENCY_SQUAWKS = Object.freeze(['7500', '7600', '7700']);
 export const FT = 0.3048, KT = 0.514444;
+/** The boards' tag for an aircraft in an emergency: "SQUAWK 7700" for an emergency squawk, else "EMERGENCY" (a declared
+ *  emergency can come with any squawk), or '' when it is not in one. Plain text: the views escape it. */
+export const emergencyLabel = r => (!r || !r.emerg ? '' : EMERGENCY_SQUAWKS.includes(r.squawk) ? 'SQUAWK ' + r.squawk : 'EMERGENCY');
 /** A hex address as it may appear in a link or a handler: its own charset only ("~" marks a non-ICAO address). */
 export const cleanHex = h => String(h ?? '').toLowerCase().replace(/[^0-9a-f~]/g, '');
 const fin = v => (typeof v === 'number' && Number.isFinite(v) ? v : null);

@@ -19,7 +19,8 @@ import { flightPhase, phaseWords } from '../core/phase.js';
 import { parseAirports, AirportIndex, makeBoard, findAirport, BOARD, BOARD_SECTIONS, boardRowWords, planesNear, routeWords, ROUTE_CAVEAT } from '../core/airports.js';
 import { parseRunways, RunwayBook, windWords } from '../core/runways.js';
 import { airportWxCache, airportWxLine, aloftUrl, parseAloft, aloftWords } from '../core/aloft.js';
-import { metarUrl, tafUrl, readAwcMetars, readAwcTafs, metarWords, tafWords, tafWorst, ageText, CAT_COLOR, CAT_WORDS } from '../core/metar.js';
+import { metarUrl, tafUrl, readAwcMetars, readAwcTafs, metarWords, tafWords, tafWorst, ageText, usableWind, CAT_COLOR, CAT_WORDS } from '../core/metar.js';
+import { emergencyLabel } from '../core/aircraft.js';
 import { arrivalEstimate, departureEstimate } from '../core/eta.js';
 
 const FT = 0.3048, KT = 0.514444, FPM = 0.00508, AP_COLOR = '#9fe3ff';
@@ -97,7 +98,7 @@ function metarHtml(m, t) {
       + (lines.length ? `<ul class="ap-words">${lines.map(l => `<li>${chip(l.category)} ${esc(l.text)}</li>`).join('')}</ul>` : '<p class="note">The forecast has ended.</p>')
       + `<details class="ap-raw"><summary>The forecast as sent</summary><code>${esc(t.raw)}</code></details>`;
   }
-  return h ? h + '<p class="note">Aviation Weather Center (NOAA), aviationweather.gov · times in UTC · decoded here; the raw text is what counts.</p>' : '';
+  return h ? h + '<p class="note">Aviation Weather Center (NOAA), aviationweather.gov · times and days in UTC (tomorrow is the next UTC day) · decoded here; the raw text is what counts.</p>' : '';
 }
 
 /* ---- the layer: large fields from zoom 4, medium from 7; codes from 7 (large) and 9 */
@@ -139,25 +140,30 @@ function boardRow(e, ap) {
   const r = e.r, fin = e.status === 'arriving' ? Airports.runways.final(ap, e.p) : null;
   const { where, right, sub } = boardRowWords({ ...e, r: { ...r, vr: e.p.vr } }, ap, { fin, kind: classify(e.p).name, fmt: fmt.n });   // the same words as the globe's boards
   const type = r.t || (r.info && r.info.aircraft && r.info.aircraft.icaoType) || '';
-  return `<button type="button" class="ab-row${r.emerg ? ' emg' : ''}" data-hex="${esc(r.hex)}"><span><b>${esc(r.flight || r.r || r.hex)}</b>${r.emerg ? ` <em>SQUAWK ${esc(r.squawk)}</em>` : ''} ${esc(type)}${where ? ' · ' + esc(where) : ''}${e.sure ? ' ✓' : ''}</span><small>${esc(sub)} · ${esc(right)}</small></button>`;
+  return `<button type="button" class="ab-row${r.emerg ? ' emg' : ''}" data-hex="${esc(r.hex)}"><span><b>${esc(r.flight || r.r || r.hex)}</b>${r.emerg ? ` <em>${esc(emergencyLabel(r))}</em>` : ''} ${esc(type)}${where ? ' · ' + esc(where) : ''}${e.sure ? ' ✓' : ''}</span><small>${esc(sub)} · ${esc(right)}</small></button>`;
 }
-function runwaysHtml(a, wx, use) {
+function runwaysHtml(a, wx, use, modelNote = false) {
   const rws = Airports.runways.of(a); if (!rws) return '';
   const table = wx && wx.windKt != null && wx.windDir != null ? Airports.runways.wind(a, wx.windDir, wx.windKt) : [];
   const byEnd = new Map(table.map(t => [t.end, t]));
   const rows = rws.map(rw => `<tr><td><b>${esc(rw.ends.map(e => e.ident).join('/'))}</b></td><td>${rw.lengthFt ? fmt.n(rw.lengthFt) + ' ft' : ''}${rw.surface ? ' · ' + esc(rw.surface) : ''}</td></tr>`
     + rw.ends.map(e => { const t = byEnd.get(e); return t ? `<tr class="ap-end${use && use.end === e ? ' on' : ''}"><td>${esc(e.ident)}</td><td>${esc(windWords(t))}${Math.abs(t.cross) >= 15 ? ' <em>strong crosswind</em>' : t.head < -5 ? ' <em>tailwind</em>' : ''}</td></tr>` : ''; }).join('')).join('');
-  return `<h4>Runways${table.length ? ': the wind on each end' : ''}</h4><table class="ap-rw">${rows}</table>`;
+  return `<h4>Runways${table.length ? `: the wind on each end${modelNote ? ' <small>(Open-Meteo model: the report gives no usable wind)</small>' : ''}` : ''}</h4><table class="ap-rw">${rows}</table>`;
 }
 Detail.renderers.airport = a => {
-  Airports.open = a; const rep = fieldReports(a), metar = rep && rep.m, wx = metar ? null : fieldWeather(a), b = Dyn.air.size ? Airports.board(a) : null;
+  Airports.open = a; const rep = fieldReports(a), metar = rep && rep.m, b = Dyn.air.size ? Airports.board(a) : null;
+  // the METAR's wind where it has one (a direction, or variable, or calm); else the model's, also under a METAR with
+  // "///15KT" (no direction) or no wind group, so the runway-by-wind guess and the wind table still have one
+  const metarWind = metar ? usableWind(metar.wind) : null;
+  const wx = metarWind ? null : fieldWeather(a);
   if (b && !Airports.asked.has(a.icao)) {   // ask adsbdb where the first few come from or go (queued, cached a day)
     Airports.asked.add(a.icao);
     for (const r of [...b.arriving, ...b.departing].map(e => e.r).filter(r => r.info === undefined).slice(0, LOOKUPS_PER_BOARD)) AcInfo.get(r).then(v => { if (v && Sel.kind === 'airport' && Sel.obj === a) Detail.render(); });
   }
-  const wind = metar && metar.wind && metar.wind.speedKt != null ? { dir: metar.wind.dir, speed: metar.wind.speedKt } : wx && { dir: wx.windDir, speed: wx.windKt };   // the METAR's wind first
+  const wind = metarWind ? { dir: metarWind.dir, speed: metarWind.speedKt } : wx && { dir: wx.windDir, speed: wx.windKt };   // the METAR's wind first
   const use = b ? Airports.runways.inUse(a, b.arriving.map(e => e.p), wind) : null;
   const onIt = use && wind && wind.speed != null && wind.dir != null ? Airports.runways.wind(a, wind.dir, wind.speed).find(t => t.end === use.end) : null;
+  const modelWind = !!metar && !metarWind && !!wind && (use?.how !== 'arrivals' || !!onIt);   // say so where the model's wind is used under a METAR
   a.use = use; Runways2D.draw();
   const n = b ? b.arriving.length + b.departing.length + b.ground.length + b.recent.length : 0, code = a.iata || a.icao, next = b && b.arriving.find(e => e.etaS != null);
   const model = metar ? '' : wx === undefined ? '<p class="ap-wx">Weather…</p>' : wx ? `<p class="ap-wx">${wx.category ? `<b class="ap-cat" style="--c:${CAT_COLOR[wx.category]}" title="Flight category from the model's visibility and an estimated cloud base">${wx.category}</b> ` : ''}${esc(airportWxLine(wx))} <small>Open-Meteo model${wx.time ? ', ' + esc(wx.time.slice(11, 16)) + 'Z' : ''}</small></p>` : '';
@@ -166,9 +172,9 @@ Detail.renderers.airport = a => {
     : n ? BOARD_SECTIONS.map(([k, name, col]) => b[k].length ? `<h4 style="color:${col}">${name} · ${b[k].length}</h4>${b[k].map(e => boardRow(e, a)).join('')}` : '').join('')
     : `<p class="note">No aircraft near ${esc(code)} right now that the feeds can see.</p>`;
   return `<div class="det ap">${Detail.head(AP_COLOR, a.size === 2 ? 'Large airport · OurAirports' : 'Airport · OurAirports', a.name, esc(apHead(a)))}${wxLine}`
-    + (use ? `<p class="ap-use">Runway in use: <b>${esc(use.end.ident)}</b> ${use.how === 'arrivals' ? `(${use.n} lined up)` : '(into the wind; a guess)'}${onIt ? ` · wind on it ${esc(windWords(onIt))}` : ''}</p>` : '')
+    + (use ? `<p class="ap-use">Runway in use: <b>${esc(use.end.ident)}</b> ${use.how === 'arrivals' ? `(${use.n} lined up)` : '(into the wind; a guess)'}${onIt ? ` · wind on it ${esc(windWords(onIt))}` : ''}${modelWind ? ' <small>(Open-Meteo model wind)</small>' : ''}</p>` : '')
     + (next ? `<div class="actions"><button type="button" class="btn small" data-follow="${esc(next.r.hex)}">Follow the next arrival · ${esc(next.r.flight || next.r.hex)}</button></div>` : '')
-    + `<div class="ap-board">${board}</div>${runwaysHtml(a, wind && { windDir: wind.dir, windKt: wind.speed }, use)}`
+    + `<div class="ap-board">${board}</div>${runwaysHtml(a, wind && { windDir: wind.dir, windKt: wind.speed }, use, !!metar && !metarWind)}`
     + `<p class="note">From the live aircraft on the map: arriving means low and descending towards ${esc(code)}, departing means climbing away from it (within ${BOARD.radiusKm} km); ✓ the route on file agrees. Not a timetable: times are estimates from distance, ground speed and descent, with the range they could fall in. Airports and runways: ${esc(Airports.credit)}.</p>`
     + `<div class="actions"><button type="button" class="btn small" data-center="${esc(a.icao)}">Center</button></div></div>`;
 };

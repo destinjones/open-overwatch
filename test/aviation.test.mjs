@@ -95,7 +95,7 @@ test('great circle and bearing', () => {
 test('ICAO address blocks', () => {
   assert.equal(hexCountry('4ca87c'), 'Ireland'); assert.equal(hexCountry('A1B2C3'), 'United States'); assert.equal(hexCountry('3c6444'), 'Germany');
   assert.equal(hexCountry('400f01'), 'United Kingdom'); assert.equal(hexCountry('c03456'), 'Canada'); assert.equal(hexCountry('7c1234'), 'Australia');
-  assert.equal(hexCountry('~4ca87c'), 'Ireland', 'TIS-B prefix'); assert.equal(hexCountry('zzzzzz'), ''); assert.equal(hexCountry('f00000'), '');
+  assert.equal(hexCountry('~4ca87c'), '', 'a non-ICAO (TIS-B) address has no country'); assert.equal(hexCountry('zzzzzz'), ''); assert.equal(hexCountry('f00000'), '');
 });
 
 // ------------------------------------------------------------------------------------------------ aloft

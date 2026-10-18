@@ -12,8 +12,9 @@ export const ADSBDB = 'https://api.adsbdb.com/v0';
 const TTL = 24 * 3600e3, MISS_TTL = 6 * 3600e3, KEEP = 400;   // known: a day; unknown: 6 h; at most 400 kept
 const GAP = 1100;   // ms between requests: one plane at a time is all a person looks at
 
-/** The cache key of a plane: its hex (without readsb's ~ for non-ICAO addresses) and its callsign. */
-export const acKey = (hex, cs) => `${String(hex || '').replace(/^~/, '').toLowerCase()}|${cs}`;
+/** The cache key of a plane: its hex and its callsign. readsb's "~" (a non-ICAO address: a TIS-B track number, an
+ *  anonymous address) stays, so such a track never shares an entry with the real airframe whose number it happens to be. */
+export const acKey = (hex, cs) => `${String(hex || '').toLowerCase()}|${cs}`;
 /** Seconds adsbdb asks us to wait in a 429 answer ("rate limited for 30 seconds"), 120 if it doesn't say. */
 export const retryAfter = body => +(String(body && body.response || '').match(/(\d+)\s*sec/) || [])[1] || 120;
 
@@ -59,9 +60,10 @@ export function createAcInfo({ store = null, fetch = (url, init) => globalThis.f
       return e.v;
     },
     /** { aircraft, route } for a record (asks adsbdb once, queued), also stored on r.info; null when it can't be had
-     *  (not an ICAO address, rate limited, network trouble). Never rejects. */
+     *  (not an ICAO address, rate limited, network trouble). Never rejects. A "~" address is not an ICAO address: its six
+     *  digits belong to some other, real aircraft, so it is never looked up. */
     get(r) {
-      const cs = normCallsign(r.flight), hex = String(r.hex || '').replace(/^~/, '').toLowerCase(), k = acKey(hex, cs);
+      const cs = normCallsign(r.flight), hex = String(r.hex || '').toLowerCase(), k = acKey(hex, cs);
       const have = this.peek(r); if (have !== undefined) { r.info = have; return Promise.resolve(have); }
       if (mem.has(k) && mem.get(k).pending) return mem.get(k).pending.then(v => { if (v) r.info = v; return v; });   // another caller asked first
       if (!/^[0-9a-f]{6}$/.test(hex) || now() < blockedUntil) return Promise.resolve(null);

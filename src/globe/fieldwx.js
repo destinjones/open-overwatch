@@ -12,6 +12,10 @@ import { L } from './layers.js';
 import { readAwcMetars, readAwcTafs, metarUrl, tafUrl, idBatches, CAT_COLOR } from '../core/metar.js';
 
 const FRESH_MS = 10 * 60e3, MISSING_MS = 30 * 60e3, VIEW_KM = 2.5e6, MAX_VIEW = 180;
+/** AWC's answer as JSON; its "no report for these fields" is an HTTP 204 with an empty body, which r.json() can't read
+ *  (a SyntaxError): that is an empty list, so the misses are cached for MISSING_MS instead of asked again (or, for a
+ *  whole view batch, mistaken for an outage). Network trouble and HTTP errors still throw. */
+const awcJSON = url => getJSON(url, { relay: true, timeout: 15000 }).catch(e => { if (e instanceof SyntaxError) return []; throw e; });
 const COLORS = Object.fromEntries(Object.entries(CAT_COLOR).map(([k, v]) => [k, C.Color.fromCssColorString(v)]));
 
 export const FieldWx = {
@@ -24,7 +28,7 @@ export const FieldWx = {
   async fetchMetars(ids) {
     const want = ids.filter(id => !this.fresh(this.metars, id));
     for (const batch of idBatches(want, 60)) {
-      const got = readAwcMetars(await getJSON(metarUrl(batch), { relay: true, timeout: 15000 })), now = Date.now();
+      const got = readAwcMetars(await awcJSON(metarUrl(batch))), now = Date.now();
       for (const id of batch) this.metars.set(id, { t: now, r: got.get(id) || null });
     }
   },
@@ -39,7 +43,7 @@ export const FieldWx = {
   async taf(icao) {
     if (!this.available || !icao) return null;
     if (!this.fresh(this.tafs, icao)) {
-      const got = readAwcTafs(await getJSON(tafUrl([icao]), { relay: true, timeout: 15000 }));
+      const got = readAwcTafs(await awcJSON(tafUrl([icao])));
       this.tafs.set(icao, { t: Date.now(), taf: got.get(icao) || null });
     }
     return this.tafs.get(icao)?.taf || null;

@@ -18,7 +18,8 @@ import { fetchAsset } from '../core/assets.js';
 import { parseAirports, AirportIndex, makeBoard, BOARD, BOARD_SECTIONS as SECTIONS, boardRowWords, planesNear } from '../core/airports.js';
 import { windWords } from '../core/runways.js';
 import { airportWxCache, airportWxLine } from '../core/aloft.js';
-import { metarWords, tafWords, tafWorst, ageText, CAT_COLOR, CAT_WORDS } from '../core/metar.js';
+import { metarWords, tafWords, tafWorst, ageText, usableWind, CAT_COLOR, CAT_WORDS } from '../core/metar.js';
+import { emergencyLabel } from '../core/aircraft.js';
 import { arrivalEstimate, departureEstimate, etaRecordText } from '../core/eta.js';
 import { historyText } from '../core/runwaylog.js';
 import { FieldWx } from './fieldwx.js';
@@ -36,7 +37,7 @@ function boardRow(e, ap) {
   const r = e.r, fin = e.status === 'arriving' ? Runways.final(ap, { ...r, lat: r.cur?.lat ?? r.lat, lon: r.cur?.lon ?? r.lon }) : null;
   // core/airports.js: the same words as the 2D map's boards (estimates as ranges, "final 27L", departed-ago)
   const { where, right, sub } = boardRowWords(e, ap, { fin, kind: airClass(r).name, fmt });
-  const sq = r.emerg ? ` <em class="ab-emg">SQUAWK ${esc(r.squawk)}</em>` : '';
+  const sq = r.emerg ? ` <em class="ab-emg">${esc(emergencyLabel(r))}</em>` : '';   // core/aircraft.js: a declared emergency can come with any squawk
   return `<button class="cj ab-row${r.emerg ? ' emg' : ''}" data-hex="${esc(r.hex)}"><span><b>${esc(r.flight || r.hex)}</b>${sq} ${esc(r.type || (r.info && r.info.aircraft && r.info.aircraft.icaoType) || '')}${where ? ' · ' + esc(where) : ''}${e.sure ? ' ✓' : ''}</span>`
     + `<small>${esc(sub)} · ${esc(right)}</small></button>`;
 }
@@ -58,7 +59,7 @@ function metarHtml(m, t) {
       + (lines.length ? `<ul class="ap-words ap-taf">${lines.map(l => `<li>${chip(l.category)} ${esc(l.text)}</li>`).join('')}</ul>` : '<p class="note">The forecast has ended.</p>')
       + `<details class="ap-raw"><summary>The forecast as sent</summary><code>${esc(t.raw)}</code></details>`;
   }
-  return h + '<p class="ap-src">Aviation Weather Center (NOAA), aviationweather.gov · times in UTC · decoded here; the raw text is what counts</p>';
+  return h + '<p class="ap-src">Aviation Weather Center (NOAA), aviationweather.gov · times and days in UTC (tomorrow is the next UTC day) · decoded here; the raw text is what counts</p>';
 }
 /** Which runways the last hour's arrivals and departures used (download version, from the watched planes' trails). */
 function historyHtml(a) {
@@ -134,7 +135,11 @@ export const Airports = {
         if (state.selected !== a) return;
         metar = m; if (this.open === a) draw();
         const box = card.querySelector('#apMetar'); if (box) box.innerHTML = metarHtml(m, t);
-        if (m) card.querySelector('#apWx')?.remove(); else showModel();
+        if (!m) showModel();
+        else {   // the METAR is shown; its wind unless it has none usable ("///15KT"), then the model's for the runway guess
+          card.querySelector('#apWx')?.remove();
+          if (!usableWind(m.wind)) fieldWeather(a).then(w => { wx = w; if (this.open === a) draw(); }).catch(() => {});
+        }
       });
     } else showModel();
     const draw = () => {
@@ -144,11 +149,13 @@ export const Airports = {
       const b = this.board(a), n = b.arriving.length + b.departing.length + b.ground.length + b.recent.length;
       const next = b.arriving.find(e => e.etaS != null);
       // the runway in use: what arrivals are lined up with, else what the wind favours, and the wind on it
-      const wind = metar && metar.wind && metar.wind.speedKt != null ? { dir: metar.wind.dir, speed: metar.wind.speedKt } : wx && { dir: wx.windDir, speed: wx.windKt };   // the METAR's wind first
+      const mw = metar && usableWind(metar.wind);
+      const wind = mw ? { dir: mw.dir, speed: mw.speedKt } : wx && { dir: wx.windDir, speed: wx.windKt };   // the METAR's wind first, else the model's
       const use = Runways.inUse(a, b.arriving.map(e => ({ ...e.r, lat: e.r.cur?.lat ?? e.r.lat, lon: e.r.cur?.lon ?? e.r.lon })), wind);
       const onIt = use && wind && wind.speed != null && wind.dir != null ? Runways.wind(a, wind.dir, wind.speed).find(t => t.end === use.end) : null;
+      const modelWind = !!metar && !mw && !!wind && (use?.how !== 'arrivals' || !!onIt);   // say so where the model's wind is used under a METAR
       const rwy = use ? `<p class="ap-rw">Runway in use: <b>${esc(use.end.ident)}</b> ${use.how === 'arrivals' ? `(${use.n} lined up)` : '(into the wind; a guess)'}`
-        + (onIt ? ` · wind on it ${windWords(onIt)}` : '') + '</p>' : '';
+        + (onIt ? ` · wind on it ${esc(windWords(onIt))}` : '') + (modelWind ? ' <span class="ap-src">(Open-Meteo model wind)</span>' : '') + '</p>' : '';
       box.innerHTML = rwy + (next ? `<div class="acts"><button class="chipbtn" data-next="${esc(next.r.hex)}" style="color:#7dffa6">Follow the next arrival · ${esc(next.r.flight || next.r.hex)}</button><button class="chipbtn" data-tower="${esc(next.r.hex)}" style="color:#9fe3ff" title="Watch it come in from the tower">From the tower</button></div>` : '')
         + (n ? SECTIONS.map(([k, name, col]) => b[k].length ? `<h3 style="color:${col}">${name} · ${b[k].length}</h3>${b[k].map(e => boardRow(e, a)).join('')}` : '').join('')
         : `<p class="note">No aircraft near ${esc(a.iata || a.icao)} right now that the feeds can see.</p>`)
