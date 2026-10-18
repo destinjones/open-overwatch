@@ -3,7 +3,7 @@
 // the isobar chart, and the legends, shared by the globe and the 2D map.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TEMP, RAIN, GUST, WAVE, WIND_COLORS, WIND_EDGES, tempRgb, stepped, cloudRgba, washRgba, windBucket, paintWash, waveDarts, pressureChart, splitJumps, legendFor } from '../src/core/wxpaint.js';
+import { TEMP, RAIN, GUST, WAVE, WIND_COLORS, WIND_EDGES, tempRgb, stepped, cloudRgba, washRgba, windBucket, paintWash, paintMercatorTile, waveDarts, pressureChart, splitJumps, legendFor } from '../src/core/wxpaint.js';
 
 function globe(fn, step = 1) {
   const ni = 360 / step, nj = 180 / step + 1, values = new Float32Array(ni * nj);
@@ -102,4 +102,23 @@ test('legends: drawn from the same stops, metric or imperial', () => {
   assert.equal(legendFor('pres').gradient, null);
   for (const k of ['gust', 'wave', 'rain', 'cloud']) assert.ok(legendFor(k).gradient.startsWith('linear-gradient'), k);
   assert.equal(legendFor('nope'), null);
+});
+
+test('paintMercatorTile: a map tile painted at the size it is sampled at is the full tile in blocks, at a step² of the cost', () => {
+  const RAD = Math.PI / 180, value = (la, lo) => 30 * Math.cos(la * RAD) - 10 + 8 * Math.sin(lo * 4 * RAD);
+  // the 2D map's createTile before: all 256² pixels through paintWash in step-blocks, latitude by rounded row
+  const full = ({ x, y, z }, step, blur) => {
+    const W = 256 * 2 ** z, lat = new Float64Array(256), px = new Uint8ClampedArray(256 * 256 * 4);
+    for (let r = 0; r < 256; r++) lat[r] = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y * 256 + r + 0.5) / W))) / RAD;
+    const at = blur ? (la, lo) => (value(la + blur, lo + blur) + value(la + blur, lo - blur) + value(la - blur, lo + blur) + value(la - blur, lo - blur)) / 4 : value;
+    return paintWash('temp', px, 256, 256, (X, Y) => at(lat[Math.min(255, Math.round(Y))], (x * 256 + X + 0.5) / W * 360 - 180), step);
+  };
+  for (const [coords, step, blur] of [[{ x: 4, y: 2, z: 3 }, 2, 0], [{ x: 70, y: 40, z: 7 }, 4, 0], [{ x: 1, y: 1, z: 2 }, 4, 0.5], [{ x: 0, y: 0, z: 0 }, 2, 0.25]]) {
+    const n = 256 / step, small = new Uint8ClampedArray(n * n * 4), calls = [];
+    paintMercatorTile('temp', small, coords, step, (la, lo) => { calls.push(1); return value(la, lo); }, blur);
+    assert.equal(calls.length, n * n * (blur ? 4 : 1), 'one sample a block (four with the blur)');
+    const big = full(coords, step, blur); let bad = 0;
+    for (let Y = 0; Y < 256; Y++) for (let X = 0; X < 256; X++) for (let k = 0; k < 4; k++) if (big[(Y * 256 + X) * 4 + k] !== small[(Math.floor(Y / step) * n + Math.floor(X / step)) * 4 + k]) bad++;
+    assert.equal(bad, 0, `z${coords.z} step ${step}: the same picture`);
+  }
 });

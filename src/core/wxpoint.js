@@ -72,8 +72,13 @@ export function readDetails(d, hours = 48) {
   if (!c || !h || !Array.isArray(h.time)) return null;
   let i0 = hourIndex(h.time, c.time);
   if (i0 < 0) i0 = Math.min(3, h.time.length - 1);
-  const p = h.pressure_msl || [], pNow = fin(c.pressure_msl) ?? fin(p[i0]), pBefore = i0 >= 3 ? fin(p[i0 - 3]) : null;
-  const tendency = pNow != null && pBefore != null ? pNow - pBefore : null;
+  const p = h.pressure_msl || [], pNow = fin(c.pressure_msl) ?? fin(p[i0]);
+  // exactly three hours: "current" moves in 15-minute steps, so at 14:45 the value three hours back is 11:45's, between
+  // the hourly 11:00 and 12:00 (not 11:00's, a 3 h 45 min span that read up to 25% too steep)
+  const mins = fin(c.pressure_msl) == null ? 0 : Number(String(c.time || '').slice(14, 16)) || 0, f = Math.max(0, Math.min(59, mins)) / 60;   // the hourly fallback is on the hour
+  const p0 = i0 >= 3 ? fin(p[i0 - 3]) : null, p1 = i0 >= 2 ? fin(p[i0 - 2]) : null;
+  const pBefore = p0 == null ? null : f && p1 != null ? p0 + (p1 - p0) * f : p0;
+  const tendency = pNow != null && pBefore != null ? (pNow - pBefore) * (f && p1 == null ? 3 / (3 + f) : 1) : null;   // no next hour: scaled to 3 h
   const wind = fin(c.wind_speed_10m), gust = fin(c.wind_gusts_10m);
   const now = {
     time: c.time, pressure_hpa: r1(pNow), surface_pressure_hpa: r1(fin(c.surface_pressure)), temperature_c: r1(fin(c.temperature_2m)), dew_point_c: r1(fin(c.dew_point_2m)),

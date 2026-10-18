@@ -4,7 +4,9 @@
 // hours either side of the moment; with a second model chosen, the two are shown side by side, split where the slider
 // is (every wash is two imagery layers, one each side of scene.splitPosition, and each wind streak follows the model on
 // its side). If no model can be reached, wind and temperature fall back to a snapshot of now: Open-Meteo on a 10° grid
-// (the site's scheduled build mirrors it as data/wind.json; else the browser asks Open-Meteo itself).
+// (the site's scheduled build mirrors it as data/wind.json; else the browser asks Open-Meteo itself), but only for an
+// observed frame within an hour of the snapshot's own time (core/wxmodels.js snapFits): a forecast frame the model can't
+// give shows nothing and says so, never "now" under a label days ahead.
 // Wind is drawn as moving streaks on a canvas laid over the globe (each particle is advected through the field and
 // projected with the camera); temperature, cloud, rain, gusts and waves are colour washes, one image per moment, laid
 // on the globe; pressure is isobars every 4 hPa (core/contour.js) drawn into a clear image, with H and L labels on the
@@ -14,7 +16,7 @@ import { viewer, camera, camHeight } from './viewer.js';
 import { fetchAsset } from '../core/assets.js';
 import { momentOf, momentValue, momentWind, momentReading } from '../core/wxload.js';
 import { WIND_COLORS as COLORS, WASH_ALPHA, paintWash, windBucket, waveDarts, pressureChart } from '../core/wxpaint.js';
-import { runWords } from '../core/wxmodels.js';
+import { runWords, snapFits, clockWords } from '../core/wxmodels.js';
 import { Model } from './model.js';
 
 const LATS = [], LONS = [];
@@ -32,15 +34,18 @@ function creditFor(def, kind) {
 }
 const SIDES = ['main', 'cmp'];
 const HI = !PHONE;   // detailed images (waves, isobars) at desktop size
+const KEEP_IMAGES = 12;   // washes kept as images; dropped when weather closes (a loop of 46 frames never fits anyway)
 
 export const Wind = {
-  grid: null, loading: null, canvas: null, ctx: null, parts: [], raf: 0, windOn: false,
+  grid: null, loading: null, tried: 0, canvas: null, ctx: null, parts: [], raf: 0, windOn: false,
   model: Model,     // the model shown (model.js Models.*)
   cmpModel: null,   // a second model, side by side, or null
   cur: null,        // the model at the moment shown: { a, b, w, h0, h1, run, model } (model.js), or null (snapshot only)
   cmp: null,        // the second model at that moment
   split: 0.5,       // where the two meet, as a fraction of the width
   t: 0,             // that moment (ms)
+  fcst: false,      // is it a forecast frame? (the snapshot of now never stands in for one)
+  missed: false,    // the model was asked for this moment and could not give it
   washes: {},       // kind → { on, main: { layer, key }, cmp: { layer, key } }
   images: new Map(),   // a wash's key → { url, centres } (going back and forth costs nothing)
   centres: { main: null, cmp: null },   // LabelCollections of H and L
@@ -55,23 +60,34 @@ export const Wind = {
     viewer.scene.splitPosition = this.split;
   },
   data(side) { return side === 'cmp' ? this.cmp : this.cur; },
+  /** The snapshot, when it may stand in for the moment shown (an observed frame near its time), else null. */
+  snap() { return snapFits(this.grid, this.t, this.fcst) ? this.grid : null; },
 
   // ---- the snapshot (fallback): Open-Meteo, now only
   async load() {
-    if (this.grid) return this.grid;
+    if (this.grid && snapFits(this.grid, Date.now())) return this.grid;
     if (this.loading) return this.loading;
+    if (this.grid && Date.now() - this.tried < TTL) return this.grid;   // asked lately and nothing newer came: no new burst of 612 points
+    this.tried = Date.now();
     this.loading = (async () => {
+      // a snapshot stands in only within an hour of its own time (snapFits), so a copy older than that is no use near now:
+      // the site's mirror is rebuilt every 6 h, so for most of each cycle it is too old and Open-Meteo is asked instead
+      const ok = g => !!(g && g.u && g.u.length === NX * NY), fits = g => ok(g) && snapFits(g, Date.now());
       const c = store.get(KEY, null);
-      if (c && Date.now() - c.t < TTL && c.u && c.u.length === NX * NY) return (this.grid = c);
+      if (fits(c) && Date.now() - c.t < TTL) return (this.grid = c);
       // the site's scheduled build keeps a copy (data/wind.json, up to 6 h old): no quota spent, one small file
       const mirror = await fetchAsset('data/wind.json', 'json').catch(() => null);
-      if (mirror && mirror.u && mirror.u.length === NX * NY && Date.now() - mirror.t < MIRROR_MAX) { store.set(KEY, mirror); return (this.grid = mirror); }
+      if (fits(mirror) && Date.now() - mirror.t < MIRROR_MAX) { store.set(KEY, mirror); return (this.grid = mirror); }
       try { return (this.grid = await this.live()); }
-      catch (e) { if (mirror && mirror.u && mirror.u.length === NX * NY) return (this.grid = mirror); throw e; }   // an old snapshot beats none
-    })().catch(e => { this.loading = null; throw e; });
+      catch (e) {   // the newest of what we have (it draws nothing unless it fits the moment, and the note says so)
+        const old = [mirror, c, this.grid].filter(ok).sort((a, b) => b.t - a.t)[0];
+        if (old) return (this.grid = old);
+        throw e;
+      }
+    })().finally(() => { this.loading = null; });
     return this.loading;
   },
-  async live() {   // straight from Open-Meteo: 612 locations (it limits visitors per hour), used only when the site's copy is missing or stale
+  async live() {   // straight from Open-Meteo: 612 locations (it limits visitors per hour), used only when the site's copy is missing or more than an hour off now
     const pts = []; for (const la of LATS) for (const lo of LONS) pts.push([la, lo]);
     const u = new Array(NX * NY), v = new Array(NX * NY), t = new Array(NX * NY); let when = '';
     const jobs = []; for (let i = 0; i < pts.length; i += CHUNK) jobs.push(i);
@@ -95,17 +111,17 @@ export const Wind = {
 
   // ---- the model at a moment
   /** Load what `kinds` ('wind', 'temp', 'cloud', 'rain', 'pres', 'gust', 'wave') need for moment t, from the model shown
-   *  and the one beside it, then redraw what is showing. Resolves to true with the model, false on the snapshot (no
-   *  model reachable: wind and temperature of now only). */
-  async moment(t, kinds) {
-    this.t = t;
+   *  and the one beside it, then redraw what is showing. Resolves to true with the model, false without it (then wind
+   *  and temperature of now on an observed frame near now, nothing on a forecast frame: `fcst`). */
+  async moment(t, kinds, fcst = false) {
+    this.t = t; this.fcst = !!fcst;
     const main = this.model, other = this.cmpModel;
     // a model whose run was found but whose fields failed is usually S3 throttling a burst: tried twice more (core/wxload.js)
     const get = m => momentOf(m, t, kinds, { still: () => this.t === t });
     const [cur, cmp] = await Promise.all([get(main), other ? get(other) : null]);
     if (this.t !== t || this.model !== main) return !!cur;   // a later moment (or another model) was asked for meanwhile
-    this.cur = cur; this.cmp = this.cmpModel === other ? cmp : null;
-    if (!cur) await this.load();
+    this.cur = cur; this.cmp = this.cmpModel === other ? cmp : null; this.missed = !cur;
+    if (!cur && snapFits({ t: Date.now() }, t, fcst)) await this.load();   // the snapshot is of now: worth loading only for a moment near now
     this.redraw();
     return !!this.cur;
   },
@@ -113,22 +129,22 @@ export const Wind = {
    *  'wavedir' degrees (where the waves come from), or NaN when not loaded (or over land, for waves). */
   value(kind, lat, lon, side = 'main') {
     const c = this.data(side);
-    if (!c && side === 'main' && kind === 'temp' && this.grid) return this.snapAt(lon, lat, [0, 0, 0])[2];
+    if (!c && side === 'main' && kind === 'temp' && this.snap()) return this.snapAt(lon, lat, [0, 0, 0])[2];
     return momentValue(c, kind, lat, lon);
   },
   /** Wind at a point, blended in time: out = [u, v] (m/s east, north). */
   windAt(lon, lat, out, side = 'main') {
     const c = side === 'cmp' ? this.cmp : this.cur;
     if (c && c.a.wind) return momentWind(c, lat, lon, out);
-    if (side === 'main' && !c && this.grid) { this.snapAt(lon, lat, out); return out; }
+    if (side === 'main' && !c && this.snap()) { this.snapAt(lon, lat, out); return out; }
     out[0] = out[1] = 0; return out;
   },
   /** What the weather is at a point at the moment shown: { temp °C, speed m/s, u, v, cloud %, rain mm/h, gust m/s,
    *  pres hPa, presTrend (hPa over the 3 h step), wave m, waveFrom °, source, run, t }, or null. */
   reading(lat, lon, side = 'main') {
     const c = this.data(side);
-    if (!c && (side === 'cmp' || !this.grid)) return null;
-    const src = { source: c ? c.model.def.name : 'Open-Meteo', model: c ? c.model.id : null, run: c ? c.run : null, t: c ? this.t : this.grid?.t };
+    if (!c && (side === 'cmp' || !this.snap())) return null;
+    const src = { source: c ? c.model.def.name : 'Open-Meteo', model: c ? c.model.id : null, run: c ? c.run : null, t: c ? this.t : this.grid.t, fcst: !!c && this.fcst };
     if (c) return { ...momentReading(c, lat, lon), ...src };   // core/wxload.js (the model without its wind: none, not the snapshot's)
     const w = this.windAt(lon, lat, [0, 0], side);
     return { ...momentReading(null, lat, lon), temp: this.value('temp', lat, lon, side), u: w[0], v: w[1], speed: Math.hypot(w[0], w[1]), ...src };
@@ -138,7 +154,8 @@ export const Wind = {
     const c = this.data(side);
     if (c) return `${c.model.def.name}, ${runWords(c.run)}`;
     if (side === 'cmp') return this.cmpModel ? `${this.cmpModel.def.name} not reachable` : '';
-    return this.grid ? `Open-Meteo, ${String(this.grid.at || '').slice(11)} UTC` : '';
+    if (this.snap()) return `${this.model.def.name} not reachable; wind and temperature: Open-Meteo, now (${clockWords(Date.parse(this.grid.at + 'Z') || this.grid.t)})`;
+    return this.missed ? `${this.model.def.name} not reachable for this moment, so nothing is drawn` : '';
   },
 
   // ---- colour washes (temperature, cloud, rain, gusts, waves) and the isobars
@@ -158,12 +175,11 @@ export const Wind = {
     const wsh = this.washes[kind], slot = wsh[side], c = this.data(side);
     const hide = () => { if (slot.layer) slot.layer.show = false; if (kind === 'pres') this.showCentres(side, null); };
     if (side === 'cmp' && !this.cmpModel) return hide();
-    if (!c && (kind !== 'temp' || side === 'cmp')) return hide();   // the snapshot has only temperature (and wind)
-    if (c && !c.a[kind]) return;   // not loaded for this moment yet: moment() redraws when it is
-    if (!c && !this.grid) await this.load();
+    if (!c && (kind !== 'temp' || side === 'cmp' || !this.snap())) return hide();   // the snapshot has only temperature (and wind), and only near its time
+    if (c && !c.a[kind]) return hide();   // not loaded for this moment: not the last moment's picture under this one's label (moment() redraws when it is)
     const key = c ? `${kind}|${c.model.id}|${c.run.t}|${c.h0}|${c.h1}|${c.w.toFixed(2)}` : `${kind}|snap|${this.grid.t}`;
     let img = this.images.get(key);
-    if (!img) { img = this.paint(kind, side); this.images.set(key, img); if (this.images.size > 40) this.images.delete(this.images.keys().next().value); }
+    if (!img) { img = this.paint(kind, side); this.images.set(key, img); if (this.images.size > KEEP_IMAGES) this.images.delete(this.images.keys().next().value); }
     if (kind === 'pres') this.showCentres(side, img.centres);
     if (slot.key !== key || !slot.layer) {
       const p = await C.SingleTileImageryProvider.fromUrl(img.url, { rectangle: C.Rectangle.fromDegrees(-180, -90, 180, 90), credit: c ? creditFor(c.model.def, kind) : OM_CREDIT });
@@ -182,7 +198,7 @@ export const Wind = {
     if (kind === 'pres') return this.paintPressure(side);
     if (kind === 'wave') return { url: this.paintWaves(side) };
     const cv = document.createElement('canvas'); cv.width = 360; cv.height = 180;
-    const cx = cv.getContext('2d'), img = cx.createImageData(360, 180), o = [0, 0, 0], snap = !this.data(side);
+    const cx = cv.getContext('2d'), img = cx.createImageData(360, 180), o = [0, 0, 0], snap = !this.data(side);   // drawSide lets the snapshot through only when snap() allows it
     paintWash(kind, img.data, 360, 180, (x, y) => { const lon = x - 180 + 0.5, lat = 90 - y - 0.5; return snap ? this.snapAt(lon, lat, o)[2] : this.value(kind, lat, lon, side); });
     cx.putImageData(img, 0, 0);
     return { url: cv.toDataURL() };
@@ -235,6 +251,7 @@ export const Wind = {
   dropWashes() {
     for (const w of Object.values(this.washes)) for (const s of SIDES) if (w[s].layer) viewer.imageryLayers.remove(w[s].layer, true);
     this.washes = {}; this.hideCentres();
+    this.images.clear();   // tens of MB of data: URLs (2048 px isobars), and of a run the next open may not use
   },
   dropTemp() { this.dropWashes(); },
 
@@ -306,6 +323,7 @@ export const Wind = {
     const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height, dpr = this.dpr;
     const hidden = !viewer.useDefaultRenderLoop || document.body.classList.contains('lookup') || camHeight() > 2.5e8;
     this.canvas.style.visibility = hidden ? 'hidden' : 'visible'; if (hidden) return;
+    if (!this.cur?.a.wind && !this.cmp?.a.wind && !this.snap()) { ctx.clearRect(0, 0, W, H); this.last = null; return; }   // no wind for this moment: no streaks, not dots of "calm"
     // the camera moved: old streaks no longer line up with the globe
     const c = camera.positionWC, d = camera.directionWC, key = [c.x, c.y, c.z, d.x, d.y, d.z], moved = !this.last || key.some((v, i) => Math.abs(v - this.last[i]) > 1e-6 * (i < 3 ? R : 1)); this.last = key;
     if (moved) { ctx.clearRect(0, 0, W, H); for (const p of this.parts) p.px = NaN; }

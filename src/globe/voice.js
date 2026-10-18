@@ -5,7 +5,8 @@
 // hi-IN, answered in English). Press V or the mic, or hold Space while you speak. "What's this?" means the
 // thing the pointer rests on (or the open card, or the middle of the view); when an answer lists several things, "the
 // second one" opens it. Questions are answered from what the globe already holds: "how many planes over Texas?",
-// "what's the weather in Paris?" (the model at the moment weather mode shows, else Open-Meteo for now).
+// "what's the weather in Paris?" (Open-Meteo for now; the model, named, only for a point on a forecast frame of weather
+// mode: core/voicecmd.js weatherSource).
 // Privacy: recognition is the browser's service (Chrome and Edge send the audio to their makers, Safari to Apple); this
 // site receives nothing. Place names go to Photon (places.js) like a typed search; a weather question sends the point
 // it is about to Open-Meteo.
@@ -33,7 +34,7 @@ import { Ships } from './ships.js';
 import { Transit } from './transit.js';
 import { Cams } from './cams.js';
 import { Quakes } from './quakes.js';
-import { parse, EXAMPLES, EXAMPLES_HI, weatherSentence, voiceLangs } from '../core/voicecmd.js';
+import { parse, EXAMPLES, EXAMPLES_HI, weatherSource, weatherReply, voiceLangs } from '../core/voicecmd.js';
 import { windFrom } from '../core/gfs.js';
 import { shipTypeName } from '../core/ais.js';
 import { inCountry } from '../core/borders.js';
@@ -145,11 +146,13 @@ function describe(o) {
 const ago = ms => ms < 3600e3 ? Math.max(1, Math.round(ms / 60e3)) + ' minutes ago' : ms < 172800e3 ? Math.round(ms / 3600e3) + ' hours ago' : Math.round(ms / 864e5) + ' days ago';
 const ordinal = n => ['first', 'second', 'third', 'fourth', 'fifth', 'sixth'][n - 1] || n;
 const IMPERIAL = /^en-(us|lr)$|^my\b/i.test(navigator.language || '');
-/** The weather at a point: the model at the moment weather mode shows (with whatever layers are loaded: pressure,
- *  gusts, waves), else Open-Meteo for now (with gusts, pressure and, over water, its marine model's waves). */
-async function weatherAt(lat, lon) {
-  if (Weather.on && (Wind.cur || Wind.grid)) {
-    const r = Wind.reading(lat, lon); if (r) { const w = windFrom(r.u, r.v); return { ...r, from: w.from, speed: w.speed, when: Wind.cur ? Weather.frames[Weather.frame] : null }; }
+/** The weather at a point: on a forecast frame of weather mode, the model at that moment (with whatever layers are
+ *  loaded: pressure, gusts, waves; `fcst` and `source` say so); else, and always for a named place, Open-Meteo for now
+ *  (with gusts, pressure and, over water, its marine model's waves). */
+async function weatherAt(lat, lon, named = false) {
+  const f = Weather.on ? Weather.frames[Weather.frame] : null;
+  if (weatherSource({ named, frame: f, loaded: !!(f && Wind.cur && Wind.t === f.t) }) === 'model') {
+    const r = Wind.reading(lat, lon); if (r && r.fcst) { const w = windFrom(r.u, r.v); return { ...r, from: w.from, speed: w.speed, when: f }; }
   }
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 6000), q = `latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}`;
   try {
@@ -160,6 +163,8 @@ async function weatherAt(lat, lon) {
       wave: m.wave_height ?? NaN, waveFrom: m.wave_direction ?? NaN, source: 'Open-Meteo' };
   } finally { clearTimeout(t); }
 }
+/** A model reading's moment in words ("Thursday 3 PM"); '' for Open-Meteo's now. */
+const whenOf = r => r.when ? new Date(r.when.t).toLocaleString([], { weekday: 'long', hour: 'numeric' }) : '';
 async function placeName(lat, lon) {
   const k = await Country.at(lon, lat).catch(() => null);
   return k ? k.facts.name : `Open water, ${Math.abs(lat).toFixed(1)} degrees ${lat >= 0 ? 'north' : 'south'}, ${Math.abs(lon).toFixed(1)} ${lon >= 0 ? 'east' : 'west'}`;
@@ -261,7 +266,7 @@ async function run(cmd, heard) {
       if (spot.lat == null) return say(`You're in space, ${fmt(camHeight() / 1000)} kilometres from Earth.`, heard);
       const h = camHeight(), up = h > 1e5 ? fmt(h / 1000) + ' kilometres up' : fmt(h) + ' metres up', name = await placeName(spot.lat, spot.lon);
       const r = Weather.on ? await weatherAt(spot.lat, spot.lon).catch(() => null) : null;
-      return say(`${name}${r ? '. ' + weatherSentence(r, IMPERIAL) : ', from ' + up}.`, heard);
+      return say(r ? weatherReply(name, r, IMPERIAL, whenOf(r)) : `${name}, from ${up}.`, heard);
     }
     case 'pick': {
       if (!listed.items.length || performance.now() - listed.t > 120e3) return say('Ask "what\'s this?" over a few things first.', heard);
@@ -279,10 +284,9 @@ async function run(cmd, heard) {
         if (spot.lat == null) return say('Point at a place on the Earth first.', heard);
         ({ lat, lon } = spot); name = await placeName(lat, lon);
       }
-      const r = await weatherAt(lat, lon).catch(() => null);
+      const r = await weatherAt(lat, lon, !!cmd.place).catch(() => null);
       if (!r) return say('The weather service is not answering right now.', heard);
-      const when = r.when && r.when.fcst ? ` (forecast for ${new Date(r.when.t).toLocaleString([], { weekday: 'long', hour: 'numeric' })})` : '';
-      return say(`${name}${when}: ${weatherSentence(r, IMPERIAL)}.`, heard);
+      return say(weatherReply(name, r, IMPERIAL, whenOf(r)), heard);
     }
     case 'view': { const b = document.querySelector(`#band [data-go="${cmd.go}"]`); if (b) b.click(); else if (PRESETS[cmd.go]) PRESETS[cmd.go](); return say(b ? b.textContent.replace(/[⌕▶↗]/g, '').trim() + '.' : 'Opening.', heard); }
     case 'layer': {

@@ -81,6 +81,21 @@ export function paintWash(kind, px, w, h, at, step = 1) {
 }
 
 /**
+ * One Web Mercator map tile of a wash (256 px, Leaflet's { x, y, z }), sampled once every `step` px and painted at
+ * that size: px is an RGBA buffer of (256 / step)² that the view scales up without smoothing, the same picture as
+ * paintWash over all 256² in step-blocks at a step² fraction of the pixel writes (and memory, kept per tile).
+ * `value(lat, lon)`: the field there. `blur` (degrees, cloud and rain): the mean of four samples that far off
+ * diagonally, a tent over one model cell, so the steep colour ramps don't show the cells as squares. Returns px.
+ */
+export function paintMercatorTile(kind, px, { x, y, z }, step, value, blur = 0) {
+  const n = 256 / step, W = 256 * 2 ** z, lat = new Float64Array(n), lon = new Float64Array(n);
+  for (let j = 0; j < n; j++) { const Y = y * 256 + Math.min(255, Math.round(j * step + step / 2 - 0.5)) + 0.5; lat[j] = Math.atan(Math.sinh(Math.PI * (1 - 2 * Y / W))) / RAD; }
+  for (let i = 0; i < n; i++) lon[i] = (x * 256 + i * step + step / 2) / W * 360 - 180;
+  const at = blur ? (la, lo) => (value(la + blur, lo + blur) + value(la + blur, lo - blur) + value(la - blur, lo + blur) + value(la - blur, lo - blur)) / 4 : value;
+  return paintWash(kind, px, n, n, (i, j) => at(lat[j], lon[i]));
+}
+
+/**
  * Darts for the direction waves run: one every `step` degrees of open sea with waves of `minH` m or more (fewer toward
  * the poles, where a degree of longitude is short), inside the box. `value(kind, lat, lon)` reads 'wave' (m) and
  * 'wavedir' (° the waves come from). [{ lat, lon, to (° they run towards), h }].

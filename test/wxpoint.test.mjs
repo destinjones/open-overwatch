@@ -65,3 +65,20 @@ test('wxpoint: the sea now and the highest waves ahead; nothing over land', () =
   assert.equal(readMarine({ current: { time: 'x', wave_height: null, swell_wave_height: null, sea_surface_temperature: null } }), null);
   assert.equal(readMarine(null), null);
 });
+
+test('wxpoint: the tendency spans exactly three hours when "current" is between the hours', () => {
+  // a steady fall of 1 hPa an hour, current at 14:45: 3.0 hPa in 3 h ('falling'), not 14:45 minus 11:00 (3.75, 'falling quickly')
+  const time = ['11', '12', '13', '14', '15'].map(h => `2026-10-01T${h}:00`), fall = h => 1010 - (h - 11);
+  const d = { current: { time: '2026-10-01T14:45', pressure_msl: fall(14.75) }, hourly: { time, pressure_msl: [11, 12, 13, 14, 15].map(fall) } };
+  const r = readDetails(d, 2);
+  assert.equal(r.tendency_hpa, -3); assert.equal(r.tendency, 'falling');
+  // the hour after the one three back missing: the span is scaled to three hours instead
+  const gap = structuredClone(d); gap.hourly.pressure_msl[1] = null;
+  assert.equal(readDetails(gap, 2).tendency_hpa, -3);
+  // no current pressure: the hourly value at 14:00 against 11:00's, three hours exactly
+  const hourly = structuredClone(d); delete hourly.current.pressure_msl;
+  assert.equal(readDetails(hourly, 2).tendency_hpa, -3);
+  // on the hour, as before
+  const top = structuredClone(d); top.current = { time: '2026-10-01T14:00', pressure_msl: fall(14) };
+  assert.equal(readDetails(top, 2).tendency_hpa, -3);
+});
