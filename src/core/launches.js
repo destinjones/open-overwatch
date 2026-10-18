@@ -88,8 +88,9 @@ export const listedUntil = (net, precision, grace) => Math.max(net + grace, peri
 
 /** Upcoming first; a launch stays listed for 2 hours after its time, to the end of the day, month or quarter an
  *  imprecise time names (periodEnd), or while marked in flight. It can only keep what the list still holds: LL2's
- *  upcoming endpoint with hide_recent_previous=true (the site build and its fallbacks) drops a launch once its time
- *  has passed. */
+ *  upcoming endpoint (the site build and its fallbacks ask it without hide_recent_previous) also returns launches from
+ *  the last 24 hours, so a "NET October" launch dated 31 October 00:00Z stays until the month is over, and this filter,
+ *  not LL2, decides when a launch leaves the list. */
 export function upcoming(list, now) {
   return list.filter(l => l && (l.status === 'In Flight' || !Number.isFinite(l.net) || listedUntil(l.net, l.precision, 2 * 3600e3) > now)).sort((a, b) => (a.net || Infinity) - (b.net || Infinity));
 }

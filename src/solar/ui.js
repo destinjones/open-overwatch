@@ -7,6 +7,7 @@ import { REAL_TIME, formatUtc } from '../core/time.js';
 import { esc, viewWidth } from '../core/format.js';
 import { fetchAsset } from '../core/assets.js';
 import { skyPosition, skyPhrase, nearestConstellation, formatRaDec } from '../core/skyplace.js';
+import { zoneCounts, zoneWords } from '../core/habitable.js';
 import { PHONE, Sharpen } from './util.js';
 import { bodies, byKey, layers, layer, layerOn, applyLayers, bodyVisible } from './world.js';
 import { BANDS, RUNGS, RUNG_SHORT } from './story.js';
@@ -217,9 +218,11 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
       band = bi;
       if (close) $('#sName').textContent = f.name;
       else if (inSystem) {
-        const s = exo.X.built.s, hz = s.pl.filter(p => p[11]).length, nm = byKey['exo:' + s.host]?.name || s.host;   // Kepler-90, not the archive's KOI-351
+        const s = exo.X.built.s, nm = byKey['exo:' + s.host]?.name || s.host;   // Kepler-90, not the archive's KOI-351
+        // both zones, as the card counts them (core/habitable.js): "3 (1 in the habitable zone, 2 more in the optimistic zone)"
+        const n = s.pl.length, z = zoneCounts(s), zw = zoneWords(s).slice(String(n).length);
         $('#sName').textContent = 'Other worlds';
-        if (started && !story.tour.on && !story.pulse.on) caption(nm + ': another solar system', `${s.pl.length} known planet${s.pl.length > 1 ? 's' : ''}${hz ? `, ${hz} in the habitable zone (green band)` : ''}, ${Math.round(s.ly)} light-years from us. They move with the clock; speed it up to watch them orbit.`, 'From the NASA Exoplanet Archive.');
+        if (started && !story.tour.on && !story.pulse.on) caption(nm + ': another solar system', `${n} known planet${n > 1 ? 's' : ''}${zw}, ${Math.round(s.ly)} light-years from us.${z.habitable || z.optimistic ? ' The green bands are its habitable zones (the fainter one is the optimistic zone).' : ''} They move with the clock; speed it up to watch them orbit.`, 'From the NASA Exoplanet Archive.');
       } else { const B = BANDS[bi]; $('#sName').textContent = B[1]; if (started && !story.tour.on && !story.pulse.on) caption(B[2], B[3], B[4]); }
     }
     document.querySelectorAll('.rung').forEach((r, i) => r.classList.toggle('on', bi === -3 ? RUNGS[i][0] === 'Other worlds' : bi >= 0 && RUNGS[i][0] === BANDS[bi][1]));

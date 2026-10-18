@@ -6,7 +6,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createFeeds, SITE } from '../mcp/feeds.mjs';
-import { resolveArea, inArea, frameArea } from '../mcp/place.mjs';
+import { resolveArea, inArea, frameArea, preparedBorders, STORM_SEA_DEG } from '../mcp/place.mjs';
+import { createTools } from '../mcp/tools.mjs';
+import { inCountry, offCoast, nearParts } from '../src/core/borders.js';
 import { countryTool } from '../mcp/country.mjs';
 import { sunTool, localDay } from '../mcp/sun.mjs';
 import { distanceTool } from '../mcp/distance.mjs';
@@ -119,6 +121,29 @@ test('mcp geo: volcanoes in the United States take in Alaska and Hawaii (Kilauea
   assert.ok(r.data.volcanoes.every(v => v.country === 'United States' || v.country == null), names.join(', '));
   assert.ok(r.data.total > 150, `Alaska's and Hawaii's are counted: ${r.data.total}`);
   assert.match(r.text, /volcanoes in United States/);
+});
+
+// ---- storms: a round-the-world country reaches further out to sea --------------------------------------------------
+test('mcp geo: storms in the United States include a Gulf hurricane and one off the Southeast (inArea sea reach), not one mid-Atlantic', async () => {
+  const gulf = [[25, -88, 'the central Gulf (Yucatán is nearer)'], [27, -93, 'the NW Gulf'], [30, -75, 'off the Southeast (the Bahamas are nearer)']];
+  const { feeds } = feedsFor([photon(wideFeature('United States', WIDE['United States'])), [SITE + 'data/borders.json', BORDERS]]);
+  const us = await resolveArea({ place: 'United States' }, feeds);
+  assert.equal(inArea(us, 25, -88), false, 'the plain area stays the outline and its 2.5° coast (earthquakes, volcanoes)');
+  for (const [lat, lon, what] of gulf) assert.equal(inArea(us, lat, lon, { sea: STORM_SEA_DEG }), true, what);
+  for (const [lat, lon, what] of [[35, -40, 'mid-Atlantic'], ...FAR.filter(p => p[2] !== 'Toronto')]) assert.equal(inArea(us, lat, lon, { sea: STORM_SEA_DEG }), false, what);   // a storm over Toronto is near the USA
+  // the cheap box gate agrees with the full test on a grid round the world (it only skips work)
+  const bd = preparedBorders(JSON.parse(BORDERS)), b = bd.find(x => x.iso === 'US');
+  for (let lat = -60; lat <= 80; lat += 5) for (let lon = -180; lon < 180; lon += 5) {
+    if (!nearParts(b, lat, lon, STORM_SEA_DEG)) assert.equal(inCountry(b, lon, lat) || offCoast(bd, b, lat, lon, 2.5, STORM_SEA_DEG), false, `${lat}, ${lon}`);
+  }
+  const nhc = ['https://www.nhc.noaa.gov/CurrentStorms.json', { activeStorms: [...gulf.map(([lat, lon], k) => storm(`al0${k + 1}2026`, `Gulf${k}`, lat, lon)), storm('al092026', 'Atlantic', 35, -40)] }];
+  const sev = (id, lat, lon, cat = { id: 'severeStorms', title: 'Severe Storms' }) => ({ id, title: id, categories: [cat], sources: [], geometry: [{ type: 'Point', date: '2026-10-16T12:00:00Z', coordinates: [lon, lat] }] });
+  const eonet = [/eonet\.gsfc\.nasa\.gov\/api\/v3\/events/, { events: [sev('Gulf storm', 25, -88), sev('Atlantic storm', 35, -40), sev('Gulf flood', 25, -88, { id: 'floods', title: 'Floods' })] }];
+  const tools = createTools({ feeds: feedsFor([photon(wideFeature('United States', WIDE['United States'])), [SITE + 'data/borders.json', BORDERS], nhc, eonet]).feeds, now: () => NOW });
+  const st = await run(tools.find(t => t.name === 'tropical_storms'), { place: 'United States' });
+  assert.deepEqual(st.data.storms.map(s => s.name).sort(), ['Gulf0', 'Gulf1', 'Gulf2'], st.text);
+  const ev = await run(tools.find(t => t.name === 'natural_events'), { place: 'United States' });
+  assert.deepEqual(ev.data.events.map(e => e.title), ['Gulf storm'], 'a severe storm reaches out to sea; other events keep the plain coast');
 });
 
 // ---- sun_and_moon: the local day ------------------------------------------------------------------------------------

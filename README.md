@@ -68,7 +68,7 @@ flowchart LR
 ## Accuracy (measured on 2 Oct 2026 against JPL Horizons; the tests hold them within the formulae's limits)
 | | Error vs NASA JPL |
 |---|---|
-| Planets (JPL approximate elements) | 2″ (Venus) to 4.4′ (Saturn); Uranus is not checked |
+| Planets (JPL approximate elements) | 1.5″ (Uranus) to 4.4′ (Saturn) |
 | Moon | 0.9′ · 189 km |
 | 20 major moons (orbits fitted to Horizons) | ≤ 0.4° (Io 0.75′, Titan 0.09′) |
 | Eclipse of 2 Aug 2027 | greatest eclipse 25.51°N 33.16°E, 10:06:39 UT, 6 min 27 s (NASA: 25°31′N 33°08′E, 6 min 23 s) |
@@ -76,7 +76,7 @@ flowchart LR
 
 These are the errors on one date, the test fixture of 2 October 2026. The tests allow more, the limits of the formulae
 (Saturn 15′, Jupiter 12′, the Moon 12′, the moons in the fixture 1°), and the app's "Under the hood" panel repeats the
-measurement live. Uranus is in no fixture yet, so its position is not checked.
+measurement live.
 
 ## Speed
 Measured with `brand/tools/perf.mjs`, `zoomtest.mjs` and `mobile_journey.mjs`; details are in

@@ -15,7 +15,7 @@ import { fromLL2, countdown, when, upcoming } from '../core/launches.js';
 import { Time } from './time.js';
 import { isPast } from '../core/history.js';
 
-const API = 'https://ll.thespacedevs.com/2.3.0/launches/upcoming/?limit=30&mode=normal&hide_recent_previous=true';
+const API = 'https://ll.thespacedevs.com/2.3.0/launches/upcoming/?limit=30&mode=normal';
 const ORANGE = C.Color.fromCssColorString('#ff9f5c');
 const pts = scene.primitives.add(new C.PointPrimitiveCollection()), labels = scene.primitives.add(new C.LabelCollection());
 const STATUS = { Go: ['Go for launch', '#7dffa6'], TBC: ['To be confirmed', '#ffd45c'], TBD: ['Date not fixed', '#8b9bab'], Hold: ['On hold', '#ff6b6b'], 'In Flight': ['In flight', '#5fd3ff'], Success: ['Success', '#7dffa6'], Failure: ['Failure', '#ff6b6b'] };

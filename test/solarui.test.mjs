@@ -385,3 +385,17 @@ test('boot watchdog: slow, thrown, and what it ignores', () => {
 test('boot watchdog: it runs before the module script, so it hears that script fail', () => {
   assert.ok(html.indexOf('Boot watchdog') > 0 && html.indexOf('Boot watchdog') < html.indexOf('<script type="module" src="src/solar/main.js">'));
 });
+
+test('another solar system: the caption counts both habitable zones, as the card does (core/habitable.js zoneWords)', async () => {
+  const { zoneCounts, zoneWords } = await import('../src/core/habitable.js');
+  const ui = read('src/solar/ui.js');
+  assert.match(ui, /const n = s\.pl\.length, z = zoneCounts\(s\), zw = zoneWords\(s\)\.slice\(String\(n\)\.length\);/);
+  assert.doesNotMatch(ui, /s\.pl\.filter\(p => p\[11\]\)|\(green band\)/, 'not the conservative in_HZ flags alone');
+  const tpl = ui.match(/caption\(nm \+ ': another solar system', (`[^\n]*?`), 'From the NASA Exoplanet Archive\.'\)/)[1];
+  const list = json('data/solar/exoplanets.json').list;
+  const say = host => { const s = list.find(x => x.host === host), n = s.pl.length;
+    return new Function('n', 'z', 'zw', 's', `return ${tpl};`)(n, zoneCounts(s), zoneWords(s).slice(String(n).length), s); };
+  assert.match(say('K2-18'), /^2 known planets \(1 in the optimistic zone\), 124 light-years from us\. The green bands are its habitable zones \(the fainter one is the optimistic zone\)\. They move/);
+  assert.match(say("Teegarden's Star"), /^3 known planets \(1 in the habitable zone, 1 more in the optimistic zone\), 12 light-years/);
+  assert.match(say('51 Peg'), /^1 known planet, \d+ light-years from us\. They move/);
+});

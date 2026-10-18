@@ -16,7 +16,7 @@ import { decodeSolarView } from '../src/core/solarlink.js';
 import { AU_KM } from '../src/core/units.js';
 import { ToolError } from './feeds.mjs';
 import { rep, lineFor } from '../src/core/liveprov.js';
-import { areaProps, resolveArea, inArea, distKm, frame, frameArea, globeUrl, panelUrl, LAYERS, WEATHER } from './place.mjs';
+import { areaProps, resolveArea, inArea, distKm, frame, frameArea, globeUrl, panelUrl, LAYERS, WEATHER, STORM_SEA_DEG } from './place.mjs';
 import { findSats, satState, ecefAt, GROUP_LAYER } from './sats.mjs';
 import { PANEL_URI } from './panel.mjs';
 import { iso, utc, r1, r2, coord, plural, ago, clocks, areaData, where, limitProp, take, zoneAt, parseTime, timeHasZone, timeReadAs } from './words.mjs';
@@ -306,7 +306,7 @@ export function createTools(ctx) {
     inputSchema: { type: 'object', additionalProperties: false, properties: { ...areaProps('to look') } },
     async run(a, { signal }) {
       const [list, area] = await Promise.all([loadStorms(feeds, now(), signal), resolveArea(a, feeds, { pointKm: 1500, signal })]);
-      const shown = list.filter(s => inArea(area, s.lat, s.lon));
+      const shown = list.filter(s => inArea(area, s.lat, s.lon, { sea: STORM_SEA_DEG }));   // a storm out at sea heading for the coast counts
       const camera = area ? frameArea(area) : shown[0] ? frame(shown[0].lat, shown[0].lon, 1300) : EARTH_VIEW, url = link({ camera, on: ['storms'] });
       const lines = shown.map(s => `${s.class} ${s.name} · ${coord(s.lat, s.lon)}${s.wind_kt ? ` · ${s.wind_kt} kt (${s.strength})` : ''}${s.pressure_mb ? ` · ${s.pressure_mb} mb` : ''}${s.movement ? ` · moving ${s.movement}` : ''}${s.gdacs ? ` · GDACS ${s.gdacs.alert || ''} alert${s.gdacs.peak_wind_kmh ? `, strongest wind so far ${s.gdacs.peak_wind_kmh} km/h` : ''}${s.gdacs.countries ? `, ${s.gdacs.countries}` : ''}` : ''}${s.advisory ? ` · ${s.advisory}` : s.gdacs && s.gdacs.report ? ` · ${s.gdacs.report}` : ''}`);
       const head = shown.length ? `${plural(shown.length, 'active tropical cyclone')}${where(area)}:` : `No active tropical cyclones${where(area)}.`;
@@ -315,6 +315,7 @@ export function createTools(ctx) {
   };
 
   const EVENT_LAYER = { wildfires: 'fires', volcanoes: 'volcanoes', severeStorms: 'storms', earthquakes: 'quakes' };
+  const STORMY = /severe storm/i;   // EONET's severeStorms title, 'Severe Storms'
   const EVENT_WORD = { wildfires: 'wildfire', volcanoes: 'volcano', severeStorms: 'severe storm', floods: 'flood', seaLakeIce: 'sea and lake ice', earthquakes: 'earthquake', landslides: 'landslide',
     dustHaze: 'dust and haze', drought: 'drought', snow: 'snow', tempExtremes: 'temperature extreme', waterColor: 'water colour', manmade: 'man-made' };
   const events = {
@@ -333,7 +334,7 @@ export function createTools(ctx) {
     async run(a, { signal }) {
       const days = a.days || 30;
       const [list, area] = await Promise.all([loadEvents(feeds, { days, category: a.category, signal, now: now() }), resolveArea(a, feeds, { pointKm: 500, signal })]);
-      const all = list.filter(e => inArea(area, e.lat, e.lon));
+      const all = list.filter(e => inArea(area, e.lat, e.lon, STORMY.test(e.categories.join()) ? { sea: STORM_SEA_DEG } : undefined));   // storms reach further out to sea
       const shown = take(all, a.limit || 20), cats = a.category ? [a.category] : [];
       const camera = area ? frameArea(area) : shown[0] ? frame(shown[0].lat, shown[0].lon, 400) : EARTH_VIEW, url = link({ camera, on: cats.map(c => EVENT_LAYER[c]).filter(Boolean) });
       const t = now(), lines = shown.map(e => `${e.title} · ${e.categories.join(', ')} · ${coord(e.lat, e.lon)}${e.latest ? ` · last seen ${ago(Date.parse(e.latest), t)}` : ''}${e.magnitude ? ` · ${e.magnitude}` : ''}${e.sources[0] ? ` · ${e.sources[0]}` : ''}`);

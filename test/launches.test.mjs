@@ -3,6 +3,7 @@
 // how long a launch stays on the upcoming list (the globe's list, Tonight and the MCP launches tool share it).
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { precisionCode, periodEnd, listedUntil, upcoming, when, fromLL2 } from '../src/core/launches.js';
 
 const T = s => Date.parse(s), iso = ms => new Date(ms).toISOString();
@@ -66,4 +67,16 @@ test('when: the time only as precisely as announced', () => {
   assert.equal(when({ net: T('2026-10-29T09:30:00Z'), precision: 'Minute' }), '2026-10-29 09:30 UTC');
   assert.equal(when({ net: T('2026-10-29T09:30:00Z'), precision: '' }), '2026-10-29 09:30 UTC');
   assert.equal(when({ net: NaN, precision: 'M' }), 'Date not set');
+});
+
+test('the launch lists ask LL2 for recent launches too (no hide_recent_previous), so a passed "NET October" stays to the month end', () => {
+  const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
+  for (const f of ['.github/build_site.py', 'src/globe/launches.js', 'src/sky/main.js']) {
+    const s = read(f);
+    assert.match(s, /ll\.thespacedevs\.com\/2\.3\.0\/launches\/upcoming\/\?limit=\d+&mode=\w+'/, f);
+    assert.doesNotMatch(s, /hide_recent_previous=true/, `${f}: LL2 would drop the launch once its time passed`);
+  }
+  // the list LL2 now returns holds yesterday's flown launch: the filter, not LL2, takes it off
+  const now = T('2026-10-31T12:00:00Z'), list = [{ net: T('2026-10-30T20:00:00Z'), precision: 'MIN', status: 'Success' }, { net: T('2026-10-31T00:00:00Z'), precision: 'M' }];
+  assert.deepEqual(upcoming(list, now).map(l => l.precision), ['M']);
 });

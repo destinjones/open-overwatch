@@ -1090,11 +1090,24 @@ test('mcp: where in space: a mission, an asteroid read by byte range, a comet, a
   assert.equal(ad.name, '99942 Apophis'); assert.equal(ad.class, 'Near-Earth'); assert.ok(Math.abs(ad.orbit.a_au - 0.92) < 0.01 && Math.abs(ad.orbit.e - 0.191) < 0.005, JSON.stringify(ad.orbit));
   assert.ok(ad.magnitude > 15, 'faint'); assert.match(a.content[0].text, /A near-Earth asteroid, about 0\.3 km across/);
   assert.equal(net.asked.filter(u => u.endsWith('asteroids_b.bin')).length, 7, 'seven tiny reads of the 19 MB file, not the file');
-  assert.match(a.content[0].text, /Its Earth flyby on 13 April 2029 .* is not modelled here/); assert.match(ad.accuracy_note, /13 April 2029/);
-  const a31 = ok(await call(server, 'where_in_space', { name: 'Apophis', time: '2031-04-13T00:00Z' }));
-  assert.match(a31.content[0].text, /at or after its 13 April 2029 Earth flyby .* may be off by tenths of an AU/, 'two-body after the flyby: said, not hidden');
+  // Apophis has its own Horizons track (2026-2035, round Earth through the 2029 flyby): placed by it, so no two-body caveat
+  assert.match(a.content[0].text, /Placed by its own JPL Horizons track \(2026-2035\): closest to Earth on 2029-04-13 21:4\d UTC, 38,000 km from Earth's centre\./);
+  assert.doesNotMatch(a.content[0].text, /not modelled here|two-body estimate/); assert.equal(ad.accuracy_note, undefined);
   const aEve = ok(await call(server, 'where_in_space', { name: 'Apophis', time: '2029-04-13T12:00Z' }));   // hours before closest approach
-  assert.match(aEve.content[0].text, /Its Earth flyby on 13 April 2029 .* is not modelled here/); assert.doesNotMatch(aEve.content[0].text, /at or after/);
+  assert.match(aEve.content[0].text, /Placed by its own JPL Horizons track/); assert.doesNotMatch(aEve.content[0].text, /not modelled here/);
+  assert.ok(aEve.structuredContent.earth_km < 1e6, 'round Earth on the hourly sets: ' + aEve.structuredContent.earth_km);
+  const a31 = ok(await call(server, 'where_in_space', { name: 'Apophis', time: '2031-04-13T00:00Z' })), a31d = a31.structuredContent;
+  assert.match(a31.content[0].text, /the orbit given is the one it left the flyby on/); assert.ok(Math.abs(a31d.orbit.a_au - 1.1) < 0.01, JSON.stringify(a31d.orbit));
+  assert.equal(a31d.accuracy_note, undefined); assert.equal(a31d.orbit_note, undefined);
+  const a37 = ok(await call(server, 'where_in_space', { name: 'Apophis', time: '2037-01-01T00:00Z' })).structuredContent;   // past the track
+  assert.match(a37.orbit_note, /track ends with 2035.*not modelled/);
+  // without its track (the file unreadable) the two-body answer says what it leaves out, before and after the flyby
+  const { server: bare } = serve3([[/data\/solar\/apophis\.json$/, { status: 404, body: 'not found' }]]);
+  const b = ok(await call(bare, 'where_in_space', { name: 'Apophis' }));
+  assert.match(b.content[0].text, /Its Earth flyby on 13 April 2029 .* is not modelled here/); assert.match(b.structuredContent.accuracy_note, /13 April 2029/);
+  assert.doesNotMatch(b.content[0].text, /Horizons track/);
+  const b31 = ok(await call(bare, 'where_in_space', { name: 'Apophis', time: '2031-04-13T00:00Z' }));
+  assert.match(b31.content[0].text, /at or after its 13 April 2029 Earth flyby .* may be off by tenths of an AU/, 'two-body after the flyby: said, not hidden');
   const brooks = ok(await call(server, 'where_in_space', { name: '16P' })), bd = brooks.structuredContent;
   assert.equal(bd.kind, 'comet'); assert.equal(bd.position_uncertain, true); assert.equal(bd.orbit_epoch.slice(0, 4), '2016');
   assert.match(brooks.content[0].text, /Orbit data from 2016: placed two-body from then, so it may be well off its real place/);

@@ -5,7 +5,7 @@
 import { haversine, destination } from '../src/core/geo.js';
 import { encodeView } from '../src/core/viewlink.js';
 import { jdFromMs } from '../src/core/time.js';
-import { prepare, inCountry, offCoast, mainBoxWrapped, boxCentre as boxMid } from '../src/core/borders.js';
+import { prepare, inCountry, offCoast, nearParts, OFFSHORE_DEG, mainBoxWrapped, boxCentre as boxMid } from '../src/core/borders.js';
 import { ToolError, derive } from './feeds.mjs';
 
 export const PHOTON = 'https://photon.komoot.io/api/';
@@ -116,17 +116,24 @@ async function wideArea(g, feeds, signal) {
   const box = mainBoxWrapped(b), bbox = [box[0], box[1], box[2] > 180 ? box[2] - 360 : box[2], box[3]], [cLon, cLat] = boxMid(bbox);
   return hide({ ...g, bbox, frameLat: cLat, frameLon: cLon, radiusKm: Math.max(1, bboxRadiusKm(bbox)) });
 }
+/** How far out to sea (degrees, about 890 km) a round-the-world country reaches for storms (inArea's `sea`): the same reach as
+ *  country_briefing's "storms near it" round its box. */
+export const STORM_SEA_DEG = 8;
 /** How much further than its circle a round-the-world state's area reaches (inside its country's outline or off its coast). */
 const STATE_GROW = 2.2;
 
 export const distKm = (a, lat, lon) => haversine(a.lat, a.lon, lat, lon) / 1000;
 /** Is lat/lon inside the area (its box, or its circle; a country round the antimeridian, its outline or off its coast)? A box
- *  may cross the antimeridian (west > east). */
-export function inArea(a, lat, lon) {
+ *  may cross the antimeridian (west > east). `sea` (degrees) is how far out to sea a round-the-world country reaches for
+ *  this question, beyond its own OFFSHORE_DEG coast: storms ask for STORM_SEA_DEG, as country_briefing's "storms near it"
+ *  does with its box, so a Gulf hurricane is the USA's although Yucatán is nearer (core/borders.js offCoast's reach).
+ *  @param {any} a  @param {number} lat  @param {number} lon  @param {{ sea?: number }} [opts] */
+export function inArea(a, lat, lon, { sea = 0 } = {}) {
   if (!a) return true;
   if (a.border) {   // a round-the-world country (or a state of one: its latitudes and a wide circle too)
     if (a.band && (lat < a.band.s || lat > a.band.n || distKm(a, lat, lon) > a.band.km)) return false;
-    return inCountry(a.border, lon, lat) || offCoast(a.borders, a.border, lat, lon);
+    if (!nearParts(a.border, lat, lon, Math.max(OFFSHORE_DEG, sea))) return false;   // the cheap box test first (Worker CPU)
+    return inCountry(a.border, lon, lat) || offCoast(a.borders, a.border, lat, lon, OFFSHORE_DEG, sea);
   }
   if (a.bbox) { const [w, s, e, n] = a.bbox; return lat >= s && lat <= n && (w <= e ? lon >= w && lon <= e : lon >= w || lon <= e); }
   return distKm(a, lat, lon) <= a.radiusKm;

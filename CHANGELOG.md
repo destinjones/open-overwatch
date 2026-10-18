@@ -47,7 +47,7 @@ file was built from.
 - Claims that overstated: "18,000+ satellites (every active one plus three debris clouds)", not "every tracked
   satellite"; the log depth buffer spans 24 orders of magnitude, not 26; the download is about 85 MB; the forecast
   reaches 5 days ahead (3 on phones); the README's accuracy table is measured on 2 Oct 2026, within looser test
-  limits, and says Uranus is not checked.
+  limits, and includes Uranus (1.5″; the fixture now has it).
 - Home page accessibility: the live feed no longer reads its seconds clock and countdown aloud; the demo clips play
   through once, with a pause button over the screen, and the clip tabs are a full tab pattern (a label, a panel,
   arrow keys, Home and End); Hindi words on the English pages are marked `lang="hi"` (home, guide, 404).

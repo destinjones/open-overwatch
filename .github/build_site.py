@@ -521,9 +521,12 @@ def _keep(o, spec):
 
 def mirror_launches(path):
     """Best effort: the next 40 rocket launches from The Space Devs' Launch Library 2 (free; 15 requests an hour without a key, so
-    every visitor asking directly would soon be refused) -> data/launches.json: {t, source, results: [trimmed LL2 launches]}."""
+    every visitor asking directly would soon be refused) -> data/launches.json: {t, source, results: [trimmed LL2 launches]}.
+    No hide_recent_previous: the list also holds launches of the last 24 hours, so a launch whose imprecise time ("NET
+    October", dated on the period's last day) has passed stays until its period ends; the pages' filter (core/launches.js
+    upcoming, core/india.js indianLaunches) decides what is still due."""
     try:
-        url = 'https://ll.thespacedevs.com/2.3.0/launches/upcoming/?limit=40&mode=detailed&hide_recent_previous=true'
+        url = 'https://ll.thespacedevs.com/2.3.0/launches/upcoming/?limit=40&mode=detailed'
         d = json.load(urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'open-overwatch site build (github.com/destinjones/open-overwatch)'}), timeout=90))
         rows = []
         for r in d.get('results', []):

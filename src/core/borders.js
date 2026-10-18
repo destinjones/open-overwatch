@@ -93,15 +93,30 @@ export const boxWidth = box => (box[2] < box[0] ? box[2] + 360 : box[2]) - box[0
 /** How far "off its coast" reaches: degrees (of latitude, ~280 km) from the nearest point of a country's simplified outline. */
 export const OFFSHORE_DEG = 2.5;
 
+/** The longitude (lon, or lon ± 360 for a part drawn past 180) at which lat/lon falls inside part k's box grown by `pad`
+ *  degrees (longitude padding scaled by 1/cos(lat)), or null when it is outside. Needs prepare(). */
+function partLon(b, k, lat, lon, pad) {
+  const [w, s, e, n] = b.wbox[k];
+  if (lat < s - pad || lat > n + pad) return null;
+  const padLon = pad / Math.max(0.05, Math.cos(lat * Math.PI / 180));
+  for (const v of [lon, lon + 360, lon - 360]) if (v >= w - padLon && v <= e + padLon) return v;
+  return null;
+}
+
+/** The cheap first test: is lat/lon inside the box of any of the country's parts grown by `pad` degrees? false means it
+ *  is neither in the country nor within `pad` of its coast, without walking a ring (a Worker's CPU). Needs prepare(). */
+export function nearParts(b, lat, lon, pad = OFFSHORE_DEG) {
+  for (let k = 0; k < b.poly.length; k++) if (partLon(b, k, lat, lon, pad) != null) return true;
+  return false;
+}
+
 /** Degrees (longitude scaled by cos(lat), so about 111 km each) from lat/lon to the nearest edge of any of the country's part
  *  outlines, looking only at parts whose box grown by `pad` reaches the point: Infinity when none does. Needs prepare(). */
 export function coastDistance(b, lat, lon, pad = OFFSHORE_DEG) {
-  const c = Math.max(0.05, Math.cos(lat * Math.PI / 180)), padLon = pad / c;
+  const c = Math.max(0.05, Math.cos(lat * Math.PI / 180));
   let best = Infinity;
   b.poly.forEach((p, k) => {
-    const [w, s, e, n] = b.wbox[k];
-    if (lat < s - pad || lat > n + pad) return;
-    const x = [lon, lon + 360, lon - 360].find(v => v >= w - padLon && v <= e + padLon); if (x == null) return;
+    const x = partLon(b, k, lat, lon, pad); if (x == null) return;
     const ring = b.east[k] ? b.east[k][0] : p[0];
     for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
       const [x1, y1] = ring[j], [x2, y2] = ring[i]; if (Math.abs(x2 - x1) > 180) continue;   // the jump of a ring drawn across 180
@@ -114,9 +129,13 @@ export function coastDistance(b, lat, lon, pad = OFFSHORE_DEG) {
 }
 
 /** Is lat/lon at sea "off the coast" of country b: in nobody's outline, within `pad` degrees of b's, and no other country's
- *  outline nearer? (The Aleutian trench is off Alaska, not Russia; Hokkaido's Pacific coast is Japan's, not the Kurils'.) */
-export function offCoast(borders, b, lat, lon, pad = OFFSHORE_DEG) {
-  const d = coastDistance(b, lat, lon, pad);
+ *  outline nearer? (The Aleutian trench is off Alaska, not Russia; Hokkaido's Pacific coast is Japan's, not the Kurils'.)
+ *  `reach` (degrees, default 0) widens it for things that matter to a country before they arrive, a storm most of all:
+ *  anything within `reach` of b's outline counts too, whoever's sea or land it is nearer (a hurricane in the central Gulf
+ *  of Mexico is nearer Yucatán than Louisiana, one east of Florida nearer the Bahamas). */
+export function offCoast(borders, b, lat, lon, pad = OFFSHORE_DEG, reach = 0) {
+  const d = coastDistance(b, lat, lon, Math.max(pad, reach));
+  if (d <= reach) return true;
   if (!(d <= pad) || countryAt(borders, lon, lat)) return false;
   return !borders.some(o => o !== b && coastDistance(o, lat, lon, d) < d);
 }

@@ -41,7 +41,7 @@ const launches = () => launchList || (launchList = (async () => {
   let d = await fetchAsset('data/launches.json', 'json').catch(() => null);
   const stale = d && d.results && (!d.t || Date.now() - d.t > 36 * 3600e3);   // the site copy is rebuilt every 6 h
   if (!d || !d.results || stale) {
-    try { const r = await fetch('https://ll.thespacedevs.com/2.3.0/launches/upcoming/?limit=30&mode=normal&hide_recent_previous=true'); if (!r.ok) throw new Error('HTTP ' + r.status); d = await r.json(); }
+    try { const r = await fetch('https://ll.thespacedevs.com/2.3.0/launches/upcoming/?limit=30&mode=normal'); if (!r.ok) throw new Error('HTTP ' + r.status); d = await r.json(); }
     catch (e) { if (!stale) throw e; }
   }
   return upcoming((d.results || []).map(fromLL2).filter(Boolean), Date.now());

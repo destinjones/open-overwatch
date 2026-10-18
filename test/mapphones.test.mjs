@@ -90,5 +90,9 @@ test('the map page says what to do when opened as a file, and the heading line s
   assert.match(page, /if \(location\.protocol === 'file:'\) \{ document\.querySelector\('#boot'\)\.innerHTML = '[^']*needs the local helper/);
   assert.match(aircraft, /while \(ahead\[1\] - a\.lon > 180\) ahead\[1\] -= 360; while \(ahead\[1\] - a\.lon < -180\) ahead\[1\] \+= 360;/);
   assert.match(read('src/map/osmlayers.js'), /Net\.json\(url, \{ timeout: 20000, cache: 'default' \}\)/, 'TileJSON specs may come from the HTTP cache');
-  assert.match(setup, /aisstream\.io does not permit direct browser connections, and a key typed here is visible to this page/);
+  // aisstream is the download's (its helper's WebSocket relay, feeds.js AisWs): on the website the key field is disabled
+  // and says so, rather than taking a key the page cannot use (the owner's audit-2 decision; r3/map-feeds wording)
+  assert.match(setup, /\{ id: 'aisstream', download: true, [^\n]*through the local helper/);
+  assert.match(setup, /placeholder="\$\{dl \? 'download version only' : 'paste key'\}"\$\{dl \? ' disabled' : ''\}/);
+  assert.match(setup, /Worldwide ships via aisstream need the free download\./);
 });
