@@ -19,6 +19,7 @@ const walk = d => readdirSync(new URL(d, root), { withFileTypes: true }).flatMap
 
 test('OpenSky data carries its paper, Schäfer et al. 2014, wherever OpenSky is credited', () => {
   assert.match(SOURCES.opensky.licence, /Schäfer et al\. 2014/, 'every aircraft card from the OpenSky feed');
+  assert.ok(ds.includes(`carries the short form "${SOURCES.opensky.licence}"`), 'DATA_SOURCES quotes the licence line the cards show');
   assert.match(ds, /Matthias Schäfer, Martin Strohmeier, Vincent Lenders, Ivan Martinovic and Matthias Wilhelm, "Bringing Up OpenSky: A Large-scale ADS-B Sensor Network for Research", IPSN 2014/);
   for (const [f, s] of [['index.html', index], ['README.md', readme], ['about.html', read('about.html')], ['guide.html', guide]]) {
     assert.match(s, /OpenSky/, f);
@@ -38,6 +39,8 @@ test('Esri basemaps: "Powered by Esri" and each service\'s own source line (Vant
   assert.ok(esriLayers.length >= 7, `Esri layers found: ${esriLayers.length}`);
   for (const [, path, opts] of esriLayers) assert.match(opts, /attribution:/, `the 2D map shows ${path} with no credit`);
   for (const f of ['index.html', 'README.md']) assert.match(read(f).replace(/\s+/g, ' '), /Powered by Esri \(Esri, Vantor, Earthstar Geographics, and the GIS User Community\)/, f);
+  // the offline copy streams every Esri tile (none is stored), so the guide may not single out the satellite imagery
+  assert.match(guide, /except Esri's maps \(the satellite imagery, the dark base maps/);
 });
 
 test('OpenStreetMap credits link to openstreetmap.org/copyright on the 2D map and the globe', () => {

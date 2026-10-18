@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-mb2gfKSl1cWMIeXSi/nNVh0CFC6IPwwTbK1PPE4c7go='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-4AFjCr+sXJjw4sKu4QSuvHVLi0R1y5y3+oNLuKGrMxY='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#04060a">
 <title>Open Overwatch · the whole planet, live</title>
@@ -372,8 +372,8 @@ footer a{color:var(--ink-dim)}
 .phone .play{position:absolute;inset:0;margin:auto;width:76px;height:76px;border-radius:50%;border:1px solid rgba(125,255,166,.6);background:rgba(4,6,10,.72);
   color:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3;box-shadow:0 0 40px rgba(125,255,166,.25)}
 .phone .play[hidden]{display:none}
-.phone .play .i-pause,.phone .play.on .i-play{display:none}
-.phone .play.on .i-pause{display:inline}
+.phone .play .i-pause,.phone .play.playing .i-play{display:none}
+.phone .play.playing .i-pause{display:inline}
 .phone .play.on{inset:auto 14px 14px auto;margin:0;width:44px;height:44px;opacity:.8}
 .phone .play.on svg{width:18px;height:18px;margin-left:0}
 .phone .play svg{width:28px;height:28px;margin-left:4px}
@@ -828,7 +828,7 @@ const pv = $('#phoneVid'), tabs = [...document.querySelectorAll('.tab')], playBt
 let cur = 0, auto = true, held = false, started = !(slowNet || matchMedia('(max-width:760px)').matches);
 playBtn.hidden = started;
 const playing = () => started && !pv.paused && !pv.ended;
-const ui = () => playBtn.setAttribute('aria-label', playing() ? 'Pause the recordings' : 'Play the recordings');
+const ui = () => { const on = playing(); playBtn.classList.toggle('playing', on); playBtn.setAttribute('aria-label', on ? 'Pause the recordings' : 'Play the recordings'); };
 playBtn.addEventListener('click', () => {
   if (playing()) { held = true; pv.pause(); return; }
   held = false;
