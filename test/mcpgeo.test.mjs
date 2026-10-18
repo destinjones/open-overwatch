@@ -10,6 +10,7 @@ import { resolveArea, inArea, frameArea } from '../mcp/place.mjs';
 import { countryTool } from '../mcp/country.mjs';
 import { sunTool, localDay } from '../mcp/sun.mjs';
 import { distanceTool } from '../mcp/distance.mjs';
+import { volcanoesTool } from '../mcp/volcanoes.mjs';
 import { camerasTool } from '../mcp/cams.mjs';
 import { findSats, loadGroup, parseGroup } from '../mcp/sats.mjs';
 import { CAMERA_NETS as CAM_NETS } from '../src/core/cameras.js';
@@ -43,11 +44,16 @@ const viewOf = url => decodeView(new URL(url).hash);
 // ---- places right round the world -----------------------------------------------------------------------------------
 // Photon's own extents (checked live 2026-10-17): land on both sides of the antimeridian comes back as west -180, east 180
 const WIDE = {
-  'United States': { kind: 'country', cc: 'US', extent: [-180, 71.5889534, 180, -14.7608358], at: [-100.445882, 39.7837304], inside: [[61.22, -149.9, 'Anchorage'], [21.31, -157.86, 'Honolulu'], [39.1, -94.6, 'Kansas City'], [27, -90, 'the Gulf of Mexico']] },
-  Russia: { kind: 'country', cc: 'RU', extent: [-180, 82.0586, 180, 41.1851], at: [97.7453061, 64.6863136], inside: [[55.75, 37.6, 'Moscow'], [62.03, 129.73, 'Yakutsk'], [66, -172, 'Chukotka east of 180'], [53.0, 158.65, 'Petropavlovsk']] },
-  Fiji: { kind: 'country', cc: 'FJ', extent: [-180, -12.2613866, 180, -21.9434274], at: [177.9737, -17.7134], inside: [[-18.14, 178.44, 'Suva']] },
-  Alaska: { kind: 'state', cc: 'US', extent: [-180, 71.5889534, 180, 51.0070029], at: [-152.2782, 64.4459613], inside: [[61.22, -149.9, 'Anchorage'], [64.84, -147.72, 'Fairbanks']] },
-  Chukotka: { kind: 'state', cc: 'RU', extent: [-180, 71.81, 180, 61.61], at: [171.0, 66.0], inside: [[64.73, 177.5, 'Anadyr']] },
+  'United States': { kind: 'country', cc: 'US', extent: [-180, 71.5889534, 180, -14.7608358], at: [-100.445882, 39.7837304],
+    inside: [[61.22, -149.9, 'Anchorage'], [21.31, -157.86, 'Honolulu'], [39.1, -94.6, 'Kansas City'], [27, -90, 'the Gulf of Mexico'], [51.5, -178, 'the Aleutian trench, west of the main box'], [19.0, -155.6, 'the sea just off Hawaii']],
+    outside: [[27.47, -112.59, 'Tres Vírgenes, Baja California'], [49.28, -123.12, 'Vancouver']] },
+  Russia: { kind: 'country', cc: 'RU', extent: [-180, 82.0586, 180, 41.1851], at: [97.7453061, 64.6863136], inside: [[55.75, 37.6, 'Moscow'], [62.03, 129.73, 'Yakutsk'], [66, -172, 'Chukotka east of 180'], [53.0, 158.65, 'Petropavlovsk'], [45, 153, 'the Kuril trench']],
+    outside: [[51, -178, "the Aleutian trench (Alaska's)"], [42.5, 144.5, "off Hokkaido's Pacific coast (Japan's)"], [64.5, -165.4, 'Nome']] },
+  Fiji: { kind: 'country', cc: 'FJ', extent: [-180, -12.2613866, 180, -21.9434274], at: [177.9737, -17.7134], inside: [[-18.14, 178.44, 'Suva'], [-18, -178.5, 'the Fiji region east of 180']], outside: [[-21.2, -175.2, 'Tonga']] },
+  Alaska: { kind: 'state', cc: 'US', extent: [-180, 71.5889534, 180, 51.0070029], at: [-152.2782, 64.4459613],
+    inside: [[61.22, -149.9, 'Anchorage'], [64.84, -147.72, 'Fairbanks'], [51.88, -176.66, 'Adak'], [51.5, -178, 'the Aleutian trench'], [52.9, 173.2, 'Attu'], [55.34, -131.64, 'Ketchikan']],
+    outside: [[47.6, -122.3, 'Seattle'], [64.73, 177.5, 'Anadyr'], [60.72, -135.06, 'Whitehorse']] },
+  Chukotka: { kind: 'state', cc: 'RU', extent: [-180, 71.81, 180, 61.61], at: [171.0, 66.0], inside: [[64.73, 177.5, 'Anadyr']], outside: [[64.5, -165.4, 'Nome'], [55.75, 37.6, 'Moscow']] },
 };
 const FAR = [[64.15, -21.94, 'Reykjavik'], [51.5, -0.12, 'London'], [6.45, 3.39, 'Lagos'], [43.65, -79.38, 'Toronto']];
 const wideFeature = (name, w) => ({ properties: { osm_key: 'place', osm_value: w.kind, type: w.kind, name, countrycode: w.cc, extent: w.extent }, geometry: { coordinates: w.at } });
@@ -58,6 +64,7 @@ test('mcp geo: a place Photon writes right round the world (USA, Russia, Fiji, A
     const a = await resolveArea({ place: name }, feeds);
     for (const [lat, lon, city] of FAR) assert.equal(inArea(a, lat, lon), false, `${city} is not in ${name}`);
     for (const [lat, lon, what] of w.inside) assert.equal(inArea(a, lat, lon), true, `${what} is in ${name}`);
+    for (const [lat, lon, what] of w.outside) assert.equal(inArea(a, lat, lon), false, `${what} is not in ${name}`);
     const cam = frameArea(a);
     assert.ok(Math.abs(cam.lon) < 179.9, `${name}'s camera is not parked on the antimeridian: ${cam.lon}`);
     assert.ok(haversine(cam.lat, cam.lon, w.at[1], w.at[0]) < 3500e3, `${name}'s camera is over ${name}: ${cam.lat}, ${cam.lon}`);
@@ -86,10 +93,11 @@ test('mcp geo: the USA frames North America (its main part), Russia Siberia; a r
 const quake = (mag, lat, lon, place) => ({ properties: { mag, place, time: NOW - 3600e3, url: 'https://earthquake.usgs.gov/x', type: 'earthquake', tsunami: 0 }, geometry: { coordinates: [lon, lat, 10] } });
 const storm = (id, name, lat, lon) => ({ id, name, classification: 'HU', intensity: '90', pressure: '970', latitudeNumeric: lat, longitudeNumeric: lon, movementDir: 0, movementSpeed: 10, lastUpdate: new Date(NOW - 3600e3).toISOString() });
 
-test('mcp geo: country_briefing for Russia counts the Kuril trench off its coast, not Mendocino, the Atlantic ridge or the Gulf of Alaska', async () => {
+test('mcp geo: country_briefing for Russia counts the Kuril trench off its coast, not Mendocino, the Atlantic ridge, the Gulf of Alaska, the Aleutians or Hokkaido', async () => {
   const { feeds } = feedsFor([
     [SITE + 'data/countries.json', COUNTRIES], [SITE + 'data/borders.json', BORDERS],
-    [/earthquake\.usgs\.gov\/.*\/2\.5_week\.geojson$/, { features: [quake(4.1, 40.4, -125.6, 'off Mendocino'), quake(4.6, 45, -28, 'Mid-Atlantic Ridge'), quake(4.2, 57, -147, 'Gulf of Alaska'), quake(5.0, 45.0, 153.0, 'Kuril trench')] }],
+    [/earthquake\.usgs\.gov\/.*\/2\.5_week\.geojson$/, { features: [quake(4.1, 40.4, -125.6, 'off Mendocino'), quake(4.6, 45, -28, 'Mid-Atlantic Ridge'), quake(4.2, 57, -147, 'Gulf of Alaska'), quake(5.0, 45.0, 153.0, 'Kuril trench'),
+      quake(5.4, 51, -178, 'Aleutian Islands, Alaska'), quake(5.2, 42.5, 144.5, 'off Hokkaido')] }],
     ['https://www.nhc.noaa.gov/CurrentStorms.json', { activeStorms: [storm('al052026', 'Atlantic', 35, -60), storm('wp302026', 'Kamchatka', 50, 160)] }],
   ]);
   const r = await run(countryTool({ feeds, now: () => NOW }), { country: 'Russia' });
@@ -98,6 +106,19 @@ test('mcp geo: country_briefing for Russia counts the Kuril trench off its coast
   assert.deepEqual(r.data.storms_near.map(s => s.name), ['Kamchatka'], 'a hurricane at 35N 60W is not near Russia');
   const cam = viewOf(r.data.url);
   assert.ok(cam.lon > 95 && cam.lon < 120 && cam.lat > 50 && cam.lat < 65, `framed over Siberia, not the North Sea: ${cam.lat}, ${cam.lon}`);
+});
+
+// ---- volcanoes: a round-the-world country is its outline, not its main part's box ------------------------------------
+test('mcp geo: volcanoes in the United States take in Alaska and Hawaii (Kilauea) and leave out Baja California', async () => {
+  const { feeds } = feedsFor([photon(wideFeature('United States', WIDE['United States'])), [SITE + 'data/borders.json', BORDERS], [SITE + 'data/volcanoes.json', file('data/volcanoes.json')],
+    [/earthquake\.usgs\.gov\/.*\/2\.5_week\.geojson$/, { features: [quake(3.1, 19.40, -155.28, 'Kilauea'), quake(3.0, 19.41, -155.27, 'Kilauea'), quake(3.2, 27.47, -112.58, 'Baja'), quake(3.3, 27.46, -112.6, 'Baja'), quake(3.4, 27.48, -112.59, 'Baja')] }]]);
+  const r = await run(volcanoesTool({ feeds, now: () => NOW }), { place: 'United States', limit: 40 });
+  const names = r.data.volcanoes.map(v => v.name);
+  assert.ok(names.includes('Kīlauea'), `Kilauea, restless, is listed among the first: ${names.join(', ')}`);
+  assert.ok(!names.includes('Tres Vírgenes'), 'Tres Vírgenes is in Mexico');
+  assert.ok(r.data.volcanoes.every(v => v.country === 'United States' || v.country == null), names.join(', '));
+  assert.ok(r.data.total > 150, `Alaska's and Hawaii's are counted: ${r.data.total}`);
+  assert.match(r.text, /volcanoes in United States/);
 });
 
 // ---- sun_and_moon: the local day ------------------------------------------------------------------------------------
@@ -109,6 +130,14 @@ test('mcp geo: the local day starts at its own 00:00, 23 h long on a spring-forw
   assert.equal(new Date(ldn.t0).toISOString(), '2027-03-28T00:00:00.000Z'); assert.equal(ldn.ms, 23 * 3600e3);
   assert.equal(new Date(akl.t0).toISOString(), '2026-12-24T11:00:00.000Z'); assert.equal(akl.ms, 24 * 3600e3);
   assert.equal(localDay('2026-11-01', 'America/New_York').ms, 25 * 3600e3, 'fall back: 25 h');
+  // clocks that spring forward at midnight: the day starts at 01:00 (zonedToUtc alone gives 23:00 the evening before)
+  const hm = (t, tz) => new Intl.DateTimeFormat('en-GB', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(t);
+  for (const [tz, date] of [['America/Santiago', '2026-09-06'], ['America/Havana', '2027-03-14']]) {
+    const d = localDay(date, tz);
+    assert.equal(hm(d.t0, tz), `${date.slice(8)}/${date.slice(5, 7)}/${date.slice(0, 4)}, 01:00`, tz); assert.equal(d.ms, 23 * 3600e3, `${tz}: 23 h`);
+  }
+  assert.equal(localDay('2011-12-29', 'Pacific/Apia').ms, 24 * 3600e3, 'the day before Samoa skipped one is whole');
+  assert.equal(localDay('2011-12-30', 'Pacific/Apia').ms, 0, 'the skipped day has no length');
 });
 
 test('mcp geo: sun_and_moon answers for the day asked at UTC+12 to +14 (Auckland, Kiritimati), and data.date agrees', async () => {

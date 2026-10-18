@@ -17,10 +17,24 @@ const localDate = (ms, tz) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, y
 /** The day after a YYYY-MM-DD date. */
 const nextDate = date => new Date(Date.parse(date + 'T00:00:00Z') + 864e5).toISOString().slice(0, 10);
 /** A local calendar day in the zone, from its own date (not from an instant: 12:00 UTC is already tomorrow at UTC+12 to +14):
- *  { date, t0 (its local 00:00 in UTC ms), ms (its length: 23 or 25 h on a clock-change day) }. */
+ *  { date, t0 (its first instant in UTC ms: local 00:00, or 01:00 where the clocks spring forward at midnight, as in
+ *  Santiago, Havana, Asunción, Cairo), ms (its length: 23 or 25 h on a clock-change day; 0 for a day a zone skipped) }. */
 export function localDay(date, tz) {
-  const t0 = zonedToUtc(`${date}T00:00`, tz), t1 = zonedToUtc(`${nextDate(date)}T00:00`, tz);
+  const t0 = dayStart(date, tz), t1 = dayStart(nextDate(date), tz);
   return { date, t0, ms: t1 - t0 };
+}
+/** The first instant whose local date is `date` or later (a day the zone skipped, Apia's 2011-12-30: the next one's start).
+ *  zonedToUtc reads a local 00:00 that never happened as 23:00 the evening before, so it is walked forward, to the minute. */
+function dayStart(date, tz) {
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }), on = t => fmt.format(new Date(t)) >= date;
+  let t = zonedToUtc(`${date}T00:00`, tz);
+  if (!Number.isFinite(t)) return t;
+  const STEP = 15 * 60e3;
+  if (!on(t)) { for (let i = 0; i < 200 && !on(t); i++) t += STEP; }   // too early: on in 15-minute steps (a skipped day is 24 h)
+  else if (on(t - 60e3)) { for (let i = 0; i < 200 && on(t - STEP); i++) t -= STEP; }   // too late (not seen, but cheap to be sure)
+  else return t;
+  while (on(t - 60e3)) t -= 60e3;   // back to the minute
+  return t;
 }
 /** The zone Intl knows, else UTC (a zone name the forecast sends that this runtime lacks). */
 const knownZone = tz => { try { new Intl.DateTimeFormat('en-CA', { timeZone: tz || 'UTC' }); return tz || 'UTC'; } catch { return 'UTC'; } };
@@ -37,6 +51,7 @@ export function sunTool(ctx) {
       const tz = await zoneAt(ctx, lat, lon, signal), c = clocks(tz), zone = knownZone(tz);
       if (a.date) { const d = Date.parse(a.date + 'T12:00:00Z'); if (!Number.isFinite(d) || new Date(d).toISOString().slice(0, 10) !== a.date || d < Date.UTC(1800, 0, 2) || d > Date.UTC(2049, 11, 30)) throw new ToolError('date must be a real day between 1800 and 2049 (YYYY-MM-DD)', 'invalid_arguments'); }
       const day = localDay(a.date || localDate(ctx.now(), zone), zone), t0 = day.t0, hours = day.ms / 3600e3, mid = t0 + day.ms / 2;
+      if (!(day.ms > 0)) throw new ToolError(`${day.date} never happened in ${zone}: its clocks skipped that day`, 'invalid_arguments');
       const one = (key, h0) => riseSet(key, lat, lon, t0, { h0, hours, step: 5 * 60e3 });
       const sun = one('sun', -0.833), civ = one('sun', -6), nau = one('sun', -12), ast = one('sun', -18), gold = one('sun', 6), blue = one('sun', -4), moon = riseSet('moon', lat, lon, t0, { h0: 0.125, hours, step: 5 * 60e3 });
       // solar noon: the Sun's highest that day (to the minute)

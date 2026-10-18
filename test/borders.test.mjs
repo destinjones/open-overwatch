@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { prepare, countryAt, inRing, mainBox, mainBoxWrapped, boxContains, boxCentre, boxWidth } from '../src/core/borders.js';
+import { prepare, countryAt, inRing, mainBox, mainBoxWrapped, boxContains, boxCentre, boxWidth, offCoast, coastDistance } from '../src/core/borders.js';
 
 const borders = prepare(JSON.parse(readFileSync(new URL('../data/borders.json', import.meta.url), 'utf8')));
 const facts = JSON.parse(readFileSync(new URL('../data/countries.json', import.meta.url), 'utf8')).countries;
@@ -69,4 +69,17 @@ test('box helpers read a crossing box written west > east the same as one runnin
   assert.deepEqual(boxCentre(a), [-180, -15]); assert.deepEqual(boxCentre(b), [-180, -15]); assert.deepEqual(boxCentre([10, 0, 20, 10]), [15, 5]);
   assert.equal(boxWidth(a), 20); assert.equal(boxWidth(b), 20);
   assert.ok(boxContains([10, 0, 20, 10], 11, 21, 1.5) && !boxContains([10, 0, 20, 10], 11, 22, 1.5), 'the pad grows every side');
+});
+
+test('off its coast: at sea, near one of its parts, and nearer it than any other country', () => {
+  const of = iso => borders.find(b => b.iso === iso);
+  assert.equal(offCoast(borders, of('US'), 51, -178), true, 'the Aleutian trench is off Alaska');
+  assert.equal(offCoast(borders, of('RU'), 51, -178), false, '... not off Russia, although its wrapped box reaches past 180');
+  assert.equal(offCoast(borders, of('JP'), 42.5, 144.5), true, "off Hokkaido's Pacific coast is Japan's");
+  assert.equal(offCoast(borders, of('RU'), 42.5, 144.5), false, '... not the Kurils\'');
+  assert.equal(offCoast(borders, of('FJ'), -18, -178.5), true, 'the Fiji region east of 180');
+  assert.equal(offCoast(borders, of('US'), 39.1, -94.6), false, 'on land is not off a coast');
+  assert.equal(offCoast(borders, of('US'), 30, -40), false, 'mid-Atlantic is nobody\'s coast');
+  assert.ok(coastDistance(of('RU'), 51, -178) > 10, 'Russia is far from the Aleutians');
+  assert.equal(coastDistance(of('FR'), -18, -178.5), Infinity, 'a country nowhere near: no part looked at');
 });

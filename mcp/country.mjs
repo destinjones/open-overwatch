@@ -3,7 +3,7 @@
 // (Wikidata, World Bank: the website's data/countries.json), its size from its outline (data/borders.json, simplified, so
 // "about"), this week's earthquakes in it and off its coast (USGS), NASA EONET's open events in it, tropical cyclones near
 // it (NOAA NHC, GDACS) and the weather in its capital now (Open-Meteo).
-import { inCountry, countryAt, mainBoxWrapped, boxContains, boxCentre, boxWidth } from '../src/core/borders.js';
+import { inCountry, countryAt, offCoast, mainBoxWrapped, boxContains, boxCentre, boxWidth } from '../src/core/borders.js';
 import { multiPolygonArea } from '../src/core/measure.js';
 import { weatherSentence } from '../src/core/voicecmd.js';
 import { ToolError } from './feeds.mjs';
@@ -88,8 +88,8 @@ export function countryTool(ctx) {
         const c = m && m.current;
         if (c) wx = { place: cap.label, time: c.time, timezone: m.timezone || null, temperature_c: c.temperature_2m, words: weatherSentence({ temp: c.temperature_2m, speed: c.wind_speed_10m, from: c.wind_direction_10m, cloud: c.cloud_cover, code: c.weather_code }) };
       }
-      const near = (lat, lon) => box && boxContains(box, lat, lon, 1.5);   // the main part's box may run past 180 (Russia)
-      const qIn = (quakes || []).filter(q => b && inCountry(b, q.lon, q.lat)), qOff = (quakes || []).filter(q => b && !inCountry(b, q.lon, q.lat) && near(q.lat, q.lon) && !countryAt(d.borders, q.lon, q.lat));
+      // off its coast: at sea, near one of its parts and nearer it than any other country (the Aleutians are not Russia's)
+      const qIn = (quakes || []).filter(q => b && inCountry(b, q.lon, q.lat)), qOff = (quakes || []).filter(q => b && !inCountry(b, q.lon, q.lat) && offCoast(d.borders, b, q.lat, q.lon));
       const evIn = (events || []).filter(e => b && inCountry(b, e.lon, e.lat));
       const stNear = (storms || []).filter(s => box && boxContains(box, s.lat, s.lon, 8));
       const top = list => list.reduce((m, q) => (!m || q.magnitude > m.magnitude ? q : m), null);

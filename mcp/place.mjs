@@ -5,7 +5,7 @@
 import { haversine, destination } from '../src/core/geo.js';
 import { encodeView } from '../src/core/viewlink.js';
 import { jdFromMs } from '../src/core/time.js';
-import { prepare, inCountry, countryAt, mainBoxWrapped, boxContains, boxCentre as boxMid } from '../src/core/borders.js';
+import { prepare, inCountry, offCoast, mainBoxWrapped, boxCentre as boxMid } from '../src/core/borders.js';
 import { ToolError, derive } from './feeds.mjs';
 
 export const PHOTON = 'https://photon.komoot.io/api/';
@@ -98,30 +98,36 @@ export const preparedBorders = b => derive(b, 'borders', x => prepare(Array.isAr
 
 /**
  * The area of a place whose outline runs right round the world (placeOf's `wide`). A country: what is inside its own outline
- * (data/borders.json), or in its main part's box (the antimeridian kept whole: Russia's runs 27°E to 170°W) and at sea, as
- * country_briefing counts "off its coast"; framed on that box. Anything else, or the outlines not loading: a circle round the
- * geocoder's point, as tall as the place's box (a state: Alaska, Chukotka).
+ * (data/borders.json) or off its coast (core/borders.js offCoast: at sea, within OFFSHORE_DEG of any of its parts, and nearer
+ * them than any other country's: the Aleutians and Hawaii are the USA's, the Lau group Fiji's); framed on its main part's box
+ * (the antimeridian kept whole: Russia's runs 27°E to 170°W). Anything else: a circle round the geocoder's point, as tall as
+ * the place's box, for the frame and the words; a state of a country in the outlines (Alaska, Chukotka) then counts, roughly,
+ * what is in or off that country inside the place's latitudes and within STATE_GROW times the circle (Alaska reaches Attu and
+ * the panhandle, not Washington; Chukotka takes in some of its neighbours inside Russia). The outlines not loading: the circle.
  */
 async function wideArea(g, feeds, signal) {
-  if (g.wide.country && g.country) {
-    const all = await feeds.json(feeds.site('data/borders.json'), { ttl: 864e5, timeout: 60e3, signal }).then(preparedBorders, () => null);
-    const b = Array.isArray(all) ? all.find(x => x.iso === g.country) : null, box = b && mainBoxWrapped(b);
-    if (box) {
-      const bbox = [box[0], box[1], box[2] > 180 ? box[2] - 360 : box[2], box[3]], [cLon, cLat] = boxMid(bbox);
-      const area = { ...g, bbox, frameLat: cLat, frameLon: cLon, radiusKm: Math.max(1, bboxRadiusKm(bbox)) };
-      Object.defineProperties(area, { border: { value: b }, borders: { value: all } });   // for inArea; kept out of answers
-      return area;
-    }
-  }
-  return { ...g, radiusKm: Math.round(Math.min(3000, Math.max(SIZE_KM[g.kind] ?? 15, (g.wide.n - g.wide.s) / 2 * 111.32))) };
+  const circle = { ...g, radiusKm: Math.round(Math.min(3000, Math.max(SIZE_KM[g.kind] ?? 15, (g.wide.n - g.wide.s) / 2 * 111.32))) };
+  if (!g.country) return circle;
+  const all = await feeds.json(feeds.site('data/borders.json'), { ttl: 864e5, timeout: 60e3, signal }).then(preparedBorders, () => null);
+  const b = Array.isArray(all) ? all.find(x => x.iso === g.country) : null;
+  if (!b) return circle;
+  const hide = (area, more) => Object.defineProperties(area, { border: { value: b }, borders: { value: all }, ...more });   // for inArea; kept out of answers
+  if (!g.wide.country) return hide(circle, { band: { value: { s: g.wide.s - 0.5, n: g.wide.n + 0.5, km: circle.radiusKm * STATE_GROW } } });
+  const box = mainBoxWrapped(b), bbox = [box[0], box[1], box[2] > 180 ? box[2] - 360 : box[2], box[3]], [cLon, cLat] = boxMid(bbox);
+  return hide({ ...g, bbox, frameLat: cLat, frameLon: cLon, radiusKm: Math.max(1, bboxRadiusKm(bbox)) });
 }
+/** How much further than its circle a round-the-world state's area reaches (inside its country's outline or off its coast). */
+const STATE_GROW = 2.2;
 
 export const distKm = (a, lat, lon) => haversine(a.lat, a.lon, lat, lon) / 1000;
-/** Is lat/lon inside the area (its box, or its circle; a country round the antimeridian, its outline or its sea)? A box may
- *  cross the antimeridian (west > east). */
+/** Is lat/lon inside the area (its box, or its circle; a country round the antimeridian, its outline or off its coast)? A box
+ *  may cross the antimeridian (west > east). */
 export function inArea(a, lat, lon) {
   if (!a) return true;
-  if (a.border && a.bbox) return inCountry(a.border, lon, lat) || (boxContains(a.bbox, lat, lon, 1.5) && !countryAt(a.borders, lon, lat));
+  if (a.border) {   // a round-the-world country (or a state of one: its latitudes and a wide circle too)
+    if (a.band && (lat < a.band.s || lat > a.band.n || distKm(a, lat, lon) > a.band.km)) return false;
+    return inCountry(a.border, lon, lat) || offCoast(a.borders, a.border, lat, lon);
+  }
   if (a.bbox) { const [w, s, e, n] = a.bbox; return lat >= s && lat <= n && (w <= e ? lon >= w && lon <= e : lon >= w || lon <= e); }
   return distKm(a, lat, lon) <= a.radiusKm;
 }
