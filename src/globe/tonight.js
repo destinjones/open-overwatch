@@ -432,12 +432,16 @@ export const Tonight = {
       for (const q of list.filter(x => x.visible && x.maxEl >= 20)) {
         // a pass under way when the timers are re-armed starts at the search's start, so it is known by where it sets
         const same = x => x.id === id && x.lat === h.lat && x.lon === h.lon && Math.abs(x.set - q.set) < 120e3; if (NUDGE.said.some(same)) continue;
-        const say = () => { NUDGE.said.push({ id, lat: h.lat, lon: h.lon, set: q.set });
+        const say = () => { if (Date.now() > q.set - 60e3) return;   // a timer overdue after the laptop slept or the tab was frozen: that pass is over, stay quiet
+          NUDGE.said.push({ id, lat: h.lat, lon: h.lon, set: q.set });
           const t = `${short} is rising in the ${compass(q.azRise)} now: up to ${Math.round(q.maxEl)}° high, bright, for about ${Math.max(1, Math.round((q.set - q.rise) / 60e3))} min. Look up!`;
           if ('Notification' in window && Notification.permission === 'granted') { Alerts.now('Look up now', t, 'now-' + id); return; }
-          // said once, urgently; the toast (a polite status line) is hidden from screen readers while it changes, or it would be said twice
+          // said once, urgently; the toast (a polite status line) is hidden from screen readers while it changes, or it would be said twice.
+          // It is heard again after a second, or as soon as another toast takes its place ("Copied", "Aurora alerts on" must be read)
           announce(t, { urgent: true }); const el = $('#toast'); if (el) el.setAttribute('aria-hidden', 'true');
-          toast(t, 15000); setTimeout(() => { if (el) el.removeAttribute('aria-hidden'); }, 1000); };
+          toast(t, 15000); if (!el) return;
+          let mo = null; const back = () => { clearTimeout(tm); if (mo) mo.disconnect(); el.removeAttribute('aria-hidden'); }, tm = setTimeout(back, 1000);
+          if (typeof MutationObserver === 'function') (mo = new MutationObserver(back)).observe(el, { childList: true, characterData: true, subtree: true }); };
         NUDGE.timers.push(setTimeout(say, Math.max(0, q.rise - 60e3 - now)));
       }
     }

@@ -22,6 +22,14 @@ test('tonight.html: the card is not a live region, the toasts are a status line,
   assert.match(html, /#card \.foldbtn:focus-visible\{outline:/, 'all:unset must not take the focus ring away');
 });
 
+test('globe.html: the same fold structure as tonight.html (the button is the hit area and carries the arrow)', () => {
+  const g = read('globe.html');
+  assert.match(g, /#card h3\.fold>button\.foldbtn\{all:unset;display:block;[^}]*padding:8px 0;cursor:pointer/);
+  assert.match(g, /#card h3\.fold::after,#card h3\.fold\.shut::after\{content:none\}/, 'no arrow left on the h3 (it would wrap under a full-width button)');
+  assert.match(g, /#card \.foldbtn::after\{content:/); assert.match(g, /#card h3\.fold\.shut \.foldbtn::after\{content:/);
+  assert.match(g, /#card \.foldbtn:focus-visible\{outline:/);
+});
+
 test('tonight.js: headings stay headings, a redraw keeps focus, the summary and the pass reminder are announced', () => {
   assert.doesNotMatch(src, /setAttribute\('role', 'button'\)/, 'no role=button on an <h3>');
   assert.doesNotMatch(src, /h\.tabIndex = 0/);
@@ -49,11 +57,12 @@ const iss = stations.find(s => s.id === '25544'), issRec = sl.twoline2satrec(iss
 const good = (lat, lon, t0, t1) => findPasses(ecfAt(sl, issRec), observer(lat, lon), t0, t1, { step: 30e3, sunAt: sunEcef }).filter(q => q.visible && q.maxEl >= 20);
 
 /** A place whose next visible ISS pass (at least 20 degrees high) rises 13 to 23 hours after T0: past the first 12-hour
- *  search, so only a tab that re-arms its nudges says it. */
+ *  search, so only a tab that re-arms its nudges says it. Its peak is over 3.2 minutes after it rises, so a search started
+ *  2.75 minutes in still finds it (rise = that start) far enough from the true rise to tell matching by rise from by set. */
 function placeWithLatePass() {
   for (let lat = -50; lat <= 60; lat += 5) for (let lon = -180; lon < 180; lon += 15) {
     const first = good(lat, lon, T0, T0 + 30 * HOUR)[0];
-    if (first && first.rise > T0 + 13 * HOUR && first.rise < T0 + 23 * HOUR) return { lat, lon, pass: first };
+    if (first && first.rise > T0 + 13 * HOUR && first.rise < T0 + 23 * HOUR && first.peak - first.rise > 3.2 * 60e3) return { lat, lon, pass: first };
   }
   return null;
 }
@@ -90,8 +99,12 @@ test('the "look up now" nudges: re-armed every 6 h, said once and urgently, stop
     assert.deepEqual(toastEl.aria[0], ['aria-hidden', 'true'], 'the toast is hidden from screen readers while it repeats the words');
     assert.match(toastEl.textContent, /^The ISS is rising/, '...and still on screen');
 
-    // re-armed just after the nudge, and again with the pass under way (a search from now starts it now): not said again
-    await Tonight.armNudges(); await run(2 * 60e3);
+    // re-armed just after the nudge, and again 2.75 minutes into the pass: a search from then starts it then (its rise is
+    // minutes from the true one), so it is known by where it sets. Not said again either time
+    await Tonight.armNudges(); await run(at.pass.rise + 2.75 * 60e3 - Date.now());
+    const under = good(at.lat, at.lon, Date.now(), Date.now() + 12 * HOUR)[0];
+    assert.ok(under && Math.abs(under.rise - Date.now()) < 60e3 && under.rise - at.pass.rise > 150e3 && Math.abs(under.set - at.pass.set) < 120e3,
+      'the second re-arm finds the pass under way, its rise more than the 120 s tolerance from the true rise');
     await Tonight.armNudges(); await run(10 * 60e3);
     assert.equal(nudges().length, 1, 'a pass already nudged is not nudged again');
 
@@ -101,5 +114,15 @@ test('the "look up now" nudges: re-armed every 6 h, said once and urgently, stop
     const before = nudges().length;
     await run(24 * HOUR);
     assert.equal(nudges().length, before, 'no place, no nudges');
+
+    // a laptop asleep (or a frozen tab) past an armed nudge: the overdue timer fires on waking, for a pass long over. Silent
+    mem.set('oo3d.home', JSON.stringify({ lat: at.lat, lon: at.lon }));
+    let p2 = null, k = Math.ceil((Date.now() - T0) / (6 * HOUR));   // the 6-hourly re-arm runs at T0 + k * 6 h (peek started it at T0)
+    for (; !p2 && k < 40; k++) p2 = good(at.lat, at.lon, T0 + k * 6 * HOUR, T0 + (k + 1) * 6 * HOUR).find(q => q.rise > T0 + k * 6 * HOUR + 3 * 60e3 && q.set + 3 * 60e3 < T0 + (k + 1) * 6 * HOUR) || null;
+    assert.ok(p2, 'a later visible pass that rises and sets between two re-arms');
+    await run(T0 + (k - 1) * 6 * HOUR + 60e3 - Date.now());   // just after the re-arm that sets its nudge
+    const awake = nudges().length;
+    mock.timers.setTime(p2.set + 2 * 60e3); mock.timers.tick(0); await flush();   // asleep through the whole pass, then all overdue timers at once
+    assert.equal(nudges().length, awake, 'no "rising now" for a pass that ended while the device slept');
   } finally { mock.timers.reset(); }
 });
