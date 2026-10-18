@@ -119,19 +119,30 @@ of change: `src/globe/volcanoes.js` (a globe layer, 28 lines), `src/map/feeds.js
 
 ### Good first issues
 
-Real open items from the roadmap, roughly smallest first. Say in an issue which one you're taking so two people don't
-do the same one.
+Real open items from the roadmap, each small enough for a first pull request and checked by tests you can run. Say in an
+issue which one you're taking so two people don't do the same one.
 
-- **The globe's zoom pad covers the end of the band at 1366x820** (Measure, Eclipses, Solar system). `#navpad` and
-  `#band` in `globe.html`'s styles; the browser tests' desktop window is exactly that size.
-- **An `earth_now` MCP tool.** The globe's "Earth now" panel sums are already in `src/core/earthnow.js` (tested); a tool
-  in `mcp/` that returns the same summary needs a file like `mcp/volcanoes.mjs`, a test in `test/mcp.test.mjs` and a
-  line in `mcp/manifest.json` and `mcp/README.md` ([DEVELOPING.md section 8](docs/DEVELOPING.md#8-adding-an-mcp-tool)).
-- **The 2D map's missing aviation bits.** The tower view, the landing watch and the route arc to the destination are
-  still globe-only (`src/globe/`); the 2D map has the aircraft cards to hang them on (`src/map/aviation.js`).
-- **Uranus, Neptune and the dwarf planets in the Solar System's eclipses and occultations**
-  (`src/core/syzygy.js`, `brand/tools/make_ephem.py`). Bigger, and needs a feel for the maths; the tests compare with
-  published predictions, so you'll know when it's right.
+- **The globe's zoom pad covers the end of the band at 1366x820** (Measure, Eclipses, Solar system ↗). `#band` and
+  `#navpad` in `globe.html`'s styles (the pad is built in `src/globe/navpad.js`; phones hide the band, so only desktop
+  widths change). Done looks like: nothing in the band covered from about 1200 to 1500 px wide, wide screens and phones
+  as they are, and a check in `e2e/globe.spec.mjs` that the two boxes don't overlap at 1366x820 (the browser tests'
+  desktop window is exactly that size, and they run on GitHub for every push).
+- **An `earth_now` MCP tool.** The globe's "Earth now" panel sums are already in `src/core/earthnow.js` (tested:
+  `summarizeQuakes`, `summarizeStorms`, `summarizeWildfires`, `kpSummary`, `launchesToday`, `summarizeFlybys`…). A tool
+  that returns the same summary needs a file like `mcp/volcanoes.mjs` fed by the loaders in `mcp/hazards.mjs` and
+  `mcp/feeds.mjs`, a line in `mcp/tools.mjs`, `mcp/manifest.json` and `mcp/README.md`, `src/core/earthnow.js` in
+  `package.json`'s `"files"` (`test/npmpack.test.mjs` says so), and tests in `test/mcp.test.mjs` with stubbed feeds
+  ([DEVELOPING.md section 8](docs/DEVELOPING.md#8-adding-an-mcp-tool)).
+- **Kepler-90's planets are called "KOI-351 b" … instead of "Kepler-90 b" …** In `src/solar/exoplanets.js`, `FAMOUS`
+  gives some systems a common name (KOI-351 is Kepler-90, Proxima Cen is Proxima Centauri) and the star uses it, but
+  the planets are still named `s.host + ' ' + suffix`. Use the common name for the label, keep the planet's `key` so
+  shared links still open it, and put the naming in a small function in `src/core/` with a test.
+- **Scan every tracked text file for local home-folder paths.** `test/localpaths.test.mjs` scans chosen folders only
+  (docs, data notes, model reports, the root pages, `india/`). Scan every text file `git ls-files` lists instead, with
+  an allowlist (today the test file itself is the only one that needs it), and keep the existing pattern test.
+
+Bigger open items, such as the 2D map's tower view and Uranus and Neptune in the Solar System's eclipses and
+occultations, are in [ROADMAP.md](ROADMAP.md).
 
 Docs fixes count too: if something here or in DEVELOPING.md was wrong or unclear when you tried it, a PR that fixes it
 is one of the most useful things you can send.

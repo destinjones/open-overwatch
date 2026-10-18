@@ -333,9 +333,8 @@ Round 2 (2026-10-10, local):
 - [x] Contrast: the faint text colour #55667a (3.1-3.5:1) is now #738599 (4.6-5.4:1) on every page; symbol-only time
       buttons and the Solar System search got names. HTML check (core/a11ycheck.js) in the tests and in CI
 - [x] Solar System camera flights still swoop with reduced motion on in v0.9.2.14 (the globe's already jump). Fixed on
-      rebuild: src/solar/util.js CALM, used by focusOn, flyDist and the hand-over roll. The box stays open only
-      because CONTRIBUTING.md still lists it as a good first issue and test/docs.test.mjs expects it open (and checks
-      CALM in src/globe/viewer.js, not src/solar/util.js); tick it in the same change that takes it off both
+      rebuild: src/solar/util.js CALM, used by focusOn, flyDist and the hand-over roll (off CONTRIBUTING.md's good
+      first issues and test/docs.test.mjs since 2026-10-17)
 - [ ] Real-phone check of install + offline (iOS: Add to Home Screen from Safari's Share menu; no install prompt there)
 
 ### Earth now dashboard (grow2-dashboard, 2026-10-13, local)
@@ -372,9 +371,8 @@ Round 2 (2026-10-10, local):
 - [x] Fixed on the way: the 2D map's "3D globe" button lost the view on a middle-click
 - [ ] At 1366x820 the globe's zoom pad covers the right end of the band (Measure, Eclipses, Solar system ↗)
 - [x] The 2D map's phone bar buttons are 37.5 px tall in v0.9.2.14: under the 44-48 px a finger wants. Fixed on
-      rebuild: 44 px (open-overwatch.html `#mobilebar button`; e2e/phone.spec.mjs checks 44). The box stays open only
-      because CONTRIBUTING.md still lists it as a good first issue and test/docs.test.mjs expects it open; tick it in
-      the same change that takes it off both
+      rebuild: 44 px (open-overwatch.html `#mobilebar button`; e2e/phone.spec.mjs checks 44; off CONTRIBUTING.md's
+      good first issues and test/docs.test.mjs since 2026-10-17)
 - [x] First CI run on Linux: if fonts push the picture checks past their limits, add `<name>.linux.png` references
       (e2e/snapshots/tonight-phone.linux.png)
 - [ ] Refresh e2e/snapshots/globe-europe.png on the next GitHub run (`OO_E2E_ALL=1 OO_E2E_UPDATE=1`): it was taken at
@@ -456,6 +454,17 @@ Round 2 (2026-10-10, local):
       globe.html's; the OSM link in src/globe/osmbuildings.js's credit and the 2D map's Setup "Base maps" row; OpenSky's
       paper in the 2D map's Setup sources panel; an a11ycheck rule for Devanagari text without `lang="hi"`
       (test/attribution.test.mjs checks four pages only)
+- [x] README promotion (readme package, round 3): one-line install / run per platform, a comparison table with
+      Stellarium Web, NASA Eyes, Flightradar24, Celestia, KeepTrack.space and gods-eye-view, "Why not just use X?", the
+      /sky/ city pages and /teach/ in the feature list; CONTRIBUTING.md's good first issues are the four drafted for
+      GitHub (zoom pad, `earth_now`, Kepler-90's planet names, the home-folder scan), checked by test/docs.test.mjs
+- [ ] README: add the clean-machine install test sentence (brand/launch/readme-promo.md, not in the repository) once
+      `.github/workflows/install-test.yml` is on the default branch and has gone green on a release; re-check the
+      comparison's "not checked" and "that we know of" cells (KeepTrack offline, a Flightradar24 MCP server) and
+      gods-eye-view's hosted version before each release
+- [ ] Owner: open the four good first issues on GitHub (drafts and `gh` commands in brand/launch/good-first-issues.md,
+      not in the repository),
+      then link each CONTRIBUTING.md item to its issue
 
 ## Rules of thumb
 - One clear goal per session; read this file first, tick boxes as they land.
