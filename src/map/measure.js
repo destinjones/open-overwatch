@@ -4,7 +4,7 @@
 // within a millimetre of GeographicLib). Lines are drawn as the real shortest paths (curved on a Mercator map), not
 // straight map lines. The drawing goes into share links (&d=, the globe's format) and out as GeoJSON. The R key, the
 // ruler button, or Escape to put the tool down. Nothing leaves the browser except a "by road" request's two ends (OSRM).
-import { $, esc, Store, toast, PHONE, late } from './util.js';
+import { $, esc, Store, toast, PHONE, late, unwrap } from './util.js';   // unwrap: continuous longitudes across the date line
 import { map } from './mapview.js';
 import { inverse, midpoint, pathLength, polygonArea, multiPolygonArea, centre, selfCrossing, densify, lengthText, areaText, bearingText, toGeoJSON, MAX_POINTS } from '../core/measure.js';
 import { fetchRoute, durationText } from '../core/route.js';
@@ -26,12 +26,6 @@ const where = ([lon, lat]) => `${Math.abs(lat).toFixed(5)}° ${lat >= 0 ? 'N' : 
 let seq = 0;
 const newShape = (kind, name) => ({ id: ++seq, kind, name: name || `${KIND[kind]} ${seq}`, coords: [], done: false, layers: [] });
 
-/** Longitudes made continuous along a path (so a line across the date line doesn't jump back across the map). */
-function unwrap(path, ref = null) {
-  const out = []; let prev = ref;
-  for (const [lon, lat] of path) { let x = lon; if (prev != null) x = prev + ((((lon - prev) % 360) + 540) % 360 - 180); out.push([lat, x]); prev = x; }
-  return out;
-}
 /** The shortest path through some points, as Leaflet lat/lngs: each leg split every 25 km so it curves as it should. */
 function geodesic(coords, closed = false) {
   const pts = closed ? [...coords, coords[0]] : coords, out = [];

@@ -19,20 +19,44 @@ export function rotDegPerSec(rot) {
 }
 
 /**
+ * One AIS report's motion with the "not available" codes made null: speed 102.3 (anything from 102 kn), course 360,
+ * heading 511 (anything from 360), rate of turn ±127/-128 (rotDegPerSec). Takes Digitraffic's names (sog, cog, heading,
+ * rot, navStat) or aisstream.io's PositionReport names (Sog, Cog, TrueHeading, RateOfTurn, NavigationalStatus) →
+ * { sog (kn), cog (deg), heading (deg), turn (deg/s), navStat (15 = not defined) }.
+ * @param {Record<string, any>} r
+ */
+export function cleanAisSentinels(r) {
+  const sog = num(r?.sog ?? r?.Sog), cog = num(r?.cog ?? r?.Cog), hdg = num(r?.heading ?? r?.TrueHeading), nav = num(r?.navStat ?? r?.NavigationalStatus);
+  return { sog: sog != null && sog >= 0 && sog < 102 ? sog : null, cog: cog != null && cog >= 0 && cog < 360 ? cog : null,
+    heading: hdg != null && hdg >= 0 && hdg < 360 ? hdg : null, turn: rotDegPerSec(r?.rot ?? r?.RateOfTurn), navStat: nav != null && nav >= 0 && nav <= 15 ? nav : 15 };
+}
+
+/**
  * Digitraffic `/api/ais/v1/locations` (GeoJSON) → reports { mmsi, lat, lon, sog (kn), cog (deg or null), heading (deg or
  * null), turn (deg/s or null), navStat, t (ms, when the network heard it) }. AIS "not available" codes become null
- * (course 360, heading 511, speed 102.3).
+ * (course 360, heading 511, speed 102.3: cleanAisSentinels).
  */
 export function parseAisLocations(doc) {
   const out = [];
   for (const f of doc?.features || []) {
     const p = f.properties || {}, c = f.geometry?.coordinates || [], lon = num(c[0]), lat = num(c[1]), t = num(p.timestampExternal), mmsi = num(p.mmsi ?? f.mmsi);
     if (lat == null || lon == null || t == null || mmsi == null || Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
-    const sog = num(p.sog), cog = num(p.cog), hdg = num(p.heading);
-    out.push({ mmsi, lat, lon, sog: sog != null && sog < 102 ? sog : null, cog: cog != null && cog >= 0 && cog < 360 ? cog : null,
-      heading: hdg != null && hdg >= 0 && hdg < 360 ? hdg : null, turn: rotDegPerSec(p.rot), navStat: num(p.navStat) ?? 15, t });
+    out.push({ mmsi, lat, lon, ...cleanAisSentinels(p), t });
   }
   return out;
+}
+
+/** aisstream.io's WebSocket, which the download's local helper (serve.js / serve.py, its /aisstream route) connects to. */
+export const AISSTREAM_UPSTREAM = 'wss://stream.aisstream.io/v0/stream';
+/**
+ * Where the 2D map opens its aisstream socket: the local helper's relay (ws://localhost:8787/aisstream) when the page is
+ * served from this computer, otherwise null. aisstream.io works only in the download: the website never opens
+ * stream.aisstream.io (its ships stay Fintraffic's).
+ * @param {{ protocol: string, hostname: string, host: string }} loc a page's location
+ */
+export function aisstreamSocketUrl(loc) {
+  if (!loc || !/^https?:$/.test(loc.protocol) || !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(loc.hostname)) return null;
+  return (loc.protocol === 'https:' ? 'wss://' : 'ws://') + loc.host + '/aisstream';
 }
 
 /** AIS ETA bits (month << 16 | day << 11 | hour << 6 | minute, UTC; 0 / 24 / 60 = not given) → { month, day, hour, minute } or null. */
