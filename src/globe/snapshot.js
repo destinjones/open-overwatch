@@ -38,7 +38,7 @@ async function compose() {
   const g = out.getContext('2d'); g.drawImage(shot, 0, 0, W, H0);
   g.fillStyle = '#05080c'; g.fillRect(0, H0, W, bar); g.fillStyle = '#7dffa6'; g.fillRect(0, H0, W, Math.max(2, Math.round(bar * 0.03)));
   const pad = Math.round(bar * 0.16), big = Math.round(bar * (portrait ? 0.2 : 0.24)), small = Math.round(big * 0.62);   // three lines fit: pad + big + 2.9 small + descenders
-  const when = new Date(Time.nowMs()).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const when = new Date(Time.nowMs()).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
   const counts = [['#sSat', 'satellites'], ['#sAir', 'aircraft']].map(([id, w]) => { const t = $(id) && $(id).textContent; return t && t !== '—' ? `${t} ${w}` : ''; }).filter(Boolean).join(' · ');
   const emblem = await EMBLEM, e = Math.round(bar * 0.5);
   g.textBaseline = 'alphabetic';

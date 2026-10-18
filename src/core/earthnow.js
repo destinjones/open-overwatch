@@ -5,6 +5,7 @@
 // test every number the panel shows (test/earthnow.test.mjs). The globe's panel is src/globe/now.js.
 import { rowLat } from './fields.js';
 import { esc } from './format.js';
+import { preciseLaunch } from './launches.js';
 
 const DAY = 864e5;
 const fin = v => typeof v === 'number' && Number.isFinite(v);
@@ -175,9 +176,13 @@ export function summarizeWildfires(events, { now = Date.now(), days = 7, top = 5
 /** "Wildfire Buckhorn 2, Cassia, Idaho" → "Idaho"; "Wildfires - Northern Territory, Australia" → "Australia". */
 export const wildfireRegion = title => { const parts = String(title || '').split(',').map(s => s.trim()).filter(Boolean); return parts.length > 1 ? parts[parts.length - 1] : 'Elsewhere'; };
 
-/** Launches (core/launches.js fromLL2) in the next `hours` hours (and any in flight): soonest first. */
+/** preciseLaunch lives beside when() in core/launches.js, so the countdown and the wording agree; re-exported here. */
+export { preciseLaunch };
+
+/** Launches (core/launches.js fromLL2) timed to the hour or better in the next `hours` hours (and any in flight):
+ *  soonest first. Month, quarter and day placeholders are left out (preciseLaunch). */
 export function launchesSoon(list, { now = Date.now(), hours = 24 } = {}) {
-  return (Array.isArray(list) ? list : []).filter(l => l && (l.status === 'In Flight' || (fin(l.net) && l.net >= now - 3600e3 && l.net <= now + hours * 3600e3)))
+  return (Array.isArray(list) ? list : []).filter(l => l && (l.status === 'In Flight' || (preciseLaunch(l) && l.net >= now - 3600e3 && l.net <= now + hours * 3600e3)))
     .sort((a, b) => (a.net || 0) - (b.net || 0));
 }
 /** Launches on today's UTC date (flown or not, as far as the list still holds them). */

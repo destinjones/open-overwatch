@@ -12,6 +12,7 @@ import { fetchAsset } from '../core/assets.js';
 import { chooseElements, nearestSnapshot, parseHistoryIndex, archiveMap, historyFileUrl, TLE_HISTORY, DAY_MS } from '../core/history.js';
 import { Time } from './time.js';
 import { eciVelToEcf } from '../core/ecfvel.js';
+import { noradKeys } from '../core/viewlink.js';
 
 const satellite = window.satellite;
 const tles = createTleSource({ fetchText: (url, o) => getText(url, o), cache: bigStore, onSite: ON_SITE });
@@ -75,7 +76,7 @@ export const Sats = {
           const s = { kind: 'sat', ...t, layer: l.id, group: g, idx: elements.length };
           s.today = { id: t.id, l1: t.l1, l2: t.l2, group: g, jd: tleEpochJd(t.l1), source: res.source };   // the time-travel archive swaps l1/l2; these stay
           stampTle(s, t.l1, res.source);   // provenance: the element set's epoch, CelesTrak or a copy
-          elements.push([t.l1, t.l2]); this.list.push(s); this.byId.set(t.id, s); n++;
+          elements.push([t.l1, t.l2]); this.list.push(s); for (const k of noradKeys(t.id)) this.byId.set(k, s); n++;   // '00005' and '5' (links, SOCRATES)
         }
       }
       setCount(l.id, n);

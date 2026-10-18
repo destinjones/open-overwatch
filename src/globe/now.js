@@ -25,17 +25,17 @@ import { Country } from './country.js';
 import { SunNow, sunNowHtml } from './sunnow.js';
 import { usgsUrl, parseUsgs, quakeTitle } from '../core/quakes.js';
 import { eonetUrl, parseEonet } from '../core/eonet.js';
-import { countdown } from '../core/launches.js';
+import { countdown, when } from '../core/launches.js';
 import { crewSentence } from '../core/crew.js';
 import {
   KP_FORECAST_URL, summarizeQuakes, quakeClass, dailyCounts, kpSeries, kpSummary, kpLevel, auroraReach, summarizeStorms, summarizeWildfires,
-  launchesSoon, launchesByMonth, summarizeFlybys, weatherExtremes, tempWords, windWords, latLonWords, quakeChart, kpChart, launchChart,
+  launchesSoon, preciseLaunch, launchesByMonth, summarizeFlybys, weatherExtremes, tempWords, windWords, latLonWords, quakeChart, kpChart, launchChart,
 } from '../core/earthnow.js';
 
 const LD_KM = 384400, AU_KM = 149597870.7;
 const ago = ms => { const m = Math.round((Date.now() - ms) / 60e3); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
 const utc = ms => new Date(ms).toISOString().slice(11, 16) + ' UTC';
-const day = ms => new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const day = ms => new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) + ' UTC';
 const plural = (n, one, many = one + 's') => `${fmt(n)} ${n === 1 ? one : many}`;
 
 // ---- the data: what the globe already holds, plus a few small history files fetched once per open (and kept 10 min)
@@ -153,7 +153,7 @@ function launchesHtml(list, err) {
     const soon = launchesSoon(list, { hours: 24 });
     h = soon.length ? soon.slice(0, 4).map(l => row(() => { layerOn('launches'); fly(l.lon, l.lat, 9e5, () => Launches.show(l)); },
       `${esc(l.rocket)} · <b class="nw-cd" data-net="${l.net}">${esc(countdown(l.net, Date.now()))}</b>`, `${esc(l.mission)} · ${esc(l.place || l.pad)}`)).join('')
-      : `<p class="nw-wait">No launches in the next 24 hours.${list.length ? ` Next: ${esc(list[0].rocket)}, ${esc(day(list[0].net))}.` : ''}</p>`;
+      : `<p class="nw-wait">No launches in the next 24 hours.${list.length ? ` Next: ${esc(list[0].rocket)}, ${esc(preciseLaunch(list[0]) ? day(list[0].net) : when(list[0]))}.` : ''}</p>`;
     h += row(() => { layerOn('launches'); Launches.openList(); Now.fold(); }, `All ${list.length} upcoming launches`, 'Countdowns, webcasts, reminders');
     h += `<div class="nw-chart-box">${chartCache.launches || ''}</div>`;
   }

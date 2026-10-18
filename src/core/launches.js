@@ -25,11 +25,19 @@ export function fromLL2(r) {
   };
 }
 
+/** LL2 precision codes for a time known to the hour or better; a missing precision counts as timed too. */
+const TIMED = ['SEC', 'MIN', 'HR', 'SECOND', 'MINUTE', 'HOUR', ''];
+const code = l => String(l.precision ?? '').toUpperCase();
+
+/** A launch timed to the hour or better (LL2's SEC/MIN/HR, or no precision given), so a countdown means something.
+ *  LL2 parks "NET October", "Q4" and day-only dates at 00:00Z (the day, or the period's last day): placeholders. */
+export const preciseLaunch = l => !!l && typeof l.net === 'number' && Number.isFinite(l.net) && TIMED.includes(code(l));
+
 /** How sure the time is, in words (LL2's precision codes). */
 export function when(l, fmt = ms => new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC') {
-  const p = String(l.precision).toUpperCase();
+  const p = code(l);
   if (!Number.isFinite(l.net)) return 'Date not set';
-  if (['SEC', 'MIN', 'HR', 'SECOND', 'MINUTE', 'HOUR'].includes(p) || !p) return fmt(l.net);
+  if (TIMED.includes(p)) return fmt(l.net);
   const d = new Date(l.net);
   if (p === 'DAY') return d.toISOString().slice(0, 10) + ' (time not set)';
   if (p === 'M' || p === 'MONTH') return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }) + ' (no date yet)';
