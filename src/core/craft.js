@@ -14,7 +14,9 @@
 // 3 days (6 hours for Chandrayaan-3's short stay) and no perijove sets: within ~300 km of Horizons, ~20 km for
 // Chandrayaan-3 (test/fixtures/horizons_isro_orbits.json), in quiet orbit. While an orbit is being raised or lowered
 // (Chandrayaan-2 in late August 2019, Chandrayaan-3 in August and October 2023) a set carried across a burn is off by
-// up to ~5,000 km, and the drawn orbit jumps there at the next set.
+// up to ~5,000 km, and the drawn orbit jumps there at the next set. BepiColombo carries one around 'mercury' from its
+// capture in November 2026 (a set every 6 hours, within ~10 km of Horizons), and data/solar/apophis.json one around
+// 'earth' (a set an hour) for the asteroid's 2029 flyby: the same track format serves it.
 // Past the last sample a craft that is leaving the Sun for good (above escape speed) coasts on in a straight line,
 // which is how Voyager and Pioneer really fly; any other craft has no published position there (null).
 
@@ -90,9 +92,12 @@ const MG = {};
  * A centre for callers without a view of their own (the MCP, the tests): the Moon as the Solar System view draws it
  * by default (Earth plus core/planets.js's lunar series), so a Moon orbiter (Chandrayaan) sits on its orbit around that
  * Moon and its distance from that Earth is the Moon's plus the orbit, not the ~2,000 km scatter of its 2-day samples.
- * Any other centre gives null: Juno and Mars Orbiter Mission keep their Horizons samples, which beat the approximate planets.
+ * Earth's centre too ('earth', for Apophis's 2029 flyby in data/solar/apophis.json, which the view draws round the same
+ * Earth). Any other centre gives null: Juno, Mars Orbiter Mission and BepiColombo keep their Horizons samples, which beat
+ * the approximate planets for a caller that only wants distances from Earth.
  */
 export function moonCenterAt(key, jd, out = {}) {
+  if (key === 'earth') return earthPosition(jd, out);
   if (key !== 'moon') return null;
   earthPosition(jd, out); moonGeocentric(jd, MG);
   out.x += MG.x; out.y += MG.y; out.z += MG.z; return out;
@@ -101,18 +106,36 @@ export function moonCenterAt(key, jd, out = {}) {
 /** Periapsis passages (Juno's perijoves) inside the local stretch: [jd], in time order. */
 export const periapses = c => (c.local?.pj || []).map(p => p.tp);
 
-const P = [{}, {}, {}, {}], LP = {}, CP = {};
+const P = [{}, {}, {}, {}], LP = {}, CP = {}, HP = {};
+/**
+ * How much of the local (planet-centred) position to use at jd: 1, except within track.local.blend_days of either end
+ * of the local stretch, where it eases to 0 (smoothstep) so the hand-over to the heliocentric samples does not jump.
+ * The jump is the caller's planet against Horizons' (Apophis: ~10,000 km, 1.3 million km from Earth).
+ */
+export function localWeight(c, jd) {
+  const L = c.local, b = L && L.blend_days; if (!(b > 0)) return 1;
+  const lo = L.t0_jd - L.step_days / 2, hi = Math.min(L.t0_jd + (L.el.length - 0.5) * L.step_days, c.end_jd ?? Infinity);
+  const t = Math.max(0, Math.min(1, Math.min(jd - lo, hi - jd) / b));
+  return t * t * (3 - 2 * t);
+}
 /**
  * Heliocentric position at jd (AU) into out, or null before the first sample / past the track for a craft that stays.
  * centerAt(key, jd, out) places a planet as the caller draws it; with it, a craft in orbit around that planet is put on
- * its two-body orbit around it (track.local) instead of the heliocentric samples.
+ * its two-body orbit around it (track.local) instead of the heliocentric samples (eased into them at the ends of
+ * the local stretch when it sets blend_days).
  */
 export function trackPosition(c, jd, out = {}, centerAt = null) {
   if (centerAt && inLocal(c, jd) && jd >= (c.launch_jd ?? -Infinity) && centerAt(c.local.center, jd, CP)) {
     localPosition(c, jd, LP);
+    const w = localWeight(c, jd);
     out.x = CP.x + LP.x; out.y = CP.y + LP.y; out.z = CP.z + LP.z;
+    if (w < 1 && samplePosition(c, jd, HP)) { out.x = HP.x + w * (out.x - HP.x); out.y = HP.y + w * (out.y - HP.y); out.z = HP.z + w * (out.z - HP.z); }
     return out;
   }
+  return samplePosition(c, jd, out);
+}
+/** trackPosition from the heliocentric samples alone (Catmull-Rom between them; past the end, a craft that escapes coasts). */
+function samplePosition(c, jd, out) {
   const n = sampleCount(c); if (n < 2) return null;
   const f = (jd - c.t0_jd) / c.step_days;
   if (f < 0) return null;
@@ -163,6 +186,33 @@ export function missionPhase(c, jd) {
   return escaping(c) ? 'coasting' : 'beyond the data';
 }
 
+/** The craft's status at jd: the latest of its `phases` ([[jd, status], ...]: BepiColombo once Mercury captures it)
+ *  reached by then, else its status. */
+export function statusAt(c, jd) {
+  let s = c.status;
+  for (const [t, text] of c.phases || []) if (t <= jd) s = text;
+  return s;
+}
+
+/** The year a status says the mission ended ('Ended 2017', 'Silent since 2009') as a JD (1 January), or null. */
+export function endedJd(c) {
+  const m = /^(Ended|Silent since) (\d{4})/.exec(c.status || '');
+  return m ? 2451544.5 + (+m[2] - 2000) * 365.25 : null;
+}
+
+/**
+ * Which samples the view draws at jd: { flown: [first, count], ahead: [first, count], over }. Unfocused, the path
+ * flown is the last year (all of it for a craft leaving the Sun, `leaving`) and the path ahead the next half year;
+ * focused, the whole track. A craft past its published track (no position: 'beyond the data') or a year past the end
+ * of its mission (`over`) draws no lines, unless focused: an orange arc ending in empty space is no use to anyone.
+ */
+export function trailRanges(c, jd, focused = false, leaving = escaping(c), ended = endedJd(c)) {
+  const i = sampleIndex(c, jd), before = jd < c.t0_jd, n = sampleCount(c);
+  const from = focused || leaving ? 0 : sampleIndex(c, jd - 365.25), to = focused ? n : sampleIndex(c, jd + 182.6) + 1;
+  const over = !focused && ((ended != null && jd > ended + 365.25) || (!leaving && jd > sampleJd(c, n - 1)));
+  return { flown: [from, before || over ? 0 : i + 1 - from], ahead: [before ? 0 : i, over ? 0 : Math.max(0, to - (before ? 0 : i))], over };
+}
+
 /** The latest event at or before jd and the next one after it: { last: [jd, text] | null, next: [jd, text] | null }. */
 export function eventsAround(c, jd) {
   let last = null, next = null;
@@ -202,6 +252,6 @@ export function missionsNow(tracks, jd, earth, centerAt = null) {
   const p = {};
   return tracks.map(c => {
     const at = trackPosition(c, jd, p, centerAt), au = at && jd >= c.launch_jd ? Math.hypot(p.x - earth.x, p.y - earth.y, p.z - earth.z) : null;
-    return { name: c.name, status: c.status, phase: missionPhase(c, jd), au, light: au == null ? null : lightSeconds(au), next: eventsAround(c, jd).next };
+    return { name: c.name, status: statusAt(c, jd), phase: missionPhase(c, jd), au, light: au == null ? null : lightSeconds(au), next: eventsAround(c, jd).next };
   }).sort((a, b) => (a.au ?? Infinity) - (b.au ?? Infinity));
 }

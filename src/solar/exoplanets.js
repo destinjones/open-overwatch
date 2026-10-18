@@ -4,12 +4,14 @@
 // the star at its real size and colour, the habitable zone, the orbits and the planets at real size, lit by their own
 // star and moving with the clock. Planets that transit have a measured transit time, so they are where they really are
 // (circular orbits; the tilt of each orbit on our sky is unknown, so the line of nodes is arbitrary); the others get an
-// arbitrary phase, and their cards say so.
+// arbitrary phase, and their cards say so. Two habitable zones (core/habitable.js): the conservative one (bright green
+// ring and orbits, the catalogue's in_HZ flag) and the wider optimistic one (a fainter band, pale green orbits).
 import * as THREE from 'three';
 import { LY_AU, KM_AU, DEG, radecToEcl } from '../core/units.js';
 import { fetchAsset } from '../core/assets.js';
 import { STAR_TEXTURE, LOGDEPTH_V, LOGDEPTH_F, PHONE } from './util.js';
 import { globeMaterial } from './planets.js';
+import { systemZones, zoneOf, zoneWords } from '../core/habitable.js';
 import { addBody, removeBody, byKey, layerOn, onLayers } from './world.js';
 
 const R_SUN = 695700 * KM_AU, R_EARTH = 6371 * KM_AU;
@@ -19,7 +21,7 @@ export const FAMOUS = [
   ['TRAPPIST-1', 346.6223, -5.0414, 40.5, 'Seven Earth-sized planets around a small red star, three of them in the habitable zone. A "year" on the closest one lasts 36 hours.'],
   ['Proxima Cen', 217.4289, -62.6795, 4.24, 'The nearest star to the Sun, with a planet in its habitable zone: about 4.2 light-years away.', 'Proxima Centauri'],
   ['TOI-700', 97.0969, -65.5786, 101.5, 'An Earth-sized planet, TOI-700 d, in the habitable zone, found by NASA\'s TESS.'],
-  ['Kepler-186', 298.6545, 43.9545, 579, 'Kepler-186 f was the first Earth-sized planet found in a habitable zone (2014).'],
+  ['Kepler-186', 298.6545, 43.9545, 579, 'Kepler-186 f (2014) was the first Earth-sized planet found at the outer edge of the habitable zone of its star.'],
   ['Kepler-452', 296.0119, 44.2778, 1799, 'Kepler-452 b: a "cousin" of Earth, around a Sun-like star, with a year of 385 days.'],
   ['51 Peg', 344.3668, 20.7688, 50.4, 'The first planet found around a Sun-like star (1995, Nobel Prize 2019): a hot Jupiter with a 4-day year.'],
   ['HD 209458', 330.7948, 18.8843, 157, 'The first planet seen passing in front of its star (2000), and the first with a detected atmosphere.'],
@@ -63,9 +65,9 @@ export function createExoplanets({ scene, camera, renderer }) {
   function systemInfo(host, lyFallback) {
     const s = X.systems.find(x => x.host === host);
     if (!s) return [['Distance', lyFallback + ' light-years'], ['Planets', X.data ? 'not in the catalogue' : 'loading…']];
-    const hz = s.hz ? `${s.hz[0].toFixed(3)}–${s.hz[1].toFixed(3)} AU` : '—';
+    const zones = systemZones(s), au = z => z ? `${z[0].toFixed(3)}–${z[1].toFixed(3)} AU` : '—';
     return [['Distance', s.ly.toLocaleString('en-US', { maximumFractionDigits: 1 }) + ' light-years'], ['Star', s.teff ? Math.round(s.teff) + ' K, ' + (s.rs ? s.rs.toFixed(2) + ' × the Sun\'s radius' : '') : '—'],
-      ['Planets', String(s.pl.length) + (s.pl.some(p => p[11]) ? ` (${s.pl.filter(p => p[11]).length} in the habitable zone)` : '')], ['Habitable zone', hz],
+      ['Planets', zoneWords(s, zones)], ['Habitable zone', au(zones.hz)], ['Optimistic zone', au(zones.opt)],
       ['Light left it', Math.round(s.ly) + ' years ago']];
   }
 
@@ -73,7 +75,10 @@ export function createExoplanets({ scene, camera, renderer }) {
     return X.loading || (X.loading = (async () => {
       const d = await fetchAsset('data/solar/exoplanets.json', 'json');
       const systems = d.list, N = systems.length, pos = new Float32Array(N * 3), hz = new Float32Array(N);
-      systems.forEach((s, k) => { pos.set([s.p[0] * LY_AU, s.p[1] * LY_AU, s.p[2] * LY_AU], k * 3); hz[k] = s.pl.some(p => p[11]) ? 1 : 0; });
+      systems.forEach((s, k) => {   // marker: 1 a planet in the habitable zone, 0.6 one only in the optimistic zone
+        pos.set([s.p[0] * LY_AU, s.p[1] * LY_AU, s.p[2] * LY_AU], k * 3);
+        const z = systemZones(s), w = s.pl.map(p => zoneOf(z, p[1], !!p[11])); hz[k] = w.includes('habitable') ? 1 : w.includes('optimistic') ? 0.6 : 0;
+      });
       for (const [host] of FAMOUS) { const s = systems.find(x => x.host === host), b = byKey['exo:' + host]; if (s && b) b.pos.set(s.p[0] * LY_AU, s.p[1] * LY_AU, s.p[2] * LY_AU); }
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('hz', new THREE.BufferAttribute(hz, 1));
       markers = new THREE.Points(g, new THREE.ShaderMaterial({ uniforms, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
@@ -85,7 +90,8 @@ export function createExoplanets({ scene, camera, renderer }) {
           void main() {
             #include <logdepthbuf_fragment>
             float r = length(gl_PointCoord - 0.5), ring = smoothstep(0.5, 0.42, r) * smoothstep(0.26, 0.34, r);   // a ring, not a star
-            vec3 c = vHz > 0.5 ? vec3(0.49, 1.0, 0.65) : vec3(0.44, 0.88, 1.0); float a = ring * uFade * (vHz > 0.5 ? 0.95 : 0.6); if (a < 0.01) discard;
+            vec3 c = vHz > 0.9 ? vec3(0.49, 1.0, 0.65) : vHz > 0.5 ? vec3(0.72, 0.96, 0.63) : vec3(0.44, 0.88, 1.0);
+            float a = ring * uFade * (vHz > 0.9 ? 0.95 : vHz > 0.5 ? 0.8 : 0.6); if (a < 0.01) discard;
             gl_FragColor = vec4(c * a, a);
           }` }));
       markers.frustumCulled = false; markers.visible = layerOn('exo'); scene.add(markers);
@@ -104,20 +110,23 @@ export function createExoplanets({ scene, camera, renderer }) {
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: STAR_TEXTURE, color: col, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); glow.scale.setScalar(rs * 16); group.add(glow);
     // the sky plane at the star: z toward us, x along the ecliptic-north cross product; orbits tilted by i about x
     const toUs = hostPos.clone().negate().normalize(), xAx = new THREE.Vector3().crossVectors(toUs, new THREE.Vector3(0, 0, 1)).normalize(), yAx = new THREE.Vector3().crossVectors(toUs, xAx);
-    const bodies = [], objs = [];
-    if (s.hz) {   // habitable zone: a soft green annulus in the plane of the first planet's orbit
+    const bodies = [], objs = [], zones = systemZones(s);
+    // habitable zones: soft green annuli in the plane of the first planet's orbit, the optimistic one fainter (the two
+    // add up, so the conservative zone inside it reads brighter)
+    for (const [z, opacity] of [[zones.opt, 0.06], [zones.hz, 0.13]]) {
+      if (!z) continue;
       const i0 = (s.pl[0]?.[4] ?? 90) * DEG, n = toUs.clone().multiplyScalar(Math.cos(i0)).addScaledVector(yAx, -Math.sin(i0)).normalize();
-      const ring = new THREE.Mesh(new THREE.RingGeometry(s.hz[0], s.hz[1], 128, 1), new THREE.MeshBasicMaterial({ color: 0x7dffa6, transparent: true, opacity: 0.13, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+      const ring = new THREE.Mesh(new THREE.RingGeometry(z[0], z[1], 128, 1), new THREE.MeshBasicMaterial({ color: 0x7dffa6, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
       ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n); group.add(ring); objs.push(ring);
     }
     for (const p of s.pl) {
-      const [suffix, a, P, e, iDeg, Re, Me, Teq, tJD, year, method, inHz] = p;
+      const [suffix, a, P, e, iDeg, Re, Me, Teq, tJD, year, method, inHz] = p, opt = zoneOf(zones, a, !!inHz) === 'optimistic';
       const R = (Re || (Me ? Math.pow(Me, 0.28) : 1.5)) * R_EARTH, i = (iDeg || 90) * DEG;
       const Y = yAx.clone().multiplyScalar(Math.cos(i)).addScaledVector(toUs, Math.sin(i));   // orbit basis: X = xAx, Y
       const pts = new Float32Array(257 * 3);
       for (let k = 0; k <= 256; k++) { const t = k / 256 * 2 * Math.PI, v = xAx.clone().multiplyScalar(Math.cos(t) * a).addScaledVector(Y, Math.sin(t) * a); pts.set([v.x, v.y, v.z], k * 3); }
       const og = new THREE.BufferGeometry(); og.setAttribute('position', new THREE.BufferAttribute(pts, 3));
-      const orbit = new THREE.Line(og, new THREE.LineBasicMaterial({ color: inHz ? 0x7dffa6 : 0x6fe0ff, transparent: true, opacity: 0.45, depthWrite: false })); group.add(orbit); objs.push(orbit);
+      const orbit = new THREE.Line(og, new THREE.LineBasicMaterial({ color: inHz ? 0x7dffa6 : opt ? 0xb8f5a0 : 0x6fe0ff, transparent: true, opacity: 0.45, depthWrite: false })); group.add(orbit); objs.push(orbit);
       const look = planetLook(Re || R / R_EARTH, Teq), tex = new THREE.DataTexture(new Uint8Array([...new THREE.Color(look).toArray().map(c => Math.round(Math.pow(c, 1 / 2.2) * 255)), 255]), 1, 1);
       tex.colorSpace = THREE.SRGBColorSpace; tex.needsUpdate = true;
       const mat = globeMaterial(lightView, { atm: Re > 1.7 ? [0.6, 0.8, 1] : [0, 0, 0], atmK: Re > 1.7 ? 0.4 : 0, wrap: Re > 6 ? 0.05 : 0 }); mat.uniforms.map.value = tex;
@@ -126,8 +135,9 @@ export function createExoplanets({ scene, camera, renderer }) {
       const real = tJD > 0 && P > 0, phase0 = real ? 0 : hash(s.host + suffix) * 2 * Math.PI;
       const name = s.host + ' ' + suffix, key = 'exop:' + name;
       const local = new THREE.Vector3();
-      const b = addBody({ key, name, kind: inHz ? 'exoplanet · habitable zone' : 'exoplanet', color: inHz ? '#7dffa6' : '#9fe8ff', radius: R, pos: new THREE.Vector3(), group: holder, mesh, transient: true, exoPlanet: true, sys: s.host,
-        fact: inHz ? 'It orbits in its star\'s habitable zone, where liquid water could exist on the surface, given the right atmosphere.' : '',
+      const b = addBody({ key, name, kind: inHz ? 'exoplanet · habitable zone' : opt ? 'exoplanet · optimistic habitable zone' : 'exoplanet', color: inHz ? '#7dffa6' : opt ? '#b8f5a0' : '#9fe8ff', radius: R, pos: new THREE.Vector3(), group: holder, mesh, transient: true, exoPlanet: true, sys: s.host,
+        fact: inHz ? 'It orbits in its star\'s habitable zone, where liquid water could exist on the surface, given the right atmosphere.'
+          : opt ? 'It orbits in its star\'s optimistic habitable zone: outside the conservative one, but where a young Venus or early Mars seem to have had liquid water.' : '',
         update(jd) {
           const th = (real ? Math.PI / 2 + 2 * Math.PI * (jd - tJD) / P : phase0 + (P ? 2 * Math.PI * (jd - 2451545) / P : 0));
           local.copy(xAx).multiplyScalar(Math.cos(th) * a).addScaledVector(Y, Math.sin(th) * a); b.pos.copy(hostPos).add(local); holder.position.copy(b.pos);

@@ -3,14 +3,14 @@
 // src/core/craft.js). Each craft draws the path it has flown (bright) and the path still planned (faint), and the
 // focused craft marks its mission events along the track. Cards carry the mission, the signal time to Earth, the next
 // event with a countdown, and a timeline whose entries jump the clock there. A craft in orbit around a planet (Juno, Mars
-// Orbiter Mission) or the Moon (Chandrayaan) rides its two-body orbit around the body on screen (core/craft.js
-// track.local), and that orbit is drawn there.
+// Orbiter Mission, BepiColombo at Mercury) or the Moon (Chandrayaan) rides its two-body orbit around the body on screen
+// (core/craft.js track.local), and that orbit is drawn there.
 import * as THREE from 'three';
 import { KM_AU, AU_KM } from '../core/units.js';
 import { fetchAsset } from '../core/assets.js';
 import { distance, lightTime } from '../core/format.js';
 import { formatUtc } from '../core/time.js';
-import { trackPosition, trackSpeed, sampleIndex, missionPhase, eventsAround, relativeTime, escaping, lagrangeL1L2, inLocal, localOrbit, localPosition, periapses } from '../core/craft.js';
+import { trackPosition, trackSpeed, missionPhase, eventsAround, relativeTime, escaping, lagrangeL1L2, inLocal, localOrbit, localPosition, periapses, statusAt, endedJd, trailRanges } from '../core/craft.js';
 import { planetPosition, PHYSICAL } from '../core/planets.js';
 import { orbitPath } from '../core/kepler.js';
 import { STAR_TEXTURE } from './util.js';
@@ -19,7 +19,7 @@ import { addBody, byKey, layer, layerOn, onLayers } from './world.js';
 const FLOWN = 0xffb44d, AHEAD = 0xffd9a3, LP = {};
 /** Where the view draws a planet or the Moon (the centre of a planet- or Moon-centred track). */
 const centerAt = (key, jd, out) => key === 'moon' ? byKey.moon?.posAt(jd, out) ?? null : planetPosition(key, jd, out);
-const AROUND = { moon: 'the Moon', mars: 'Mars', jupiter: 'Jupiter' };
+const AROUND = { moon: 'the Moon', mercury: 'Mercury', mars: 'Mars', jupiter: 'Jupiter' };
 
 export function createSpacecraft({ scene }) {
   const craft = [];
@@ -47,7 +47,7 @@ export function createSpacecraft({ scene }) {
       line.frustumCulled = ahead.frustumCulled = false;   // the bounding sphere of a whole track is huge anyway
       line.visible = ahead.visible = layerOn('craft'); scene.add(line, ahead);
       const group = new THREE.Group(); scene.add(group);
-      const leaving = escaping(s), ended = /^(Ended|Silent since) (\d{4})/.exec(s.status || ''), endedJd = ended ? 2451544.5 + (+ended[2] - 2000) * 365.25 : null;
+      const leaving = escaping(s), ended = endedJd(s);
       const short = s.alias && s.alias[0] && s.name.length > 18 ? s.alias[0] : null;
       // the osculating orbit around the planet, redrawn when the element set in force changes
       let localLine = null, localKey = null;
@@ -72,16 +72,16 @@ export function createSpacecraft({ scene }) {
           }
           if (p) c.vel = trackSpeed(s, jd, centerAt) ?? c.vel;   // on the orbit it rides around a planet or the Moon
           // the path flown so far (unfocused: the last year, or the whole way out for craft leaving the Sun) and the path
-          // still planned (unfocused: the next half year); a mission that has ended keeps its dot but not its lines
-          const i = sampleIndex(s, jd), before = jd < s.t0_jd, focused = c === marked;
-          const from = focused || leaving ? 0 : sampleIndex(s, jd - 365.25), to = focused ? s.n : sampleIndex(s, jd + 182.6) + 1;
-          c.over = endedJd != null && jd > endedJd + 365.25 && !focused;
-          line.geometry.setDrawRange(from, before || c.over ? 0 : i + 1 - from);
-          ahead.geometry.setDrawRange(before ? 0 : i, c.over ? 0 : Math.max(0, to - (before ? 0 : i)));
+          // still planned (unfocused: the next half year); a mission that has ended keeps its dot but not its lines, and
+          // one past its published track (no dot) draws none either (core/craft.js trailRanges)
+          const r = trailRanges(s, jd, c === marked, leaving, ended);
+          c.over = r.over;
+          line.geometry.setDrawRange(r.flown[0], r.flown[1]);
+          ahead.geometry.setDrawRange(r.ahead[0], r.ahead[1]);
           c.jd = jd;
         },
         info() {
-          const jd = c.jd, phase = missionPhase(s, jd), rows = [['Mission', s.agency], ['Status', phase === 'flying' ? s.status : phase === 'coasting' ? 'Coasting outward (past the published track)' : phase === 'before launch' ? 'Not launched yet' : 'No published position after ' + formatUtc(s.end_jd).slice(0, 10)]];
+          const jd = c.jd, phase = missionPhase(s, jd), rows = [['Mission', s.agency], ['Status', phase === 'flying' ? statusAt(s, jd) : phase === 'coasting' ? 'Coasting outward (past the published track)' : phase === 'before launch' ? 'Not launched yet' : 'No published position after ' + formatUtc(s.end_jd).slice(0, 10)]];
           rows.push(['Launched', formatUtc(s.launch_jd).slice(0, 10) + ' · ' + relativeTime(s.launch_jd - jd)]);
           if (c.launched) {
             const dE = c.pos.distanceTo(byKey.earth.pos);

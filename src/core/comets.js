@@ -202,13 +202,15 @@ export const dustDays = r => Math.max(4, Math.min(60, 30 / (r * r))) * (activity
  * Comets near the Sun or Earth at jd, the ones worth a label: [{ row, c, r, delta, score }], best first. score is
  * 5 log10(delta) + 10 log10(r), the distance part of the standard comet magnitude (lower is brighter for the same
  * comet; the comets' own absolute magnitudes are not in our data, so this is "well placed", not "bright").
+ * Like the brightness lists, only comets whose orbit can be trusted at jd (orbitFresh): a 2009 orbit solution puts
+ * 406P/Gibbs where it no longer is. fresh: false lists them all.
  */
-export function cometsNearNow(rows, jd, earth, { maxR = 3, limit = 12 } = {}) {
+export function cometsNearNow(rows, jd, earth, { maxR = 3, limit = 12, fresh = true } = {}) {
   const out = [], p = {};
   for (const row of rows) {
     if (/^\d*D\/|-[A-Z]{1,2}( |$)/.test(row[0])) continue;      // defunct (D/) comets and fragments (C/2020 P4-B, 73P/... 3-AA) are not shown
     const c = cometFromRow(row);
-    if (c.q > maxR) continue;
+    if (c.q > maxR || (fresh && !orbitFresh(c, jd))) continue;
     cometPosition(c, jd, p);
     const r = Math.hypot(p.x, p.y, p.z); if (r > maxR) continue;
     const delta = Math.hypot(p.x - earth.x, p.y - earth.y, p.z - earth.z);

@@ -5,11 +5,11 @@
 // how long its light (or its radio signal) takes, how fast it moves, which way to look (RA/Dec, constellation, evening
 // or morning sky, how bright), and, for a place, how high it is there now. The site's own data copies (JPL Horizons tracks, SBDB elements) and core
 // maths; an asteroid's elements come out of the packed files by byte range. Links open the Solar System view on it.
-import { catalogue, indexCatalogue, findBody, quickIndex, findQuick, recordRanges, elementsFromBytes, fileRecords, hgMagnitude, stateAt, lightWords, distanceWords, IAU_NAMES, seeingWords, CLASS_WORDS } from '../src/core/whereis.js';
+import { catalogue, indexCatalogue, findBody, quickIndex, findQuick, recordRanges, elementsFromBytes, fileRecords, hgMagnitude, stateAt, lightWords, distanceWords, IAU_NAMES, seeingWords, CLASS_WORDS, TRACKS, trackedAt, trackOrbit } from '../src/core/whereis.js';
 import { planetPosition, earthPosition, moonGeocentric, PHYSICAL } from '../src/core/planets.js';
 import { SKY_PLANETS, planetFromEarth } from '../src/core/solarsys.js';
 import { moonOffset, moonPeriod } from '../src/core/moons.js';
-import { trackPosition, missionPhase, eventsAround, relativeTime, missionDays, missionsNow, moonCenterAt } from '../src/core/craft.js';
+import { trackPosition, missionPhase, eventsAround, relativeTime, missionDays, missionsNow, moonCenterAt, statusAt } from '../src/core/craft.js';
 import { cometFromRow, cometPosition, cometPeriodYears, cometClass, cometNames, cometsNearNow, cometMagnitude, orbitFresh, COMET_FACTS } from '../src/core/comets.js';
 import { positionAt } from '../src/core/kepler.js';
 import { nearestConstellation, formatRaDec, skyPhrase } from '../src/core/skyplace.js';
@@ -142,11 +142,11 @@ export function spaceTool(ctx) {
         extra = { orbits: ref.moonOf, orbit_days: r2(moonPeriod(ref.m)), radius_km: ref.m.radius_km ?? null };
         words.push(`It circles ${ref.moonOf[0].toUpperCase() + ref.moonOf.slice(1)} every ${r2(moonPeriod(ref.m))} days.`);
       } else if (ref.craft) {
-        const c = ref.craft, ph = missionPhase(c, jd), ev = eventsAround(c, jd), days = missionDays(c, jd);
+        const c = ref.craft, ph = missionPhase(c, jd), ev = eventsAround(c, jd), days = missionDays(c, jd), status = statusAt(c, jd);
         at = j => trackPosition(c, j, {}, moonCenterAt);   // a Moon orbiter on its orbit around the Moon
-        extra = { status: c.status || null, agency: c.agency || null, phase: ph, launched: iso(msFromJd(c.launch_jd ?? c.t0_jd)), mission_days: Math.floor(days),
+        extra = { status: status || null, agency: c.agency || null, phase: ph, launched: iso(msFromJd(c.launch_jd ?? c.t0_jd)), mission_days: Math.floor(days),
           last_event: ev.last ? { date: iso(msFromJd(ev.last[0])), what: ev.last[1] } : null, next_event: ev.next ? { date: iso(msFromJd(ev.next[0])), what: ev.next[1] } : null, about: c.desc || null };
-        words.push(`${c.status ? c.status + '. ' : ''}${days >= 0 ? `Launched ${relativeTime(-days)} (${Math.floor(days).toLocaleString('en-US')} days).` : `Launches ${relativeTime(-days)}.`}${ev.last ? ` Last: ${ev.last[1]} (${relativeTime(ev.last[0] - jd)}).` : ''}${ev.next ? ` Next: ${ev.next[1]} (${relativeTime(ev.next[0] - jd)}).` : ''}`);
+        words.push(`${status ? status + '. ' : ''}${days >= 0 ? `Launched ${relativeTime(-days)} (${Math.floor(days).toLocaleString('en-US')} days).` : `Launches ${relativeTime(-days)}.`}${ev.last ? ` Last: ${ev.last[1]} (${relativeTime(ev.last[0] - jd)}).` : ''}${ev.next ? ` Next: ${ev.next[1]} (${relativeTime(ev.next[0] - jd)}).` : ''}`);
         if (ph === 'before launch') throw new ToolError(`${c.name} has not launched by ${iso(t).slice(0, 10)}`, 'not_found');
         if (!at(jd)) throw new ToolError(`${c.name} has no published position for ${iso(t).slice(0, 10)} (${ph})`, 'not_found');
       } else if (ref.comet) {
@@ -164,14 +164,21 @@ export function spaceTool(ctx) {
         }
       } else {
         small = small || await json('data/solar/small_bodies.json', signal);
-        const row = ref.asteroid, el = await asteroidElements(row, small, signal), cls = (small.classes || EMPTY)[row[5]] || null;
-        at = j => positionAt(el, j, {});
+        const row = ref.asteroid, cls = (small.classes || EMPTY)[row[5]] || null;
+        let el = await asteroidElements(row, small, signal);
+        // Apophis: its own Horizons track for 2026-2035, round Earth through the 2029 flyby (two-body elements elsewhere)
+        const track = TRACKS[row[2]] ? await json(TRACKS[row[2]], signal).catch(() => null) : null;
+        at = trackedAt(track, el);
+        const orb = trackOrbit(track, el, jd); el = orb.el;   // after the flyby: the orbit it left on
         const P = el.a ** 1.5;
         extra = { class: cls, absolute_magnitude: row[3], diameter_km: row[4], orbit: { a_au: r2(el.a), e: Number(el.e.toFixed(3)), inclination_deg: r1(el.i * 180 / Math.PI), period_years: r2(P), perihelion_au: r2(el.a * (1 - el.e)), aphelion_au: r2(el.a * (1 + el.e)) } };
         const what = hit.kind === 'dwarf planet' ? 'dwarf planet' : CLASS_WORDS[cls] || 'asteroid';
         words.push(`${/^[aeiou]/i.test(what) ? 'An' : 'A'} ${what}${row[4] ? `, about ${row[4] < 10 ? r1(row[4]) : Math.round(row[4]).toLocaleString('en-US')} km across` : ''}: around the Sun every ${r2(P)} years, ${r2(el.a * (1 - el.e))} to ${r2(el.a * (1 + el.e))} AU out.`);
-        // two-body from one epoch: a close pass by a planet is not modelled (Apophis's 2029 Earth flyby above all)
-        const note = APOPHIS.test(row[2]) ? (jd < APOPHIS_FLYBY_JD ? APOPHIS_BEFORE : APOPHIS_AFTER)
+        const on = orb.era === 'pre' || orb.era === 'post', ca = track?.closest && `closest to Earth on ${iso(msFromJd(track.closest.jd - 69.184 / 86400)).slice(0, 16).replace('T', ' ')} UTC, ${(Math.round(track.closest.km / 100) * 100).toLocaleString('en-US')} km from Earth's centre`;   // the track's times are TDB
+        if (ca) words.push(`${on ? 'Placed by its own JPL Horizons track (2026-2035)' : 'Its JPL Horizons track (2026-2035) has it'}: ${ca}${orb.era === 'post' ? '; the orbit given is the one it left the flyby on' : ''}.${orb.note ? ' ' + orb.note : ''}`);
+        if (orb.note) extra.orbit_note = orb.note;
+        // two-body from one epoch: a close pass by a planet is not modelled (Apophis is, from its own track, when it loads)
+        const note = APOPHIS.test(row[2]) ? (track ? null : jd < APOPHIS_FLYBY_JD ? APOPHIS_BEFORE : APOPHIS_AFTER)
           : cls === 'Near-Earth' && Math.abs(jd - small.epoch_jd) > 2 * 365.25 ? `A two-body estimate from its ${iso(msFromJd(small.epoch_jd)).slice(0, 4)} elements: close passes by the planets are not modelled, so this far from then it may be well off.` : null;
         if (note) { words.push(note); extra.accuracy_note = note; }
       }
