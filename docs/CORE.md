@@ -579,7 +579,9 @@ Used by globe, sky, mcp, core (`earthnow.js`, `india.js`).
   windowEnd, precision, status, … }`.
 - `precisionCode`: LL2's precision, given as its abbreviation or its name ('DAY' or 'Day', 'Q4' or 'Quarter 4',
   'PM' or 'Afternoon (local time)'), as one code: SEC MIN HR AM PM DAY WK M Q1-Q4 H1 H2 Y FY DEC, or '' when not
-  given. Every reader of a launch time goes through it.
+  given. `preciseLaunch`, `when`, `periodEnd` and `india.js` go through it; three readers still test LL2's raw
+  string themselves (the globe's launch list and Tonight card, and `launchesByMonth` in `earthnow.js`), so a
+  precision given by name ('Hour', 'Month') is read differently there.
 - `preciseLaunch`: a launch with a finite time to the hour or better (SEC, MIN, HR, or no precision at all), so a
   countdown means something; LL2 parks "NET October", "Q4" and day-only dates at 00:00Z.
 - `when`: how sure the time is, in words: the full UTC time when it is timed (a missing precision counts as timed),
@@ -735,7 +737,7 @@ Mercator tiles), the darts for the way waves run, and the isobar chart. Used by 
 - `paintMercatorTile(kind, px, { x, y, z }, step, value, blur)`: one 256 px Web Mercator tile of a wash, sampled once
   every `step` px into a buffer of (256 / step)² that the 2D map scales up without smoothing (the same picture as
   step-sized blocks, at a step² fraction of the pixel writes). The blur (cloud and rain) averages four samples half a
-  model cell apart, so the steep colour ramps don't show the cells as squares.
+  model cell off the point, diagonally (`blur` = half the grid spacing), so the steep colour ramps don't show the cells as squares.
 - `pressureChart`: isobars every 4 hPa, their labels, H and L. `splitJumps`: a wrapped line cut for a flat map.
 - `legendFor`: title, CSS gradient and ticks, metric or imperial.
 ### `wxpoint.js`

@@ -221,6 +221,7 @@ generator writes to `sky.tmp` and moves it into place only when done).
 
 ## Testing
 
-`node --test` (from the repo root); the one npm dependency, satellite.js, is only for the MCP satellite tests, which
-are skipped with a note without it. Fixtures in `test/fixtures/` are real JPL Horizons vectors, so a regression in
+`node --test` (from the repo root); the one npm dependency is satellite.js (`npm install` once). Without it the MCP
+satellite tests are skipped with a note and the sky-page ISS checks are left out, but `india.test.mjs` and the
+licence test fail. Fixtures in `test/fixtures/` are real JPL Horizons vectors, so a regression in
 the orbital maths shows up as a distance error in AU, not as a vague visual change.

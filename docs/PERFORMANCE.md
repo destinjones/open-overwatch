@@ -141,8 +141,9 @@ The 2D map's forecast washes (temperature, gusts, cloud, rain, waves) are painte
 - **A few tiles a frame.** Tiles are painted in place within 10 ms a frame (6 ms on phones); the old picture stays until
   the new one is ready, and play waits for a step to finish painting before it takes the next.
 
-The paint path alone, in Node on the owner's PC (2026-10-17, a temperature tile at zoom 3, a cheap stand-in for the
-model field): 4.7 ms a tile sampled every pixel, 1.2 ms every 2 px, 0.3 ms every 4 px. Reading the real model field
+The paint path alone (`paintMercatorTile` in Node, a temperature tile at zoom 3, a cheap stand-in for the model
+field) costs in proportion to the samples: every 2 px is about a quarter of every pixel, every 4 px about a
+sixteenth. The absolute times depend on the PC and the stand-in (a few ms to about 11 ms a tile at every pixel). Reading the real model field
 at each sample adds to that; a cache hit is a Map lookup and one small canvas draw.
 
 ## The MCP server: "off its coast"

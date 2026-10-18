@@ -2,7 +2,7 @@
 
 ## Unit tests
 `node --test` from the repo root (the browser tests are separate: [below](#end-to-end-browser-tests-playwright-in-ci)): the maths in `src/core/` against JPL Horizons fixtures and textbook identities, the country lookup (`core/borders.js`: cities land in their countries, ocean is nobody's, every border has facts) and the share-link format (`core/viewlink.js`: round trip, bad links refused)
-(no dependencies but satellite.js, for the MCP satellite tests, which are skipped with a note without it). On
+(no dependencies but satellite.js, `npm install` once: without it the MCP satellite tests are skipped with a note and the sky-page ISS checks are left out, but `india.test.mjs` and the licence test fail). On
 2026-10-17 that is 114 files and 1,051 tests, about 14 s; the count is the `# tests` line at the end of the output.
 CI runs them on every push with a coverage floor (`npm run coverage`), plus a syntax check of every module and a link
 check of every page. [DEVELOPING.md](DEVELOPING.md#3-tests) has the table of what each file covers. Two kinds behave differently: the site

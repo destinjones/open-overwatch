@@ -111,7 +111,8 @@ node --test
 
 Runs every `test/*.test.mjs` with Node's own runner: 114 files and 1,051 tests on 2026-10-17 (the `# tests` line at
 the end of the output; the whole run took about 14 s on the owner's PC). No dependencies except
-`satellite.js` for the MCP satellite tests (skipped with a note when it isn't installed). What they cover:
+`satellite.js` (`npm install` once): without it the MCP satellite tests are skipped with a note and the sky-page ISS
+checks are left out, but `india.test.mjs` and the licence test fail. What they cover:
 
 | File | Checks |
 |---|---|
