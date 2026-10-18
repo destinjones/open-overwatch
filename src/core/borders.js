@@ -131,11 +131,13 @@ export function coastDistance(b, lat, lon, pad = OFFSHORE_DEG) {
 /** Is lat/lon at sea "off the coast" of country b: in nobody's outline, within `pad` degrees of b's, and no other country's
  *  outline nearer? (The Aleutian trench is off Alaska, not Russia; Hokkaido's Pacific coast is Japan's, not the Kurils'.)
  *  `reach` (degrees, default 0) widens it for things that matter to a country before they arrive, a storm most of all:
- *  anything within `reach` of b's outline counts too, whoever's sea or land it is nearer (a hurricane in the central Gulf
- *  of Mexico is nearer Yucatán than Louisiana, one east of Florida nearer the Bahamas). */
+ *  sea within `reach` of b's outline counts too, whichever coast is nearer (a hurricane in the central Gulf of Mexico is
+ *  nearer Yucatán than Louisiana, one east of Florida nearer the Bahamas); another country's land never does (a typhoon
+ *  over Hokkaido is not in Russia, a storm over Havana not in the United States). */
 export function offCoast(borders, b, lat, lon, pad = OFFSHORE_DEG, reach = 0) {
   const d = coastDistance(b, lat, lon, Math.max(pad, reach));
-  if (d <= reach) return true;
-  if (!(d <= pad) || countryAt(borders, lon, lat)) return false;
+  if (!(d <= Math.max(pad, reach)) || countryAt(borders, lon, lat)) return false;   // another country's land is never "in" this one
+  if (d <= reach) return true;   // at sea within the reach, whichever coast is nearer (a storm off the Gulf coast)
+  if (!(d <= pad)) return false;
   return !borders.some(o => o !== b && coastDistance(o, lat, lon, d) < d);
 }

@@ -521,7 +521,7 @@ def _keep(o, spec):
 
 
 def mirror_launches(path):
-    """Best effort: the next 40 rocket launches from The Space Devs' Launch Library 2 (free; 15 requests an hour without a key, so
+    """Best effort: about the next 40 rocket launches (plus the last day's, which every reader filters out) from The Space Devs' Launch Library 2 (free; 15 requests an hour without a key, so
     every visitor asking directly would soon be refused) -> data/launches.json: {t, source, results: [trimmed LL2 launches]}.
     No hide_recent_previous: the list also holds launches of the last 24 hours, so a launch whose imprecise time ("NET
     October", dated on the period's last day) has passed stays until its period ends; the pages' filter (core/launches.js

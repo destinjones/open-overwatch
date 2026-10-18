@@ -100,7 +100,7 @@ iss(); quakes(); setInterval(iss, 10000); setInterval(quakes, 300000);
   try {
     const d = await (await fetch(SITE + 'data/launches.json')).json();
     const list = indianLaunches(d.results);
-    if (!list.length) { box.innerHTML = `<li class="muted">${T('No launch from India is on the list of the next 40 worldwide right now.', 'दुनिया भर के अगले 40 लॉन्च की सूची में अभी भारत से कोई लॉन्च नहीं है।')}</li>`; return; }
+    if (!list.length) { box.innerHTML = `<li class="muted">${T('No launch from India is on the list of upcoming launches worldwide right now.', 'दुनिया भर के आने वाले लॉन्च की सूची में अभी भारत से कोई लॉन्च नहीं है।')}</li>`; return; }
     const name = r => (r.rocket?.configuration?.full_name || r.rocket?.configuration?.name || 'Rocket') + ' · ' + (r.mission?.name || r.name || '');
     box.innerHTML = list.slice(0, 5).map(r => `<li><a href="${SITE}globe.html#go=launches&amp;id=${encodeURIComponent(String(r.id || '').slice(0, 40))}">${esc(name(r))}</a><small>${T(when(r, 'en'), when(r, 'hi'))}</small></li>`).join('');
     const next = list[0];

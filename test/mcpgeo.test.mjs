@@ -130,7 +130,12 @@ test('mcp geo: storms in the United States include a Gulf hurricane and one off 
   const us = await resolveArea({ place: 'United States' }, feeds);
   assert.equal(inArea(us, 25, -88), false, 'the plain area stays the outline and its 2.5° coast (earthquakes, volcanoes)');
   for (const [lat, lon, what] of gulf) assert.equal(inArea(us, lat, lon, { sea: STORM_SEA_DEG }), true, what);
-  for (const [lat, lon, what] of [[35, -40, 'mid-Atlantic'], ...FAR.filter(p => p[2] !== 'Toronto')]) assert.equal(inArea(us, lat, lon, { sea: STORM_SEA_DEG }), false, what);   // a storm over Toronto is near the USA
+  for (const [lat, lon, what] of [[35, -40, 'mid-Atlantic'], ...FAR]) assert.equal(inArea(us, lat, lon, { sea: STORM_SEA_DEG }), false, what);
+  // the reach is sea only: another country's land is never "in" this one
+  for (const [lat, lon, what] of [[23.11, -82.37, 'Havana'], [25.69, -100.32, 'Monterrey'], [43.65, -79.38, 'Toronto']]) assert.equal(inArea(us, lat, lon, { sea: STORM_SEA_DEG }), false, what);
+  const ru = await resolveArea({ place: 'Russia' }, feedsFor([photon(wideFeature('Russia', WIDE.Russia)), [SITE + 'data/borders.json', BORDERS]]).feeds);
+  for (const [lat, lon, what] of [[43.06, 141.35, 'Sapporo'], [37.57, 126.98, 'Seoul'], [60.17, 24.94, 'Helsinki']]) assert.equal(inArea(ru, lat, lon, { sea: STORM_SEA_DEG }), false, what);
+  assert.equal(inArea(ru, 44, 150, { sea: STORM_SEA_DEG }), true, 'a typhoon at sea off the Kurils');
   // the cheap box gate agrees with the full test on a grid round the world (it only skips work)
   const bd = preparedBorders(JSON.parse(BORDERS)), b = bd.find(x => x.iso === 'US');
   for (let lat = -60; lat <= 80; lat += 5) for (let lon = -180; lon < 180; lon += 5) {
