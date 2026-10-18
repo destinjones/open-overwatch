@@ -2,10 +2,9 @@
 
 Work happens on the local `rebuild` branch. Nothing is pushed, tagged or deployed until the user says so (a local
 pre-push hook refuses pushes without OO_PUSH_OK=1). Published: v0.9.1 (2026-10-02)
-through v0.9.2.14 (2026-10-15), each with its CHANGELOG.md entry; next v0.9.2.15 (CHANGELOG.md's [Unreleased]).
+through v0.9.2.15 (2026-10-17), each with its CHANGELOG.md entry; next v0.9.2.16 (CHANGELOG.md's [Unreleased]).
 
-Owner decisions still open (2026-10-17): redeploying the MCP Worker, so the 2026-10-17 MCP fixes (the /mcp/%zz crash,
-parse caching) and EMSC in `earthquakes` reach claude.ai users; narrowing the pages' `connect-src` from `https:` to the feed
+Owner decisions still open (2026-10-17): narrowing the pages' `connect-src` from `https:` to the feed
 hosts (docs/NOTES.md calls the wildcard a deliberate trade-off: custom relays and radio streams); and whether the
 non-commercial terms of Open-Meteo (free API) and the light-pollution World Atlas (CC BY-NC 4.0) fit paid Meta ads and
 GitHub Sponsors (record the answer in NOTICE or GOVERNANCE.md).
@@ -24,8 +23,8 @@ programmer would enjoy reading, not three big HTML files.
 - [x] CI: syntax check, page→module links, tests on every push (`.github/workflows/ci.yml`; runs once we publish)
 - [x] `docs/DATA_SOURCES.md` (every feed: what, licence, refresh, accuracy)
 - [ ] Refresh ISRO spacecraft tracks before they run out (Chandrayaan-2 2026-11-08, Aditya-L1 2027-01-19): `python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"` (JPL Horizons, public domain); test/india.test.mjs warns two weeks ahead.
-      Do it before 2026-11-01 and republish; if Horizons still ends Chandrayaan-2 on 2026-11-08, the owner picks where the India page's main button goes instead
-      (Aditya-L1 or the Moon)
+      Re-fetched on 2026-10-17 and Horizons still ends them on those dates; try again before 2026-11-01 and republish. If Chandrayaan-2 still ends on
+      2026-11-08, the owner picks where the India page's main button goes instead (Aditya-L1 or the Moon). BepiColombo's track ends 2027-04-09
 - [x] Honest README with a demo clip (README.md: brand/clip/zoom-preview.webp and the 30 s MP4)
 
 Housekeeping before publishing: `src`, `earth_fx_2k.jpg` and `brand/textures/moons` are now in `APP_PATHS` / the release zip;
@@ -216,9 +215,10 @@ Round 2 (2026-10-10, local):
       core/whereis.js); stdio split into mcp/stdio.mjs so nothing the Worker imports needs Node
 - [x] Deploy the MCP Worker (`npx wrangler deploy` in mcp-worker/, a `MCP_TOKEN` secret): deployed 2026-10-13 (version
       aaf0e183, mcp-worker/wrangler.toml)
-- [ ] Redeploy the MCP Worker with the 2026-10-17 code (the /mcp/%zz 404, parse caching, EMSC in `earthquakes`): the
-      owner's call, not decided yet; then check the globe panel over a remote connector in claude.ai (MCP Apps support
-      there is the host's)
+- [x] Redeploy the MCP Worker with the 2026-10-17 code (the /mcp/%zz 404, parse caching, EMSC in `earthquakes`):
+      redeployed with v0.9.2.15 (owner, 2026-10-17). The v0.9.2.16 fixes need another redeploy: see "Audit 2 and round
+      3" below
+- [ ] Check the globe panel over a remote connector in claude.ai (MCP Apps support there is the host's)
 - [x] Country lookups across the antimeridian: Russia no longer claims Canada and Alaska (core/borders.js, the globe's card too)
 - [x] Emulator pass of v0.9.2.7 (Android Chrome 124 + WebKit iPhone 15): every new layer holds the phone cap of 30
       renders/s while dragging, the battery saver idles at 5-15, no script errors in either engine, layer caches stay
@@ -377,10 +377,12 @@ Round 2 (2026-10-10, local):
       (e2e/snapshots/tonight-phone.linux.png)
 - [ ] Refresh e2e/snapshots/globe-europe.png on the next GitHub run (`OO_E2E_ALL=1 OO_E2E_UPDATE=1`): it was taken at
       the old Low quality level, which no level now matches; look at it before committing it
-- [ ] Run the browser tests written on 2026-10-17 on GitHub (a push to ci-e2e needs the owner's OK): the globe to
+- [ ] Run the browser tests written on 2026-10-17 on GitHub (the owner OK'd ci-e2e pushes on 2026-10-17): the globe to
       Solar System hand-off and back, the #go= panels, weather mode, an Ops look, voice, Tonight's #at= links and embed,
-      the phone Low tier with Starlink off, and the EMSC mock. The delayed no-aircraft line has no browser test (only
-      source checks in test/globesite.test.mjs): look for it on a normal globe run there
+      the phone Low tier with Starlink off, and the EMSC mock; from round 3, e2e/teach.spec.mjs (print, Copy, phone
+      width), e2e/mapmodal.spec.mjs (the 2D map's splash and welcome focus), the new phone.spec.mjs cases and Tonight's
+      focus through a redraw. The delayed no-aircraft line has no browser test (only source checks in
+      test/globesite.test.mjs): look for it on a normal globe run there
 ### Oceans and air (grow3-ocean, 2026-10-13, local)
 - [x] Globe and 2D map: NOAA NDBC buoys and coastal stations (`buoys`, ~870, coloured by wave height), DART tsunami
       buoys (`dart`, ~75; the card reads the buoy's file: water column, event mode), NOAA CO-OPS tide gauges (`tides`,
@@ -436,8 +438,7 @@ Round 2 (2026-10-10, local):
 - [ ] Tell station-kept satellites from falling ones (SATCAT operational status, or two element sets a few days apart)
 
 ### Left over from the 2026-10-17 audit (v0.9.2.15, local)
-- [ ] At publish: give 0.9.2.15 its date in src/core/whatsnew.js (test/whatsnew.test.mjs fails once CHANGELOG.md has
-      the heading and the entry has none)
+- [x] At publish: give 0.9.2.15 its date in src/core/whatsnew.js (2026-10-17)
 - [ ] Owner, outside the repo: point the Hindi Meta ads at `india/hi/` (the URL is in docs/INDIA.md), and reword the
       Instagram bio and first post, which still mention planes
 - [ ] brand/tools/make_cards.mjs still makes an "11,737 planes" card: new copy or retire it; don't post it as it is
@@ -450,10 +451,10 @@ Round 2 (2026-10-10, local):
 - [ ] A public page (and an MCP tool) saying which feeds are stale or failing (deferred from the audit, product-6)
 - [x] Credits, licence lists, privacy notices and claims brought into line with the code and the upstream terms
       (attribution and docs package: Esri, OSM links, OpenSky's paper, non-commercial list, NOTICE, home-page a11y)
-- [ ] Left from that package (files owned elsewhere that round): a file:// boot message on open-overwatch.html like
-      globe.html's; the OSM link in src/globe/osmbuildings.js's credit and the 2D map's Setup "Base maps" row; OpenSky's
-      paper in the 2D map's Setup sources panel; an a11ycheck rule for Devanagari text without `lang="hi"`
-      (test/attribution.test.mjs checks four pages only)
+- [ ] Left from that package (files owned elsewhere that round): the OSM link in src/globe/osmbuildings.js's credit
+      and the 2D map's Setup "Base maps" row (src/map/setup.js); OpenSky's paper in the 2D map's Setup sources panel.
+      The file:// boot message on open-overwatch.html is done (round 3, 2D map phones); the Devanagari rule moved to
+      the a11ycheck item under "Audit 2 and round 3"
 - [x] README promotion (readme package, round 3): one-line install / run per platform, a comparison table with
       Stellarium Web, NASA Eyes, Flightradar24, Celestia, KeepTrack.space and gods-eye-view, "Why not just use X?", the
       /sky/ city pages and /teach/ in the feature list; CONTRIBUTING.md's good first issues are the four drafted for
@@ -463,6 +464,61 @@ Round 2 (2026-10-10, local):
       comparison's "not checked" cell (KeepTrack offline) and gods-eye-view's hosted version before each release
 - [ ] Owner: open the four good first issues on GitHub (drafts and `gh` commands in brand/launch/good-first-issues.md,
       not in the repository), then link each CONTRIBUTING.md item to its issue
+
+### Audit 2 and round 3 (2026-10-17, local; for v0.9.2.16)
+- [x] Engineering round: `npm run typecheck` and `npm run lint` in CI, fuzz tests of the decoders of untrusted bytes
+      and the hangs and size bugs they found (test/fuzz.test.mjs), the MCP server ready for npm and the MCP Registry
+- [x] Audit 2: 117 of its 118 confirmed findings (1 high, 48 medium) fixed in 15 packages (the CSP sweep,
+      security2-r1-5, is deferred below, and the checker-rule parts of a11y-r1-1 and a11y-r1-10 too), with the owner's
+      downloads done: Apophis 2026-2035 (data/solar/apophis.json), BepiColombo at Mercury, Uranus in the Horizons fixture, Chandrayaan-2
+      and Aditya-L1 re-fetched, data/volcanoes.json from Wikidata in metres
+- [x] No IP location (src/core/myplace.js: the device's fix or a picked place, 0.01°, 24 h); aisstream.io only through
+      the download's helper (serve.js/serve.py `/aisstream`); Esri tiles streamed only (sw.js STREAM_ONLY)
+- [x] City sky pages: `/sky/` for 441 cities and `/sky/hi/` for India's 84, built at deploy by
+      brand/tools/make_sky_pages.mjs (pages.yml); sitemap.xml is an index of sitemap-pages.xml and sitemap-sky.xml
+- [x] Teachers page `/teach/` (twelve activities), in sw.js PAGES, the release zip, sitemap-pages.xml and the SRI and
+      accessibility page lists; linked from the home page, the guide and the about page
+- [x] Install test on three systems (.github/workflows/install-test.yml) and the 1280x640 social preview file
+- [x] Launch Library 2 without `hide_recent_previous` (the site build and both fallbacks), so core/launches.js periodEnd
+      decides when a "NET October" launch leaves
+- [ ] Deploy the v0.9.2.16 code once it is reviewed and tested (approved by the owner; the main session runs it, never a
+      package agent): the relay (relay/: the LIMITER rate limit, `t=` only on stills within 10 minutes), the MCP Worker
+      (mcp-worker/: the dateline areas and honest answers reach claude.ai users only then) and a new .mcpb into Claude
+      Desktop
+- [ ] One CSP sweep: each page's bare `cdn.jsdelivr.net` becomes per-package path prefixes (script-src on every page;
+      globe.html also in style-src, worker-src and child-src), and src/core/sricheck.js flags a bare jsDelivr host (audit 2 security2-r1-5, deferred until the
+      packages merged)
+- [ ] Checker rules deferred by audit 2 (src/core/a11ycheck.js): an aria-live container holding text a timer rewrites;
+      Devanagari text whose nearest `lang` is not "hi" (test/attribution.test.mjs checks four pages only); opacity
+      below 0.7 on buttons and chips
+- [ ] The 2D map's CSP: add `ws://localhost:* ws://127.0.0.1:*` to connect-src for older WebKit (the download's
+      aisstream socket relies on 'self' matching ws: on the same host)
+- [ ] MCP areas, left from round 3: the US territories (Puerto Rico, Guam, American Samoa, the Virgin Islands) are not
+      in data/borders.json; `plate_readers` tiles only the USA's main box (mcp/osm.mjs areaBox), so it
+      misses Alaska and Hawaii (`military_areas` turns away any area wider than 150 km); fires in Alaska use the plain circle (mcp/fires.mjs); answers for Alaska and
+      Chukotka say "within N km of" (mcp/words.mjs where) for an area wider than that circle; measure round-the-world
+      areas against the Worker's 10 ms free-plan CPU (offCoast on thousands of Alaskan quakes)
+- [ ] mcp/reentry.mjs still promises a flat ±25%: say "usually ±25%, wider when the two drag estimates disagree", as
+      both views' cards do
+- [ ] src/globe/launches.js keeps its own precise(): use core/launches.js preciseLaunch (precise() only upper-cases LL2's
+      precision, so a long name such as "Hour", "Minute" or "Second" gets "—" in the globe's launch list but a countdown
+      in Earth now, where precisionCode maps it to HR/MIN/SEC); src/map/feeds.js keeps its own GDACS prune
+      (GDACS_KEEP): use core/cyclones.js pruneKept, as the globe does
+- [ ] Apophis's faint point in the packed asteroid file and click-picking (src/solar/smallbodies.js pickAsteroid) use
+      the SBDB elements, so from 2029 that point drifts away from Apophis's own dot
+- [ ] Gunung Barujari has no height (a Wikidata height with no unit has no normalised value; make_volcanoes.py): a
+      fix changes the query, so it needs the owner's OK for a new request
+- [ ] Not approved on 2026-10-17, so left out: comets refreshed from JPL SBDB in each site build (comets found after
+      the 2026-10-13 copy are missing); a bundled NWS zone-centroid table, so every zone-only alert gets a marker
+- [ ] Owner, after the v0.9.2.16 deploy: submit https://destinjones.github.io/open-overwatch/sitemap.xml (the index
+      that names sitemap-sky.xml) in Google Search Console; robots.txt on a project site is never read
+- [ ] Owner: upload brand/social/github-preview-1280x640.png as the repository's social preview (Settings, General)
+- [ ] Owner: enrol in GitHub Sponsors; .github/FUNDING.yml's Sponsor button shows only once Sponsors is on for the
+      account (answer the non-commercial terms question at the top first)
+- [ ] Owner: submit to the awesome lists, LibHunt and AlternativeTo from the drafts (brand/launch/awesome-lists.md and
+      listings.md, not in the repository); publishing to npm is the item under Stage 5
+- [ ] At publish: add 0.9.2.16's notes and date to src/core/whatsnew.js RELEASES (test/whatsnew.test.mjs fails once
+      src/map/version.js says 0.9.2.16 and RELEASES has no entry for it)
 
 ## Rules of thumb
 - One clear goal per session; read this file first, tick boxes as they land.
