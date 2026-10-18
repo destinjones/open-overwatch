@@ -103,17 +103,19 @@ ${Detail.kv([['Max winds', s.kt ? `${s.kt} kt · ${fmt.n(s.kt * 1.852)} km/h` : 
 // so the episodes that are gone are dropped after it (a storm gets a new episode with each advisory), and at most 24 stay
 class KeptGeometry extends Map { used = new Set(); get(k) { this.used.add(k); return super.get(k); } }
 const gdacsKept = new KeptGeometry(), GDACS_KEEP = 24;
-const ll = path => unwrap(path);   // [lon, lat] → [lat, lon], continuous across the date line
+// [lon, lat] → [lat, lon], continuous across the date line; every shape of one storm takes the copy nearest the storm's
+// longitude, so a cone, a wind ring or a past-track segment that starts on the other side of 180 stays in the same world copy
+const ll = (path, ref) => unwrap(path, ref);
 /** One storm's forecast on the map: the wind field now, the cone, the forecast track, coastal watches and warnings, the past track. */
-function drawForecast(f) {
+function drawForecast(f, ref) {
   const add = shape => shape.addTo(gStorms), opt = o => ({ interactive: false, renderer: vecRenderer, ...o });
-  for (const w of f.winds.slice().sort((a, b) => a.kt - b.kt)) for (const r of w.rings) add(L.polygon(ll(r), opt({ stroke: false, fillColor: w.kt >= 64 ? '#ff4d5e' : w.kt >= 50 ? '#ff9f5c' : '#ffe36e', fillOpacity: .18 })));
+  for (const w of f.winds.slice().sort((a, b) => a.kt - b.kt)) for (const r of w.rings) add(L.polygon(ll(r, ref), opt({ stroke: false, fillColor: w.kt >= 64 ? '#ff4d5e' : w.kt >= 50 ? '#ff9f5c' : '#ffe36e', fillOpacity: .18 })));
   if (f.coherent) {
-    for (const r of f.cone) add(L.polygon(ll(r), opt({ color: '#ffffff', weight: 1.4, opacity: .75, fillColor: '#ffffff', fillOpacity: .12 })));
-    for (const p of f.track) add(L.polyline(ll(p), opt({ color: '#ffffff', weight: 2, opacity: .9, dashArray: '8 6' })));
+    for (const r of f.cone) add(L.polygon(ll(r, ref), opt({ color: '#ffffff', weight: 1.4, opacity: .75, fillColor: '#ffffff', fillOpacity: .12 })));
+    for (const p of f.track) add(L.polyline(ll(p, ref), opt({ color: '#ffffff', weight: 2, opacity: .9, dashArray: '8 6' })));
   }
-  for (const w of f.warnings) for (const p of w.paths) add(L.polyline(ll(p), opt({ color: WW[w.code][1], weight: 5, opacity: .95 })));
-  for (const seg of f.past) for (const p of seg.paths) add(L.polyline(ll(p), opt({ color: category(KIND_KT[seg.kind] || 30)[2], weight: 2, opacity: .85 })));
+  for (const w of f.warnings) for (const p of w.paths) add(L.polyline(ll(p, ref), opt({ color: WW[w.code][1], weight: 5, opacity: .95 })));
+  for (const seg of f.past) for (const p of seg.paths) add(L.polyline(ll(p, ref), opt({ color: category(KIND_KT[seg.kind] || 30)[2], weight: 2, opacity: .85 })));
 }
 feed(lyStorms, { interval: 1200, errorInterval: 1800, fetch: async () => {   // EONET + NHC + NOAA forecasts + GDACS, merged per storm (core/cyclones.js, as on the globe)
   const nhc = Relay.available || !!Relay.wrap(NHC_CURRENT);   // NHC's list: the helper, or the website's public relay
@@ -126,8 +128,8 @@ feed(lyStorms, { interval: 1200, errorInterval: 1800, fetch: async () => {   // 
   for (const s of list) {
     const { reports, agreeing } = stormAgreement(s); stampReports(s, 'storms', reports, agreeing, { cached: nhcCopy });   // which agencies place it here (core/cyclones.js)
     const [, cat, col] = category(s.kt);
-    if (s.track.length > 1 && !(s.fc && s.fc.past.length)) L.polyline(unwrap(s.track.map(p => [p.lon, p.lat])), { color: col, weight: 1.5, opacity: .6, dashArray: '6 5', interactive: false, renderer: vecRenderer }).addTo(gStorms);
-    if (s.fc) drawForecast(s.fc);
+    if (s.track.length > 1 && !(s.fc && s.fc.past.length)) L.polyline(unwrap(s.track.map(p => [p.lon, p.lat]), s.lon), { color: col, weight: 1.5, opacity: .6, dashArray: '6 5', interactive: false, renderer: vecRenderer }).addTo(gStorms);
+    if (s.fc) drawForecast(s.fc, s.lon);
     items.push({ lat: s.lat, lon: s.lon, r: 6 + Math.max(0, cat) * 1.5, color: col, fillAlpha: .3, lw: 2, halo: 16, kind: 'storm', obj: s, tip: `${s.title}${s.kt ? ' · ' + s.kt + ' kt' : ''}${s.fc && s.fc.cone.length ? ' · forecast cone' : ''}`, label: shortName(s.title), labelZoom: 2 });
   }
   Points.set('storms', items); lyStorms.feed.count = items.length; lyStorms.desc = activeLine(list) || 'No active tropical cyclones right now';
@@ -175,7 +177,7 @@ feed(lyNews, { interval: 900, errorInterval: 900, fetch: async () => {
    most of them) come with geometry null and a list of forecast zones. Those are listed under the layer, and opening one
    draws its zones (the first 5, from api.weather.gov, kept a day). */
 export const lyNws = Layers.add({ id: 'nws', group: 'Weather & space weather', name: 'Severe weather alerts (US)', desc: 'NWS · Extreme and Severe warnings · storm polygons on the map, zone alerts listed here (open one to draw its zones)', color: C.alert, default: true,
-  sub(el) { nwsList.el = el; nwsList.render(); } });
+  sub(el) { nwsList.el = el; nwsList.render(); }, disable() { nwsList.render(); } });
 export const gNws = lineLayer(lyNws);
 /** Tornado, hurricane, typhoon, tropical storm and extreme wind: the alert colour and the bolder outline. */
 export const NWS_MAJOR = /tornado|hurricane|typhoon|tropical storm|extreme wind/i;
@@ -211,8 +213,9 @@ export async function openNwsZones(p) {
   let ok = 0, err = null;
   for (const u of pick) { try { if (await nwsZone(u)) ok++; } catch (e) { err = e; } }
   const cur = (World.nws || []).find(x => x.id === p.id) || p; nwsOpened.add(p.id);
-  cur.zoneNote = ok ? `${ok} of ${urls.length} zone${urls.length === 1 ? '' : 's'} drawn${urls.length > ok ? ' (at most 5)' : ''}` : `zones not drawn: ${err ? err.message : 'no outline sent'}`; if (cur !== p) p.zoneNote = cur.zoneNote;
-  if (lyNws.on && ok) { const b = drawNwsZones(cur).getLayers().reduce((bb, l) => bb ? bb.extend(l.getBounds()) : l.getBounds(), null); if (b && b.isValid()) map.flyToBounds(b, { maxZoom: 8, duration: .8 }); }
+  const zs = `${ok} of ${urls.length} zone${urls.length === 1 ? '' : 's'}`;
+  cur.zoneNote = !ok ? `zones not drawn: ${err ? err.message : 'no outline sent'}` : lyNws.on ? `${zs} drawn${urls.length > ok ? ' (at most 5)' : ''}` : `${zs} read: turn the layer on to see them`; if (cur !== p) p.zoneNote = cur.zoneNote;
+  if (ok) { const grp = drawNwsZones(cur); if (lyNws.on) { const b = grp.getLayers().reduce((bb, l) => bb ? bb.extend(l.getBounds()) : l.getBounds(), null); if (b && b.isValid()) map.flyToBounds(b, { maxZoom: 8, duration: .8 }); } }   // into gNws, which shows only while the layer is on
   if (Sel.obj === p || Sel.obj === cur) Detail.render();
 }
 /** The zone-only alerts as a list under the layer (event, area, expiry; all escaped). */
@@ -220,11 +223,13 @@ const nwsList = {
   el: null,
   render() {
     const el = this.el; if (!el) return;
+    if (!lyNws.on) { el.innerHTML = ''; return; }   // the layer is off: no stale list
+    const open = !!el.querySelector('details')?.open;   // a refresh keeps the list open if it was
     const rows = (World.nws || []).map((p, i) => [p, i]).filter(([p]) => p.zoneOnly)
       .sort(([a], [b]) => (a.severity === 'Extreme' ? 0 : 1) - (b.severity === 'Extreme' ? 0 : 1) || (Date.parse(a.expires) || 0) - (Date.parse(b.expires) || 0));
     if (!rows.length) { el.innerHTML = ''; return; }
     const area = t => { t = String(t || ''); return t.length > 70 ? t.slice(0, 68) + '…' : t; };
-    el.innerHTML = `<details style="width:100%"><summary style="cursor:pointer;font-size:11px;color:var(--ink-dim)">${rows.length} alert${rows.length === 1 ? '' : 's'} by zone, no polygon: open one to draw its zones</summary><div style="display:flex;flex-direction:column;gap:3px;max-height:200px;overflow:auto;margin-top:4px">${rows.map(([p, i]) =>
+    el.innerHTML = `<details style="width:100%"${open ? ' open' : ''}><summary style="cursor:pointer;font-size:11px;color:var(--ink-dim)">${rows.length} alert${rows.length === 1 ? '' : 's'} by zone, no polygon: open one to draw its zones</summary><div style="display:flex;flex-direction:column;gap:3px;max-height:200px;overflow:auto;margin-top:4px">${rows.map(([p, i]) =>
       `<button type="button" class="pill" style="text-align:left;white-space:normal" data-nws="${i}" title="${esc(p.areaDesc)}"><b>${esc(p.event)}</b> · ${esc(area(p.areaDesc))}${p.expires ? ` · until ${esc(fmt.date(p.expires))}` : ''}</button>`).join('')}</div></details>`;
   },
 };

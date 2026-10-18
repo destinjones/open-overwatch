@@ -34,8 +34,10 @@ test('unwrap (util.js): a track through ±180 keeps continuous longitudes; measu
 });
 
 test('feeds.js: storm tracks, cones, wind rings, warnings and EONET tracks go through unwrap', () => {
-  assert.match(FEEDS, /const ll = path => unwrap\(path\)/, 'drawForecast: cone, forecast track, warnings, past track, wind rings');
-  assert.match(FEEDS, /L\.polyline\(unwrap\(s\.track\.map\(p => \[p\.lon, p\.lat\]\)\)/, 'the EONET storm track');
+  assert.match(FEEDS, /const ll = \(path, ref\) => unwrap\(path, ref\)/, 'drawForecast: cone, forecast track, warnings, past track, wind rings');
+  assert.ok(!/ll\([rp]\)/.test(FEEDS), 'every drawForecast shape passes the storm reference');
+  assert.match(FEEDS, /drawForecast\(s\.fc, s\.lon\)/, 'one reference longitude a storm: its own');
+  assert.match(FEEDS, /L\.polyline\(unwrap\(s\.track\.map\(p => \[p\.lon, p\.lat\]\), s\.lon\)/, 'the EONET storm track, in the world copy of the storm');
   assert.match(FEEDS, /L\.polyline\(unwrap\(ev\.track\.slice\(-12\)\.map\(x => \[x\.lon, x\.lat\]\)\)/, 'natural-event tracks');
   assert.ok(!/L\.poly(line|gon)\([a-z.]+\.map\(\w+ => \[\w+\.lat, \w+\.lon\]\)/.test(FEEDS), 'no raw [lat, lon] paths left');
 });
@@ -62,6 +64,9 @@ test('NWS: typhoon and tropical storm alerts get the alert colour; zone alerts a
   assert.ok(holes.length >= 3, 'event, area and expiry are interpolated');
   for (const e of holes) assert.match(e, /^esc\(/, 'every upstream string through esc(): ' + e);
   assert.match(list, /data-nws="\$\{i\}"/, 'the button carries an index, not upstream text');
+  assert.match(list, /querySelector\('details'\)\?\.open/, 'a refresh keeps an open list open');
+  assert.match(list, /if \(!lyNws\.on\) \{ el\.innerHTML = ''/, 'no stale list while the layer is off');
+  assert.match(FEEDS, /read: turn the layer on to see them/, 'the card does not say drawn while the layer is off');
 });
 
 test('Kp chip: the forecast product\'s block in progress (as the globe), the observed list only as a fallback', async () => {
