@@ -108,7 +108,7 @@ test('no tracking: no pixel, no analytics, utm tags only removed', () => {
 
 test('the site ships the page: service worker, sitemap, guide, the main page footer', () => {
   assert.match(read('sw.js'), /const PAGES = \[[^\]]*'india\/'/);
-  assert.match(read('sitemap.xml'), /<loc>https:\/\/destinjones\.github\.io\/open-overwatch\/india\/<\/loc>/);
+  assert.match(read('sitemap-pages.xml'), /<loc>https:\/\/destinjones\.github\.io\/open-overwatch\/india\/<\/loc>/);
   assert.match(read('guide.html'), /href="india\/"/);
   assert.match(read('index.html'), /<footer>[\s\S]*href="india\/"/);
   for (const c of ['india_sats', 'delhi_dive', 'airq', 'lookup']) {
@@ -290,7 +290,7 @@ test('hreflang: each language has its own self-canonical page, and both pages na
       assert.deepEqual(linkTags(PAGE_OF_URL[l.href]).filter(c => c.rel === 'canonical').map(c => c.href), [l.href], `${l.href} is self-canonical`);
     }
   }
-  assert.match(read('sitemap.xml'), /<loc>https:\/\/destinjones\.github\.io\/open-overwatch\/india\/hi\/<\/loc>/);
+  assert.match(read('sitemap-pages.xml'), /<loc>https:\/\/destinjones\.github\.io\/open-overwatch\/india\/hi\/<\/loc>/);
   assert.match(read('sw.js'), /const PAGES = \[[^\]]*'india\/hi\/'/, 'the installed app keeps the Hindi page offline');
   assert.match(read('brand/tools/sri.mjs'), /'india\/hi\/index\.html'/, 'the CSP and SRI check covers it');
   assert.match(read('index.html'), /<footer>[\s\S]*href="india\/hi\/" lang="hi"/, 'the main page sends Hindi readers to the Hindi page');

@@ -68,7 +68,7 @@ test('the parser copes with real markup: scripts, comments, unclosed tags, entit
   assert.deepEqual(rules(page('<script>const s = "<img src=x>";</script><style>button:empty{}</style>')), [], 'markup inside scripts is not markup');
 });
 
-for (const [file, zoomOk] of [['index.html'], ['globe.html', true], ['open-overwatch.html', true], ['solar.html', true], ['tonight.html'], ['about.html'], ['guide.html'], ['offline.html'], ['404.html'], ['india/index.html'], ['india/hi/index.html']]) {
+for (const [file, zoomOk] of [['index.html'], ['globe.html', true], ['open-overwatch.html', true], ['solar.html', true], ['tonight.html'], ['about.html'], ['guide.html'], ['offline.html'], ['404.html'], ['india/index.html'], ['india/hi/index.html'], ['teach/index.html'], ['sky/index.html'], ['sky/hi/index.html']]) {
   test(`${file} passes the accessibility check`, () => {
     const { errors } = checkHtml(readFileSync(new URL('../' + file, import.meta.url), 'utf8'), { zoomOk });
     assert.deepEqual(errors.map(e => `${file}:${e.line} [${e.rule}] ${e.what}`), []);

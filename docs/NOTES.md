@@ -101,8 +101,9 @@ workflow in sync when the app starts needing new files. gh CLI (portable): ~/bin
 ### Search and sharing (SEO)
 `index.html`, `about.html` and the three app pages each carry a title, description, canonical URL, Open Graph and Twitter tags; the landing and About
 pages also carry JSON-LD (`WebSite`, `SoftwareApplication`, `Person` with `sameAs` links to GitHub and Ironbound). `robots.txt` keeps the archived `/v/<tag>/`
-copies and `/data/` out of search results and points at `sitemap.xml` (the site build dates its `lastmod`s from git; add a
-`<url>` by hand for a new page). `CITATION.cff` gives GitHub's
+copies and `/data/` out of search results and points at `sitemap.xml`, a sitemap index of `sitemap-pages.xml` (the site build
+dates its `lastmod`s from git; add a `<url>` by hand for a new page) and `sitemap-sky.xml` (the city sky pages, written at
+each deploy; a project site's robots.txt is never read, so the index is how crawlers find them). `CITATION.cff` gives GitHub's
 "Cite this repository" button; `LICENSE` (MIT) covers the code only, the data keeps its own licences (docs/DATA_SOURCES.md). The portrait is
 `brand/about/destin-*.webp` (cropped from the owner's own photo).
 

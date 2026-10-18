@@ -104,20 +104,20 @@ print(json.dumps({'idx': idx, 'file': json.load(open(os.path.join(d, 'tle', 'ind
 
 test('sitemap: every lastmod is the day its page last changed in git', { skip: !py && 'no Python here' }, () => {
   const { out } = run(`
-p = os.path.join(d, 'sitemap.xml')
-open(p, 'w').write(open(${JSON.stringify(join(root, 'sitemap.xml'))}).read())
+p = os.path.join(d, 'sitemap-pages.xml')
+open(p, 'w').write(open(${JSON.stringify(join(root, 'sitemap-pages.xml'))}).read())
 asked = []
-n = b.date_sitemap(p, lambda page: (asked.append(page), '' if page == 'solar.html' else '2027-01-0' + str(len(asked)))[1])
+n = b.date_sitemap(p, lambda page: (asked.append(page), '' if page == 'solar.html' else '2027-01-%02d' % len(asked))[1])
 fake = open(p).read()
-open(p, 'w').write(open(${JSON.stringify(join(root, 'sitemap.xml'))}).read())
+open(p, 'w').write(open(${JSON.stringify(join(root, 'sitemap-pages.xml'))}).read())
 b.date_sitemap(p)
 print(json.dumps({'n': n, 'asked': asked, 'fake': fake, 'real': open(p).read()}))
 `);
-  assert.deepEqual(out.asked, ['index.html', 'india/index.html', 'india/hi/index.html', 'about.html', 'guide.html', 'tonight.html', 'globe.html', 'solar.html', 'open-overwatch.html']);
-  assert.equal(out.n, 8, 'a page git knows nothing about keeps its date');
+  assert.deepEqual(out.asked, ['index.html', 'india/index.html', 'india/hi/index.html', 'about.html', 'guide.html', 'teach/index.html', 'tonight.html', 'globe.html', 'solar.html', 'open-overwatch.html']);
+  assert.equal(out.n, 9, 'a page git knows nothing about keeps its date');
   assert.match(out.fake, /open-overwatch\/<\/loc><lastmod>2027-01-01<\/lastmod>/);
   assert.match(out.fake, /india\/<\/loc><lastmod>2027-01-02<\/lastmod>/);
-  const repo = readFileSync(join(root, 'sitemap.xml'), 'utf8');
+  const repo = readFileSync(join(root, 'sitemap-pages.xml'), 'utf8');
   assert.equal(out.fake.match(/solar\.html<\/loc><lastmod>([^<]+)/)[1], repo.match(/solar\.html<\/loc><lastmod>([^<]+)/)[1]);
   const day = (...paths) => execFileSync('git', ['log', '-1', '--format=%cs', '--', ...paths], { cwd: root, encoding: 'utf8' }).trim();
   assert.equal(out.real.match(/globe\.html<\/loc><lastmod>([^<]+)/)[1], day('globe.html', 'src', 'data'), 'an app page also counts its modules and data');

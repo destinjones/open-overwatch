@@ -13,7 +13,8 @@
   ones with no map/globe/solar, only their zip).
 - /sw.js: the service worker (the installable app), stamped with this build's version and commit so every published
   version is a new worker and the pages offer a reload. Archived versions never get a worker of their own.
-- /sitemap.xml: the repo's list of pages, each <lastmod> set to the day that page last changed in git.
+- /sitemap-pages.xml: the repo's list of pages, each <lastmod> set to the day that page last changed in git (sitemap.xml
+  is a sitemap index naming it and sitemap-sky.xml, the city sky pages that pages.yml adds after this script).
 - /data/tle/<group>.txt: a copy of each CelesTrak satellite group the apps use (the workflow also runs every 6 h to
   refresh it). The website reads these instead of CelesTrak, which firewalls networks that download too often; the
   download version falls back to them when CelesTrak fails.
@@ -150,7 +151,7 @@ APP_PAGES = ('globe.html', 'solar.html', 'open-overwatch.html', 'tonight.html')
 
 
 def date_sitemap(path, last_change=None):
-    """sitemap.xml's <loc> list stays hand-written; each <lastmod> is rewritten to the day its page last changed in git
+    """sitemap-pages.xml's <loc> list stays hand-written; each <lastmod> is rewritten to the day its page last changed in git
     (a <loc> ending in / is that folder's index.html), so crawlers are never told a page is older than it is. The app pages
     also count their modules and data, which change far more often than the HTML shell."""
     last_change = last_change or (lambda page: git('log', '-1', '--format=%cs', '--', page, *(('src', 'data') if page in APP_PAGES else ())))
@@ -562,7 +563,7 @@ def main():
     n = extract('HEAD', ['.'], OUT, SKIP_ROOT, KEEP_ROOT)
     print(f'root: {n} entries from HEAD')
     print(f'sw.js: build {stamp_worker(OUT)}')
-    print(f'sitemap.xml: {date_sitemap(os.path.join(OUT, "sitemap.xml"))} pages dated from git')
+    print(f'sitemap-pages.xml: {date_sitemap(os.path.join(OUT, "sitemap-pages.xml"))} pages dated from git')
     versions = []
     tags = [t for t in git('tag', '-l', 'v*', '--sort=-v:refname').split() if exists(t, 'open-overwatch.html')]
     online = online_tags(tags)

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The stand-in for the city sky pages' sitemap: the website build writes the real one (every city page, the Hindi pairs
+     with their hreflang links) over it with brand/tools/make_sky_pages.mjs. Until then, or when that step fails, it names
+     the two list pages, whose stand-ins are committed in sky/. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://destinjones.github.io/open-overwatch/sky/</loc><changefreq>daily</changefreq></url>
+  <url><loc>https://destinjones.github.io/open-overwatch/sky/hi/</loc><changefreq>daily</changefreq></url>
+</urlset>
