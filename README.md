@@ -78,7 +78,7 @@ own sites and code described them in October 2026.
 | **Open source / licence** | MIT (data under each source's terms) | Engine AGPL-3.0 | No | No | GPL-2.0 | AGPL-3.0 | MIT (some bundled data non-commercial) |
 | **Offline** | The installed app keeps the pages, code and datasets once opened; live feeds need a connection | No (desktop Stellarium: yes) | No | No | **Fully offline** | Not checked | Runs locally; feeds need a connection |
 | **Accuracy source** | Orbits tested against NASA JPL Horizons; SGP4 on public element sets; every live item says which sources agree and how old it is | Stellarium's ephemerides | **JPL SPICE (the reference)** | Its own ADS-B/MLAT receiver network | VSOP87, optional SPICE kernels | SGP4 on public element sets | Each feed as it comes |
-| **MCP / AI** | **38-tool MCP server; Claude Desktop shows the globe in the chat** | — | — | Paid API; no official MCP server that we know of | — | — | MCP server; voice with an OpenAI key |
+| **MCP / AI** | **38-tool MCP server; Claude Desktop shows the globe in the chat** | — | — | Official MCP server (@flightradar24/fr24api-mcp); needs a paid FR24 API key | — | — | MCP server; voice with an OpenAI key |
 
 ## Why not just use X?
 

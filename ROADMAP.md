@@ -460,11 +460,9 @@ Round 2 (2026-10-10, local):
       GitHub (zoom pad, `earth_now`, Kepler-90's planet names, the home-folder scan), checked by test/docs.test.mjs
 - [ ] README: add the clean-machine install test sentence (brand/launch/readme-promo.md, not in the repository) once
       `.github/workflows/install-test.yml` is on the default branch and has gone green on a release; re-check the
-      comparison's "not checked" and "that we know of" cells (KeepTrack offline, a Flightradar24 MCP server) and
-      gods-eye-view's hosted version before each release
+      comparison's "not checked" cell (KeepTrack offline) and gods-eye-view's hosted version before each release
 - [ ] Owner: open the four good first issues on GitHub (drafts and `gh` commands in brand/launch/good-first-issues.md,
-      not in the repository),
-      then link each CONTRIBUTING.md item to its issue
+      not in the repository), then link each CONTRIBUTING.md item to its issue
 
 ## Rules of thumb
 - One clear goal per session; read this file first, tick boxes as they land.
