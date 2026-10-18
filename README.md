@@ -19,6 +19,14 @@ Live aircraft come with the free download.
   meteor showers, the aurora chance, how dark the sky is), sunrise and moonrise to the minute, for where you are or for
   any town you type. A link (`tonight.html#at=18.52,73.86&name=Pune`) opens it over that place, and `#embed=1` makes it
   a light card for another web page.
+- **What's in the sky tonight in your city.** [A page for each of 441 cities](https://destinjones.github.io/open-overwatch/sky/)
+  with tonight's facts worked out at every site build (every 6 hours): sunset and darkness, the Moon's phase, the planets
+  that are up, the next ISS pass, how dark the sky is there and what to find with binoculars, above the live Tonight
+  card. India's 84 cities have them [in Hindi](https://destinjones.github.io/open-overwatch/sky/hi/) too.
+- **For teachers.** [Twelve classroom activities](https://destinjones.github.io/open-overwatch/teach/) for ages 7 to 18
+  (day and night, the Moon, plate boundaries, the ISS, seasons, Kepler's laws, exoplanets, the eclipses of 2027 to
+  2030), each with links that open the globe, the Solar System or Tonight at the right moment, plus how to cite it and
+  how to keep it offline.
 - **Look up.** On a phone, hold it to the sky: the camera follows the motion sensors and shows what is above you right
   now. That includes satellites, the planets and the bright stars (and aircraft with the free download), plus your next ISS pass.
 - **Watch near misses happen.** The closest upcoming conjunctions in orbit (CelesTrak SOCRATES): pick one and the
@@ -40,6 +48,54 @@ Live aircraft come with the free download.
   earthquakes, satellites and their passes, launches, storms, ships, weather, the aurora and tonight's sky from the same
   open data, each answer with a link into the globe; in Claude Desktop the live globe appears in the chat. No account,
   no keys.
+
+## Install / run
+
+| Where | How |
+|---|---|
+| **Any device** | Open https://destinjones.github.io/open-overwatch/ (Install, or Add to Home Screen, keeps the pages and datasets you have opened for offline use) |
+| **Windows** (the download, with live aircraft) | `iwr https://github.com/destinjones/open-overwatch/releases/latest/download/open-overwatch.zip -OutFile oo.zip; Expand-Archive oo.zip .; cd open-overwatch; node serve.js` (or unzip it and double-click `Start Open Overwatch.bat`) |
+| **macOS / Linux** (the same download) | `curl -LO https://github.com/destinjones/open-overwatch/releases/latest/download/open-overwatch.zip && unzip open-overwatch.zip && cd open-overwatch && node serve.js` (or `python3 serve.py`) |
+| **Claude Desktop** | Download [open-overwatch.mcpb](https://github.com/destinjones/open-overwatch/releases/latest/download/open-overwatch.mcpb) and open it |
+| **Any MCP client** (once published to npm) | `npx -y open-overwatch-mcp` · Claude Code: `claude mcp add open-overwatch -- npx -y open-overwatch-mcp` |
+
+The download needs Node.js 18+ or Python 3 and nothing else (no `npm install`); the helper opens the 2D map in your
+browser, and every page is under http://127.0.0.1:8787/. Until the npm package is out, the MCP server runs from a clone
+([mcp/README.md](mcp/README.md#install)).
+
+## How it compares
+
+Open Overwatch is not the best at any one of these jobs; it is the one that does them all in one zoom, in a browser,
+from open data. Where another tool is better at its own job, the table says so in bold. The other projects are as their
+own sites and code described them in October 2026.
+
+| | **Open Overwatch** | Stellarium Web | NASA Eyes | Flightradar24 | Celestia | KeepTrack.space | gods-eye-view |
+|---|---|---|---|---|---|---|---|
+| **Live Earth data** | Satellites, quakes (USGS + EMSC), storms, wildfires, radar and forecast weather, tides and sea temperature, Baltic ships, transit, public cameras; live aircraft in the free download | — (the sky only) | NASA's Earth satellites and climate "vital signs" | **Aircraft: the best coverage, history and detail** | — | **Satellites, sensors and debris in depth** | Aircraft, ships, traffic, CCTV, weather (radar US only), fires (with a key) |
+| **Planets / exoplanets / cosmic web** | All three in one zoom: 1.57M asteroids, 6,339 exoplanets, 43,480 galaxies | **Planets and the sky, beautifully** / — / — | **Planets and missions** / Eyes on Exoplanets / — | — | **Planets, moons, galaxies; add-ons** | — | — |
+| **Phone** | Yes, in the browser; installable | Yes, in the browser | In the browser (heavy) | **Native apps** | iOS and Android apps | Yes, in the browser | Desktop install; phones get CSS breakpoints |
+| **No account** | Yes, and no API keys | Yes | Yes | Basic use; subscriptions for more | Yes | Yes | Yes, but many feeds need your own API keys |
+| **Open source / licence** | MIT (data under each source's terms) | Engine AGPL-3.0 | No | No | GPL-2.0 | AGPL-3.0 | MIT (some bundled data non-commercial) |
+| **Offline** | The installed app keeps the pages, code and datasets once opened; live feeds need a connection | No (desktop Stellarium: yes) | No | No | **Fully offline** | Not checked | Runs locally; feeds need a connection |
+| **Accuracy source** | Orbits tested against NASA JPL Horizons; SGP4 on public element sets; every live item says which sources agree and how old it is | Stellarium's ephemerides | **JPL SPICE (the reference)** | Its own ADS-B/MLAT receiver network | VSOP87, optional SPICE kernels | SGP4 on public element sets | Each feed as it comes |
+| **MCP / AI** | **38-tool MCP server; Claude Desktop shows the globe in the chat** | — | — | Official MCP server (@flightradar24/fr24api-mcp); needs a paid FR24 API key | — | — | MCP server; voice with an OpenAI key |
+
+## Why not just use X?
+
+- **Stellarium Web** if you want the most realistic sky dome and star catalogue: it is better at that. Open
+  Overwatch's sky is one part of a bigger zoom (your street, every satellite, the planets, other stars' planets, the
+  cosmic web) with a live Earth around it.
+- **NASA Eyes** if you want mission-grade positions for a spacecraft: JPL's SPICE data is the reference, which is why
+  our planets and moons are tested against JPL Horizons. Eyes is not open source and does not show what is happening on
+  the ground; Open Overwatch is MIT and does.
+- **Flightradar24** if flights are what you care about: it is the best at it, with native apps and history. Open
+  Overwatch's live aircraft come only with the free download, from community ADS-B networks, as one layer among many.
+- **Celestia** if you need it fully offline or want its add-on universe. Open Overwatch needs a connection for live
+  data and runs in a browser with nothing to install.
+- **KeepTrack.space** if you work with satellites: its sensors, breakups and catalogue tools go further than ours. Ours
+  puts the same SGP4 satellites next to the weather, quakes, storms and tonight's sky, with pass times for your town.
+- **gods-eye-view** if you want photorealistic 3D cities and live aircraft and ships on your own machine and have the
+  API keys. Open Overwatch is a link that works on a phone with no keys, and it zooms out past the Moon.
 
 ## How it's built
 ```mermaid
@@ -88,9 +144,9 @@ Measured with `brand/tools/perf.mjs`, `zoomtest.mjs` and `mobile_journey.mjs`; d
 | Phone (emulated mid-range Android, 4G) | globe on screen in 6.4 s / 4.9 MB; Solar System in 4.1 s / 3.2 MB |
 | Adaptive | High / Balanced / Low graphics; Auto starts on Low on phones and software WebGL and steps down when frames run slow; Low draws at 0.75 of the resolution (0.66 on phones) with no FXAA or limb halo, capped at 30 fps; Starlink's ~8,000 dots start off on phones |
 
-## Run it
-- **Online:** use the links above.
-- **Locally:** `node serve.js` (or `python3 serve.py`), then open http://127.0.0.1:8787/.
+## Run it from a clone
+- `node serve.js` (or `python3 serve.py`) in the folder; it opens the 2D map in your browser, and every page is under
+  http://127.0.0.1:8787/.
   - The helper relays the few feeds that send no CORS headers. That adds live aircraft and military flights on the
     globe and the 2D map, which the website can't show.
   - Windows: `Start Open Overwatch.bat`.

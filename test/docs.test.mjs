@@ -6,7 +6,7 @@
 // The globe's modules touch the DOM, so their lists are read from the source text, not imported.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { GO } from '../src/core/viewlink.js';
 import { SENSORS, EXAMPLES } from '../src/core/voicecmd.js';
 
@@ -97,7 +97,7 @@ test('docs: links in the docs point at files and anchors that exist', () => {
     if (!path) { assert.ok(ids.has(hash), `guide.html: #${hash} has no target`); continue; }
     assert.ok(existsSync(new URL(path, root)), `guide.html links to ${path}, which is missing`);
   }
-  const onramp = ['CONTRIBUTING.md', 'GOVERNANCE.md', 'SECURITY.md', 'CHANGELOG.md', '.devcontainer/README.md'].map(f => [f, read(f)]);
+  const onramp = ['README.md', 'CONTRIBUTING.md', 'GOVERNANCE.md', 'SECURITY.md', 'CHANGELOG.md', '.devcontainer/README.md'].map(f => [f, read(f)]);
   for (const [name, md] of [['docs/LINK_FORMAT.md', linkDoc], ['docs/DEVELOPING.md', devDoc], ...onramp]) {
     const anchors = new Set([...md.matchAll(/^#{2,3} (.+)$/gm)].map(m => m[1].toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s/g, '-')));
     for (const [, href] of md.matchAll(/\]\(([^)\s]+)\)/g)) {
@@ -127,10 +127,20 @@ test('docs: files CONTRIBUTING.md and GOVERNANCE.md point at are real, and the g
   }
   const contrib = read('CONTRIBUTING.md'), header = read('serve.js').split('\n')[1];
   assert.ok(contrib.includes(header), 'CONTRIBUTING.md quotes the copyright line every source file starts with');
-  // a good first issue that is done should leave the list: ROADMAP ticks it, this fails, CONTRIBUTING.md loses it
+  // a good first issue that is done should leave the list: ROADMAP ticks it, this fails, CONTRIBUTING.md loses it.
+  // Each pair is [the item's bold title in CONTRIBUTING.md, its open line in ROADMAP.md]; the list has exactly these.
   const open = read('ROADMAP.md').split('\n').filter(l => l.startsWith('- [ ]')).join('\n');
-  for (const item of ['zoom pad covers', 'An `earth_now` MCP tool', 'the route arc are still globe-only', 'Uranus'])
-    assert.ok(open.includes(item), `ROADMAP no longer has "${item}" open: take it off CONTRIBUTING.md's good first issues`);
+  const issues = contrib.slice(contrib.indexOf('### Good first issues'), contrib.indexOf('\n## ', contrib.indexOf('### Good first issues')));
+  const titles = [...issues.matchAll(/^- \*\*(.+?)\*\*/gm)].map(m => m[1]);
+  const pairs = [
+    ["The globe's zoom pad covers the end of the band at 1366x820", 'zoom pad covers'],
+    ['An `earth_now` MCP tool.', 'An `earth_now` MCP tool'],
+    ['Kepler-90\'s planets are called "KOI-351 b" … instead of "Kepler-90 b" …', "Kepler-90's planet cards keep the archive's designations"],
+    ['Scan every tracked text file for local home-folder paths.', 'test/localpaths.test.mjs scans chosen folders'],
+  ];
+  assert.deepEqual(titles, pairs.map(p => p[0]), 'CONTRIBUTING.md lists these good first issues, in this order (update the pairs here with it)');
+  for (const [title, item] of pairs)
+    assert.ok(open.includes(item), `ROADMAP no longer has "${item}" open: take "${title}" off CONTRIBUTING.md's good first issues`);
 });
 
 test('docs: CORE.md has a section for every core module, and every export it names exists', async () => {
@@ -150,6 +160,29 @@ test('docs: CORE.md has a section for every core module, and every export it nam
     const mentioned = new Set(listed);
     assert.ok([...exported].filter(n => mentioned.has(n)).length >= Math.min(2, exported.size), `${file}: CORE.md should name its main exports`);
   }
+});
+
+test('docs: the README\'s numbers are the data\'s (lead, feature list and comparison table)', () => {
+  const readme = read('README.md'), json = p => JSON.parse(read(p));
+  const n = x => x.toLocaleString('en-US');
+  const asteroids = ['asteroids_a.bin', 'asteroids_b.bin'].reduce((s, f) => s + statSync(new URL('data/solar/' + f, root)).size, 0) / 15;
+  assert.ok(Number.isInteger(asteroids), 'asteroid files are 15-byte records');
+  const cities = json('data/cities.json'), cc = cities.cols.indexOf('cc');
+  const said = [
+    [`${(asteroids / 1e6).toFixed(2)} million asteroids`, 'the lead'],
+    [`${(asteroids / 1e6).toFixed(2)}M asteroids`, 'the comparison table'],
+    [`${n(json('data/solar/exoplanets.json').planets)} exoplanets`, 'exoplanets.json'],
+    [`${n(json('data/solar/galaxies.json').count)} galaxies`, 'galaxies.json'],
+    [`${json('data/solar/spacecraft.json').length} spacecraft`, 'spacecraft.json'],
+    [`${json('mcp/manifest.json').tools.length} tools`, 'mcp/manifest.json'],
+    [`${json('mcp/manifest.json').tools.length}-tool MCP server`, 'the comparison table'],
+    [`each of ${cities.rows.length} cities`, 'data/cities.json'],
+    [`India's ${cities.rows.filter(r => r[cc] === 'IN').length} cities`, 'data/cities.json (the Hindi pages)'],
+  ];
+  for (const [s, from] of said) assert.ok(readme.replace(/\s+/g, ' ').includes(s), `README.md should say "${s}" (${from})`);
+  const words = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen'];
+  const activities = (read('teach/index.html').match(/<h4[\s>]/g) || []).length;
+  assert.match(readme, new RegExp(`${words[activities]} classroom activities`, 'i'), `teach/index.html has ${activities} activities`);
 });
 
 test('docs: the landing page links to the guide', () => {
