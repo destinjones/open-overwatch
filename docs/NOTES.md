@@ -108,9 +108,9 @@ workflow in sync when the app starts needing new files. gh CLI (portable): ~/bin
   Release workflow finishes (a release made with release.yml's GITHUB_TOKEN starts no workflows), by hand, and on ci-e2e
   pushes. The concurrency group is keyed on the release tag (workflow_run's github.ref is always the default branch)
   and only ci-e2e pushes cancel, so a release made in the GitHub UI runs the test twice, one after the other; the site
-  job checks out workflow_run.head_sha, like the mcp job, so the helper is the released commit's. DATA_FILES lists every
-  data file plus one file from each texture and model folder release.yml copies: a new run-time folder in release.yml
-  needs one of its files added there.
+  job checks out workflow_run.head_sha, like the mcp job, so the helper is the released commit's. DATA_FILES lists most
+  data files (not data/cities.json, data/solar/apophis.json, asteroids_b.bin or galaxies.json) plus one file from each
+  texture and model folder release.yml copies: a new run-time folder in release.yml needs one of its files added there.
 
 ### Search and sharing (SEO)
 `index.html`, `about.html` and the three app pages each carry a title, description, canonical URL, Open Graph and Twitter tags; the landing and About
@@ -342,8 +342,9 @@ test/relayhosts.test.mjs checks since 2026-10-17). Their aisstream tunnel and la
   180 is drawn in one world copy.
 - 2026-10-17, bounded and polite: the globe keeps two GDACS geometry caches, `gdacsKept` (live) and `pastKept` (time
   travel), so a past day never evicts the live storms' entries; each is cut to 24 by core/cyclones.js `pruneKept`, which
-  never drops an episode still listed. The 2D map still prunes its own (the episodes the last list did not use, then the
-  oldest past 24, feeds.js GDACS_KEEP); moving it to `pruneKept` is a tidy-up. A failed past day (quakes, storms, natural
+  never drops an episode still listed. The 2D map's `gdacsKept` goes through `pruneKept` too (feeds.js passes it to
+  loadCyclones, which prunes whenever GDACS's list answers); feeds.js then prunes it again on top (the episodes the last
+  list did not use, then the oldest past 24, GDACS_KEEP), which is redundant and could go. A failed past day (quakes, storms, natural
   events) is asked again after 30 s, doubling to 5 min (core/hazards.js `retryBackoff`), not every second. The fire worker
   aborts a tile after 30 s (AbortSignal.timeout covers the body too) and globe/fires.js gives up on the worker after 45 s.
 - Volcanoes (brand/tools/make_volcanoes.py, Wikidata): heights are best-rank values normalised to metres
@@ -700,9 +701,10 @@ is coming.
   offshore quakes) could pass the free plan's 10 ms; measure it at the next Worker CPU review.
 - 2026-10-17, `sun_and_moon`'s day: core/traffic.js `zonedToUtc` reads a local 00:00 that never happened as 23:00 the
   evening before, so mcp/sun.mjs `localDay` walks it forward to the day's first real instant: a day whose clocks spring
-  forward at midnight (Santiago, Havana, Asunción, Cairo) starts at 01:00 and is 23 h long (Santiago
+  forward at midnight (Santiago, Havana, Cairo) starts at 01:00 and is 23 h long (Santiago
   2026-09-06: 04:00 UTC). Clock-change days elsewhere are 23 or 25 h (London 2026-03-29, 2026-10-25). A date a zone
-  skipped (Apia 2011-12-30) is an invalid_arguments error, not empty windows.
+  skipped (Apia 2011-12-30) is an invalid_arguments error, not empty windows. Asunción no longer changes clocks (Paraguay
+  went to permanent UTC-3 in October 2024, tzdata 2024b); a runtime with older ICU zone data still gives it a 23 h day.
 - 2026-10-17, answers: in feeds.mjs only a 204 is "nothing" (null, AWC's METAR for a field with none); an empty 200 is
   unreadable, so a slip upstream keeps the last good answer instead of remembering null over it. aurora's Kp now is
   `kpNowFrom` over the forecast product's rows of the last 72 h (as the globe's kpSeries), then the observed product,
@@ -1337,7 +1339,7 @@ is coming.
   role=status.
 - **"Look up now" nudges** (a minute before each visible ISS or Tiangong pass of 20°+ in the next 12 h over the saved
   place): re-armed every 6 h and when the place changes, cleared when it is forgotten, never repeated for a pass already
-  said (matched by where it sets, within 120 s, because a pass under way at re-arming starts at the search's start). A
+  said (matched by satellite, saved place and when it sets, within 120 s, because a pass under way at re-arming starts at the search's start). A
   timer that fires late (a laptop asleep, a frozen tab) with less than a minute of the pass left says nothing. A nudge
   is said once, urgently; the toast is hidden from screen readers for 1 s, or until another toast replaces it.
 
@@ -1427,8 +1429,8 @@ is coming.
   decade; WK and FY end with the day LL2 dates them on (an assumption about LL2's habit worth checking). That only works
   because the site build and the globe's and the sky page's LL2 fallbacks ask without `hide_recent_previous`, so the list
   still holds the last 24 hours: never put it back. On the India page a DAY launch stays through the day it shows in
-  IST. src/globe/launches.js still has its own `precise()` (a missing precision reads as not timed there; `when()` then
-  prints the same full time): replacing it with core's `preciseLaunch` is a tidy-up.
+  IST. src/globe/launches.js still has its own `precise()`, which skips `precisionCode`: a missing precision reads as timed
+  there as in core, but LL2's full names ('Second', 'Minute', 'Hour') read as not timed: replacing it with core's `preciseLaunch` is a tidy-up.
 - The Hindi page names its buttons, the Clips list and the recording in Hindi before any JS runs: brand/tools/india_hi.mjs
   `LABELS` writes the same words india.js `setLang` does, and test/india.test.mjs fails when the two differ or an English
   aria-label is left on the Hindi page.
@@ -1463,7 +1465,8 @@ is coming.
   Odesa, which the rule put on Simferopol's Moscow time).
 - **/teach/** (teach/index.html, teach.js): twelve classroom activities for ages 7-11, 11-14 and 14-18, each with deep
   links into the globe, the Solar System view and Tonight; age groups are h3, activities h4. The top bar and the contents
-  list are both nav landmarks, so page CSS styles `body>nav`, never a bare `nav`. No inline script, so the CSP needs no
+  list are both nav landmarks; the sticky bar rule is `body>nav`, but the `nav .wrap` and `nav .links` rules are bare
+  descendant selectors that match both. No inline script, so the CSP needs no
   hash. It is in sw.js PAGES (a classroom can open it offline), the release zip, sitemap-pages.xml and the sri.mjs and
   a11y_check.mjs page lists. test/teach.test.mjs decodes every activity link with the real decoders and checks the facts
   against the data. A time-travel link meant to show a quake must put the clock less than 24 h after it (core/history.js

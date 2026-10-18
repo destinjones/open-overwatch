@@ -14,7 +14,8 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Files the views load by paths their JavaScript builds (so the crawl cannot find them): every data file, and one from
+ * Files the views load by paths their JavaScript builds (so the crawl cannot find them): most data files (not
+ * data/cities.json, data/solar/apophis.json, asteroids_b.bin or galaxies.json), and one from
  * each texture and model folder release.yml copies, so a dropped `cp` line in its "Build the download zip" step fails here.
  */
 export const DATA_FILES = [

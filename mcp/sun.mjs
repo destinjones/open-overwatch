@@ -18,7 +18,7 @@ const localDate = (ms, tz) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, y
 const nextDate = date => new Date(Date.parse(date + 'T00:00:00Z') + 864e5).toISOString().slice(0, 10);
 /** A local calendar day in the zone, from its own date (not from an instant: 12:00 UTC is already tomorrow at UTC+12 to +14):
  *  { date, t0 (its first instant in UTC ms: local 00:00, or 01:00 where the clocks spring forward at midnight, as in
- *  Santiago, Havana, Asunción, Cairo), ms (its length: 23 or 25 h on a clock-change day; 0 for a day a zone skipped) }. */
+ *  Santiago, Havana, Cairo), ms (its length: 23 or 25 h on a clock-change day; 0 for a day a zone skipped) }. */
 export function localDay(date, tz) {
   const t0 = dayStart(date, tz), t1 = dayStart(nextDate(date), tz);
   return { date, t0, ms: t1 - t0 };
