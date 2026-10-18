@@ -20,7 +20,7 @@ is also used by its tests in `test/`.
 - [Time, units and frames](#time-units-and-frames): `time.js`, `units.js`, `rotation.js`
 - [Orbits and the Solar System](#orbits-and-the-solar-system): `kepler.js`, `planets.js`, `moons.js`, `smallbodies.js`, `comets.js`, `craft.js`, `accuracy.js`
 - [Satellites](#satellites): `tle.js`, `passes.js`, `observer.js`, `ecfvel.js`, `socrates.js`, `decay.js`, `explain.js`
-- [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `whereis.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `syzygy.js`, `orientation.js`, `deepsky.js`, `lightpollution.js`, `darksky.js`
+- [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `whereis.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `syzygy.js`, `orientation.js`, `speakgate.js`, `deepsky.js`, `lightpollution.js`, `darksky.js`
 - [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`
 - [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`, `india.js`
 - [Weather](#weather): `gfs.js`, `grib2.js`, `wxmodels.js`, `wxload.js`, `model.worker.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpaint.js`, `wxpoint.js`
@@ -28,7 +28,7 @@ is also used by its tests in `test/`.
 - [Aviation](#aviation): `aircraft.js`, `actype.js`, `acinfo.js`, `phase.js`, `airports.js`, `runways.js`, `metar.js`, `eta.js`, `runwaylog.js`, `aloft.js`, `trail.js`
 - [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `transitfeeds.js`, `gtfsrt.js`, `bikes.js`, `cameras.js`, `cables.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
 - [OpenStreetMap](#openstreetmap): `osmtiles.js`, `overpass.js`
-- [Links, words and the interface](#links-words-and-the-interface): `viewlink.js`, `solarlink.js`, `search.js`, `scene.js`, `voicecmd.js`, `format.js`, `ics.js`, `radio.js`
+- [Links, words and the interface](#links-words-and-the-interface): `viewlink.js`, `solarlink.js`, `search.js`, `scene.js`, `cardowners.js`, `voicecmd.js`, `format.js`, `ics.js`, `radio.js`
 - [Network and devices](#network-and-devices): `assets.js`, `relay.js`, `airgrid.js`, `gpu.js`, `poll.js`, `quality.js`
 - [The app shell](#the-app-shell): `pwa.js`, `whatsnew.js`, `spot.js`, `a11ycheck.js`, `sricheck.js`, `provenance.js`, `liveprov.js`, `export.js`
 
@@ -387,6 +387,14 @@ east-north-up components: look-up mode. Used by globe.
 - `deviceVectors`: alpha, beta, gamma and the screen angle → view direction and screen-up.
 - `alphaFromCompass`: iOS's relative alpha plus `webkitCompassHeading` → an absolute alpha.
 - `azEl`: azimuth and elevation of a direction. `guide`: "turn right 32°, up 11°" toward a target.
+
+### `speakgate.js`
+
+Look up's "Find" read aloud: the instruction changes every frame on screen, so a screen reader hears it only when it
+changes kind (turn left, turn right, There it is!), at most every 3 s. Used by globe.
+
+- `speakGate`: `next(text, now)` gives the words to announce or null; `reset()` for a new target.
+- `guideKind`: an instruction without its numbers.
 
 ### `deepsky.js`
 
@@ -1097,6 +1105,14 @@ Director scenes: camera shots to fly through, as compact text for links and file
 
 - `encodeScene`, `decodeScene`: shots ↔ the `#scene=` text. `cleanShot`: range-checks a shot. `MAX_SHOTS` (40).
 - `parseSceneFile`, `sceneFile`: the `.oo-scene.json` file.
+
+### `cardowners.js`
+
+Who owns the globe's details card: modules that start something with their card (the near-miss HUD, a flyby's scale
+view, a launch replay, a re-entry corridor) register a stop under their card's marker attribute, and it runs once when
+that card closes by any route or another card replaces it. Used by globe (ui.js, through `hooks.onCardClosed`).
+
+- `cardOwners`: a registry with `own(marker, stop)` and `check(shown, has)`.
 
 ### `voicecmd.js`
 
