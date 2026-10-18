@@ -8,7 +8,7 @@ header, and only this helper's own pages may use the relay. It also carries aiss
 ships (ws://127.0.0.1:8787/aisstream, see Handler.aisstream): the website never opens that socket.
 Standard library only. Run:  python serve.py   (or double-click "Start Open Overwatch.bat")
 """
-import http.server, socketserver, urllib.request, urllib.parse, urllib.error, os, sys, webbrowser, threading, gzip, zlib, io, re, socket, ssl
+import http.server, socketserver, urllib.request, urllib.parse, urllib.error, os, sys, webbrowser, threading, gzip, zlib, io, re, socket, ssl, select, time
 
 PORT = int(os.environ.get("OW_PORT", "8787"))
 PAGE = "open-overwatch.html"
@@ -62,6 +62,9 @@ OPENER = urllib.request.build_opener(CheckedRedirect)
 # OW_AIS_UPSTREAM=ws://127.0.0.1:<port>/<path> points it at a stand-in for test/serve.test.mjs (loopback ws:// only).
 AIS_PATH = "/aisstream"
 AIS_MAX = 4
+AIS_HANDSHAKE_S = 15  # the whole upstream connect + TLS + handshake, like AIS_HANDSHAKE_MS in serve.js
+AIS_SEND_S = 60       # a side that takes no bytes for this long ends the tunnel
+AIS_BUF = 1 << 20     # bytes held for a slow side before the other side stops being read
 AIS_LOCK = threading.Lock()
 AIS_OPEN = [0]
 WS_KEY = re.compile(r"^[A-Za-z0-9+/]{22}==$")
@@ -80,21 +83,62 @@ def ais_upstream():
     return "stream.aisstream.io", 443, "/v0/stream", True
 
 
-def pump(src_read, dst):
-    """Copy bytes until either side closes, then close the other side too."""
+def tunnel(client, rfile, up, secure):
+    """Copy bytes both ways until either side closes, then close both. One thread does both directions with
+    non-blocking sockets: an SSL socket must not be read on one thread while it is written on another (OpenSSL objects
+    are not thread-safe), and a blocked write one way must not stop the other way (the old two-thread pump's reason)."""
+    to_up, to_client = bytearray(), bytearray()
+    chunk = b""  # an SSL write that wanted to wait is retried with these same bytes
+    up_eof = client_eof = False
     try:
+        client.setblocking(False)
+        up.setblocking(False)
+        to_up += rfile.read1(65536) or b""  # bytes the request parser already buffered (b"" when none)
         while True:
-            data = src_read(65536)
-            if not data:
-                break
-            dst.sendall(data)
+            if (client_eof and not to_up and not chunk) or (up_eof and not to_client):
+                return
+            reads = ([client] if not client_eof and len(to_up) < AIS_BUF else []) + ([up] if not up_eof and len(to_client) < AIS_BUF else [])
+            writes = ([up] if to_up or chunk else []) + ([client] if to_client else [])
+            if up in reads and secure and up.pending():
+                r, w = [up], []  # decrypted bytes inside the SSL object don't make the raw socket readable
+            else:
+                r, w, _ = select.select(reads, writes, [], AIS_SEND_S if writes else None)
+                if not r and not w:
+                    return  # a side took no bytes for AIS_SEND_S
+            if client in r:
+                try:
+                    data = client.recv(65536)
+                    to_up += data
+                    client_eof = not data
+                except BlockingIOError:
+                    pass
+            if up in r:
+                try:
+                    data = up.recv(65536)
+                    to_client += data
+                    up_eof = not data
+                except (ssl.SSLWantReadError, ssl.SSLWantWriteError, BlockingIOError):
+                    pass  # half a TLS record so far
+            if up in w:
+                if not chunk:
+                    chunk, to_up[:] = bytes(to_up[:16384]), to_up[16384:]
+                try:
+                    chunk = chunk[up.send(chunk):]
+                except (ssl.SSLWantReadError, ssl.SSLWantWriteError, BlockingIOError):
+                    pass
+            if client in w:
+                try:
+                    del to_client[:client.send(to_client)]
+                except BlockingIOError:
+                    pass
     except OSError:
         pass
     finally:
-        try:
-            dst.shutdown(socket.SHUT_RDWR)
-        except OSError:
-            pass
+        for s in (up, client):
+            try:
+                s.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -188,15 +232,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         up = None
         try:
             try:
-                up = socket.create_connection((host, port), timeout=15)
+                deadline = time.monotonic() + AIS_HANDSHAKE_S
+
+                def left():  # one budget for the whole handshake, so an upstream trickling bytes can't hold a slot
+                    t = deadline - time.monotonic()
+                    if t <= 0:
+                        raise socket.timeout("timed out")
+                    return t
+                up = socket.create_connection((host, port), timeout=AIS_HANDSHAKE_S)
+                up.settimeout(left())
                 if secure:
                     up = ssl.create_default_context().wrap_socket(up, server_hostname=host)
+                up.settimeout(left())
                 lines = ["GET %s HTTP/1.1" % path, "Host: %s" % host, "Upgrade: websocket", "Connection: Upgrade",
                          "Sec-WebSocket-Key: %s" % key, "Sec-WebSocket-Version: 13", "User-Agent: %s" % UA]
                 lines += ["%s: %s" % kv for kv in extra.items()]
                 up.sendall(("\r\n".join(lines) + "\r\n\r\n").encode("latin-1"))  # no Origin, no cookies: a plain client
                 buf = b""
                 while b"\r\n\r\n" not in buf:
+                    up.settimeout(left())
                     chunk = up.recv(4096)
                     if not chunk or len(buf) > 16384:
                         return self.reply(502, "aisstream.io sent no handshake")
@@ -221,13 +275,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if v and PRINTABLE.match(v):
                     out.append("%s: %s" % (name, v))
             self.connection.sendall(("\r\n".join(out) + "\r\n\r\n").encode("latin-1") + rest)
-            up.settimeout(None)
-            self.connection.settimeout(None)
             sys.stdout.write("%s aisstream open\n" % self.log_date_time_string()); sys.stdout.flush()
-            back = threading.Thread(target=pump, args=(up.recv, self.connection), daemon=True)
-            back.start()
-            pump(self.rfile.read1, up)  # the frames themselves, untouched
-            back.join(5)
+            tunnel(self.connection, self.rfile, up, secure)  # the frames themselves, untouched
             sys.stdout.write("%s aisstream closed\n" % self.log_date_time_string()); sys.stdout.flush()
         finally:
             if up is not None:

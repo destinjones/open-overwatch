@@ -85,6 +85,12 @@ function upgrade(port, { path = '/aisstream', host = `127.0.0.1:${port}`, origin
     sock.on('data', onData);
   });
 }
+/** Raw bytes to the helper; resolves with whatever it answers before closing (or after 3 s). */
+const raw = (port, bytes) => new Promise((ok, no) => {
+  const sock = net.connect(port, '127.0.0.1'); let buf = '';
+  sock.on('data', d => { buf += d.toString('latin1'); }); sock.on('error', no); sock.on('close', () => ok(buf));
+  sock.setTimeout(3000, () => { sock.destroy(); }); sock.write(bytes);
+});
 const nextData = (sock, have = Buffer.alloc(0)) => have.length ? Promise.resolve(have) : new Promise((ok, no) => { sock.once('data', ok); sock.once('error', no); setTimeout(() => no(new Error('no data')), 10000); });
 
 /** A masked client text frame, as a browser sends it. */
@@ -107,6 +113,9 @@ async function checkHelper(t, cmd, args) {
     assert.match((await get(port, '/src/core/cameras.js')).type, /^text\/javascript/);
     assert.match((await get(port, '/manifest.webmanifest')).type, /^application\/manifest\+json/);
     assert.equal((await get(port, '/index.html', { Host: 'evil.example:' + port })).status, 421);
+    // a malformed request: a 400 and a closed socket, and the helper carries on
+    assert.match(await raw(port, 'NOT A REQUEST\x00\r\n\r\n'), /\b400\b/);   // serve.py answers it HTTP/0.9 style (no status line)
+    assert.equal((await get(port, '/index.html')).status, 200);
 
     // the tunnel: refused for anyone but the helper's own pages, and for anything but a WebSocket
     assert.equal((await get(port, '/aisstream')).status, 426);
@@ -129,7 +138,12 @@ async function checkHelper(t, cmd, args) {
     r.sock.write(sub);
     const back = await nextData(r.sock, r.rest);
     assert.deepEqual([...back], [0x81, 0x02, 0x6f, 0x6b], "aisstream.io's frame reaches the page untouched");
+    await new Promise(ok => setTimeout(ok, 100));
     assert.deepEqual(Buffer.concat(ais.seen.frames), sub, "the page's frame reaches aisstream.io untouched");
+    const sub2 = frame('{"again":true}'); r.sock.write(sub2);   // and it keeps going both ways
+    assert.deepEqual([...await nextData(r.sock)], [0x81, 0x02, 0x6f, 0x6b]);
+    await new Promise(ok => setTimeout(ok, 100));
+    assert.deepEqual(Buffer.concat(ais.seen.frames), Buffer.concat([sub, sub2]));
     r.sock.destroy();
     await new Promise(ok => setTimeout(ok, 200));
     assert.ok(!h.log.text.includes(SECRET), 'the key is never logged');

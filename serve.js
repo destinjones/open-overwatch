@@ -173,6 +173,11 @@ const server = http.createServer((req, res) => {
   }
 });
 server.on('upgrade', (req, socket, head) => { try { aisTunnel(req, socket, head); } catch (e) { socket.destroy(); } });
+// a malformed request gets a plain 400 and the socket closes; the helper itself keeps running
+server.on('clientError', (e, socket) => {
+  if (!socket.writable || socket.writableEnded) return socket.destroy();
+  try { socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Length: 0\r\n\r\n'); } catch (err) { socket.destroy(); }
+});
 
 if (!fs.existsSync(path.join(DIR, PAGE))) { console.error('Put serve.js in the same folder as ' + PAGE); process.exit(1); }
 server.on('error', e => { console.error(e.code === 'EADDRINUSE' ? `Port ${PORT} is busy — is the helper already running? Open http://127.0.0.1:${PORT}/${PAGE}` : e.message); process.exit(1); });
