@@ -129,6 +129,33 @@ Known left (emulation can't show a real phone's GPU):
 - **Software WebGL** (hardware acceleration off): detected from the renderer string (`src/core/gpu.js`). The page
   explains how to turn acceleration on, because no quality level makes software rendering usable.
 
+## 2D map: forecast weather playback
+
+The 2D map's forecast washes (temperature, gusts, cloud, rain, waves) are painted per 256 px map tile by
+`paintMercatorTile` (`src/core/wxpaint.js`), and `src/map/weather.js` keeps the cost down:
+- **Sampled, not painted, per pixel.** A tile is sampled once every 2 px (every 4 px from zoom 7 and on phones) into a
+  canvas of that size, and drawn scaled up without smoothing: the same picture as step-sized blocks, a quarter (or a
+  sixteenth) of the pixel writes and memory.
+- **Kept per field, model moment and tile**, so scrubbing back or a second loop of the animation costs a draw, not a
+  paint: up to 320 tiles on a desktop and 600 on a phone (64 KB a tile at step 2, 16 KB at step 4).
+- **A few tiles a frame.** Tiles are painted in place within 10 ms a frame (6 ms on phones); the old picture stays until
+  the new one is ready, and play waits for a step to finish painting before it takes the next.
+
+The paint path alone (`paintMercatorTile` in Node, a temperature tile at zoom 3, a cheap stand-in for the model
+field) costs in proportion to the samples: every 2 px is about a quarter of every pixel, every 4 px about a
+sixteenth. The absolute times depend on the PC and the stand-in (a few ms to about 11 ms a tile at every pixel). Reading the real model field
+at each sample adds to that; a cache hit is a Map lookup and one small canvas draw.
+
+## The MCP server: "off its coast"
+
+An area tool asked about a country that runs round the world (the United States, Russia, Fiji) counts a quake, storm
+or volcano at sea when it is off that country's coast (`offCoast` in `src/core/borders.js`, docs/CORE.md). That walks
+the outlines of the country's nearby parts, so it is the dear test: in Node on the owner's PC (2026-10-17), 3,000
+random points over the Aleutians and Alaska (50-62° N, 180-140° W), 2,138 of them outside the US outline but near
+enough to need the full test, took 120-134 ms over three runs: about 56-63 µs for each of those. `mcp/place.mjs` runs the cheap box test (`nearParts`) first. The Worker's free plan
+allows 10 ms of CPU a request, so a long list near such a coast (a week of small Alaskan quakes) is the case to watch
+at the next Worker CPU review.
+
 ## Load size
 
 - Globe: 16 MB, plus 6.7 MB of satellite models warmed in the background (2 types on phones).

@@ -109,8 +109,10 @@ without uploading; `npx wrangler dev` runs it in a local workerd.
 node --test
 ```
 
-Runs every `test/*.test.mjs` with Node's own runner. No dependencies except `satellite.js` for the MCP satellite tests
-(skipped with a note when it isn't installed). What they cover:
+Runs every `test/*.test.mjs` with Node's own runner: 114 files and 1,051 tests on 2026-10-17 (the `# tests` line at
+the end of the output; the whole run took about 14 s on the owner's PC). No dependencies except
+`satellite.js` (`npm install` once): without it the MCP satellite tests are skipped with a note and the sky-page ISS
+checks are left out, but `india.test.mjs` and the licence test fail. What they cover:
 
 | File | Checks |
 |---|---|
@@ -153,6 +155,12 @@ Runs every `test/*.test.mjs` with Node's own runner. No dependencies except `sat
 | `sitepages.test.mjs` | the folder pages wired into the site: `teach/` and the `sky/` stand-ins linked from the pages that should name them, in the sitemap index, the service worker, the zip and the CSP and accessibility checks |
 | `whatsnew.test.mjs` | the What's new card and the install sheet's images; it fails when a version has a CHANGELOG.md heading but no date in `src/core/whatsnew.js` |
 | `landing.test.mjs`, `india.test.mjs` | the landing pages promise only what the website shows (live aircraft only with the download), no hand-kept numbers, lighter on phones; the India page's links, both languages, no tracking, and its ISRO mission links (date-sensitive, below) |
+| `launches.test.mjs`, `myplace.test.mjs`, `habitable.test.mjs` | Launch Library 2's precision codes, the end of the period an imprecise launch time names and how long a launch stays listed; the visitor's kept place on the 2D map (the device's fix or a picked spot, 0.01°, 24 h, never an IP lookup); habitable zones against the exoplanet catalogue the Solar System view ships |
+| `dateline.test.mjs`, `mcpgeo.test.mjs`, `volcanoes.test.mjs` | the hazard layers across 180° (one storm either side of the line, fire tiles from both sides, one fire); the MCP tools' geography (places round the antimeridian, Russia's briefing, the local day at UTC+12 to +14 and on clock-change days, a Pacific path's camera, camera pictures under one deadline, satellite lookups); volcano heights in metres only |
+| `globecards.test.mjs`, `globeaviation.test.mjs`, `tonightcard.test.mjs` | the globe's details card (close means stop for the near-miss HUD, a flyby's scale view, a launch replay and a re-entry corridor; focus goes back; Look up no longer floods screen readers); the globe's aviation edges (a geometric altitude only, a declared emergency, AWC's empty 204 answer, the model-wind fallback); the Tonight card for keyboard and screen-reader users and its "look up now" nudges, run with a mocked clock |
+| `mapfeeds.test.mjs`, `mapphones.test.mjs`, `solarui.test.mjs` | the 2D map's feed layers (the pieces with logic lifted from the source and run); the 2D map on phones and for keyboards (sheets, live cards, the splash and welcome, touch sizes, no IP location); the Solar System page's phone, keyboard and failure handling against a fake DOM |
+| `skypages.test.mjs`, `teach.test.mjs`, `attribution.test.mjs` | the city sky pages built for three fixture cities on a fixed date and read back (titles, canonical and hreflang pairs, a hostile name escaped, the JSON-LD, CSP and accessibility, the size budget, the numbers against `src/core`), the city list and the deploy step; the teachers page (every activity complete, every link decodes and opens a page that exists, its facts against the data, the citation); credits, licences, privacy notices and public claims against the code |
+| `serve.test.mjs`, `installsmoke.test.mjs` | both local helpers started for real on a spare port (a NUL byte in a path is a 400, the same MIME types, the `/aisstream` tunnel passes frames untouched and never logs the key); the install test's helper on this checkout (release.yml's zip step, the crawl, every page and file served, the MCP round trip) and the 1280x640 social preview image |
 
 The tests of `.github/build_site.py` (`sitebuild`, `sitebudget`, `tlearchive`) run it in Python with the network
 replaced by a fake, and are skipped when no Python is installed.
@@ -168,7 +176,9 @@ check of every module and tool (`node --check`, `py_compile`), a check that ever
 the accessibility check (`node brand/tools/a11y_check.mjs`: names, alt text, labels, ids, colour contrast on every
 page), then `npm ci`, `npm audit`, the licence check and the tests with a coverage floor (below); a second job runs the
 browser tests (`npx playwright test`). A new page goes into `PAGES` in `a11y_check.mjs`, the lists in
-`test/a11y.test.mjs` and `PAGES` in `sw.js` (so it works offline), and loads `src/app/shell.js`.
+`test/a11y.test.mjs` and `PAGES` in `sw.js` (so it works offline), and loads `src/app/shell.js`. A page in a folder of
+its own (as `teach/` is) also needs its `<url>` in `sitemap-pages.xml`, `PAGES` in `brand/tools/sri.mjs` (the CSP
+check) and the copy step of `release.yml` (`test/sitepages.test.mjs` checks all of them for `teach/` and `sky/`).
 
 **When to add a test.** Anything in `src/core/` gets one, in the file for its area (or a new `test/<area>.test.mjs`), and a section in
 [CORE.md](CORE.md).
@@ -206,6 +216,24 @@ lint` runs ESLint (`eslint.config.mjs`) over `src/`, `mcp/`, `test/`, `e2e/`, `b
 constant conditions, self-assignment, switch fall-through; unused variables warn) and no style rules. A name a page
 puts on `window` before the modules run (Leaflet's `L`, `satellite`) goes in the config's lists, not in a disable
 comment. Both run in CI's test job.
+
+**The clean-machine install test** (`.github/workflows/install-test.yml`) checks what a new user downloads, on fresh
+Linux, Windows and macOS runners: the download zip unzipped as a person would (Expand-Archive on Windows), `node
+serve.js` with no npm install, and every page, every local file the pages load, the data files and one file from each
+texture and model folder the zip copies must answer 200; and the `npm pack` tarball installed into an empty folder, its
+`open-overwatch-mcp --version` and an MCP initialize and tools/list round trip over stdio. It runs when a release is
+published (or the Release workflow finishes), by hand from the Actions tab (`latest`: the newest release's zip;
+`build`: a zip built from the branch with release.yml's own step) and on pushes to `ci-e2e`. Its helper runs on your
+own machine too, with no browser:
+
+```bash
+node test/helpers/installsmoke.mjs site .                       # serve this checkout and fetch everything the pages load
+node test/helpers/installsmoke.mjs zip-script > build-zip.sh    # release.yml's "Build the download zip" step as a script
+node test/helpers/installsmoke.mjs mcp mcp/server.mjs           # initialize + tools/list over stdio
+```
+
+`test/installsmoke.test.mjs` runs the same on this checkout in `node --test`. A new run-time folder in release.yml
+needs one of its files in `DATA_FILES` in the helper.
 
 `.github/workflows/codeql.yml` runs CodeQL (JavaScript and the workflows) on pushes and pull requests to `main` and
 weekly, skipping `data/`, renders and fixtures; `.github/dependabot.yml` opens weekly grouped updates for npm and the
@@ -462,6 +490,26 @@ comment for what it fetches and writes. Downloading a new dataset is a decision 
 Live feed copies on the website (`data/tle/`, `data/launches.json`, `data/astronauts.json`, `data/flybys.json`,
 `data/socrates.json`, `data/news.json`, `data/wind.json`) are made by the site build (below), not committed.
 
+**The city sky pages.** `data/cities.json` (441 cities, 84 of them Indian) comes from one Wikidata query by
+`brand/tools/make_cities.py`, and the pages from it are made at every deploy by `brand/tools/make_sky_pages.mjs`. Both
+run locally:
+
+```bash
+python brand/tools/make_cities.py                 # rebuild data/cities.json; needs zone.tab (pip install tzdata on Windows)
+node brand/tools/make_sky_pages.mjs <folder> --date 2026-10-17T06:00Z --tle test/fixtures/stations.tle
+```
+
+`make_cities.py` reuses its cached Wikidata answer (`<system temp>/open-overwatch/cities-wikidata.json`, or `--cache
+PATH`), so a rebuild from the same answer gives the same file; with no cache it asks Wikidata again (one query, through
+curl), which is a new download: ask the owner first. `--top N` keeps the N largest cities of the world (default 400)
+besides every Indian one. It prints the time zones it picked by the nearest zone.tab city: check the ones near a
+zone border and put corrections in `TZ_FIX`. `make_sky_pages.mjs` writes `<folder>/sky/` (one page per city, a Hindi one
+per Indian city, the two lists, `sky.css`), `<folder>/sitemap-sky.xml` and a Sitemap line in `<folder>/robots.txt` when
+that file exists: point it at a scratch folder, never the repository root, whose `sky/` and `sitemap-sky.xml` are the
+committed stand-ins. `--date` fixes the night (default: now), `--tle` gives it element sets for the ISS line (default
+`<folder>/data/tle/stations.txt`; without one, or without satellite.js, the pages leave the pass out), `--site` the
+address the canonical links use. A run on 2026-10-17 wrote 527 files, 2.9 MB, in about 4 s.
+
 ## 10. Publishing
 
 As it is today:
@@ -483,13 +531,16 @@ As it is today:
    6 hours, and by hand. It builds the site with the current version at the root and the newest 6 annotated `v*` tags
    (`ARCHIVE_KEEP`) frozen under `/v/<tag>/`; an older tag gets a small page there that links to its release zip. Only
    `APP_PATHS` in `build_site.py` are copied into a frozen version, so add every new runtime asset to that list. The dev-only
-   folders (`SKIP_ROOT`: brand/source/, brand/blend/, .github/, brand/models/previews/, test/, e2e/, notes/, relay/,
-   mcp-worker/, brand/clip/) are left off the site, except the files
+   folders and files (`SKIP_ROOT`: brand/source/, brand/blend/, .github/, brand/models/previews/, test/, e2e/, notes/,
+   relay/, mcp-worker/, brand/clip/, and the dev tools' configs types/, tsconfig.json, tsconfig.workers.json,
+   eslint.config.mjs, playwright.config.mjs) are left off the site, except the files
    a page loads (`KEEP_ROOT`). It writes `versions.json` for the landing page's version picker (every tag; `online` is
    how many have a frozen copy, `keep` the budget) and `sitemap-pages.xml` with each page's `lastmod` from git, and refreshes
    the feed copies (TLE groups, launches, crew, flybys, close approaches, headlines, wind). A copy it can't refresh keeps
    the live site's last good one. It also stamps `sw.js`'s `BUILD` with the version and commit, so every published
-   version is a new service worker (visitors get a "new version" prompt). `pages.yml` warns when the site passes 900 MB
+   version is a new service worker (visitors get a "new version" prompt). After it, `pages.yml` runs
+   `make_sky_pages.mjs _site` (above) with satellite.js from `npm ci --omit=dev`; every step of that carries
+   `continue-on-error`, so a failure only leaves the city pages out of that deploy. `pages.yml` warns when the site passes 900 MB
    and fails over 950 MB (GitHub Pages allows 1 GB; a frozen version is ~30 MB).
 5. **The Release workflow** (`.github/workflows/release.yml`) runs on a `v*` tag: it builds `open-overwatch.zip` (the
    download, with `sw.js` and `offline.html`; keep its file list in step when the app needs new files: `test/release.test.mjs`
