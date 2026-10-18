@@ -51,6 +51,40 @@ place of `india/` (and `_hi` on its `utm_content`): the Hindi page has the same 
   on and off, the weather, Tonight and Look up. Answers are spoken in English with an Indian English voice; help and a
   sentence it didn't catch get Hindi phrases, read in Hindi.
 
+## The city sky pages in हिन्दी
+
+Each of the 84 Indian cities in `data/cities.json` (Wikidata, CC0: every Indian city of 500,000 people or more, see
+`brand/tools/make_cities.py`) has a "What's in the sky tonight" page in English at `sky/<slug>/` and in Hindi at
+`sky/hi/<slug>/`. They are made at every 6-hourly site build by `brand/tools/make_sky_pages.mjs` (never committed;
+the repo's `sky/` holds only stand-ins for the two lists), with tonight's facts worked out by the same core code as
+Tonight: sunset and sunrise, when it gets dark, the Moon, the planets up after dark, the next visible ISS pass, the
+Bortle class and three binocular targets, on IST (`Asia/Kolkata`).
+
+- **The Hindi page**: `lang="hi"`, a Hindi `<title>`, description and heading with the city's Hindi name from
+  Wikidata (मुम्बई, पुणे), `og:locale` `hi_IN`, and the facts in Hindi. The live Tonight card framed in it is in
+  English and shows times on the visitor's own clock; the page says so in Hindi.
+- **The pair**: each page names the other with hreflang (`en`, `hi`, and `x-default` the English one), and the
+  sitemap (`sitemap-sky.xml`) carries the same pairs. The two lists are not a pair: `sky/` lists every city by country
+  (India's heading is `sky/#in`), `sky/hi/` only the Indian cities, in Hindi.
+- **Links in**: both India pages link to `sky/#in` ("Tonight in your city") and `sky/hi/` ("आज रात आपके शहर में"); each
+  Indian city page links back to `india/` or `india/hi/`.
+
+A slug is the city's English name in ASCII: `delhi`, `mumbai`, `bengaluru`, `hyderabad`, `ahmedabad`, `chennai`,
+`pune`, `kolkata`, `lucknow`, `jaipur`, `navi-mumbai`, `thiruvananthapuram` (the full list: the `slug` column of
+`data/cities.json`). An ad for one city points at its page, Hindi or English, with the same tags as the other ads and
+the city in `utm_content`:
+
+| Ad | URL |
+|---|---|
+| Tonight in Pune, Hindi | `https://destinjones.github.io/open-overwatch/sky/hi/pune/?utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&utm_content=sky_pune_hi` |
+| Tonight in Pune, English | `https://destinjones.github.io/open-overwatch/sky/pune/?utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&utm_content=sky_pune` |
+| All Indian cities, Hindi | `https://destinjones.github.io/open-overwatch/sky/hi/?utm_source=meta&utm_medium=paid_social&utm_campaign=in_launch&utm_content=sky_list_hi` |
+
+Unlike the India page, a city page runs no script, so the tags stay in the address bar and go with a link the visitor
+copies; nothing reads them, and the Tonight card framed in the page is given only the place, never the tags. Point
+ads at the website only: the download version and a local copy show a stand-in at `sky/` that links to the website. A
+city page exists once a site build has run with the city in `data/cities.json`, so check the link before an ad goes out.
+
 ## What the page claims, and why it is true
 
 - **No live aircraft on the website**: said in the hero, in "What you won't get", and no link turns `air` or `mil` on

@@ -124,7 +124,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
       <a href="#layers">Globe layers</a><a href="#cards">Clicking things</a><a href="#aviation">Planes and airports</a><a href="#sky">Tonight and look up</a><a href="#now">Earth now</a>
       <a href="#weather">Weather timeline</a><a href="#history">Time travel</a><a href="#measure">Draw and measure</a><a href="#ops">Ops looks</a>
       <a href="#voice">Voice commands</a><a href="#keys">Keyboard</a><a href="#share">Share and embed</a>
-      <a href="#map2d">The 2D map</a><a href="#solar">Solar System</a><a href="#download">Download version</a>
+      <a href="#map2d">The 2D map</a><a href="#solar">Solar System</a><a href="#teach">For teachers</a><a href="#download">Download version</a>
       <a href="#app">App and offline</a><a href="#claude">Ask Claude</a><a href="#privacy">Privacy</a><a href="#limits">Limits</a>
     </div>
   </div>
@@ -140,6 +140,8 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
       <div><h3>2D map</h3><p><a href="open-overwatch.html">open-overwatch.html</a>, built on Leaflet. The original situation map: satellites, earthquakes, disaster alerts, news, radar, cables, cameras and ships on a flat map, with a daily brief, a feed log and a setup tab for optional keys. Its aircraft layers need the download version.</p></div>
       <div><h3>Tonight</h3><p><a href="tonight.html">tonight.html</a>. The globe's "Tonight above you" card on its own page, without the 3D globe, so it opens fast on a phone: what you can see in your sky tonight and when, where you are or at any place you type or link to. It also comes as a small card for other web pages (see <a href="#share">Share and embed</a>).</p></div>
       <div><h3>India</h3><p><a href="india/">india/</a>, in English and <span lang="hi">हिन्दी</span>. A starting page for visitors in India: ISRO launches from Sriharikota, India's satellites, the next space station passes over six cities, the night sky from Hanle, cyclones, Himalayan quakes and air quality, each a link that opens the globe already set up over India.</p></div>
+      <div><h3>Sky tonight in your city</h3><p><a href="sky/">sky/</a>. A ready page for each of 441 big cities, the 84 Indian ones in <span lang="hi">हिन्दी</span> too: sunset, the Moon, the planets, the next ISS pass and how dark the sky is there tonight, with the live Tonight card below. See <a href="#cities">Your city's sky tonight</a>.</p></div>
+      <div><h3>For teachers</h3><p><a href="teach/">teach/</a>. Twelve classroom activities for ages 7 to 18 on the globe, the Solar System and Tonight, each with ready links, printable, and how to cite the project. See <a href="#teach">For teachers</a>.</p></div>
     </div>
     <figure class="shot"><img src="brand/hero/hero-wide.webp" alt="The 3D globe: the Earth from orbit with satellites" loading="lazy" width="2560" height="1600"><figcaption>The 3D globe</figcaption></figure>
   </div>
@@ -408,7 +410,16 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <p>Sections fold and stay folded. Your location is saved on your device only, rounded to about 1 km. A place you type is looked up by Photon (only the words you type are sent) and saved on your device the same way; <b>Forget this place</b> removes it.</p>
     <h3>Tonight for any place</h3>
     <p>A link can name the place: <code>tonight.html#at=18.52,73.86&amp;name=Pune</code>, or <code>globe.html#go=tonight&amp;at=18.52,73.86&amp;name=Pune</code> on the globe. The card then answers for Pune without asking where you are; the place is shown but never saved on your device. A page opened from such a link has no aurora alert button, and reminders you set earlier still come. On <code>tonight.html</code> it also says nothing about your own location; the globe still gives its &ldquo;look up now&rdquo; notes a minute before a bright ISS or Tiangong pass over the place this device has saved. Coordinates are read to 0.01&deg; (about 1 km). To put the card on your own web page, see <a href="#share">Share and embed</a>.</p>
-    <p>The website also has a ready page for each of the world's biggest cities and every Indian city of about half a million people or more (in Hindi too): <a href="sky/">What's in the sky tonight in your city</a>. Each says when the Sun sets, the Moon's phase, the planets that are up, the next ISS pass and how dark the sky is there, worked out again every 6 hours, with the live card below. The download version links to them on the website.</p>
+    <h3 id="cities">Your city's sky tonight</h3>
+    <p><a href="sky/">What's in the sky tonight in your city</a> has a page for each of the world's 400 biggest cities (at most 60 from one country) and for every Indian city of half a million people or more: 441 cities in all. The 84 Indian ones have a Hindi page too, listed at <a href="sky/hi/">sky/hi/</a> and linked from the <a href="india/">India page</a>. Each page gives, on the city's own clock:</p>
+    <ul>
+      <li>sunset and sunrise, and when it is dark enough for the bright stars;</li>
+      <li>the Moon's phase, how much of it is lit, and when it rises and sets;</li>
+      <li>the planets that are up after dark;</li>
+      <li>the next ISS pass you can see in the coming three days, called easy to see only when it climbs 40&deg; or higher;</li>
+      <li>how dark the sky is there (the Bortle class from the light pollution atlas) and three things to find with binoculars.</li>
+    </ul>
+    <p>The website works the pages out again every 6 hours. Clouds are not in them: the live Tonight card below each page has the cloud forecast, and its times follow your device's clock. The city names, positions and populations come from Wikidata. The download version has no city pages of its own; its <code>sky/</code> links to the website's.</p>
     <h3>Look up</h3>
     <p>Your sky from where you stand. On a phone, hold it up and the view follows the phone's motion sensors; on a computer, drag. It shows planets, bright stars, constellation figures (<b>Figures</b>), satellites (and, in the download version, aircraft) overhead, a compass ring and the next ISS pass. Things on the ground are hidden so they don't streak across the sky.</p>
     <ul>
@@ -628,6 +639,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <h2 id="map2d-h">The 2D map</h2>
     <p><a href="open-overwatch.html">open-overwatch.html</a> is a flat situation map. The rail on the left holds the layers in groups; each layer has a description, a live count and status, and some have options (which satellite groups, which aircraft network, which camera cities). The tabs on the right are <b>Brief</b> (what is notable now), <b>Log</b> (each feed's errors as they happen) and <b>Setup</b> (the helper, optional keys, a test of every feed). On first visit you choose to enter with audio or silent: the map can play a soundtrack generated in the browser, or radio stations.</p>
     <p>The 2D map has <b>draw and measure</b> too (the ruler button or <kbd>R</kbd>; the same tools and accuracy as the globe, with lines drawn as the real shortest paths), <b>Share</b> (a link with the view, its layers and the drawing, in the globe's format, so a link made on one view opens the same area on the other) and <b>3D globe</b>, which opens the globe where the map is.</p>
+    <p><b>Center on me</b> and the <b>Around me</b> preset ask your device for its position, and only then. If it gives none (you said no, or it found no fix), the map asks you to tap where you are or to search <code>lat, lon</code>; it waits one minute for that, and tapping a plane, a quake or another marker in that minute opens its card instead. Your place is kept on this device for 24 hours, rounded to about 1 km; Setup → <b>Forget my location</b> removes it. There is no lookup by IP address.</p>
     <div class="tbl"><table>
       <thead><tr><th>Layer</th><th>What it shows</th><th>Starts</th></tr></thead>
       <tbody>
@@ -720,6 +732,15 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
+<section id="teach" aria-labelledby="teach-h">
+  <div class="wrap">
+    <div class="eyebrow">In the classroom</div>
+    <h2 id="teach-h">For teachers</h2>
+    <p><a href="teach/">teach/</a> has twelve classroom activities, four for each age group (7 to 11, 11 to 14 and 14 to 18): where it is night right now, the Moon's phases, the size of the Solar System, clouds and storms on the move, earthquakes along plate boundaries, why you see the ISS at night, seasons and time zones, light pollution in your town, Kepler's third law from orbits at three heights, TRAPPIST-1 and the habitable zone, the solar eclipses of 2027 to 2030, and Halley's comet and Kepler's second law. Each activity has ready links: the globe and Solar System links open views already set up for it, and the Tonight links open Tonight for where you are. <b>Print this activity</b> prints it on its own (or print the whole page).</p>
+    <p>The page also covers what to check before a lesson (try a link on the room's machine), how to use it with poor internet (the page and the views are kept on the device once opened, or use the <a href="#download">download version</a>), how to make your own links, how to cite Open Overwatch with its DOI (APA and BibTeX), and what it does and doesn't do with pupils' data: no accounts, no tracking, and a location that stays on the device.</p>
+  </div>
+</section>
+
 <section id="download" aria-labelledby="download-h">
   <div class="wrap">
     <div class="eyebrow">On your machine</div>
@@ -755,6 +776,14 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
     <div class="eyebrow">MCP</div>
     <h2 id="claude-h">Ask Claude about the Earth</h2>
     <p>Open Overwatch also comes as a small Model Context Protocol server, so Claude (and other AI apps that speak MCP) can answer questions from the same open data, with 38 tools: earthquakes, where a satellite is and when you can see it, launches, who is in space, asteroid flybys, close approaches in orbit and what is about to re-enter, tropical storms, wildfires, natural events, volcanoes, Baltic ships, bike share, live transit, traffic cameras (with their latest pictures), measured road speeds, submarine cables, country briefings, the weather (with pressure, gusts, waves and whether the models agree), what a plane is and where a flight goes, where any spacecraft, comet or asteroid is, the aurora and the solar wind, flares and storm warnings behind it, tonight's sky, how dark the sky is (light pollution, the nearest darker sky) and the galaxies and clusters within reach tonight, the Sun and Moon, the planets, meteor showers, eclipses, distances, licence-plate readers, military areas, airport weather (METAR and TAF in plain words), sea conditions (ocean buoys and tides) and air quality. Every answer carries a link that opens the globe there, and in Claude Desktop the globe appears in the chat. Install it from <code>open-overwatch.mcpb</code> on the <a href="https://github.com/destinjones/open-overwatch/releases/latest">latest release</a>; details in <a href="https://github.com/destinjones/open-overwatch/blob/main/mcp/README.md">mcp/README.md</a>. It runs on your computer (over stdio, or Streamable HTTP on your own machine for clients that need it), needs no key, and stores nothing. A remote version for claude.ai and ChatGPT connectors runs on Cloudflare Workers (<code>mcp-worker/</code>): it was deployed on 13 October 2026 on the owner's account and has not been updated since, so it lacks the newest changes, such as EMSC on earthquakes. Its connector URL carries a secret, so it is given on request.</p>
+    <p>A few answers work differently since v0.9.2.15:</p>
+    <ul>
+      <li><b>Places across the 180° line.</b> The United States, Russia, Fiji and Alaska each have land on both sides of it. A question about one of them is no longer read as a band right round the world at those latitudes. A country is its own outline plus the sea within about 280 km of its coast where no other country is nearer: earthquakes in Fiji include the islands east of 180°, the Aleutians and the sea off Hawaii count for the United States, and Russia no longer claims quakes off Alaska or Japan. Alaska is a rougher area round the state.</li>
+      <li><b>Storms reach further out to sea.</b> For those countries a cyclone at sea within about 890 km of the coast counts, whichever coast is nearer, so a hurricane in the middle of the Gulf of Mexico is the United States' although Mexico is closer. A storm over another country's land never counts: a typhoon over Hokkaido is not in Russia.</li>
+      <li><b>Times.</b> A time you give with Z or an offset is taken as given. Without one it is the place's own clock (UTC when there is no place), never the clock of the computer running the server, and the answer says how it read it.</li>
+      <li><b>Planes.</b> The website has no live aircraft, so the links from aircraft and airport answers draw the route or the airport and say that live aircraft come with the download version.</li>
+      <li><b>Other pages.</b> The panel in the chat now shows the Solar System and Tonight links that answers about the planets, missions and tonight's sky give, not only the globe.</li>
+    </ul>
   </div>
 </section>
 
