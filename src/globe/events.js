@@ -10,9 +10,11 @@ import { Time } from './time.js';
 import { parseEonet, eonetUrl, EONET_COLOR } from '../core/eonet.js';
 import { stamp, rep } from '../core/liveprov.js';
 import { isPast, utcDay, eonetAtUrl, eventActiveAt, trackAt } from '../core/history.js';
+import { retryBackoff } from '../core/hazards.js';
 
 const pts = scene.primitives.add(new C.PointPrimitiveCollection());
 const pastDays = new Map();   // UTC day -> Promise<events around it>
+const retry = retryBackoff();   // a failed past day is asked again after 30 s, doubling to 5 min (sync runs every second)
 const day = d => new Date(d).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
 
 function card(e) {
@@ -46,11 +48,11 @@ export const Events = {
   },
   async sync() {
     const ms = Time.nowMs();
-    if (!isPast(ms)) { if (this.past) { this.past = false; this.pastDay = ''; this.draw(this.live || []); } return; }
+    if (!isPast(ms)) { if (this.past) { this.past = false; this.pastDay = ''; retry.ok(); this.draw(this.live || []); } return; }
     if (!this.past) { this.past = true; this.draw([]); }
     if (!L.events.on) return;
     const d = utcDay(ms);
-    if (d === this.pastDay) return;
+    if (d === this.pastDay && !retry.claim(d)) return;
     this.pastDay = d;
     if (!pastDays.has(d)) {
       if (pastDays.size > 10) pastDays.delete(pastDays.keys().next().value);
@@ -59,11 +61,12 @@ export const Events = {
     try {
       const at = Date.parse(d + 'T23:59:59Z'), evs = await pastDays.get(d);
       if (this.pastDay !== d) return;
+      retry.ok();
       this.draw(evs.filter(e => e.cat !== 'severeStorms' && eventActiveAt(e, at)).map(e => {   // where it was that day (moving ice drifts)
         const p = e.track.length > 1 ? trackAt(e.track, at, { holdMs: Infinity }) : null;
         return { ...e, ...(p ? { lat: p.lat, lon: p.lon } : {}), then: true };
       }));
-    } catch (e) { console.warn('natural events (past)', e); this.pastDay = ''; }
+    } catch (e) { console.warn('natural events (past)', e); if (this.pastDay === d) retry.failed(d); }   // keep the day: asked again after the wait
   },
   apply() { pts.show = L.events.on && !state.lookup; if (L.events.on && !this.past && !this.live && !this.loading) this.load(); scene.requestRender(); },
 };

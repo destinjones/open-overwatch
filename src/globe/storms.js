@@ -12,16 +12,18 @@ import { viewer, scene } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { hooks, state } from './state.js';
 import { WW } from '../core/hazards.js';
-import { stormAgreement, loadCyclones, category, catName, KIND_KT, NHC_CURRENT, stormSources, stormsFromEonet, gdacsGeometryUrl } from '../core/cyclones.js';
+import { stormAgreement, loadCyclones, category, catName, KIND_KT, NHC_CURRENT, stormSources, stormsFromEonet, gdacsGeometryUrl, gdacsKey, pruneKept } from '../core/cyclones.js';
 import { parseEonet } from '../core/eonet.js';
-import { gdacsForecast } from '../core/hazards.js';
+import { gdacsForecast, retryBackoff } from '../core/hazards.js';
 import { isPast, utcDay, eonetAtUrl, gdacsTcAtUrl, gdacsPastCyclones, stormsFromGdacs, stormsAt } from '../core/history.js';
 import { Time } from './time.js';
 
 const pts = scene.primitives.add(new C.PointPrimitiveCollection());
 const lines = scene.primitives.add(new C.PolylineCollection());
 const fc = new C.CustomDataSource('cyclone-forecasts'); viewer.dataSources.add(fc);
-const gdacsKept = new Map();   // "event/episode" -> parsed geometry (an episode never changes)
+const gdacsKept = new Map();   // "event/episode" -> parsed geometry (an episode never changes); bounded by pruneKept
+const pastKept = new Map();   // the same for past days, kept apart so a past day never evicts the live storms' geometries
+const retry = retryBackoff();   // a failed past day is asked again after 30 s, doubling to 5 min (sync runs every second)
 
 const pastDays = new Map();   // UTC day -> Promise<storms around it, whole tracks> (past days don't change)
 async function stormsAround(ms) {
@@ -31,10 +33,11 @@ async function stormsAround(ms) {
     const names = new Set(eonet.map(s => s.title.toLowerCase().split(/\s+/).pop()));
     const past = gdacsPastCyclones(await json(gdacsTcAtUrl(ms), { timeout: 30000 })).filter(g => g.from <= ms && g.to + 12 * 3600e3 >= ms && !names.has(g.name.toLowerCase())).slice(0, 4);
     for (const g of past) {
-      const key = g.eventid + '/' + g.episodeid;
-      try { if (!gdacsKept.has(key)) gdacsKept.set(key, gdacsForecast(await json(gdacsGeometryUrl(g.eventid, g.episodeid), { timeout: 45000 }))); g.fc = gdacsKept.get(key); }
+      const key = gdacsKey(g);
+      try { if (!pastKept.has(key)) pastKept.set(key, gdacsForecast(await json(gdacsGeometryUrl(g.eventid, g.episodeid), { timeout: 45000 }))); g.fc = pastKept.get(key); }
       catch (e) { console.warn('GDACS ' + g.name, e.message); }
     }
+    pruneKept(pastKept, past);   // the day's geometries stay with its storms (g.fc); the cache keeps at most 24
     gd = stormsFromGdacs(past, eonet);
   } catch (e) { console.warn('GDACS (past)', e.message); }
   return eonet.concat(gd);
@@ -51,15 +54,15 @@ export const Storms = {
   /** Follow the clock: live storms now; in the past the storms of the time shown, redrawn every hour of clock time. */
   async sync() {
     const ms = Time.nowMs();
-    if (!isPast(ms)) { if (this.past) { this.past = false; this.pastDay = ''; this.draw(this.live); hooks.historyChanged?.(); } return; }
+    if (!isPast(ms)) { if (this.past) { this.past = false; this.pastDay = ''; retry.ok(); this.draw(this.live); hooks.historyChanged?.(); } return; }
     if (!this.past) { this.past = true; this.draw([]); }
     if (!L.storms.on) return;
     const d = utcDay(ms);
-    if (d !== this.pastDay) {
+    if (d !== this.pastDay || retry.claim(d)) {
       this.pastDay = d; this.base = null; this.loading = true; hooks.historyChanged?.();
       if (!pastDays.has(d)) { if (pastDays.size > 10) pastDays.delete(pastDays.keys().next().value); pastDays.set(d, stormsAround(Date.parse(d + 'T12:00:00Z')).catch(e => { pastDays.delete(d); throw e; })); }
-      try { const base = await pastDays.get(d); if (this.pastDay !== d) return; this.base = base; this.pastAt = NaN; }
-      catch (e) { console.warn('storms (past)', e); this.pastDay = ''; return; }
+      try { const base = await pastDays.get(d); if (this.pastDay !== d) return; retry.ok(); this.base = base; this.pastAt = NaN; }
+      catch (e) { console.warn('storms (past)', e); if (this.pastDay === d) retry.failed(d); return; }   // keep the day: asked again after the wait
       finally { this.loading = false; }
     }
     if (this.base && !(Math.abs(ms - this.pastAt) < 3600e3)) { this.pastAt = ms; this.draw(stormsAt(this.base, Math.round(ms / 1000) * 1000)); hooks.historyChanged?.(); }
