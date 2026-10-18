@@ -32,6 +32,22 @@ jobs:
         run: python3 .github/build_site.py _site
         env:
           OO_TLE_HISTORY: .tle-history
+      # "What's in the sky tonight in <city>": ~530 pages under /sky/ (data/cities.json, ~3 MB) with tonight's facts worked
+      # out by src/core at this build, ISS passes from the copy of the element sets just made. Build output only: never
+      # committed, and never in the /v/<tag>/ copies (build_site.py made those from the tags above). A failure here lets
+      # the rest of the site deploy without the city pages (the generator moves its folder into place only when done), so
+      # every step of the city pages carries continue-on-error: an npm outage only leaves out the ISS line (the generator
+      # runs without satellite.js) and the runner's own Node stands in if setup-node fails.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        continue-on-error: true
+        with:
+          node-version: 22
+      - name: Install satellite.js (the city pages' ISS passes; the production dependency only)
+        continue-on-error: true
+        run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+      - name: City sky pages (/sky/, /sky/hi/, sitemap-sky.xml and its line in robots.txt)
+        continue-on-error: true
+        run: node brand/tools/make_sky_pages.mjs _site
       # GitHub Pages sites may be no larger than 1 GB. Stop here, with the live site left as it is, rather than upload
       # one GitHub may refuse or time out on; the fix is a lower ARCHIVE_KEEP in build_site.py.
       - name: Check the site's size against the Pages limit
