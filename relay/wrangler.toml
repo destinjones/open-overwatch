@@ -7,3 +7,14 @@ workers_dev = true
 # Workers Cache in front of the Worker: responses are shared for the max-age worker.js sets per feed
 [cache]
 enabled = true
+
+# 60 upstream-bound requests a minute per caller address (cf-connecting-ip; front-cache hits don't count). A Workers
+# Rate Limiting binding works on workers.dev, where a WAF rule can't (no zone). The period must be 10 or 60 seconds;
+# needs wrangler 4.36+. namespace_id is this account's own counter (the MCP Worker uses 4721).
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "4722"
+
+  [ratelimits.simple]
+  limit = 60
+  period = 60

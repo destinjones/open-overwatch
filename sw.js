@@ -17,8 +17,10 @@
 //   pinned CDN libraries, fonts               cache first (the URL names an exact version), fetched with CORS so no
 //                                             opaque copy eats storage quota
 //   base map / terrain tiles                  cache first for 30 days, CORS answers only, at most 1,200 tiles
+//   (NASA GIBS Blue/Black Marble, OSM,        (Esri's arcgisonline imagery is not among them: it is streamed live only,
+//   OpenFreeMap, terrain)                     never kept, and any copy an older version kept is dropped at activate)
 //   everything else (live feeds, the relay,   not touched: the browser fetches it as if there were no worker
-//   /v/<tag>/ archived versions, ranges, POST)
+//   /v/<tag>/ archived versions, Esri, ranges, POST)
 //
 // Versions: build_site.py stamps BUILD with the version and commit when the website is built, so every published
 // version is a new worker. A new worker waits until the page says so (the "new version" prompt in src/app/pwa.js),
@@ -79,10 +81,12 @@ function classify(req) {
   return 'pass';
 }
 
-/** Base maps and terrain that don't change from day to day (live layers such as radar or GIBS "best" IR stay out). */
+/** Base maps and terrain that don't change from day to day (live layers such as radar or GIBS "best" IR stay out).
+ *  Esri's tiles (arcgisonline.com) are never kept: they stream live only, and offline the globe falls back to NASA's. */
+const STREAM_ONLY = /(^|\.)arcgisonline\.com$/;
 function isTile(url) {
   const host = url.hostname, path = url.pathname;
-  if (/^(services|server)\.arcgisonline\.com$/.test(host)) return /\/MapServer\/tile\//.test(path);
+  if (STREAM_ONLY.test(host)) return false;
   if (host === 'gibs.earthdata.nasa.gov') return /\/(BlueMarble_NextGeneration|VIIRS_Black_Marble)\//.test(path) && TILE_EXT.test(path);
   if (/^([abc]\.)?tile\.openstreetmap\.org$/.test(host)) return TILE_EXT.test(path);
   if (host === 'tiles.openfreemap.org') return /\.pbf$/.test(path);
@@ -301,9 +305,20 @@ self.addEventListener('install', event => {
   })());
 });
 
+/** Esri tiles an older version kept in the tile cache (before they became stream only): deleted, the rest stay. */
+async function dropStreamOnly() {
+  try {
+    if (!(await caches.has(CACHES.tile))) return 0;
+    const c = await caches.open(CACHES.tile); let n = 0;
+    for (const k of await c.keys()) { let host = ''; try { host = new URL(k.url).hostname; } catch { /* not a URL */ } if (STREAM_ONLY.test(host) && await c.delete(k)) n++; }
+    return n;
+  } catch { return 0; }   // storage trouble: nothing else to do
+}
+
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     for (const name of await caches.keys()) if (name.startsWith('oo-') && !KEEP.includes(name)) await caches.delete(name);
+    await dropStreamOnly();
     // navigation preload fetches every page in parallel, which only network first uses (a published build would waste it)
     const np = self.registration.navigationPreload;
     if (np) { try { await (ONE_VERSION ? np.disable() : np.enable()); } catch { /* not supported: nothing to switch */ } }
@@ -329,4 +344,4 @@ async function status() {
 }
 
 // for test/sw.test.mjs (harmless in a browser)
-self.__oo = { BUILD, SHELL, CACHES, ONE_VERSION, MAX_PRECACHE, classify, isTile, keyOf, ageOf, references, crawl, trim, markOffline, handle };
+self.__oo = { BUILD, SHELL, CACHES, ONE_VERSION, MAX_PRECACHE, classify, isTile, keyOf, ageOf, references, crawl, trim, markOffline, handle, dropStreamOnly };

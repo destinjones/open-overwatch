@@ -24,9 +24,11 @@ export function xmlText(frag, tag) {
 }
 
 export const SG_URL = 'https://api.data.gov.sg/v1/transport/traffic-images';
-/** Singapore's cameras (its stills change address each capture: re-read the list for fresh pictures). */
+/** Singapore's cameras (its stills change address each capture: re-read the list for fresh pictures). The capture time
+ *  is t only: the views' provenance line gives its age (a clock time cut from the +08:00 stamp read hours ahead elsewhere,
+ *  and the globe's refresh swaps the picture but not the label, so a time there would go stale). */
 export const parseSingapore = d => (((d && d.items) || [])[0]?.cameras || []).filter(c => c && c.location).map(c => ({ net: 'sg', id: 'sg:' + c.camera_id, name: 'Traffic camera ' + c.camera_id,
-  view: c.timestamp ? 'Expressway camera · ' + s(c.timestamp).replace('T', ' ').slice(0, 16) : 'Expressway camera', lat: +c.location.latitude, lon: +c.location.longitude,
+  view: 'Expressway camera', lat: +c.location.latitude, lon: +c.location.longitude,
   image: https(c.image), fresh: true, cors: false, online: true, link: 'https://data.gov.sg/',
   t: Number.isFinite(Date.parse(c.timestamp)) ? Date.parse(c.timestamp) : null })).filter(c => okLL(c) && c.image);   // when the still was taken
 
