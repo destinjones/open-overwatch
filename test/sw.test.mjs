@@ -102,6 +102,11 @@ test('every kind of request goes the right way', () => {
   assert.equal(k(SCOPE + 'data/solar/stars.bin'), 'data');
   assert.equal(k(SCOPE + 'brand/models/iss.glb'), 'asset');
   assert.equal(k(SCOPE + 'brand/textures/sky_1k/px.jpg'), 'asset');
+  assert.equal(k(SCOPE + 'sky/pune/', { mode: 'navigate' }), 'page-live', 'the city pages: rebuilt every 6 h under one BUILD');
+  assert.equal(k(SCOPE + 'sky/', { mode: 'navigate' }), 'page-live');
+  assert.equal(k(SCOPE + 'sky/hi/pune/index.html'), 'page-live');
+  assert.equal(k(SCOPE + 'sky/sky.css'), 'page-live');
+  assert.equal(k(SCOPE + 'src/sky/cityfind.js'), 'code', 'their module is code like any other');
   assert.equal(k('https://cdn.jsdelivr.net/npm/cesium@1.146.0/Build/Cesium/Cesium.js'), 'lib');
   assert.equal(k('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'), 'lib');
   assert.equal(k('https://fonts.gstatic.com/s/barlow/v12/x.woff2'), 'lib');
@@ -307,6 +312,25 @@ test('a published build serves one version: its own pages and modules even when 
   // data still goes to the network first (a version's copy is about code, not feeds)
   w.online = true; net[SCOPE + 'data/tle/stations.txt'] = 'ISS';
   assert.equal(await (await w.request(SCOPE + 'data/tle/stations.txt')).res.text(), 'ISS');
+});
+
+test('a published build fetches the sky/ city pages live: a 6-hourly rebuild under the same BUILD is seen, the last copy kept for offline', async () => {
+  const B = '0.9.2.15+ccc', net = { [SCOPE + 'offline.html']: '<p>offline</p>', [SCOPE + 'sky/pune/']: '<p>Pune, 06:00</p>', [SCOPE + 'sky/sky.css']: 'p{}' };
+  const w = worker({ net, build: B });
+  await w.lifecycle('install');
+  assert.equal(await (await w.request(SCOPE + 'sky/pune/', page())).res.text(), '<p>Pune, 06:00</p>');
+  assert.equal(await (await w.request(SCOPE + 'sky/sky.css')).res.text(), 'p{}');
+  const data = await w.caches.open(w.oo.CACHES.data), shell = await w.caches.open(w.oo.SHELL);
+  assert.ok(data.map.has(SCOPE + 'sky/pune/'), 'kept with the live copies, not in the version cache');
+  assert.ok(!shell.map.has(SCOPE + 'sky/pune/'));
+  // the cron rebuild 6 hours later: same commit, so the same worker, but new pages
+  net[SCOPE + 'sky/pune/'] = '<p>Pune, 12:00</p>'; net[SCOPE + 'sky/sky.css'] = 'p{color:red}';
+  assert.equal(await (await w.request(SCOPE + 'sky/pune/', page())).res.text(), '<p>Pune, 12:00</p>');
+  assert.equal(await (await w.request(SCOPE + 'sky/sky.css')).res.text(), 'p{color:red}');
+  w.online = false;
+  assert.equal(await (await w.request(SCOPE + 'sky/pune/', page())).res.text(), '<p>Pune, 12:00</p>', 'offline: the last copy');
+  assert.equal(await (await w.request(SCOPE + 'sky/delhi/', page())).res.text(), '<p>offline</p>', 'offline, never opened: the offline page');
+  assert.ok((await w.request(SCOPE + 'sky/other.css')).err, 'a stylesheet never saved fails as it would without a worker');
 });
 
 test('navigation preload: on for network first (dev), off for a published build (it would fetch every page for nothing)', async () => {

@@ -1,0 +1,42 @@
+<!doctype html>
+<!-- Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE). -->
+<!-- The stand-in for /sky/, the list of "What's in the sky tonight in <city>" pages. The real list and the city pages are
+     build output: the website build (.github/workflows/pages.yml) runs brand/tools/make_sky_pages.mjs, which replaces this
+     whole folder in _site. This page is what the download version, a local copy (serve.js) and a build whose city-page
+     step failed show at sky/, so every link to sky/ resolves (test/sitepages.test.mjs, the e2e link checks). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". No scripts on this page. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04060a">
+<title>What's in the sky tonight in your city · Open Overwatch</title>
+<meta name="description" content="Tonight's planets, Moon, ISS passes and sky darkness, city by city.">
+<link rel="canonical" href="https://destinjones.github.io/open-overwatch/sky/">
+<link rel="icon" href="../brand/emblem/favicon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#05070a;--ink:#d8dee6;--dim:#9aa6b2;--link:#7fd1ff;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif}
+header,main{max-width:760px;margin:0 auto;padding:0 16px}
+header{padding-top:14px;font-size:14px}
+a{color:var(--link)}
+h1{font-size:26px;line-height:1.25;margin:18px 0 8px}
+.note{color:var(--dim);font-size:14px}
+li{margin:6px 0}
+</style>
+</head>
+<body>
+<header><nav aria-label="Breadcrumb"><a href="../">Open Overwatch</a> · <a href="hi/" hreflang="hi" lang="hi">हिन्दी</a></nav></header>
+<main>
+<h1>Tonight's sky, city by city</h1>
+<p>Each city's page says when the Sun sets, the Moon's phase, which planets are up, when the ISS passes over and how dark the sky is there, with the live Tonight card below. The website works the pages out again every 6 hours, so they are not part of this copy.</p>
+<ul>
+<li><a href="https://destinjones.github.io/open-overwatch/sky/">What's in the sky tonight in your city, on the website</a></li>
+<li><a href="../tonight.html">Tonight for your own spot</a>, worked out on this device</li>
+</ul>
+<p id="in">Indian cities are listed under India on the website, and in Hindi at <a href="hi/" hreflang="hi">sky/hi/</a>.</p>
+<p class="note">If you see this page on the website, the city pages are missing from this build of the site; they normally come back at the next 6-hourly build. On the website, the "on the website" link above is this same page.</p>
+</main>
+</body>
+</html>

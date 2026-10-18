@@ -9,9 +9,10 @@
 // Writes <out>/sky/<slug>/index.html for every city, <out>/sky/hi/<slug>/index.html (Hindi) for the Indian ones,
 // <out>/sky/index.html and <out>/sky/hi/index.html (the lists), <out>/sky/sky.css, <out>/sitemap-sky.xml, and adds a
 // Sitemap: line for it to <out>/robots.txt (harmless, but crawlers read robots.txt only at the host's root, and the
-// project site lives under /open-overwatch/: until a site page links to /sky/, sitemap-sky.xml is found only when it is
-// submitted by hand in Search Console). The pages are build output: never committed, never in the /v/<tag>/ copies
-// (build_site.py makes those from git before this runs). Everything goes to <out>/sky.tmp first and is moved into place
+// project site lives under /open-overwatch/; search engines find sitemap-sky.xml through the site's sitemap.xml, a
+// sitemap index that names it). The pages are build output: never committed (the repo's sky/ holds only stand-ins for
+// the two lists, and sitemap-sky.xml a stand-in naming them, so links to sky/ resolve in the download and locally; a run
+// replaces all three), never in the /v/<tag>/ copies (build_site.py makes those from git before this runs). Everything goes to <out>/sky.tmp first and is moved into place
 // at the end; a run that fails on the way removes sky.tmp, so it leaves no half set. ISS passes come from the site's element-set copy
 // (<out>/data/tle/stations.txt, or --tle) and satellite.js; without either the pages leave the pass out.
 // The pages carry no inline script (the JSON-LD is a data block); the lists load src/sky/cityfind.js for their search.
@@ -259,9 +260,9 @@ export function renderIndex(cities, { lang = 'en', site = SITE, t0 = Date.now() 
     : `Tonight's planets, Moon, ISS passes and sky darkness for ${list.length} cities in ${keys.length} countries.`;
   const canonical = hi ? `${site}sky/hi/` : `${site}sky/`;
   const ld = { '@context': 'https://schema.org', '@type': 'CollectionPage', name: title, description: desc, url: canonical, inLanguage: lang, dateModified: new Date(t0).toISOString() };
-  const body = keys.map(k => {
+  const body = keys.map(k => {   // each country's heading has its code as id: sky/#in is the Indian cities (india/ links there)
     const cs = groups.get(k).sort((a, b) => coll.compare(nameIn(a, lang), nameIn(b, lang)));
-    return `<h2>${esc(k)}</h2>\n<ul>${cs.map(c => `<li><a href="${c.slug}/">${esc(nameIn(c, lang))}</a>`).join('')}</ul>`;
+    return `<h2 id="${esc(cs[0].cc.toLowerCase())}">${esc(k)}</h2>\n<ul>${cs.map(c => `<li><a href="${c.slug}/">${esc(nameIn(c, lang))}</a>`).join('')}</ul>`;
   }).join('\n');
   return head({ lang, title, desc, canonical, alternates: [], ld, css: hi ? '../sky.css' : 'sky.css', ogLocale: hi ? 'hi_IN' : 'en_US' }) + `<body>
 <header><nav aria-label="${hi ? 'रास्ता' : 'Breadcrumb'}"><a href="${hi ? '../../' : '../'}">Open Overwatch</a> · ${hi ? '<a href="../" hreflang="en" lang="en">English</a> · <a href="../../india/hi/">भारत</a>' : '<a href="hi/" hreflang="hi" lang="hi">हिन्दी</a>'}</nav></header>

@@ -46,6 +46,10 @@ const links = (html, rel) => [...html.matchAll(/<link rel="(\w+)"(?: hreflang="(
 const ld = html => JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
 const cities = loadCities(FIXTURE), [pune, nyc] = cities;
 const atlas = await decodeAtlas(readFileSync(new URL('../data/lightpollution.bin', import.meta.url)));
+// the repository's sky/: only the stand-ins for the two lists (so links to sky/ resolve in the download and locally)
+const STAND_INS = ['hi/index.html', 'index.html'];
+const repoSky = (d = join(ROOT, 'sky'), pre = '') => readdirSync(d, { withFileTypes: true })
+  .flatMap(e => e.isDirectory() ? repoSky(join(d, e.name), pre + e.name + '/') : [pre + e.name]).sort();
 const hm = (ms, timeZone) => new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone }).format(ms);
 
 test('the files: a page per city, Hindi only for Indian cities, the lists, the stylesheet and the sitemap', () => {
@@ -55,8 +59,23 @@ test('the files: a page per city, Hindi only for Indian cities, the lists, the s
   assert.ok(!existsSync(join(out, 'sky.tmp')), 'the temporary folder is moved into place');
   assert.equal(result.cities, 3);
   assert.equal(result.iss, !!sl, 'ISS passes from the site\'s element-set copy');
-  assert.ok(!existsSync(join(ROOT, 'sky')), 'the pages are build output, never in the repository');
+  assert.deepEqual(repoSky(), STAND_INS, 'the pages are build output: the repository holds only the stand-ins for the lists');
   assert.throws(() => writePages(ROOT, { t0: T0, cities }), /build output/);
+});
+
+test('a run replaces the committed stand-ins (sky/ and sitemap-sky.xml, copied into the site by build_site.py)', () => {
+  const site = mkdtempSync(join(tmp, 'stand-ins-'));
+  for (const f of [...STAND_INS.map(f => 'sky/' + f), 'sitemap-sky.xml']) {
+    mkdirSync(join(site, f, '..'), { recursive: true });
+    writeFileSync(join(site, f), readFileSync(join(ROOT, f)));
+  }
+  writePages(site, { t0: T0, cities, site: SITE });
+  const list = readFileSync(join(site, 'sky', 'index.html'), 'utf8'), hi = readFileSync(join(site, 'sky', 'hi', 'index.html'), 'utf8');
+  assert.ok(list.includes('<a href="pune/">Pune</a>') && hi.includes('<a href="pune/">'), 'the real lists');
+  assert.ok(!list.includes('stand-in') && !hi.includes('stand-in'));
+  assert.match(list, /<h2 id="in">India<\/h2>/, 'sky/#in (linked from india/) is the Indian cities');
+  assert.match(list, /<h2 id="us">United States<\/h2>/);
+  assert.match(readFileSync(join(site, 'sitemap-sky.xml'), 'utf8'), /sky\/pune\/<\/loc>/, 'the real sitemap');
 });
 
 test('titles, descriptions and headings: unique, with the city, in the page\'s language', () => {
@@ -269,5 +288,5 @@ test('the website build runs the generator after build_site.py, with Node set up
   assert.ok(ci.includes(yml.match(/uses: (actions\/setup-node@\S+)/)[1]), 'the same setup-node as CI');
   // the /v/ copies come from git archive of the tags in build_site.py, which runs first and never sees sky/
   assert.ok(!readFileSync(new URL('../.github/build_site.py', import.meta.url), 'utf8').includes("'sky'"));
-  assert.ok(!readdirSync(ROOT).includes('sky'));
+  assert.deepEqual(repoSky(), STAND_INS);
 });

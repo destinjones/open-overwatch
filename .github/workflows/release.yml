@@ -20,7 +20,7 @@ jobs:
           mkdir -p "$D/docs" && cp docs/DATA_SOURCES.md "$D/docs/"                                 # the data terms NOTICE points at
           cp open-overwatch.html globe.html solar.html tonight.html manifest.webmanifest sw.js offline.html serve.js serve.py README.txt \
              "Start Open Overwatch.bat" "Start Open Overwatch (minimized).vbs" LICENSE NOTICE "$D/"
-          cp index.html about.html guide.html "$D/" && cp -r india "$D/"                           # the pages the views link to
+          cp index.html about.html guide.html "$D/" && cp -r india teach sky "$D/"                 # the pages the views link to (sky/: the stand-ins that point at the website's city pages)
           cp -r brand/emblem brand/fonts brand/sprites brand/lander brand/about brand/india "$D/brand/"
           rm -rf "$D/brand/sprites/raw" "$D/brand/lander/icons/"*.png "$D/brand/india/og-card.html"   # sources, not served
           cp brand/hero/*.webp "$D/brand/hero/"

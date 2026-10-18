@@ -1,4 +1,5 @@
 # Open Overwatch. The archived copies of earlier versions live under /v/ and are not for search results.
+# sitemap.xml is a sitemap index: the site's pages (sitemap-pages.xml) and the city sky pages (sitemap-sky.xml).
 User-agent: *
 Allow: /
 Disallow: /v/

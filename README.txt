@@ -41,7 +41,8 @@ FILES
   globe.html                 the 3D globe (CesiumJS from jsdelivr; models and textures in brand/)
   solar.html                 the Solar System, out to the Local Group (three.js from jsdelivr)
   tonight.html               what is up in your sky tonight
-  index.html                 the home page; about.html (the creator), guide.html (the user guide), india/ (India page)
+  index.html                 the home page; about.html (the creator), guide.html (the user guide), india/ (India page),
+                             teach/ (classroom activities); sky/ points at the city sky pages on the website
   src/                       the views' code (ES modules)
   data/                      orbits, stars, airports, runways, deep sky, light pollution and more, so the views
                              load them from this folder (the live feeds such as launches, flybys and satellite

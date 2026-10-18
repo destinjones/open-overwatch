@@ -150,6 +150,7 @@ Runs every `test/*.test.mjs` with Node's own runner. No dependencies except `sat
 | `provenance.test.mjs`, `liveprov.test.mjs`, `export.test.mjs` | confirmed, reported and stale, with the data time as the age; agreeing reports across feeds (aircraft, quakes, storms); the CSV, GeoJSON and KML exports |
 | `sri.test.mjs`, `localpaths.test.mjs` | the supply chain: CDN files at exact versions with matching hashes, a CSP on every page that matches its inline scripts, workers loading only `src/vendor/`; no local home folder in any published file |
 | `release.test.mjs`, `sitebuild.test.mjs`, `sitebudget.test.mjs` | the download zip's file list against what the pages fetch and link to, and `Publish Update.bat` catching up with `origin/main` before it tags and undoing the tag when the push fails; the site build's fallbacks (news, TLE ages) and the sitemap's git dates; the Pages budget (the newest 6 releases under `/v/<tag>/`, the dev-only folders off the site) |
+| `sitepages.test.mjs` | the folder pages wired into the site: `teach/` and the `sky/` stand-ins linked from the pages that should name them, in the sitemap index, the service worker, the zip and the CSP and accessibility checks |
 | `whatsnew.test.mjs` | the What's new card and the install sheet's images; it fails when a version has a CHANGELOG.md heading but no date in `src/core/whatsnew.js` |
 | `landing.test.mjs`, `india.test.mjs` | the landing pages promise only what the website shows (live aircraft only with the download), no hand-kept numbers, lighter on phones; the India page's links, both languages, no tracking, and its ISRO mission links (date-sensitive, below) |
 
@@ -485,7 +486,7 @@ As it is today:
    folders (`SKIP_ROOT`: brand/source/, brand/blend/, .github/, brand/models/previews/, test/, e2e/, notes/, relay/,
    mcp-worker/, brand/clip/) are left off the site, except the files
    a page loads (`KEEP_ROOT`). It writes `versions.json` for the landing page's version picker (every tag; `online` is
-   how many have a frozen copy, `keep` the budget) and `sitemap.xml` with each page's `lastmod` from git, and refreshes
+   how many have a frozen copy, `keep` the budget) and `sitemap-pages.xml` with each page's `lastmod` from git, and refreshes
    the feed copies (TLE groups, launches, crew, flybys, close approaches, headlines, wind). A copy it can't refresh keeps
    the live site's last good one. It also stamps `sw.js`'s `BUILD` with the version and commit, so every published
    version is a new service worker (visitors get a "new version" prompt). `pages.yml` warns when the site passes 900 MB
@@ -507,8 +508,10 @@ As it is today:
    `src/core/` modules the server imports (`test/npmpack.test.mjs`); the `.mcpb` still carries all of `src/core/`.
    Links in `mcp/README.md` (the npm page) must be absolute, `../`, `./` or `#anchors`.
 
-After a release: tick `ROADMAP.md` and note anything learned in NOTES.md. `sitemap.xml` needs no hand edits (the
-build dates it from git); a new page only needs its `<url>` line there.
+After a release: tick `ROADMAP.md` and note anything learned in NOTES.md. `sitemap.xml` is a sitemap index of
+`sitemap-pages.xml` (the site's pages: no hand edits to dates, the build takes them from git; a new page only needs its
+`<url>` line there) and `sitemap-sky.xml` (the city sky pages, written at each deploy by `make_sky_pages.mjs` over a
+stand-in; `sky/` in the repo holds only stand-ins for its two lists, so links to `sky/` resolve in the download and locally).
 
 ## 11. House rules
 

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The site's own pages, one of the two lists sitemap.xml (a sitemap index) names; the other is sitemap-sky.xml, the city
+     sky pages. Add a url entry here by hand for a new page: the site build (.github/build_site.py date_sitemap) rewrites each
+     lastmod to the day that page last changed in git. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url><loc>https://destinjones.github.io/open-overwatch/</loc><lastmod>2026-10-17</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://destinjones.github.io/open-overwatch/india/</loc><lastmod>2026-10-17</lastmod><changefreq>weekly</changefreq><priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en-IN" href="https://destinjones.github.io/open-overwatch/india/"/>
+    <xhtml:link rel="alternate" hreflang="hi-IN" href="https://destinjones.github.io/open-overwatch/india/hi/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://destinjones.github.io/open-overwatch/india/"/></url>
+  <url><loc>https://destinjones.github.io/open-overwatch/india/hi/</loc><lastmod>2026-10-17</lastmod><changefreq>weekly</changefreq><priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en-IN" href="https://destinjones.github.io/open-overwatch/india/"/>
+    <xhtml:link rel="alternate" hreflang="hi-IN" href="https://destinjones.github.io/open-overwatch/india/hi/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://destinjones.github.io/open-overwatch/india/"/></url>
+  <url><loc>https://destinjones.github.io/open-overwatch/about.html</loc><lastmod>2026-10-17</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://destinjones.github.io/open-overwatch/guide.html</loc><lastmod>2026-10-17</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://destinjones.github.io/open-overwatch/teach/</loc><lastmod>2026-10-17</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://destinjones.github.io/open-overwatch/tonight.html</loc><lastmod>2026-10-17</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://destinjones.github.io/open-overwatch/globe.html</loc><lastmod>2026-10-17</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://destinjones.github.io/open-overwatch/solar.html</loc><lastmod>2026-10-14</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://destinjones.github.io/open-overwatch/open-overwatch.html</loc><lastmod>2026-10-17</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+</urlset>
