@@ -137,6 +137,17 @@ test('lists: missions that failed to load say so with Try again, not a bare tabl
   world.layer('craft').failed = false;
 });
 
+test('lists: Try again pressed from the keyboard leaves the focus on Close, not <body>, once its button is gone', () => {
+  world.layer('craft').failed = true;
+  const p = lists({ craftRows: [], retry: () => new Promise(() => {}) });
+  p.L.show('missions');
+  p.document.activeElement = { inside: '#listB', dataset: { retry: 'craft' } };
+  p.click({ closest: s => (s.startsWith('[data-jump]') ? { dataset: { retry: 'craft' } } : null) });
+  assert.match(p.box(), /Loading the spacecraft/);
+  assert.equal(p.document.activeElement, p.el('#listX'), 'the Close button has the focus');
+  world.layer('craft').failed = false;
+});
+
 test('lists: the 2 s refresh waits while a keyboard user is inside the list', () => {
   const p = lists(); p.L.show('missions');
   p.box(); p.els['#listB'].innerHTML = 'kept';
@@ -166,7 +177,8 @@ function search() {
   const q = dom.el('#q'), hits = dom.el('#hits');
   const type = v => { q.value = v; q.listeners.input(); };
   const key = k => q.listeners.keydown({ key: k, preventDefault() {} });
-  return { q, hits, type, key, flights };
+  const focus = () => q.listeners.focus();
+  return { q, hits, type, key, focus, flights };
 }
 test('search: Enter in a one-letter or emptied box does not fly to a stale, hidden result', () => {
   const s = search();
@@ -180,6 +192,20 @@ test('search: Enter in a one-letter or emptied box does not fly to a stale, hidd
   assert.deepEqual(s.flights, ['mars'], 'Enter in the emptied box does not repeat the flight');
   s.type('Mars'); s.key('Escape'); s.key('Enter');
   assert.deepEqual(s.flights, ['mars'], 'nor after Escape hid the list');
+  assert.equal(s.hits.style.display, 'block', 'that Enter shows the results again');
+  s.key('Enter');
+  assert.deepEqual(s.flights, ['mars', 'mars'], 'and the next Enter flies');
+});
+
+test('search: back in a box that still says "Mars" after a tap outside, the results show again and Enter flies', () => {
+  const s = search();
+  s.type('Mars'); s.hits.style.display = 'none';   // the document click handler hid them
+  s.focus();
+  assert.equal(s.hits.style.display, 'block');
+  s.key('Enter');
+  assert.deepEqual(s.flights, ['mars']);
+  s.type('M'); s.hits.style.display = 'none'; s.focus();
+  assert.equal(s.hits.style.display, 'none', 'a one-letter box shows nothing');
 });
 
 // ---------------------------------------------------------------- Under the hood
@@ -272,6 +298,10 @@ test('solar.html: the credits stay reachable on a phone (a menu button opens the
   for (const who of ['Solar System Scope', 'HYG', 'Phobos: ESA/DLR/FU Berlin']) assert.ok(html.slice(html.indexOf('<div id="credits"')).includes(who), who);
   const ui = read('src/solar/ui.js');
   assert.match(ui, /creditsBtn\.onclick = \(\) => showCredits/);
+  assert.match(ui, /\$\('#creditsX'\)\.onclick = \(\) => \{ showCredits\(false\); \$\('#menuBtn'\)\.focus\(\); \}/, 'the X hands the focus to the menu button');
+  assert.match(ui, /\$\('#menuBtn'\)\.onclick = \(\) => \{ if \(\$\('#dock'\)\.classList\.toggle\('open'\)\) showCredits\(false\); \}/, 'opening the menu closes the sheet');
+  const card = ui.slice(ui.indexOf('function showCard'), ui.indexOf("$('#cardB').innerHTML"));
+  assert.match(card, /if \(innerWidth <= 900\) \{[^}]*showCredits\(false\)/, 'a new card on a phone closes the sheet too');
 });
 
 test('solar.html: the description counts what the view really has', () => {
@@ -324,7 +354,7 @@ test('boot watchdog: a blocked CDN says so, with Reload, the 3D globe and Home',
   const p = page();
   p.fire({ target: { tagName: 'SCRIPT', src: 'https://example.org/src/solar/main.js' } });
   p.run(5000);
-  assert.match(p.msg.textContent, /The 3D engine could not load \(network or a blocker\)/);
+  assert.match(p.msg.textContent, /could not load \(network or a blocker\)\. Its 3D engine comes from cdn\.jsdelivr\.net/);
   assert.ok(p.load.classList.contains('fail'));
   const [reload, globe, home] = p.links();
   assert.deepEqual([reload.textContent, globe.textContent, home.textContent], ['Reload', '3D globe', 'Home']);
@@ -343,7 +373,8 @@ test('boot watchdog: slow, thrown, and what it ignores', () => {
   const quiet = page();
   quiet.fire(new quiet.win.ErrorEvent({ filename: 'chrome-extension://abc/content.js' })); quiet.fire({ target: { tagName: 'IMG' } });
   quiet.fire(new quiet.win.ErrorEvent({ filename: 'https://example.org/src/app/shell.js' }));
-  assert.equal(quiet.timers.length, 1, 'an extension, an image or the shell is not the view failing');
+  quiet.fire({ target: { tagName: 'SCRIPT', src: 'https://example.org/src/app/shell.js' } });
+  assert.equal(quiet.timers.length, 1, 'an extension, an image or the shell (thrown or failed to load) is not the view failing');
   const embed = page({ search: '?embed=1' });
   assert.equal(embed.timers.length + embed.listeners.length, 0, 'inside the globe it does nothing (the globe has its own)');
   const file = page({ protocol: 'file:' }); file.run();

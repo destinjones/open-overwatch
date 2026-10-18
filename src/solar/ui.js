@@ -75,16 +75,17 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
       if (it.title) b.title = it.title; else b.removeAttribute('title');
     }
   }
-  $('#menuBtn').onclick = () => $('#dock').classList.toggle('open');
   // phones (and the globe's embed at phone width) hide the credits line: the menu's Credits button opens it as a sheet
   const credits = $('#credits'), creditsBtn = $('#bCredits');
   const showCredits = on => {
+    if (!credits || !creditsBtn) return;
     credits.classList.toggle('open', on); creditsBtn.setAttribute('aria-expanded', String(on));
     if (on) { $('#dock').classList.remove('open'); $('#creditsX').focus({ preventScroll: true }); }
   };
+  $('#menuBtn').onclick = () => { if ($('#dock').classList.toggle('open')) showCredits(false); };   // the sheet would cover the menu
   if (credits && creditsBtn) {
     creditsBtn.onclick = () => showCredits(!credits.classList.contains('open'));
-    $('#creditsX').onclick = () => showCredits(false);
+    $('#creditsX').onclick = () => { showCredits(false); $('#menuBtn').focus(); };   // the X goes away: focus to the menu, not <body>
     credits.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); showCredits(false); $('#menuBtn').focus(); } });
   }
 
@@ -122,9 +123,10 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
     if (b && PHONE) $('#cap').classList.add('hide');
     if (!b) { $('#card').style.display = 'none'; delete $('#card').dataset.key; return; }
     if ($('#card').dataset.key === b.key && $('#card').style.display !== 'none') { $('#cardDl').innerHTML = rowsHtml(b); markTimeline(); return; }
-    if (innerWidth <= 900) {   // phones: the list and Under the hood sit where the card opens, and over it: a new card closes them
+    if (innerWidth <= 900) {   // phones: the list, Under the hood and the credits sheet sit where the card opens, and over it: a new card closes them
       if ($('#list') && $('#list').style.display !== 'none') $('#listX').click();
       if ($('#nerd') && !$('#nerd').hidden) $('#nerd .x').click();
+      if (credits?.classList.contains('open')) showCredits(false);
     }
     $('#cardB').innerHTML = `<div class="k">${esc(b.kind)}</div><h2>${esc(b.fullName || b.name)}</h2><dl id="cardDl">${rowsHtml(b)}</dl>${b.fact ? `<p>${esc(b.fact)}</p>` : ''}
       ${timelineHtml(b)}

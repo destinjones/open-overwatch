@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-P5skaw/CUJLcCGM1kcv/zrG7kvCOWsU/C6sLyGeX7cM=' 'sha256-4g6IFy3jZIsVr0D4turpDZpMhToQ3aT7b3lxYOo7hTs=' 'sha256-mZOx5U6ljt2sRxHa+8GZ8ibm1B0lub4H/YOEskQly+o='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-P5skaw/CUJLcCGM1kcv/zrG7kvCOWsU/C6sLyGeX7cM=' 'sha256-4g6IFy3jZIsVr0D4turpDZpMhToQ3aT7b3lxYOo7hTs=' 'sha256-phC9Zv54rkqoeMJ7ZYWn+9IEXzqjr8wJY36+67nQRDM='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <script>/* iOS ignores user-scalable=no: stop its page pinch-zoom too (the views handle pinch themselves) */ addEventListener('gesturestart', e => e.preventDefault(), { passive: false });</script>
 <meta name="theme-color" content="#000000">
@@ -243,7 +243,7 @@ a{color:var(--accent)}
   const show = () => {
     const load = document.getElementById('load'), msg = document.getElementById('loadMsg');
     if (!load || !msg || window.OOSS || location.protocol === 'file:') return;
-    msg.textContent = blocked ? 'The 3D engine could not load (network or a blocker). It comes from cdn.jsdelivr.net, which a network filter, firewall or browser extension may be blocking.'
+    msg.textContent = blocked ? 'Part of the Solar System view could not load (network or a blocker). Its 3D engine comes from cdn.jsdelivr.net, which a network filter, firewall or browser extension may be blocking.'
       : thrown ? 'The Solar System view could not start in this browser.'
       : 'The 3D engine is taking much longer than it should to load. A slow connection can take a while.';
     let links = document.getElementById('loadLinks');
@@ -256,10 +256,11 @@ a{color:var(--accent)}
     }
     load.classList.add('fail');
   };
-  // a script that failed to load, or an error thrown by the view's own code or the CDN library (not the shell, nor a
-  // browser extension or anything else the page did not ship)
+  // main.js's module graph failed to load (three.js or one of the view's own modules: the error lands on main.js's
+  // element and does not say which), or an error thrown by the view's own code or the CDN library (not the shell, which
+  // the view does not need, nor a browser extension or anything else the page did not ship)
   addEventListener('error', e => {
-    const t = e.target, script = !!t && t.tagName === 'SCRIPT', own = e instanceof ErrorEvent && /\/src\/(solar|core)\/|cdn\.jsdelivr\.net/.test(e.filename || '');
+    const t = e.target, script = !!t && t.tagName === 'SCRIPT' && /\/src\/solar\/main\.js$/.test(t.src || ''), own = e instanceof ErrorEvent && /\/src\/(solar|core)\/|cdn\.jsdelivr\.net/.test(e.filename || '');
     if (script) blocked = true; else if (own) thrown = true;
     if (script || own) setTimeout(show, 1500);
   }, true);

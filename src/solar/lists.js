@@ -92,7 +92,9 @@ export function createLists({ craft, comets, small, clock, find, eclipses, retry
     if (!open) return;
     const box = $('#listB'), a = document.activeElement, had = a && box.contains(a) ? focusKey(a) : null;
     box.innerHTML = open === 'missions' ? missionsHtml() : open === 'events' ? eventsHtml() : cometsHtml();
-    if (had) [...box.querySelectorAll(`[data-${had[0]}]`)].find(el => el.dataset[had[0]] === had[1])?.focus({ preventScroll: true });
+    if (!had) return;
+    const back = [...box.querySelectorAll(`[data-${had[0]}]`)].find(el => el.dataset[had[0]] === had[1]);
+    (back || $('#listX'))?.focus({ preventScroll: true });   // a Try again swapped for "Loading…": the Close button, not <body>
   }
   /** The 2 s refresh: not while a keyboard user is inside the list (they would lose their place; the numbers wait). */
   function tick() {
