@@ -6,7 +6,7 @@
 import { C, esc, fmt } from './env.js';
 import { scene, camera } from './viewer.js';
 import { fetchAsset } from '../core/assets.js';
-import { prepare, inCountry, countryAt, mainBox } from '../core/borders.js';
+import { prepare, inCountry, countryAt, mainBoxWrapped } from '../core/borders.js';
 import { Quakes } from './quakes.js';
 import { Lighthouses } from './lighthouses.js';
 import { Companies } from './companies.js';
@@ -56,10 +56,10 @@ export const Country = {
     return data.borders.filter(b => name(b).toLowerCase().includes(s)).map(b => ({ iso: b.iso, name: name(b) }))
       .sort((a, b) => b.name.toLowerCase().startsWith(s) - a.name.toLowerCase().startsWith(s) || a.name.localeCompare(b.name)).slice(0, n);
   },
-  rectangle(o) { const bx = mainBox(o.border); return C.Rectangle.fromDegrees(bx[0], bx[1], bx[2], bx[3]); },   // the biggest part: far islands do not drag the view
+  rectangle(o) { const bx = mainBoxWrapped(o.border); return C.Rectangle.fromDegrees(bx[0], bx[1], bx[2] > 180 ? bx[2] - 360 : bx[2], bx[3]); },   // the biggest part: far islands do not drag the view; one that crosses the antimeridian (Russia) has east < west, as Cesium wants
   fly(o) {
-    const r = this.rectangle(o), pad = Math.max(0.15 * (r.east - r.west), 0.02);
-    camera.flyTo({ destination: C.Rectangle.fromRadians(r.west - pad, Math.max(-1.45, r.south - pad), r.east + pad, Math.min(1.45, r.north + pad)), duration: 2.2 });
+    const r = this.rectangle(o), w = r.east < r.west ? r.east + 2 * Math.PI - r.west : r.east - r.west, pad = Math.max(0.15 * w, 0.02), wrap = x => (x > Math.PI ? x - 2 * Math.PI : x < -Math.PI ? x + 2 * Math.PI : x);
+    camera.flyTo({ destination: C.Rectangle.fromRadians(wrap(r.west - pad), Math.max(-1.45, r.south - pad), wrap(r.east + pad), Math.min(1.45, r.north + pad)), duration: 2.2 });
   },
 
   /** Card body: facts now, with slots (#cn*) that fill in as the live parts arrive (see after()). */

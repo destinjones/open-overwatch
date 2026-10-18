@@ -3,7 +3,7 @@
 // layer draws), with what is happening at them now: an eruption NASA EONET has open, and this week's earthquakes nearby
 // (USGS). Heights are left out: the list mixes metres and feet.
 import { ToolError } from './feeds.mjs';
-import { areaProps, resolveArea, distKm, frame, frameArea, globeUrl } from './place.mjs';
+import { areaProps, resolveArea, inArea, distKm, frame, frameArea, globeUrl } from './place.mjs';
 import { loadQuakes, loadEvents } from './hazards.mjs';
 import { r1, r2, km, ago, plural, areaData, limitProp, take } from './words.mjs';
 
@@ -23,9 +23,10 @@ export function volcanoesTool(ctx) {
       const cols = (d && d.cols) || [], ix = k => cols.indexOf(k);
       const [iN, iLat, iLon, iC, iT, iW] = ['name', 'lat', 'lon', 'country', 'type', 'wiki'].map(ix);
       if (iN < 0 || iLat < 0 || iLon < 0) throw new ToolError('The volcano list came back in an unexpected shape', 'unavailable');
-      const box = area.bbox && area.radiusKm > 150 ? area.bbox : null, t = ctx.now();   // a country or region: inside it; a town: around it (Vesuvius is not in Naples)
+      // a country or region: inside it (inArea: its box, or a round-the-world country's outline and coast); a town: around it (Vesuvius is not in Naples)
+      const box = !!(area.bbox || area.border) && area.radiusKm > 150, t = ctx.now();
       const radius = box ? null : Math.max(area.radiusKm, area.kind === 'point' ? 0 : 60);
-      const inside = (lat, lon) => (box ? (() => { const [w, s, e, n] = box; return lat >= s && lat <= n && (w <= e ? lon >= w && lon <= e : lon >= w || lon <= e); })() : distKm(area, lat, lon) <= radius);
+      const inside = (lat, lon) => (box ? inArea(area, lat, lon) : distKm(area, lat, lon) <= /** @type {number} */ (radius));
       /** @type {any[]} */ const list = [];
       for (const r of (d && d.rows) || []) {
         const lat = +r[iLat], lon = +r[iLon]; if (!Number.isFinite(lat) || !Number.isFinite(lon) || !inside(lat, lon)) continue;

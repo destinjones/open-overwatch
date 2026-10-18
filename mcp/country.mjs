@@ -3,11 +3,11 @@
 // (Wikidata, World Bank: the website's data/countries.json), its size from its outline (data/borders.json, simplified, so
 // "about"), this week's earthquakes in it and off its coast (USGS), NASA EONET's open events in it, tropical cyclones near
 // it (NOAA NHC, GDACS) and the weather in its capital now (Open-Meteo).
-import { prepare, inCountry, countryAt, mainBox } from '../src/core/borders.js';
+import { inCountry, countryAt, offCoast, mainBoxWrapped, boxContains, boxCentre, boxWidth } from '../src/core/borders.js';
 import { multiPolygonArea } from '../src/core/measure.js';
 import { weatherSentence } from '../src/core/voicecmd.js';
-import { ToolError, derive } from './feeds.mjs';
-import { geocode, frame, globeUrl } from './place.mjs';
+import { ToolError } from './feeds.mjs';
+import { geocode, frame, globeUrl, preparedBorders } from './place.mjs';
 import { loadQuakes, loadStorms, loadEvents } from './hazards.mjs';
 import { coord, big, ago, utc } from './words.mjs';
 
@@ -34,8 +34,7 @@ export function findCountry(facts, q) {
   return null;
 }
 
-/** data/borders.json's outlines, prepared for countryAt and inCountry once per isolate (on a copy: the answer stays as sent). */
-export const preparedBorders = b => derive(b, 'borders', x => prepare(Array.isArray(x) ? x.map(y => ({ ...y })) : []));
+export { preparedBorders };   // data/borders.json prepared once per isolate (mcp/place.mjs)
 
 export function countryTool(ctx) {
   const { feeds } = ctx, site = feeds.siteBase;
@@ -71,7 +70,7 @@ export function countryTool(ctx) {
       } else throw new ToolError('Say which country (country), or a place or point in it', 'invalid_arguments');
       const f = d.facts[iso] || {}, b = d.borders.find(x => x.iso === iso);
       const name = f.name || (b && b.name) || iso;
-      const box = b ? mainBox(b) : null, km2 = b ? multiPolygonArea(b.poly).area / 1e6 : null;
+      const box = b ? mainBoxWrapped(b) : null, km2 = b ? multiPolygonArea(b.poly).area / 1e6 : null;
 
       // the live parts, side by side; any one failing leaves its line out
       const capitalAt = f.capital ? geocode(feeds, `${f.capital}, ${name}`, signal).catch(() => null) : Promise.resolve(null);
@@ -89,10 +88,10 @@ export function countryTool(ctx) {
         const c = m && m.current;
         if (c) wx = { place: cap.label, time: c.time, timezone: m.timezone || null, temperature_c: c.temperature_2m, words: weatherSentence({ temp: c.temperature_2m, speed: c.wind_speed_10m, from: c.wind_direction_10m, cloud: c.cloud_cover, code: c.weather_code }) };
       }
-      const pad = 1.5, near = (lat, lon) => box && lat >= box[1] - pad && lat <= box[3] + pad && lon >= box[0] - pad && lon <= box[2] + pad;
-      const qIn = (quakes || []).filter(q => b && inCountry(b, q.lon, q.lat)), qOff = (quakes || []).filter(q => b && !inCountry(b, q.lon, q.lat) && near(q.lat, q.lon) && !countryAt(d.borders, q.lon, q.lat));
+      // off its coast: at sea, near one of its parts and nearer it than any other country (the Aleutians are not Russia's)
+      const qIn = (quakes || []).filter(q => b && inCountry(b, q.lon, q.lat)), qOff = (quakes || []).filter(q => b && !inCountry(b, q.lon, q.lat) && offCoast(d.borders, b, q.lat, q.lon));
       const evIn = (events || []).filter(e => b && inCountry(b, e.lon, e.lat));
-      const stNear = (storms || []).filter(s => box && s.lat >= box[1] - 8 && s.lat <= box[3] + 8 && s.lon >= box[0] - 8 && s.lon <= box[2] + 8);
+      const stNear = (storms || []).filter(s => box && boxContains(box, s.lat, s.lon, 8));
       const top = list => list.reduce((m, q) => (!m || q.magnitude > m.magnitude ? q : m), null);
 
       const facts = [f.capital && `Capital ${f.capital}`, f.cont, f.pop && `population ${big(f.pop)} (${f.popYear})`, km2 && `about ${big(km2)} km² (from its outline)`,
@@ -107,7 +106,8 @@ export function countryTool(ctx) {
       if (storms) out.push(stNear.length ? `Tropical cyclones near it: ${stNear.map(s => `${s.class} ${s.name} at ${coord(s.lat, s.lon)}${s.wind_kt ? `, ${s.wind_kt} kt` : ''}`).join('; ')}.` : 'No active tropical cyclones near it.');
       if (wx) out.push(`In ${f.capital} now (${String(wx.time).replace('T', ' ')} local): ${wx.words}.`);
       if (employers && employers.length) out.push(`Biggest employers headquartered there: ${employers.map(e => `${e.name}${e.employees ? ` (${big(e.employees)})` : ''}`).join(', ')}.`);
-      const camera = box ? frame((box[1] + box[3]) / 2, (box[0] + box[2]) / 2, Math.max(60, Math.min(4000, Math.max((box[3] - box[1]) * 111.32, (box[2] - box[0]) * 111.32 * Math.cos((box[1] + box[3]) / 2 * Math.PI / 180)) * 0.6))) : frame(f.lat || 0, f.lon || 0, 900);
+      const [cLon, cLat] = box ? boxCentre(box) : [f.lon || 0, f.lat || 0];
+      const camera = box ? frame(cLat, cLon, Math.max(60, Math.min(4000, Math.max((box[3] - box[1]) * 111.32, boxWidth(box) * 111.32 * Math.cos(cLat * Math.PI / 180)) * 0.6))) : frame(cLat, cLon, 900);
       const url = globeUrl(site, { camera, country: iso, on: ['quakes'] });
       out.push(`${name} on the globe (its outline and card): ${url}`);
       return { text: out.join('\n'), data: {

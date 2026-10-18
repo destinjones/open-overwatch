@@ -3,7 +3,7 @@
 // by road, bike or on foot (OSRM over OpenStreetMap, the same router as the globe's Directions); the bearing to set off on,
 // the halfway point, and for several places the whole path. Its link opens the globe with the line drawn (the drawing
 // travels in the link, core/measure.js), so the person sees the route the globe's own measuring tool would draw.
-import { inverse, midpoint, pathLength, lengthText, bearingText, choosePair } from '../src/core/measure.js';
+import { inverse, midpoint, centre, pathLength, lengthText, bearingText, choosePair } from '../src/core/measure.js';
 import { ToolError } from './feeds.mjs';
 import { geocodeMany, frame, globeUrl } from './place.mjs';
 import { r1, r2, coord } from './words.mjs';
@@ -82,7 +82,7 @@ export function distanceTool(ctx) {
       if (road) out.push(`${MODE_WORD[by][0].toUpperCase() + MODE_WORD[by].slice(1)}: ${L(road.m)}, about ${hm(road.s)} (OSRM; ${r1(road.m / total)} times the straight line).`);
       // the drawing: a distance arrow (re-routed by road on arrival) for two places, a line through more
       const shape = pts.length === 2 ? { kind: 'arrow', coords: pts.map(p => [p.lon, p.lat]), ...(by === 'drive' ? { road: true } : {}) } : { kind: 'line', coords: pts.map(p => [p.lon, p.lat]) };
-      const c = pts.length === 2 ? { lat: mid[1], lon: mid[0] } : { lat: pts.reduce((s, p) => s + p.lat, 0) / pts.length, lon: pts.reduce((s, p) => s + p.lon, 0) / pts.length };
+      const [cLon, cLat] = pts.length === 2 ? mid : centre(pts.map(p => [p.lon, p.lat])), c = { lat: cLat, lon: cLon };   // the mean direction: a Pacific path is framed over the Pacific
       const span = Math.max(...pts.map(p => inverse(c.lat, c.lon, p.lat, p.lon).s)) / 1000;
       const url = globeUrl(site, { camera: frame(c.lat, c.lon, Math.max(0.3, span * 1.15)), drawing: [shape] });
       out.push(`The line on the globe: ${url}`);

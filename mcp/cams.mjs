@@ -11,6 +11,7 @@ import { areaProps, resolveArea, frame, globeUrl } from './place.mjs';
 import { iso, r2, km, plural, areaData, limitProp, take, base64 } from './words.mjs';
 
 const MAX_PICTURE = 1.5e6;   // bytes: a camera still is 20-300 KB; anything bigger is not one
+const PICTURE_DEADLINE_MS = 15e3;   // for all of a call's pictures together (ctx.pictureDeadlineMs in the tests)
 
 export function camerasTool(ctx) {
   const { feeds } = ctx, site = feeds.siteBase;
@@ -21,11 +22,29 @@ export function camerasTool(ctx) {
     return n.parse(d);
   }
   /** The camera's latest still as MCP image content, or null (no still, or the agency did not send a picture). */
-  async function picture(cam, signal) {
+  async function picture(cam, signal, timeout) {
     if (!cam.image) return null;
-    const got = await feeds.bytes(cam.image, { ttl: 30e3, timeout: 15e3, maxBytes: MAX_PICTURE, headers: { Accept: 'image/*' }, signal }).catch(() => null);
+    const got = await feeds.bytes(cam.image, { ttl: 30e3, timeout, maxBytes: MAX_PICTURE, headers: { Accept: 'image/*' }, signal }).catch(() => null);
     const type = got && imageType(got.bytes);
     return type ? { data: base64(got.bytes), mimeType: type } : null;
+  }
+  /** The latest pictures of the nearest `want` cameras that have one: at most want + 2 tried, all at once, under one deadline
+   *  (an agency's picture host that hangs costs the call that deadline once, not 15 s a camera). Nearest first; what has not
+   *  arrived by then is left out, and the list still answers. A cancelled call throws. */
+  async function pictures(shown, want, signal) {
+    const tries = want > 0 ? shown.filter(c => c.online !== false && c.image).slice(0, want + 2) : [];
+    if (!tries.length) return [];
+    if (signal && signal.aborted) throw signal.reason;
+    const deadline = ctx.pictureDeadlineMs ?? PICTURE_DEADLINE_MS, stop = new AbortController(), got = new Array(tries.length).fill(null);
+    const cancel = () => stop.abort(signal && signal.reason);
+    if (signal) signal.addEventListener('abort', cancel, { once: true });
+    let timer;
+    try {
+      await Promise.race([Promise.allSettled(tries.map((c, i) => picture(c, stop.signal, deadline).then(p => { got[i] = p; }))),
+        new Promise(res => { timer = setTimeout(res, deadline); stop.signal.addEventListener('abort', res, { once: true }); })]);
+    } finally { clearTimeout(timer); stop.abort(); if (signal) signal.removeEventListener('abort', cancel); }
+    if (signal && signal.aborted) throw signal.reason;
+    return tries.flatMap((cam, i) => (got[i] ? [{ cam, ...got[i] }] : [])).slice(0, want);
   }
 
   return {
@@ -50,13 +69,7 @@ export function camerasTool(ctx) {
       if (!cams.length && failed.length) throw new ToolError(`The camera list${failed.length > 1 ? 's' : ''} for ${area.label} did not load (${failed.map(f => CAM_NETS[f.failed].name).join(', ')}): ${failed[0].why}`, 'unavailable');
       const seen = new Set(), near = camsNear(cams.filter(c => !seen.has(c.id) && seen.add(c.id)), area.lat, area.lon, radius);
       const shown = take(near, a.limit || 8), want = Math.min(a.pictures ?? 1, shown.length);
-      const pics = [];
-      for (const c of shown) {   // the nearest ones that have a picture right now
-        if (pics.length >= want) break;
-        if (c.online === false || !c.image) continue;
-        const p = await picture(c, signal);
-        if (p) pics.push({ cam: c, ...p });
-      }
+      const pics = await pictures(shown, want, signal);   // the nearest ones that have a picture right now
       const rows = shown.map(c => {
         const pose = estimatePose(c), net = netOf(c), pic = pics.find(p => p.cam === c);
         return { provenance: lineFor('cameras', [rep('cameras', { name: net ? net.name : String(c.net || 'camera network'), dataAt: c.t || null })]), id: c.id, name: String(c.name || 'Camera'), network: net ? net.name : c.net, view: c.view || null, lat: +c.lat.toFixed(5), lon: +c.lon.toFixed(5), distance_km: r2(c.km),
