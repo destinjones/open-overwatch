@@ -39,7 +39,7 @@ export function aircraftTool(ctx) {
       // "~" marks a non-ICAO address (a TIS-B track number, an anonymous address): its digits belong to some other, real
       // airframe, so it is never looked up as one; with a callsign only the route is
       const anon = reg && reg.startsWith('~') ? reg.toLowerCase() : '';
-      if (anon && !cs) throw new ToolError(`${anon} is a non-ICAO address (a TIS-B track or an anonymous one, marked "~"): it names no airframe to look up. Give the flight's callsign instead`, 'not_found');
+      if (anon && !cs) throw new ToolError(`${anon} is a non-ICAO address (a TIS-B track or an anonymous one, marked "~"): it names no airframe to look up. Give the flight's callsign instead`, 'invalid_arguments');
       if (anon) reg = '';
       const key = reg ? (HEX.test(reg) ? reg.replace(/^~/, '').toLowerCase() : reg.toUpperCase()) : '';
       const d = reg ? await ask(`aircraft/${encodeURIComponent(key)}${cs ? `?callsign=${encodeURIComponent(cs)}` : ''}`, `aircraft ${key}`, signal) : await ask(`callsign/${encodeURIComponent(cs)}`, `callsign ${cs}`, signal);

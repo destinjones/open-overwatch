@@ -17,7 +17,7 @@ export function parseTime(s, tz = null) {
   const m = ISO_TIME.exec(String(s ?? '').trim()); if (!m) return NaN;
   const [, y, mo, d, h = '00', mi = '00', se = '00', frac = '', z] = m;
   if (+mo < 1 || +mo > 12 || +d < 1 || +h > 23 || +mi > 59 || +se > 59) return NaN;
-  const wall = Date.UTC(+y, +mo - 1, +d, +h, +mi, +se) + (frac ? Math.round(parseFloat('0' + frac) * 1000) : 0);
+  const ms = frac ? Math.round(parseFloat('0' + frac) * 1000) : 0, wall = Date.UTC(+y, +mo - 1, +d, +h, +mi, +se) + ms;
   if (new Date(wall).getUTCDate() !== +d) return NaN;   // 31 February
   if (z) {
     if (/^(z|utc|gmt)$/i.test(z)) return wall;
@@ -25,7 +25,7 @@ export function parseTime(s, tz = null) {
     return wall - (sign === '-' ? -1 : 1) * (+oh * 60 + +om) * 60e3;
   }
   if (tz) {
-    try { const t = zonedToUtc(`${y}-${mo}-${d}T${h}:${mi}:${se}`, tz); if (Number.isFinite(t)) return t + (wall % 1000); } catch { /* an unknown zone: UTC */ }
+    try { const t = zonedToUtc(`${y}-${mo}-${d}T${h}:${mi}:${se}`, tz); if (Number.isFinite(t)) return t + ms; } catch { /* an unknown zone: UTC */ }
   }
   return wall;
 }

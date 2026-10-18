@@ -61,10 +61,10 @@ function page(site, version) {
     if (Array.isArray(c.availableDisplayModes)) fullBtn.hidden = !c.availableDisplayModes.includes('fullscreen');
   };
   // only links to the site's own pages are shown, the frame never goes anywhere else: the globe (with a view), the 3D
-  // Solar System (where_in_space's links) and the Tonight card
+  // Solar System (where_in_space's links) and the Tonight card, an archived copy's (v/<version>/...) too
   const pageOf = u => {
     if (typeof u !== 'string' || u.indexOf(cfg.site) !== 0) return null;
-    const m = /^(globe|solar|tonight)\\.html([?#]|$)/.exec(u.slice(cfg.site.length));
+    const m = /^(?:v\\/\\d[\\w.-]*\\/)?(globe|solar|tonight)\\.html([?#]|$)/.exec(u.slice(cfg.site.length));
     return !m ? null : m[1] === 'globe' ? (m[2] === '#' ? 'globe' : null) : m[1] === 'tonight' && m[2] === '?' ? null : m[1];
   };
   let page = null;   // the page in the frame
@@ -76,6 +76,7 @@ function page(site, version) {
     const src = kind === 'globe' ? u.replace('#', '#embed=1&') : u;   // the globe in embed mode; the other pages as they are
     if (kind !== page) {   // a new page loads; the same one only changes its hash and moves to the new view
       ready = false; page = kind;
+      frame.title = kind === 'globe' ? 'Open Overwatch: the live 3D Earth' : kind === 'solar' ? 'Open Overwatch: the 3D Solar System' : 'Open Overwatch: tonight\\'s sky';
       say(kind === 'globe' ? 'Loading the live globe…' : kind === 'solar' ? 'Loading the Solar System…' : 'Loading tonight\\'s sky…');
       clearTimeout(timer); timer = setTimeout(() => { if (!ready) say('The view has not appeared here. This app host may not allow it: open it in your browser instead.', true); }, 45000);
     }

@@ -171,7 +171,7 @@ export function spaceTool(ctx) {
         const what = hit.kind === 'dwarf planet' ? 'dwarf planet' : CLASS_WORDS[cls] || 'asteroid';
         words.push(`${/^[aeiou]/i.test(what) ? 'An' : 'A'} ${what}${row[4] ? `, about ${row[4] < 10 ? r1(row[4]) : Math.round(row[4]).toLocaleString('en-US')} km across` : ''}: around the Sun every ${r2(P)} years, ${r2(el.a * (1 - el.e))} to ${r2(el.a * (1 + el.e))} AU out.`);
         // two-body from one epoch: a close pass by a planet is not modelled (Apophis's 2029 Earth flyby above all)
-        const note = APOPHIS.test(row[2]) ? (jd < APOPHIS_FLYBY_JD - 1 ? APOPHIS_BEFORE : APOPHIS_AFTER)
+        const note = APOPHIS.test(row[2]) ? (jd < APOPHIS_FLYBY_JD ? APOPHIS_BEFORE : APOPHIS_AFTER)
           : cls === 'Near-Earth' && Math.abs(jd - small.epoch_jd) > 2 * 365.25 ? `A two-body estimate from its ${iso(msFromJd(small.epoch_jd)).slice(0, 4)} elements: close passes by the planets are not modelled, so this far from then it may be well off.` : null;
         if (note) { words.push(note); extra.accuracy_note = note; }
       }

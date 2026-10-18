@@ -53,16 +53,17 @@ const inTimeRange = ms => Number.isFinite(ms) && ms >= Date.UTC(1900, 0, 1) && m
 /**
  * Kp now from NOAA's Kp products ({ time_tag, Kp | kp, observed } rows, or arrays after a header): the latest observed or
  * estimated block that has begun, { t, kp, kind } or null. The rule of the globe's Earth-now card (core/earthnow.js
- * kpSummary, which the npm package does not carry: it imports the weather grids), so both say the same Kp.
+ * kpSummary, which the npm package does not carry: it imports the weather grids), so both say the same Kp. Rows older
+ * than maxAgeMs are skipped (the card's kpSeries keeps 72 h), so a stale product falls through to the next one.
  */
-export function kpNowFrom(doc, now) {
+export function kpNowFrom(doc, now, maxAgeMs = 72 * 3600e3) {
   let best = null;
   for (const r of Array.isArray(doc) ? doc : []) {
     const tag = Array.isArray(r) ? r[0] : r && r.time_tag, kp = parseFloat(Array.isArray(r) ? r[1] : r && (r.Kp ?? r.kp ?? r.kp_index));
     const kind = Array.isArray(r) ? (/^(observed|estimated|predicted)$/.test(r[2]) ? r[2] : 'observed') : (/^(observed|estimated|predicted)$/.test(r && r.observed) ? r.observed : 'observed');
     if (typeof tag !== 'string' || !Number.isFinite(kp) || kp < 0 || kp > 9 || kind === 'predicted') continue;
     const t = Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(tag) ? tag : tag.replace(' ', 'T') + 'Z');
-    if (!Number.isFinite(t) || t > now) continue;
+    if (!Number.isFinite(t) || t > now || t < now - maxAgeMs) continue;
     if (!best || t >= best.t) best = { t, kp, kind };
   }
   return best;
@@ -99,8 +100,9 @@ export function createTools(ctx) {
     async run(a, { signal }) {
       if (a.url) {
         let u; try { u = new URL(a.url); } catch { throw new ToolError('That url is not a link', 'invalid_arguments'); }
-        const own = new URL(site), page = u.pathname.startsWith(own.pathname) ? u.pathname.slice(own.pathname.length) : '';
-        // the site's own pages only: the globe, the 3D Solar System (where_in_space, solar_system) and the Tonight card (night_sky)
+        // the site's own pages only (an archived copy's too, v/<version>/…): the globe, the 3D Solar System (where_in_space,
+        // solar_system) and the Tonight card (night_sky)
+        const own = new URL(site), page = u.pathname.startsWith(own.pathname) ? u.pathname.slice(own.pathname.length).replace(/^v\/\d[\w.-]*\//, '') : '';
         const kind = u.origin !== own.origin ? null : page === 'globe.html' && !u.search ? 'globe' : page === 'solar.html' ? 'solar' : page === 'tonight.html' && !u.search ? 'tonight' : null;
         if (!kind) throw new ToolError(`Only Open Overwatch links (${site}globe.html#…, solar.html or tonight.html) can be shown`, 'invalid_arguments');
         if (kind === 'globe') return { text: `Showing it on the globe: ${u.href}`, data: { url: u.href, kind, view: decodeView(u.hash) } };
@@ -448,8 +450,10 @@ export function createTools(ctx) {
       const t = now();
       // Kp now as the globe's Earth-now card has it: the forecast product's latest observed or estimated block that has
       // begun; the observed-only product (finished blocks only, so a block behind) when the forecast has none
+      // (each within the last 72 h); failing both, the forecast's latest however old (its provenance says it is stale)
       let cur = kpNowFrom(fc, t);
       if (!cur) cur = kpNowFrom(await feeds.json(`${SWPC}products/noaa-planetary-k-index.json`, { ttl: 10 * 60e3, signal }).catch(() => null), t);
+      if (!cur) cur = kpNowFrom(fc, t, Infinity);
       if (!cur) throw new ToolError('NOAA SWPC sent no Kp readings', 'unavailable');
       const kpNow = cur.kp, at = cur.t, estimated = cur.kind === 'estimated';
       const ahead = new Map();

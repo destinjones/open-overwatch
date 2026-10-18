@@ -79,12 +79,11 @@ export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntr
     }
     if (!r.ok) throw new ToolError(`${u.hostname} answered HTTP ${r.status}${r.status === 429 ? ' (too many requests): try again later' : ''}`, r.status === 429 ? 'retry_later' : r.status === 404 ? 'not_found' : 'unavailable');
     if (+r.headers.get('content-length') > maxBytes) throw new ToolError(`${u.hostname} sent more than ${Math.round(maxBytes / 1e6)} MB`, 'unavailable');
-    if (as === 'json' && (r.status === 204 || r.headers.get('content-length') === '0')) return null;   // "nothing" (AWC's METAR for a field with none), not an unreadable answer
+    // 204 is "nothing" (AWC's METAR for a field with none), not an unreadable answer. An empty 200 stays unreadable, so a
+    // slip upstream keeps the last good answer (STALE_OK_MS) instead of remembering null over it.
+    if (as === 'json' && r.status === 204) return null;
     let b;
-    try {
-      if (as === 'json') { const s = await r.text(); b = s.trim() ? JSON.parse(s) : null; }
-      else b = as === 'bytes' ? new Uint8Array(await r.arrayBuffer()) : await r.text();
-    }
+    try { b = as === 'bytes' ? new Uint8Array(await r.arrayBuffer()) : as === 'json' ? await r.json() : await r.text(); }
     catch (e) { throw new ToolError(`${u.hostname} sent something unreadable`, 'unavailable'); }
     if (as === 'bytes') { if (b.length > maxBytes) throw new ToolError(`${u.hostname} sent more than ${Math.round(maxBytes / 1e6)} MB`, 'unavailable'); return { bytes: b, type: r.headers.get('content-type') || '' }; }
     return b;

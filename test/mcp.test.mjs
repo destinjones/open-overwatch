@@ -198,6 +198,15 @@ test('mcp: CelesTrak is never asked; answers are cached, and an old answer beats
   assert.deepEqual(await feeds.json('https://a.example/x', { ttl: 1000 }), { v: 1 }, 'stale but there'); assert.equal(n, 2);
   t = 2 * 864e5;
   await assert.rejects(feeds.json('https://a.example/x', { ttl: 1000 }), /did not answer/);
+  // 204 is "nothing" (null); an empty 200 is a slip upstream: unreadable, so the last good answer stands
+  let body = '{"v":2}', status = 200;
+  const f2 = createFeeds({ fetchImpl: async () => new Response(status === 204 ? null : body, { status }), now: () => t });
+  assert.deepEqual(await f2.json('https://b.example/x', { ttl: 1000 }), { v: 2 });
+  t += 5000; body = '';
+  assert.deepEqual(await f2.json('https://b.example/x', { ttl: 1000 }), { v: 2 }, 'an empty 200 keeps the stale copy');
+  await assert.rejects(f2.json('https://b.example/y', { ttl: 1000 }), /sent something unreadable/);
+  t += 5000; status = 204;
+  assert.equal(await f2.json('https://b.example/x', { ttl: 1000 }), null, 'a 204 is no answer at all');
 });
 
 test('mcp: framing, areas (an outline across the antimeridian too) and links in the globe\'s own format', () => {
@@ -397,6 +406,12 @@ test('mcp: the aurora: Kp now and ahead, the chance at a place, the oval on the 
   // without the forecast, the observed product
   const fb = ok(await call(serve(pretendInternet([['https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json', { status: 503 }], ...ROUTES])).server, 'aurora', {}));
   assert.equal(fb.structuredContent.kp_now, 5.67); assert.equal(fb.structuredContent.kp_kind, 'observed');
+  // a forecast product gone stale (nothing in the last 72 h) falls through to the observed product, as kpSeries does
+  const old = [{ time_tag: '2026-09-20T18:00:00', kp: 2.0, observed: 'estimated' }];
+  const st = ok(await call(serve(pretendInternet([['https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json', old], ...ROUTES])).server, 'aurora', {}));
+  assert.equal(st.structuredContent.kp_now, 5.67); assert.equal(st.structuredContent.kp_kind, 'observed');
+  const { kpNowFrom } = await import('../mcp/tools.mjs'), nowMs = Date.parse('2026-10-01T18:00:00Z');
+  assert.equal(kpNowFrom(old, nowMs), null); assert.equal(kpNowFrom(old, nowMs, Infinity).kp, 2, 'the last resort: however old');
 });
 
 test('mcp: space weather: the solar wind and Bz, flares, SWPC warnings, each with its data age', async () => {
@@ -451,7 +466,8 @@ test('mcp: show_on_globe builds a view, or shows another answer\'s link, and onl
   assert.deepEqual([sol.kind, sol.view, sol.solar.focus], ['solar', null, 'planet:mars']);
   assert.equal(ok(await call(server, 'show_on_globe', { url: SITE + 'solar.html?focus=mars' })).structuredContent.kind, 'solar');
   assert.equal(ok(await call(server, 'show_on_globe', { url: SITE + 'tonight.html#p=60.17,24.94' })).structuredContent.kind, 'tonight');
-  for (const url of ['https://example.com/open-overwatch/solar.html#f=planet%3Amars', SITE + 'v/solar.html#f=x', SITE + 'about.html', SITE + 'globe.html?x=1#c=1,2,3']) {
+  assert.equal(ok(await call(server, 'show_on_globe', { url: SITE + 'v/0.9.2.13/globe.html#c=1,2,3' })).structuredContent.kind, 'globe', 'an archived copy of the site');
+  for (const url of ['https://example.com/open-overwatch/solar.html#f=planet%3Amars', SITE + 'v/solar.html#f=x', SITE + 'v/0.9.2.13/about.html',SITE + 'about.html', SITE + 'globe.html?x=1#c=1,2,3']) {
     const r = await call(server, 'show_on_globe', { url }); assert.equal(r.isError, true, url);
   }
   // a time without a zone is UTC, or the place's clock with a place, whichever host runs this (not the host's own zone)
@@ -470,7 +486,8 @@ test('mcp: the globe panel frames only the site\'s globe (with a view), its Sola
   const src = /** @type {RegExpMatchArray} */ (js.match(/const pageOf = [\s\S]*?\n {2}\};/))[0];
   const pageOf = new Function('cfg', `${src}; return pageOf;`)({ site: SITE });
   assert.deepEqual([SITE + 'globe.html#c=1,2,3', SITE + 'solar.html#f=planet%3Amars', SITE + 'solar.html?focus=mars', SITE + 'tonight.html#p=1,2'].map(pageOf), ['globe', 'solar', 'solar', 'tonight']);
-  for (const u of [SITE + 'globe.html', SITE + 'about.html', SITE + 'v/globe.html#c=1', 'https://example.com/globe.html#c=1', SITE + 'tonight.html?x', null]) assert.equal(pageOf(u), null, String(u));
+  assert.equal(pageOf(SITE + 'v/0.9.2.13/globe.html#c=1,2,3'), 'globe', 'an archived copy of the site');
+  for (const u of [SITE + 'globe.html', SITE + 'about.html', SITE + 'v/globe.html#c=1', SITE + 'v/x/globe.html#c=1','https://example.com/globe.html#c=1', SITE + 'tonight.html?x', null]) assert.equal(pageOf(u), null, String(u));
   assert.match(js, /frame\.addEventListener\('load'/, 'pages without oo:ready lift the veil when loaded');
 });
 
@@ -1054,7 +1071,7 @@ test('mcp: aircraft lookup by registration, by hex with a callsign, by callsign;
   assert.ok(both.structuredContent.aircraft && both.structuredContent.route);
   // "~" marks a non-ICAO address: its digits belong to another airframe, so it is never looked up as one
   const tilde = await call(server, 'aircraft_lookup', { aircraft: '~40688b' });
-  assert.equal(tilde.isError, true); assert.match(tilde.content[0].text, /non-ICAO address/); assert.equal(tilde.structuredContent.error, 'not_found');
+  assert.equal(tilde.isError, true); assert.match(tilde.content[0].text, /non-ICAO address/); assert.equal(tilde.structuredContent.error, 'invalid_arguments');
   const tcs = ok(await call(server, 'aircraft_lookup', { aircraft: '~40688B', callsign: 'BAW15' })).structuredContent;
   assert.equal(tcs.aircraft, undefined, 'no airframe for a "~" address'); assert.equal(tcs.non_icao_address, '~40688b'); assert.equal(tcs.route.callsign, 'BAW15');
   assert.match(ok(await call(server, 'aircraft_lookup', { callsign: 'ZZZ9' })).content[0].text, /ZZZ9 is flown by Zed Air \(Nowhere\); no route on file/);
@@ -1076,6 +1093,8 @@ test('mcp: where in space: a mission, an asteroid read by byte range, a comet, a
   assert.match(a.content[0].text, /Its Earth flyby on 13 April 2029 .* is not modelled here/); assert.match(ad.accuracy_note, /13 April 2029/);
   const a31 = ok(await call(server, 'where_in_space', { name: 'Apophis', time: '2031-04-13T00:00Z' }));
   assert.match(a31.content[0].text, /at or after its 13 April 2029 Earth flyby .* may be off by tenths of an AU/, 'two-body after the flyby: said, not hidden');
+  const aEve = ok(await call(server, 'where_in_space', { name: 'Apophis', time: '2029-04-13T12:00Z' }));   // hours before closest approach
+  assert.match(aEve.content[0].text, /Its Earth flyby on 13 April 2029 .* is not modelled here/); assert.doesNotMatch(aEve.content[0].text, /at or after/);
   const brooks = ok(await call(server, 'where_in_space', { name: '16P' })), bd = brooks.structuredContent;
   assert.equal(bd.kind, 'comet'); assert.equal(bd.position_uncertain, true); assert.equal(bd.orbit_epoch.slice(0, 4), '2016');
   assert.match(brooks.content[0].text, /Orbit data from 2016: placed two-body from then, so it may be well off its real place/);
@@ -1282,6 +1301,7 @@ test('mcp: a time without a zone reads the same on every host: UTC, or the place
   assert.equal(at(parseTime('2026-12-25')), '2026-12-25T00:00:00.000Z'); assert.equal(at(parseTime('2026-12-25T21:00Z')), '2026-12-25T21:00:00.000Z');
   assert.equal(at(parseTime('2026-12-25T21:00+05:30')), '2026-12-25T15:30:00.000Z'); assert.equal(at(parseTime('2026-12-25T21:00-0500')), '2026-12-26T02:00:00.000Z');
   assert.equal(at(parseTime('2026-12-25T21:00 UTC')), '2026-12-25T21:00:00.000Z');
+  assert.equal(at(parseTime('1850-01-01T12:00:00.5', 'UTC')), '1850-01-01T12:00:00.500Z', 'a fraction before 1970, on the zone path');
   assert.equal(at(parseTime('2026-12-25T21:00', 'Asia/Kolkata')), '2026-12-25T15:30:00.000Z'); assert.equal(at(parseTime('2026-12-25T21:00Z', 'Asia/Kolkata')), '2026-12-25T21:00:00.000Z', 'an explicit zone wins');
   assert.equal(at(parseTime('2026-07-01T12:00', 'America/New_York')), '2026-07-01T16:00:00.000Z', 'summer time'); assert.equal(at(parseTime('2026-12-25T21:00', 'Not/AZone')), '2026-12-25T21:00:00.000Z');
   for (const bad of ['yesterday', '2026-02-31T10:00', '2026-13-01', '2026-12-25T25:00', 'Dec 25 2026 21:00', '', null]) assert.ok(Number.isNaN(parseTime(bad)), String(bad));
