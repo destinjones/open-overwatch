@@ -62,7 +62,8 @@ test('the pages that should name them link to /sky/ and /teach/', () => {
   }
 });
 
-test('the service worker saves /teach/ for offline use, never the 6-hourly sky pages', () => {
+test('the service worker precaches /teach/ for offline use; the 6-hourly sky pages are not in the precache list', () => {
+  // how the worker then handles sky/ (network first in every build, the last copy kept for offline) is in test/sw.test.mjs
   const pages = listIn('sw.js', 'PAGES');
   assert.ok(pages.includes('teach/'));
   assert.ok(!pages.some(p => p.startsWith('sky')));

@@ -9,6 +9,9 @@
 //                                             network, which may be newer. 'dev' (git, the local helper):
 //                                             network first, the saved copy when offline or after 4 s with no answer.
 //                                             Every page is kept, so the app opens with no connection at all
+//   sky/ (the city sky pages and their css,   network first in every build, never this version's copy: the website
+//   rebuilt every 6 h by the same commit)     rewrites them every 6 hours without a new worker. The last copy is kept
+//                                             (with the feed copies) for offline use
 //   data/ copies of live feeds (TLEs, wind,   network first: never served as if fresh. Offline, the last copy comes
 //   launches, news, versions.json …)          back marked with an x-oo-offline header (when it was saved)
 //   data/ datasets (borders, stars, …)        stale-while-revalidate: the saved copy at once, refreshed in the
@@ -40,7 +43,7 @@ const SCOPE = new URL(self.registration ? self.registration.scope : './', self.l
 const ONE_VERSION = BUILD !== 'dev';   // a published build: pages and code come from this version's copy (see above)
 
 // the pages and the small files that make the app open offline; the modules each page imports are found by crawling
-const PAGES = ['index.html', 'globe.html', 'open-overwatch.html', 'solar.html', 'tonight.html', 'about.html', 'guide.html', 'india/', 'india/hi/', 'teach/'];   // india/ and india/hi/: the India page in English and Hindi, as its ad links name them; teach/: for teachers (a classroom offline). Not sky/: ~530 pages rebuilt every 6 h, fetched live
+const PAGES = ['index.html', 'globe.html', 'open-overwatch.html', 'solar.html', 'tonight.html', 'about.html', 'guide.html', 'india/', 'india/hi/', 'teach/'];   // india/ and india/hi/: the India page in English and Hindi, as its ad links name them; teach/: for teachers (a classroom offline). Not sky/: ~530 pages rebuilt every 6 h ('page-live' in classify())
 const CORE = ['./', 'offline.html', 'manifest.webmanifest', 'brand/emblem/favicon.svg', 'brand/emblem/emblem-256.png',
   'brand/emblem/emblem-512.png', 'brand/emblem/apple-touch-icon.png'];
 const MAX_PRECACHE = 450;      // files; the whole of src/ is about 200
@@ -52,7 +55,7 @@ const FONT_HOSTS = /^fonts\.(googleapis|gstatic)\.com$/;
 const PINNED = /@\d+\.\d+|\/ajax\/libs\/[^/]+\/\d+\.\d+/;   // npm@1.2.3 or cdnjs /ajax/libs/name/1.2.3/
 const TILE_EXT = /\.(png|jpe?g|webp|pbf|mvt|terrain)$/i;
 
-/** Which way a request goes: 'pass' | 'page' | 'code' | 'data-live' | 'data' | 'asset' | 'lib' | 'tile'. */
+/** Which way a request goes: 'pass' | 'page' | 'page-live' | 'code' | 'data-live' | 'data' | 'asset' | 'lib' | 'tile'. */
 function classify(req) {
   if (req.method !== 'GET') return 'pass';
   const h = req.headers;
@@ -68,6 +71,7 @@ function classify(req) {
     if (rel.startsWith('brand/clip/')) return 'pass';                               // video: big, and played with ranges
     if (LIVE_DATA.test(rel)) return 'data-live';
     if (rel.startsWith('data/')) return 'data';
+    if (rel === 'sky' || rel.startsWith('sky/')) return 'page-live';                // the city pages: a 6-hourly rebuild keeps BUILD, so never version first
     if (req.mode === 'navigate' || rel === '' || /\.html$/.test(rel)) return 'page';
     if (rel.startsWith('brand/')) return 'asset';
     if (/\.(m?js|css|json|webmanifest|svg|txt)$/.test(rel)) return 'code';
@@ -122,8 +126,9 @@ function markOffline(res) {
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
 }
 
-const cacheFor = kind => kind === 'page' || kind === 'code' ? SHELL : CACHES[kind === 'data-live' ? 'data' : kind];
-const limitFor = kind => kind === 'page' || kind === 'code' ? LIMITS.shell : LIMITS[kind === 'data-live' ? 'data' : kind];
+const inData = kind => kind === 'data-live' || kind === 'page-live';   // live copies share the data cache (bounded, kept across versions)
+const cacheFor = kind => kind === 'page' || kind === 'code' ? SHELL : CACHES[inData(kind) ? 'data' : kind];
+const limitFor = kind => kind === 'page' || kind === 'code' ? LIMITS.shell : LIMITS[inData(kind) ? 'data' : kind];
 const okToKeep = (res, kind) => !!res && res.ok && res.status === 200 && (res.type === 'basic' || res.type === 'cors' || res.type === 'default')
   && !(kind === 'tile' && /no-store/i.test(res.headers.get('cache-control') || ''));   // our own files are ours to keep (the local helper says no-store to everything)
 
@@ -222,6 +227,7 @@ function handle(event) {
   const reload = req.cache === 'no-store' || req.cache === 'reload' || req.cache === 'no-cache';   // the page asked for fresh
   switch (kind) {
     case 'page': return ONE_VERSION ? versionFirst(event, kind, key, offlinePage) : networkFirst(event, kind, key, NET_TIMEOUT, offlinePage, event.preloadResponse);
+    case 'page-live': return networkFirst(event, kind, key, NET_TIMEOUT, req.mode === 'navigate' ? offlinePage : null, event.preloadResponse);
     case 'code': return ONE_VERSION ? versionFirst(event, kind, key) : networkFirst(event, kind, key, NET_TIMEOUT);
     case 'data-live': return networkFirst(event, kind, key, LIVE_TIMEOUT);
     case 'data': return reload ? networkFirst(event, kind, key, LIVE_TIMEOUT) : staleWhileRevalidate(event, kind, key, /\.bin$/.test(key) ? 7 * DAY : DAY);
