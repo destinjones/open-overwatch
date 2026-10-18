@@ -19,11 +19,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0   # all tags, for the version archive
       - name: Keep the daily element-set archive between builds (data/tle/history; the live site is the fallback)
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .tle-history
           key: tle-history-${{ github.run_id }}
@@ -38,7 +38,7 @@ jobs:
       # the rest of the site deploy without the city pages (the generator moves its folder into place only when done), so
       # every step of the city pages carries continue-on-error: an npm outage only leaves out the ISS line (the generator
       # runs without satellite.js) and the runner's own Node stands in if setup-node fails.
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         continue-on-error: true
         with:
           node-version: 22
@@ -56,7 +56,7 @@ jobs:
           echo "site: $((size / 1000000)) MB"
           if [ "$size" -gt 900000000 ]; then echo "::warning::the site is $((size / 1000000)) MB, near GitHub Pages' 1 GB limit"; fi
           if [ "$size" -gt 950000000 ]; then echo "::error::the site is $((size / 1000000)) MB, over the 950 MB budget"; exit 1; fi
-      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site
   deploy:
@@ -67,4 +67,4 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - id: deploy
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
