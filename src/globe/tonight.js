@@ -38,12 +38,21 @@ const deselect = () => { if (hooks.clearSelection) hooks.clearSelection(); else 
 // catalogue names, made readable: "SL-16 R/B" is the spent upper stage of a Zenit rocket, bright because it is big
 const friendly = n => / R\/B$/.test(n) ? `${n.replace(/ R\/B$/, '')} rocket stage` : / DEB$/.test(n) ? `${n.replace(/ DEB$/, '')} debris` : n;
 const breathe = () => new Promise(r => setTimeout(r, 0));
+// screen readers (src/app/a11y.js through the page's shell): a summary once the answer is in, an urgent "look up now"
+const announce = (text, o) => { const A = window.OOApp; if (A && A.announce) A.announce(text, o); };
 
 const home = {
   get: () => { const h = store.get('home', null); return h && Number.isFinite(h.lat) && Number.isFinite(h.lon) ? { lat: h.lat, lon: h.lon, ...(placeName(h.name) ? { name: placeName(h.name) } : {}) } : null; },
-  set: (lat, lon, name) => { const h = { lat: +lat.toFixed(2), lon: +lon.toFixed(2), ...(placeName(name) ? { name: placeName(name) } : {}) }; store.set('home', h); return h; },   // works even when storage is blocked
-  forget: () => { try { localStorage.removeItem('oo3d.home'); localStorage.removeItem('oo3d.auroraWatch'); } catch (e) { /* private mode */ } },
+  set: (lat, lon, name) => {   // works even when storage is blocked
+    const was = home.get(), h = { lat: +lat.toFixed(2), lon: +lon.toFixed(2), ...(placeName(name) ? { name: placeName(name) } : {}) }; store.set('home', h);
+    if (NUDGE.on && !samePlace(was, h)) Tonight.armNudges().catch(e => console.warn('pass nudges', e));   // the "look up now" nudges follow the new place
+    return h;
+  },
+  forget: () => { try { localStorage.removeItem('oo3d.home'); localStorage.removeItem('oo3d.auroraWatch'); } catch (e) { /* private mode */ } clearNudges(); },
 };
+// "look up now" nudges (Tonight.peek, Tonight.armNudges): the timers in flight, re-armed every 6 h and when the saved place changes
+const NUDGE = { on: false, gen: 0, timers: [], said: [], every: 0 };
+const clearNudges = () => { NUDGE.gen++; for (const t of NUDGE.timers) clearTimeout(t); NUDGE.timers = []; };
 const locate = () => new Promise(res => {
   if (!navigator.geolocation) return res(null);
   navigator.geolocation.getCurrentPosition(p => res(p.coords), () => res(null), { timeout: 10000, maximumAge: 600e3 });
@@ -130,20 +139,47 @@ async function launchesNear(loc) {
   return out;
 }
 
-function card(html) { const c = $('#card'); deselect(); c.innerHTML = `<button class="x" aria-label="Close">×</button><div data-tn hidden></div>${html}`; c.classList.add('show'); c.querySelector('.x').onclick = () => Tonight.close(); fold(c); return c; }
+// A redraw keeps keyboard focus: the focused control is found again by its data-* key or id (the 2D map's Brief does the
+// same). A redraw that would write the same card is skipped (reuse: draw()'s redraws, which rebind their handlers anyway).
+const FOCUS_KEYS = ['fold', 'gear', 'rem', 'cal', 'dso', 'met', 'lch', 'pl'];
+function focusKey(c) {
+  const a = /** @type {HTMLElement} */ (document.activeElement); if (!a || a === c || !c.contains(a)) return null;
+  for (const k of FOCUS_KEYS) if (a.dataset && a.dataset[k] != null) return { k, v: a.dataset[k] };
+  if (a.id) return { id: a.id };
+  return a.classList.contains('x') ? { x: true } : null;
+}
+function refocus(c, f) {
+  if (!f) return;
+  const el = f.k ? [...c.querySelectorAll(`[data-${f.k}]`)].find(e => /** @type {HTMLElement} */ (e).dataset[f.k] === f.v) : f.id ? document.getElementById(f.id) : c.querySelector('.x');
+  if (el && c.contains(el) && el !== document.activeElement) /** @type {HTMLElement} */ (el).focus({ preventScroll: true });
+}
+let drawn = null;   // the last card written here, { html, mark }: mark is detached once anything else rewrote #card
+function card(html, { reuse = false } = {}) {
+  const c = $('#card');
+  if (reuse && drawn && drawn.html === html && c.contains(drawn.mark) && c.classList.contains('show')) return c;
+  const f = focusKey(c);
+  deselect(); c.innerHTML = `<button class="x" aria-label="Close">×</button><div data-tn hidden></div>${html}`; drawn = { html, mark: c.querySelector('[data-tn]') };
+  c.classList.add('show'); c.querySelector('.x').onclick = () => Tonight.close(); fold(c); refocus(c, f); return c;
+}
 // sections fold: tap a heading to hide what's under it (remembered on this device)
 const SHUT = new Set((v => Array.isArray(v) ? v.filter(x => typeof x === 'string') : ['Farthest from home'])(store.get('tnShut', null)));   // garbage in storage must not throw at module load
 // an embed (tonight.html#embed=1[&sections=...]) opens only its chosen sections (or the usual ones), and remembers taps for this visit only
 const tapped = new Map();
+// The headings stay headings (a screen reader's list of them is how a long card is read): the toggle is a button inside
+// the <h3> (the APG accordion pattern), aria-controls naming what it hides. Enter and Space are the button's own.
 function fold(c) {
   const embedMode = !!(D && D.embed), only = embedMode && D.embed.sections ? tonightHeadings(D.embed.sections) : null;
+  let i = 0;
   for (const h of c.querySelectorAll('h3')) {
     const name = h.firstChild ? h.firstChild.textContent.trim() : '', body = [];
     for (let n = h.nextElementSibling; n && n.tagName !== 'H3' && !n.classList.contains('acts') && !(n.tagName === 'P' && n.classList.contains('note')); n = n.nextElementSibling) body.push(n);
     if (!body.length) continue;
-    const set = shut => { h.classList.toggle('shut', shut); h.setAttribute('aria-expanded', String(!shut)); for (const n of body) n.hidden = shut; };
-    h.tabIndex = 0; h.setAttribute('role', 'button'); h.classList.add('fold'); set(embedMode && tapped.has(name) ? tapped.get(name) : only ? !only.has(name) : SHUT.has(name));
-    h.onclick = h.onkeydown = e => { if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); const shut = !h.classList.contains('shut'); set(shut);
+    const ids = body.map((n, j) => n.id || (n.id = `tnf${i}-${j}`)); i++;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'foldbtn'; b.dataset.fold = name; b.setAttribute('aria-controls', ids.join(' '));
+    b.append(...h.childNodes); h.append(b);
+    const set = shut => { h.classList.toggle('shut', shut); b.setAttribute('aria-expanded', String(!shut)); for (const n of body) /** @type {HTMLElement} */ (n).hidden = shut; };
+    h.classList.add('fold'); set(embedMode && tapped.has(name) ? tapped.get(name) : only ? !only.has(name) : SHUT.has(name));
+    b.onclick = () => { const shut = !h.classList.contains('shut'); set(shut);
       if (embedMode) { tapped.set(name, shut); return; }
       shut ? SHUT.add(name) : SHUT.delete(name); store.set('tnShut', [...SHUT]); };
   }
@@ -235,7 +271,8 @@ function draw(initial) {
     ${S.ecl ? `<h3>Next solar eclipse you can see</h3><div class="tn-list"><div class="tn-row"><span>${esc(new Date(S.ecl.at).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}, ${esc(new Date(S.ecl.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}: ${S.ecl.kind === 'total' ? '<b class="ok">TOTAL</b> from here' : S.ecl.kind === 'annular' ? 'a ring of fire from here' : `the Moon covers ${Math.round(S.ecl.covered * 100)}% of the Sun from here`}${S.ecl.e.type === 'total' && S.ecl.kind !== 'total' ? ' (totality elsewhere)' : ''}. Never look at the Sun without eclipse glasses.</span>${D.watchEclipse ? '<span class="tn-b"><button class="chipbtn" id="tnEcl">Watch the shadow</button></span>' : ''}</div></div>` : S.ecl === false ? '<h3>Solar eclipses</h3><p class="tn-p">None visible from here in 2027–2030.</p>' : ''}
     ${S.far.length ? `<h3>Farthest from home</h3><div class="tn-list">${S.far.map(f => `<div class="tn-row"><span>${esc(f.text)}</span></div>`).join('')}</div>` : ''}
     ${embed ? '' : `<div class="acts">${D.lookUp ? '<button class="chipbtn" id="tnLook" style="color:#7dffa6">Look up</button>' : ''}<button class="chipbtn" id="tnShare">Share tonight</button>${demo || shared ? '<button class="chipbtn" id="tnLoc">Use my location</button>' : `<button class="chipbtn" id="tnForget">${name ? 'Forget this place' : 'Forget my location'}</button>`}<button class="chipbtn" id="tnOther">Another place</button></div>`}
-    <p class="note">Times are yours (${esc(Intl.DateTimeFormat().resolvedOptions().timeZone || 'local')}). "Calendar" adds an event that reminds you 10 minutes before, even with this site closed. "Remind me" and aurora alerts work while this page is open in a tab.</p>`);
+    <p class="note">Times are yours (${esc(Intl.DateTimeFormat().resolvedOptions().timeZone || 'local')}). "Calendar" adds an event that reminds you 10 minutes before, even with this site closed. "Remind me" and aurora alerts work while this page is open in a tab.</p>`, { reuse: true });
+  if (S.say && !S.computing) { S.say = false; announce(S.summary); }   // the card is not a live region: one summary per answer, once the passes are in
   [c, ...c.querySelectorAll('.tn-list')].forEach((el, i) => { if (scrolls[i]) el.scrollTop = scrolls[i]; });
   bindPasses(c);
   c.querySelectorAll('[data-gear]').forEach(b => { b.onclick = () => { store.set('dsGear', b.dataset.gear); render(true); }; });
@@ -269,7 +306,7 @@ function draw(initial) {
 }
 
 async function show(loc) {
-  const run = ++S.run; S.open = true; S.loc = loc; S.passLoc = loc; S.passes = []; S.aurora = null; S.sun = null; S.sunErr = false; S.computing = true; S.satErr = ''; S.memo = null; render(true);
+  const run = ++S.run; S.open = true; S.loc = loc; S.passLoc = loc; S.passes = []; S.aurora = null; S.sun = null; S.sunErr = false; S.computing = true; S.satErr = ''; S.memo = null; S.say = true; render(true);
   const obs = observer(loc.lat, loc.lon), t0 = Date.now(), t1 = t0 + DAY;
   S.crew = '';
   Crew.load().then(() => { if (run === S.run) { S.crew = Crew.sentence(); render(); } }, () => {});
@@ -368,24 +405,47 @@ export const Tonight = {
   /** After boot: if this device has a saved location, say the next thing worth seeing in one line. */
   async peek({ nudge = true } = {}) {   // nudge: false (a page opened on another place's link) re-arms reminders and alerts, but says nothing about home
     Alerts.init(); this.watchAurora();
-    const h = home.get(); if (!nudge || !h || !(await satsReady(60e3))) return;
-    const iss = D.sats.byId.get('25544'); if (!iss) return;
+    if (!nudge) return;
+    NUDGE.on = true;   // from now on a newly saved place re-arms the nudges (home.set)
+    if (!NUDGE.every) NUDGE.every = setInterval(() => this.armNudges().catch(e => console.warn('pass nudges', e)), 6 * HOUR);   // a tab left open keeps getting them
+    const issPasses = await this.armNudges(); if (!issPasses || S.open) return;
+    const p = issPasses.find(x => x.visible);
+    if (p) toast(`Tonight over you: the ISS at ${time(p.rise)}, look ${compass(p.azRise)} · tap "Tonight" for more`, 8000);
+  },
+  /**
+   * "Look up now": a nudge a minute before each visible station pass in the next 12 hours over the saved place, while
+   * this page is open. Clears the last call's timers first (peek re-runs it every 6 h, home.set when the place changes);
+   * a pass already nudged is not nudged again. Resolves with the ISS passes of the next day (null: no place, or superseded).
+   */
+  async armNudges() {
+    clearNudges(); const gen = NUDGE.gen;
+    const h = home.get(); if (!h || !(await satsReady(60e3)) || gen !== NUDGE.gen) return null;
+    const iss = D.sats.byId.get('25544'); if (!iss) return null;
     await new Promise(r => (window.requestIdleCallback || setTimeout)(r));   // ~15 ms of SGP4: not in the same tick the satellites landed in
+    if (gen !== NUDGE.gen) return null;   // the place changed (or was forgotten) meanwhile: that call arms its own
     const obs = observer(h.lat, h.lon), now = Date.now();
-    const issPasses = passesOf(iss, obs, now, now + DAY);   // once: the nudges and the toast both read it
-    // "look up now": a nudge a minute before each visible station pass in the next 12 hours, while this page is open
+    NUDGE.said = NUDGE.said.filter(x => x.set > now - HOUR);
+    const issPasses = passesOf(iss, obs, now, now + DAY);   // once: the nudges and peek's toast both read it
     for (const [id, short] of [['25544', 'The ISS'], ['48274', 'Tiangong']]) {
       const sat = D.sats.byId.get(id); if (!sat) continue;
       const list = id === '25544' ? issPasses.filter(x => x.rise < now + 12 * HOUR) : passesOf(sat, obs, now, now + 12 * HOUR);
       for (const q of list.filter(x => x.visible && x.maxEl >= 20)) {
-        const say = () => { const t = `${short} is rising in the ${compass(q.azRise)} now: up to ${Math.round(q.maxEl)}° high, bright, for about ${Math.max(1, Math.round((q.set - q.rise) / 60e3))} min. Look up!`;
-          if ('Notification' in window && Notification.permission === 'granted') Alerts.now('Look up now', t, 'now-' + id); else toast(t, 15000); };
-        setTimeout(say, Math.max(0, q.rise - 60e3 - now));
+        // a pass under way when the timers are re-armed starts at the search's start, so it is known by where it sets
+        const same = x => x.id === id && x.lat === h.lat && x.lon === h.lon && Math.abs(x.set - q.set) < 120e3; if (NUDGE.said.some(same)) continue;
+        const say = () => { if (Date.now() > q.set - 60e3) return;   // a timer overdue after the laptop slept or the tab was frozen: that pass is over, stay quiet
+          NUDGE.said.push({ id, lat: h.lat, lon: h.lon, set: q.set });
+          const t = `${short} is rising in the ${compass(q.azRise)} now: up to ${Math.round(q.maxEl)}° high, bright, for about ${Math.max(1, Math.round((q.set - q.rise) / 60e3))} min. Look up!`;
+          if ('Notification' in window && Notification.permission === 'granted') { Alerts.now('Look up now', t, 'now-' + id); return; }
+          // said once, urgently; the toast (a polite status line) is hidden from screen readers while it changes, or it would be said twice.
+          // It is heard again after a second, or as soon as another toast takes its place ("Copied", "Aurora alerts on" must be read)
+          announce(t, { urgent: true }); const el = $('#toast'); if (el) el.setAttribute('aria-hidden', 'true');
+          toast(t, 15000); if (!el) return;
+          let mo = null; const back = () => { clearTimeout(tm); if (mo) mo.disconnect(); el.removeAttribute('aria-hidden'); }, tm = setTimeout(back, 1000);
+          if (typeof MutationObserver === 'function') (mo = new MutationObserver(back)).observe(el, { childList: true, characterData: true, subtree: true }); };
+        NUDGE.timers.push(setTimeout(say, Math.max(0, q.rise - 60e3 - now)));
       }
     }
-    if (S.open) return;
-    const p = issPasses.find(x => x.visible);
-    if (p) toast(`Tonight over you: the ISS at ${time(p.rise)}, look ${compass(p.azRise)} · tap "Tonight" for more`, 8000);
+    return issPasses;
   },
   /** Aurora alerts: while the page is open, every 10 minutes, at most once in 6 hours, only when it is dark. */
   watchAurora() {
