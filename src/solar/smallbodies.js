@@ -61,7 +61,7 @@ const LEAVE_EARTH = 1.5;   // AU from the Sun: the camera is on its way out, so 
 export function createSmallBodies({ scene, renderer, focus: focusOf = () => null }) {
   // defer 'near': hold the big file back until the camera first leaves Earth's neighbourhood (frame) or the search box
   // is used (main.js); inside the globe main.js sets defer(true) until the view is entered
-  const S = { epoch: DEFAULT_EPOCH, named: [], comets: [], files: [], points: [], cometPoints: null, loadingAll: false, full: !PHONE, defer: 'near' };
+  const S = { epoch: DEFAULT_EPOCH, made: '', named: [], comets: [], files: [], points: [], cometPoints: null, loadingAll: false, full: !PHONE, defer: 'near' };
   // a shared link to (or a search for) a named asteroid kept in the big file needs that file before the link is applied
   const linked = decodeSolarView(location.hash), q = linked?.query?.toLowerCase();
   // (a #q= search only when it names one outright, "433 Eros" or "Eros": its top hit may well be a planet otherwise)
@@ -87,7 +87,7 @@ export function createSmallBodies({ scene, renderer, focus: focusOf = () => null
 
   async function load() {
     const meta = await fetchAsset('data/solar/small_bodies.json', 'json');
-    S.epoch = meta.epoch_jd; S.named = meta.named; S.comets = meta.comets;
+    S.epoch = meta.epoch_jd; S.named = meta.named; S.comets = meta.comets; S.made = meta.made;   // made: when the SBDB copy was taken (the comet list says it)
     const needAll = S.defer !== true && linkNeedsBig(); if (needAll) S.defer = false;   // (true: inside the globe)
     S.files[0] = pointsFor(await fetchAsset('data/solar/asteroids_a.bin'));
     layer('asteroids').n = count();

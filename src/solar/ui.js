@@ -14,6 +14,8 @@ import { BANDS, RUNGS, RUNG_SHORT } from './story.js';
 const $ = s => document.querySelector(s);
 const RATES = { '-6': -365.25, '-4': -1, '0': 0, '1': REAL_TIME, '4': 1, '5': 30.44, '6': 365.25 };
 const RATE_TEXT = { '-6': '1 year per second, backwards', '-4': '1 day per second, backwards', '0': 'paused', '1': 'real time', '4': '1 day per second', '5': '1 month per second', '6': '1 year per second' };
+/** The header clock always says UTC (a visitor in India is 5.5 h ahead of it); a phone, short of room, leaves out the year while it is this year. */
+const headerDate = (jd, phone, year = new Date().getUTCFullYear()) => { const s = formatUtc(jd, { suffix: '' }); return s === '—' ? s : (phone && s.startsWith(year + '-') ? s.slice(5) : s) + ' UTC'; };
 
 export function createUI({ camera, controls, clock, nav, story, small, deep, quality, exo }) {
   // ---- captions (a "locked" caption, from the tour or a button, isn't overwritten by scale-band captions)
@@ -33,16 +35,59 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
   document.querySelectorAll('#time [data-rate]').forEach(b => { b.onclick = () => { clock.setRate(RATES[b.dataset.rate]); syncRate(); }; });
   $('#now').onclick = () => { clock.goLive(); syncRate(); };
 
-  // ---- layers
-  function renderLayers() {
-    $('#lys').innerHTML = layers.map(l => `<button class="ly${l.on ? '' : ' off'}${l.sub ? ' sub' : ''}" data-id="${l.id}" style="--c:${l.c}"><i></i><span class="t">${esc(l.name)}</span>${l.n ? `<span class="n">${l.n.toLocaleString('en-US')}</span>` : ''}</button>`).join('');
-    document.querySelectorAll('#lys .ly').forEach(b => { b.onclick = () => { const l = layer(b.dataset.id); l.on = !l.on; applyLayers(); renderLayers(); }; });
-    if (!quality) return;
+  // ---- layers: the buttons are built once (again only when the set of layers or graphics levels changes) and then
+  // updated in place, so a layer switched with Enter or Space keeps the keyboard focus, and a screen reader its place
+  const FAILED_TITLE = 'This data did not load (network). Reload the page to try again.';
+  function layerItems() {
+    const items = layers.map(l => ({ key: 'id', id: l.id, name: l.name, c: l.c, sub: !!l.sub, on: !!l.on,
+      n: l.failed ? 'not loaded' : l.n ? l.n.toLocaleString('en-US') : '', title: l.failed ? (l.retry || FAILED_TITLE) : '' }));
+    if (!quality) return items;
     const auto = quality.chosen === 'auto', opts = [['auto', `Auto (${quality.LEVELS[quality.level].name.toLowerCase()})`], ...Object.entries(quality.LEVELS).map(([id, q]) => [id, q.name])];
-    $('#lys').insertAdjacentHTML('beforeend', '<div class="qh">Graphics</div>' + opts.map(([id, name]) => `<button class="ly sub${(auto ? id === 'auto' : id === quality.chosen) ? '' : ' off'}" data-q="${id}" style="--c:#e6edf3"><i></i><span class="t">${esc(name)}</span></button>`).join(''));
-    document.querySelectorAll('#lys [data-q]').forEach(b => { b.onclick = () => { quality.choose(b.dataset.q); renderLayers(); }; });
+    return [...items, { head: 'Graphics' }, ...opts.map(([id, name]) => ({ key: 'q', id, name, c: '#e6edf3', sub: true, on: auto ? id === 'auto' : id === quality.chosen, n: '', title: '' }))];
   }
-  $('#menuBtn').onclick = () => $('#dock').classList.toggle('open');
+  const lyKey = it => it.key + ':' + it.id;
+  let lyButtons = new Map(), lyShape = '';
+  function layerButton(it) {
+    const b = document.createElement('button'), t = document.createElement('span');
+    b.className = 'ly' + (it.sub ? ' sub' : ''); b.dataset[it.key] = it.id; b.style.setProperty('--c', it.c); t.className = 't';
+    b.append(document.createElement('i'), t);
+    b.onclick = it.key === 'q' ? () => { quality.choose(it.id); renderLayers(); } : () => { const l = layer(it.id); l.on = !l.on; applyLayers(); renderLayers(); };
+    return b;
+  }
+  function renderLayers() {
+    const box = $('#lys'), items = layerItems(), shape = items.map(it => it.head ? '#' + it.head : lyKey(it)).join('|');
+    if (shape !== lyShape) {   // first time, or a layer or level was added: build, keeping the focused button focused
+      const had = [...lyButtons].find(([, b]) => b === document.activeElement)?.[0];
+      lyButtons = new Map(); lyShape = shape;
+      box.replaceChildren(...items.map(it => {
+        if (it.head) { const h = document.createElement('div'); h.className = 'qh'; h.textContent = it.head; return h; }
+        const b = layerButton(it); lyButtons.set(lyKey(it), b); return b;
+      }));
+      if (had && lyButtons.has(had)) lyButtons.get(had).focus({ preventScroll: true });
+    }
+    for (const it of items) {
+      const b = !it.head && lyButtons.get(lyKey(it)); if (!b) continue;
+      b.classList.toggle('off', !it.on); b.setAttribute('aria-pressed', String(it.on));
+      const t = b.querySelector('.t'); if (t.textContent !== it.name) t.textContent = it.name;
+      let n = b.querySelector('.n');
+      if (it.n && !n) { n = document.createElement('span'); n.className = 'n'; b.append(n); }
+      if (n && !it.n) n.remove(); else if (n && n.textContent !== it.n) n.textContent = it.n;
+      if (it.title) b.title = it.title; else b.removeAttribute('title');
+    }
+  }
+  // phones (and the globe's embed at phone width) hide the credits line: the menu's Credits button opens it as a sheet
+  const credits = $('#credits'), creditsBtn = $('#bCredits');
+  const showCredits = on => {
+    if (!credits || !creditsBtn) return;
+    credits.classList.toggle('open', on); creditsBtn.setAttribute('aria-expanded', String(on));
+    if (on) { $('#dock').classList.remove('open'); $('#creditsX').focus({ preventScroll: true }); }
+  };
+  $('#menuBtn').onclick = () => { if ($('#dock').classList.toggle('open')) showCredits(false); };   // the sheet would cover the menu
+  if (credits && creditsBtn) {
+    creditsBtn.onclick = () => showCredits(!credits.classList.contains('open'));
+    $('#creditsX').onclick = () => { showCredits(false); $('#menuBtn').focus(); };   // the X goes away: focus to the menu, not <body>
+    credits.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); showCredits(false); $('#menuBtn').focus(); } });
+  }
 
   // ---- buttons
   const tourLabel = on => { $('#bTour').innerHTML = on ? '<b>■</b> Stop the tour' : '<b>▶</b> Guided tour: Earth to Andromeda'; syncRate(); };
@@ -78,6 +123,11 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
     if (b && PHONE) $('#cap').classList.add('hide');
     if (!b) { $('#card').style.display = 'none'; delete $('#card').dataset.key; return; }
     if ($('#card').dataset.key === b.key && $('#card').style.display !== 'none') { $('#cardDl').innerHTML = rowsHtml(b); markTimeline(); return; }
+    if (innerWidth <= 900) {   // phones: the list, Under the hood and the credits sheet sit where the card opens, and over it: a new card closes them
+      if ($('#list') && $('#list').style.display !== 'none') $('#listX').click();
+      if ($('#nerd') && !$('#nerd').hidden) $('#nerd .x').click();
+      if (credits?.classList.contains('open')) showCredits(false);
+    }
     $('#cardB').innerHTML = `<div class="k">${esc(b.kind)}</div><h2>${esc(b.fullName || b.name)}</h2><dl id="cardDl">${rowsHtml(b)}</dl>${b.fact ? `<p>${esc(b.fact)}</p>` : ''}
       ${timelineHtml(b)}
       <div class="row">${b.key === 'earth' ? '<a class="btn" href="globe.html">Land on Earth: 3D globe</a>' : ''}<button class="btn" data-share>Share this view</button></div>`;
@@ -157,7 +207,7 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
   measureTop(); addEventListener('resize', measureTop);
   if (window.ResizeObserver) new ResizeObserver(measureTop).observe($('#top'));   // it wraps to more rows as its text changes
   function frame({ camSun, camFocus }) {
-    if (performance.now() - lastDate > 200) { lastDate = performance.now(); $('#tDate').textContent = formatUtc(clock.jd, { suffix: PHONE ? '' : ' UTC' }); syncRate(); }
+    if (performance.now() - lastDate > 200) { lastDate = performance.now(); $('#tDate').textContent = headerDate(clock.jd, PHONE); syncRate(); }
     const dist = 'View ' + viewWidth(2 * camFocus * Math.tan(camera.fov * Math.PI / 360) * camera.aspect) + ' wide';
     if (dist !== lastDist) { lastDist = dist; $('#sDist').textContent = dist; }
     const f = nav.focus || byKey.sun, close = camFocus < 0.05 && f.key !== 'earth' && f.key !== 'moon';   // close in, name the body instead
