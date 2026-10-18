@@ -1,6 +1,6 @@
 {
   "name": "open-overwatch-mcp",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "mcpName": "io.github.destinjones/open-overwatch",
   "description": "Ask Claude about the live Earth: earthquakes, satellites and when to see them, launches, storms, ships, weather, the aurora and tonight's sky, from public open data. Every answer carries a link that opens the live 3D globe there, and Claude Desktop shows the globe in the chat.",
   "keywords": ["mcp", "mcp-server", "model-context-protocol", "mcp-apps", "claude", "globe", "satellites", "earthquakes", "weather", "aurora", "astronomy", "night-sky", "space", "open-data", "osint"],

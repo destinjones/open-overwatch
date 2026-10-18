@@ -8,6 +8,8 @@ file was built from.
 
 ## [Unreleased]
 
+## [0.9.2.16] - 2026-10-17
+
 What's in the sky tonight in your city, a page for teachers, and the second audit.
 
 ### Added

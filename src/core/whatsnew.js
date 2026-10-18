@@ -16,6 +16,18 @@ export const MAX_LINES = 3;
  *  it is published). */
 export const RELEASES = Object.freeze([
   {
+    version: '0.9.2.16', date: '2026-10-17', title: "What's in the sky tonight in your city, a page for teachers, and the second audit",
+    go: 'sky/',
+    lines: [
+      "What's in the sky tonight over 441 cities, in Hindi for India's.",
+      'A page for teachers, with classroom activities by age.',
+      'Earthquakes and storms asked about a country now count its whole coast, across the date line.',
+      'No location from your internet address: only from your device, when you ask.',
+      'Easier to use with a keyboard or a screen reader on every card.',
+      "Apophis's 2029 Earth flyby and BepiColombo at Mercury, from NASA JPL.",
+    ],
+  },
+  {
     version: '0.9.2.15', date: '2026-10-17', title: 'Tonight for any place, and honest about what is live',
     go: 'tonight.html',
     lines: [

@@ -3,7 +3,7 @@
   "name": "io.github.destinjones/open-overwatch",
   "title": "Open Overwatch",
   "description": "The live Earth and sky from open data: quakes, satellites, storms, weather, aurora, on a 3D globe",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "websiteUrl": "https://destinjones.github.io/open-overwatch/",
   "repository": { "url": "https://github.com/destinjones/open-overwatch", "source": "github" },
   "icons": [
@@ -14,7 +14,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "open-overwatch-mcp",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "runtimeHint": "npx",
       "transport": { "type": "stdio" }
     }
