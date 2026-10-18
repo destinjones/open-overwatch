@@ -30,8 +30,17 @@ export function createDeepSpace({ scene, camera, renderer }) {
   // ---- HYG stars: brightness and size from the apparent magnitude as seen from wherever the camera is
   const starUniforms = { uFade: { value: 0 }, uPR: { value: renderer.getPixelRatio() }, uBubble: { value: 0 }, uBubbleOn: { value: 1 } };
   let starPoints = null;
-  let starsAsked = false, onStars = () => {};
-  const needStars = () => { if (starsAsked) return; starsAsked = true; loadStars().then(() => onStars(), e => console.warn('stars', e)); };
+  // a failed load (a dropped connection on a phone) is tried again a minute later, as the exoplanets and galaxies are;
+  // the layer panel says "not loaded" meanwhile. Not once the points exist: a failure after that would add the named stars twice.
+  let starsAsked = false, starsFailedAt = -Infinity, onStars = () => {};
+  const needStars = () => {
+    if (starsAsked || performance.now() - starsFailedAt < 60e3) return;
+    starsAsked = true;
+    loadStars().then(() => { layer('stars').failed = false; onStars(); }, e => {
+      console.warn('stars', e);
+      if (!starPoints) { starsAsked = false; starsFailedAt = performance.now(); layer('stars').failed = true; layer('stars').retry = 'The stars did not load (network). They are tried again in a minute.'; onStars(); }
+    });
+  };
   async function loadStars() {
     const meta = await fetchAsset('data/solar/stars.json', 'json'), buf = await fetchAsset('data/solar/stars.bin');
     const N = buf.byteLength / 20, F = new Float32Array(buf), pos = new Float32Array(N * 3);

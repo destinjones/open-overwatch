@@ -7,7 +7,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { LY_AU } from '../core/units.js';
 import { SimClock, jdFromMs } from '../core/time.js';
 import { smoothLog, Sharpen, PHONE, CALM } from './util.js';
-import { bodies, byKey, defineLayer, applyLayers } from './world.js';
+import { bodies, byKey, defineLayer, applyLayers, layer } from './world.js';
 import { createSky } from './sky.js';
 import { createPlanets } from './planets.js';
 import { createMoons } from './moons.js';
@@ -112,7 +112,8 @@ const quality = createQuality({ renderer, small, onAutoChange: q => { ui.renderL
 const ui = createUI({ camera, controls, clock, nav, story, small, deep, quality, exo });
 find = createFind({ nav, story, small, comets, exo, clock, camera, controls, caption: (...a) => ui.caption(...a) });
 ui.onShare = () => find.copyLink();
-createLists({ craft, comets, clock, find, eclipses });
+let retryLoad = () => Promise.resolve();   // set once the loads have started (below)
+createLists({ craft, comets, small, clock, find, eclipses, retry: id => retryLoad(id) });
 exo.onChange = () => { applyLayers(); ui.renderLayers(); };
 const nerd = createNerd({ renderer, quality, small, exo, moons });
 document.querySelector('#bNerd').onclick = () => nerd.toggle();
@@ -170,13 +171,17 @@ if (EMBED) {   // inside the globe: no splash, no opening flight; render one fra
     ui.caption('The Solar System, right now', 'Every planet, moon, asteroid and spacecraft is where it really is at this moment. Scroll out, or pick a step below.', 'Tip: try the guided tour in the left panel.', 9000);
   }, 700);
 }
-const settle = p => p.catch(e => console.warn(e)).finally(() => { applyLayers(); ui.renderLayers(); });
+// a load that fails marks its layer (the panel says "not loaded", the lists say "did not load" with a Try again)
+const settle = (p, id) => p.then(() => { layer(id).failed = false; }, e => { console.warn(e); layer(id).failed = true; }).finally(() => { applyLayers(); ui.renderLayers(); });
 const smallLoad = small.load().then(() => comets.init(small.S.comets, clock.jd, byKey.earth.pos));
 const loads = [moons.load(), smallLoad, craft.load(), eclipses.load()];   // eclipses: 200 KB of Sun and Moon, so links to an event resolve   // stars, galaxies and most textures load as you approach them
+const LOAD_LAYERS = ['moons', 'asteroids', 'craft', 'eclipses'];
+/** Load again after a failure (the lists' "Try again"): the eclipses, or the spacecraft before any of them arrived (redone safely). */
+retryLoad = id => (id === 'eclipses' ? settle(eclipses.load(), 'eclipses') : id === 'craft' && !craft.craft.length ? settle(craft.load(), 'craft') : Promise.resolve());
 deep.onStars = () => { applyLayers(); ui.renderLayers(); };
 if (!PHONE) setTimeout(() => { deep.needStars(); web.load().catch(e => console.warn(e)).finally(() => applyLayers()); }, 6000);   // desktops: in the background
 document.querySelector('#q').addEventListener('focus', () => { deep.needStars(); if (!EMBED) small.defer(false); }, { once: true });   // searching for a star, or a named asteroid in the big file
-loads.forEach(settle);
+loads.forEach((p, i) => settle(p, LOAD_LAYERS[i]));
 // a shared link (solar.html#f=craft:Juno&t=...): applied once the bodies it may name exist
 const linked = !EMBED && !!location.hash && location.hash.length > 3;
 if (!linked) find.ready = true;

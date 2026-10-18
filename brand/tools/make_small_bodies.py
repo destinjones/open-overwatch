@@ -6,7 +6,7 @@ Raw responses are cached (gzipped) in brand/source/sbdb/ (gitignored); delete th
 Outputs (data/solar/):
   asteroids_a.bin  brightest 300,000 asteroids (by H)
   asteroids_b.bin  the rest
-  small_bodies.json  epoch, file counts, class labels, named bodies, comets
+  small_bodies.json  made (the date of the SBDB copy), epoch, file counts, class labels, named bodies, comets
                      (comet rows: label, q, e, i, node, peri, tp, M1, K1, epoch)
 
 Binary layout (column-major, little-endian, N records):
@@ -97,6 +97,14 @@ def fetch_asteroids():
 def fetch_comets():
     d = sbdb({"fields": COM_FIELDS, "sb-kind": "c"}, "comets_mag.json.gz")
     return d["fields"], d["data"]
+
+
+def made_date():
+    """The day the comet query was fetched from SBDB (its cached response's date, UTC): the Solar view's comet lists
+    say "JPL SBDB, copy of <made>", since a comet discovered after it is not in the file."""
+    cached = CACHE / "comets_mag.json.gz"
+    t = cached.stat().st_mtime if cached.exists() else time.time()
+    return time.strftime("%Y-%m-%d", time.gmtime(t))
 
 
 # ---------------------------------------------------------------- build
@@ -215,7 +223,7 @@ def build():
     files, named, counts = build_asteroids(af, arows)
     del arows
     comets = build_comets(cf, crows)
-    meta = {"epoch_jd": EPOCH_JD, "files": files,
+    meta = {"made": made_date(), "epoch_jd": EPOCH_JD, "files": files,
             "classes": {str(k): v for k, v in CLASSES.items()},
             "named": named, "comets": comets}
     with open(OUT / "small_bodies.json", "w", encoding="utf-8") as f:
@@ -315,6 +323,7 @@ def rebuild_comets():
     meta = json.loads(path.read_text(encoding="utf-8"))
     cf, crows = fetch_comets()
     meta["comets"] = build_comets(cf, crows)
+    meta = {"made": made_date(), **{k: v for k, v in meta.items() if k != "made"}}   # first, as build() writes it
     with open(path, "w", encoding="utf-8") as f:
         json.dump(meta, f, separators=(",", ":"), ensure_ascii=False)
     print(f"comets: {len(meta['comets'])} ({sum(c[2] >= 1 for c in meta['comets'])} on open orbits)")

@@ -4,12 +4,12 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-P5skaw/CUJLcCGM1kcv/zrG7kvCOWsU/C6sLyGeX7cM=' 'sha256-4g6IFy3jZIsVr0D4turpDZpMhToQ3aT7b3lxYOo7hTs='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-P5skaw/CUJLcCGM1kcv/zrG7kvCOWsU/C6sLyGeX7cM=' 'sha256-4g6IFy3jZIsVr0D4turpDZpMhToQ3aT7b3lxYOo7hTs=' 'sha256-mZOx5U6ljt2sRxHa+8GZ8ibm1B0lub4H/YOEskQly+o='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <script>/* iOS ignores user-scalable=no: stop its page pinch-zoom too (the views handle pinch themselves) */ addEventListener('gesturestart', e => e.preventDefault(), { passive: false });</script>
 <meta name="theme-color" content="#000000">
 <title>Open Overwatch · Solar System</title>
-<meta name="description" content="Fly through the Solar System as it is right now: every planet, moon, spacecraft and 1.5 million asteroids, then 6,339 exoplanets, nearby stars and 43,000 galaxies out to the cosmic web. Free and open source, in your browser.">
+<meta name="description" content="Fly through the Solar System as it is right now: the planets, 20 major moons, 28 spacecraft and 1.57 million asteroids, then 6,339 exoplanets, nearby stars and 43,000 galaxies out to the cosmic web. Free and open source, in your browser.">
 <link rel="canonical" href="https://destinjones.github.io/open-overwatch/solar.html">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="author" content="Destin Jones">
@@ -122,9 +122,11 @@ a{color:var(--accent)}
 #load div{text-align:center}
 #load b{display:block;font:900 30px/1 var(--display);letter-spacing:.14em;text-transform:uppercase}
 #load span{font:500 12px/1.6 var(--mono);color:var(--dim)}
+#load div{max-width:min(520px,calc(100% - 32px))} #load.fail span{color:#ffd0d0} #load p{margin:12px 0 0;font:500 12px/1.6 var(--mono)} #load p a{margin:0 4px}
 #err{position:fixed;left:50%;top:40%;transform:translateX(-50%);z-index:30;padding:16px 20px;display:none;max-width:520px;color:#ffd0d0}
 #credits{position:fixed;right:14px;bottom:16px;z-index:4;font:500 9.5px/1.3 var(--mono);color:var(--faint);max-width:330px;text-align:right}
 #credits a{color:var(--faint)}
+#credits .x,.btn.show-s{display:none}   /* phones: a Credits button in the menu opens them as a sheet */
 #menuBtn{display:none}
 #nerd{position:fixed;right:14px;top:90px;width:360px;background:rgba(5,8,12,.94);max-height:calc(100% - 200px);overflow:auto;padding:14px 16px;z-index:6;font:500 12px/1.5 var(--mono)}
 #nerd .k{font:600 10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--warm)} #nerd h3{margin:12px 0 4px;font:700 13px/1 var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
@@ -139,6 +141,8 @@ a{color:var(--accent)}
 #list td small{display:block;color:var(--dim);font:500 10.5px/1.3 var(--mono);margin-top:2px} #list tr[data-key],#list tr[data-row]{cursor:pointer} #list tr:hover td{background:rgba(230,237,243,.04)} #list tr.off td{color:var(--faint)}
 #list .go{font:600 11px/1 var(--mono);padding:5px 7px;border-radius:7px;border:1px solid var(--edge-dim);color:var(--warm);background:none;cursor:pointer;margin-left:4px} #list .go:hover{background:rgba(230,237,243,.08)} #list tr.past td{color:var(--faint)}
 #list .x{position:absolute;right:8px;top:8px;width:28px;height:28px;border-radius:8px;color:var(--dim)}
+#list .fly{padding:0;text-align:left;font:inherit;color:inherit;cursor:pointer} #list .fly:hover{color:#fff}
+#list .fly:focus-visible,#list .go:focus-visible,#lys .ly:focus-visible,#credits .x:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (max-width: 900px){ #list{left:10px;right:10px;width:auto;top:auto;bottom:86px;max-height:60vh} }
 /* fingers: ~40 px tap targets */
 @media (pointer:coarse){ .tb{min-width:36px;height:36px} .rung{padding:13px 12px} .ly,.ly.sub{min-height:40px} #cardX{padding:10px 14px;font-size:20px} #menuBtn{min-width:40px;min-height:40px} }
@@ -149,11 +153,15 @@ a{color:var(--accent)}
   #menuBtn{display:inline-flex}
   #search input{width:150px}
   #hits{max-height:50vh} /* placed under the search box across the screen by find.js (the glass box is its containing block) */
-  #card{left:10px;right:10px;width:auto;top:auto;bottom:86px;max-height:50vh}
+  #card{left:10px;right:10px;width:auto;top:auto;bottom:86px;max-height:50vh}   /* the list and Under the hood share its place: a new card closes them (ui.js showCard) */
   /* the caption sat at left:50% with a half-width box (a tall narrow column in mid-screen): full width, compact */
   #cap{left:10px;right:10px;bottom:86px;transform:none;max-width:none;padding:9px 12px;text-align:left}
   #cap b{font-size:15px} #cap p{font-size:13px;line-height:1.35} #cap small{display:none}
   #credits{display:none}
+  #credits.open{display:block;left:10px;right:10px;bottom:86px;max-width:none;max-height:50vh;overflow:auto;padding:14px 44px 14px 16px;z-index:9;text-align:left;font-size:11.5px;line-height:1.5;color:var(--dim);background:var(--glass-strong);border:1px solid var(--edge-dim);border-radius:14px}
+  #credits.open a{color:var(--accent)}
+  #credits .x{display:block;position:absolute;right:6px;top:6px;width:36px;height:36px;border-radius:8px;color:var(--dim);font-size:16px}
+  .btn.show-s{display:flex}
   #time .date{min-width:0;padding:2px 4px} #time .date b{font-size:12px;white-space:nowrap} #time .date span{display:none}
   #time [data-rate="-6"],#time [data-rate="-4"],#time [data-rate="5"]{display:none} .tb{min-width:28px;padding:0 6px}
   .brand small{display:none} .brand b{font-size:17px}
@@ -204,6 +212,7 @@ a{color:var(--accent)}
     <button class="btn" id="bComets"><b>☄</b> Comets: brightest now</button>
     <button class="btn" id="bEclipses"><b>◐</b> Eclipses &amp; occultations 2026-2030</button>
     <button class="btn" id="bNerd"><b>⌁</b> Under the hood: speed &amp; accuracy vs NASA</button>
+    <button class="btn show-s" id="bCredits" aria-controls="credits" aria-expanded="false"><b>©</b> Credits: maps, stars and data</button>
   </div>
   <p class="note">Drag to orbit, scroll or pinch to zoom, click anything for details. Planets are drawn to their real size: zoom in to see them.</p>
 </div>
@@ -216,13 +225,47 @@ a{color:var(--accent)}
 <div id="list" class="glass" style="display:none"><button class="x" id="listX" aria-label="Close">✕</button><div id="listB"></div></div>
 <div id="cap" class="glass hide"><b id="capT"></b><p id="capP"></p><small id="capS"></small></div>
 <div id="card" class="glass"><button class="x" id="cardX" aria-label="Close">✕</button><div id="cardB"></div></div>
-<div id="credits">Planet maps: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noopener">Solar System Scope</a> (CC BY 4.0) ·
+<div id="credits"><button class="x" id="creditsX" aria-label="Close the credits">✕</button>Planet maps: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noopener">Solar System Scope</a> (CC BY 4.0) ·
   orbits: NASA JPL (planets, SBDB asteroids &amp; comets, Horizons spacecraft) · stars: <a href="https://github.com/astronexus/HYG-Database" target="_blank" rel="noopener">HYG</a> (CC BY-SA 4.0),
   NASA/GSFC SVS Deep Star Maps · Milky Way: NASA/JPL-Caltech/R. Hurt (SSC/Caltech) · moon maps: USGS Astrogeology, NASA/JPL/SSI,
   NASA/JHUAPL/SwRI/LPI, P. Schenk (LPI), P. Stooke; Phobos: ESA/DLR/FU Berlin (CC BY-SA 3.0 IGO) · galaxies: 2MASS Redshift Survey (Huchra et al. 2012) · exoplanets: NASA Exoplanet Archive</div>
 <div id="load"><div><b>Solar System</b><span id="loadMsg">loading the planets…</span></div></div>
 <div id="err" class="glass"></div>
 
+<script>/* Boot watchdog: if three.js (from cdn.jsdelivr.net, checked against its hash) or one of the view's own modules fails
+   to load, main.js never runs and the splash would say "loading the planets…" forever. Say what happened instead, with
+   Reload, the 3D globe and Home. main.js sets window.OOSS once its modules have run, so a healthy start, however slow,
+   is never touched. (A load error fires on the script element and does not bubble: hence the capture listener; an
+   onerror attribute would need 'unsafe-hashes' in the CSP.) Not inside the globe (?embed): the globe has its own. */
+(() => {
+  if (new URLSearchParams(location.search).has('embed')) return;   // as src/solar/embed.js decides
+  let blocked = false, thrown = false;
+  const show = () => {
+    const load = document.getElementById('load'), msg = document.getElementById('loadMsg');
+    if (!load || !msg || window.OOSS || location.protocol === 'file:') return;
+    msg.textContent = blocked ? 'The 3D engine could not load (network or a blocker). It comes from cdn.jsdelivr.net, which a network filter, firewall or browser extension may be blocking.'
+      : thrown ? 'The Solar System view could not start in this browser.'
+      : 'The 3D engine is taking much longer than it should to load. A slow connection can take a while.';
+    let links = document.getElementById('loadLinks');
+    if (!links) {
+      links = document.createElement('p'); links.id = 'loadLinks';
+      const reload = document.createElement('a'), globe = document.createElement('a'), home = document.createElement('a');
+      reload.href = location.href; reload.textContent = 'Reload'; reload.addEventListener('click', e => { e.preventDefault(); location.reload(); });
+      globe.href = 'globe.html'; globe.textContent = '3D globe'; home.href = 'index.html'; home.textContent = 'Home';
+      links.append(reload, ' · ', globe, ' · ', home); msg.parentNode.append(links);
+    }
+    load.classList.add('fail');
+  };
+  // a script that failed to load, or an error thrown by the view's own code or the CDN library (not the shell, nor a
+  // browser extension or anything else the page did not ship)
+  addEventListener('error', e => {
+    const t = e.target, script = !!t && t.tagName === 'SCRIPT', own = e instanceof ErrorEvent && /\/src\/(solar|core)\/|cdn\.jsdelivr\.net/.test(e.filename || '');
+    if (script) blocked = true; else if (own) thrown = true;
+    if (script || own) setTimeout(show, 1500);
+  }, true);
+  setTimeout(show, 15000);
+})();
+</script>
 <script type="module" src="src/solar/main.js"></script>
 <script type="module" src="src/app/shell.js"></script>
 </body>

@@ -66,15 +66,16 @@ export function createFind({ nav, story, small, comets, exo, clock, camera, cont
     document.querySelectorAll('#hits button').forEach(b => { b.onclick = () => pick(+b.dataset.i); });
   }
   $('#q').addEventListener('input', () => {
-    const q = $('#q').value.trim(); if (q.length < 2) { $('#hits').style.display = 'none'; return; }
+    const q = $('#q').value.trim(); if (q.length < 2) { hits = []; sel = 0; $('#hits').style.display = 'none'; return; }   // no stale hit for Enter
     hits = find(q, 14); sel = 0; render();
   });
   function pick(i) {
     const h = hits[i]; if (!h) return;
+    hits = []; sel = 0;   // the box empties: Enter in it again must not repeat this flight
     flyTo(resolve(h), h.dist); $('#hits').style.display = 'none'; $('#q').value = ''; $('#q').blur();
   }
   $('#q').addEventListener('keydown', e => {
-    if (e.key === 'Enter') pick(sel);
+    if (e.key === 'Enter' && $('#hits').style.display === 'block') pick(sel);   // only a list that is showing
     if (e.key === 'Escape') { $('#hits').style.display = 'none'; $('#q').blur(); }
     if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && hits.length) { sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + hits.length) % hits.length; document.querySelectorAll('#hits button').forEach((b, i) => b.classList.toggle('sel', i === sel)); e.preventDefault(); }
   });

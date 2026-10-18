@@ -82,7 +82,7 @@ export function createEclipses({ scene, nav, clock, story }) {
       for (const e of events) { e.words = describe(e); register(e); }
       ready = true; api.computeMs = Math.round(performance.now() - t0);
       return events;
-    }).catch(e => { loading = null; throw e; });
+    }).catch(e => { loading = null; api.failedAt = performance.now(); throw e; });   // failedAt: the list waits a minute (or a Try again) before asking again
     return loading;
   }
 
@@ -154,7 +154,7 @@ export function createEclipses({ scene, nav, clock, story }) {
   }
 
   const api = {
-    load, jump, around, describe, get events() { return events; }, get ready() { return ready; }, get eph() { return eph; }, computeMs: 0,
+    load, jump, around, describe, get events() { return events; }, get ready() { return ready; }, get eph() { return eph; }, computeMs: 0, failedAt: -Infinity,
     frame({ camera, jd }) {
       occluders(camera);
       const e = ready && layerOn('eclipses') ? nearest(jd) : null, near = e && camera.position.distanceTo(byKey.earth.pos) < 0.08;
