@@ -16,6 +16,8 @@ globe.html            3D Earth (CesiumJS)         -> src/globe/
 solar.html            Solar System -> Local Group -> cosmic web (three.js) -> src/solar/
 tonight.html          the Tonight card without the globe -> src/sky/ (reuses src/globe/tonight.js)
 india/, india/hi/     the India page in English and Hindi -> india/india.js, src/core/india.js (india/hi/ is generated)
+teach/                the teachers page: twelve classroom activities with links into the views (teach/teach.js: print, copy)
+sky/                  "What's in the sky tonight in <city>": stand-ins for the two lists here; the city pages are made at deploy
 src/core/             shared, DOM-free, tested: time, frames, orbits, data formats (docs/CORE.md)
 src/app/              the shell every page loads: the installable app, accessibility, touch hints, What's new
 src/vendor/           satellite.js for the Web Workers (see above)
@@ -24,9 +26,11 @@ mcp/                  the MCP server (Node, stdio): tools over the same open dat
 mcp-worker/           the same MCP server as a Cloudflare Worker (wrangler config; the code is mcp/worker.mjs)
 relay/                the website's public relay, a Cloudflare Worker (the hosts are in src/core/relay.js)
 test/, e2e/           node --test with fixtures from JPL Horizons; Playwright browser tests (run on GitHub)
+tsconfig*.json, types/  the type check's settings (TypeScript reads the JSDoc and emits nothing; dev only, never on the site)
+.github/              the site build (build_site.py) and the workflows: CI, Pages, Release, the install test, npm, CodeQL
 data/                 pre-built binary/JSON data (scripts in brand/tools/), and on the website the build's feed copies
 brand/                textures, models, promo assets and the scripts that make them
-serve.js / serve.py   optional local helper: static files + a locked-down relay
+serve.js / serve.py   optional local helper: static files + a locked-down relay + the aisstream.io tunnel (/aisstream)
 ```
 
 [DEVELOPING.md](DEVELOPING.md) has the same map as a table, with the files to start from in each.
@@ -162,12 +166,45 @@ gitignored `brand/source/`), compress and write `data/solar/`:
 
 - `asteroids_a.bin` / `asteroids_b.bin` — all 1.57M SBDB asteroids, 15 bytes each, propagated on the GPU
 - `small_bodies.json` — named objects and comets · `stars.bin` / `stars.json` — HYG v4.1 in ecliptic light-years
-- `spacecraft.json` — JPL Horizons trajectories at fixed steps (Juno also as osculating orbits around Jupiter) · `moons.json` — 20 moon orbits fitted to Horizons
+- `spacecraft.json` — JPL Horizons trajectories at fixed steps (Juno, BepiColombo and ISRO's Moon and Mars orbiters also as
+  osculating orbits around their planet or the Moon) · `apophis.json` — asteroid Apophis 2026-2035 in the same format,
+  hourly round Earth through its 13 April 2029 flyby (`make_spacecraft.py --apophis`) · `moons.json` — 20 moon orbits fitted to Horizons
 - `ephem.json` — the Sun and Moon from Earth 2026-2030 as Chebyshev series (Horizons), for eclipses and occultations
 - `galaxies.bin` / `galaxies.json` — 43,480 2MASS Redshift Survey galaxies (Mpc, equatorial, Hubble-law distances)
 
+Outside `data/solar/`: `data/cities.json` (441 cities, 84 of them in India: Wikidata, CC0, one query by
+`brand/tools/make_cities.py`) is what the city sky pages are made from.
+
 Live feeds (satellites, aircraft, quakes, …) are fetched by the page; satellite TLEs come from a copy the site build
 refreshes every 6 hours, so visitors never hit CelesTrak directly.
+
+## Pages made at deploy
+
+The website build (`.github/workflows/pages.yml`, on every push to `main`, every 6 hours and by hand) runs `.github/build_site.py` and then
+`brand/tools/make_sky_pages.mjs _site`: one "What's in the sky tonight in <city>" page per city of `data/cities.json`
+(`sky/<slug>/`), a Hindi one for each Indian city (`sky/hi/<slug>/`), the two lists (`sky/`, `sky/hi/`) and
+`sitemap-sky.xml`, which the site's `sitemap.xml` (a sitemap index) names. Tonight's facts (sunset, the Moon, the
+planets up, the next ISS pass from the element-set copy the same build made, the sky's darkness) are worked out by
+`src/core` at build time, and the live Tonight card is embedded below them. The pages are build output: never committed
+(the repository's `sky/` holds only stand-ins for the two lists, so links to `sky/` resolve in the download and on the
+local helper), never in the `/v/<tag>/` copies, and every city-page step may fail without stopping the deploy (the
+generator writes to `sky.tmp` and moves it into place only when done).
+
+`teach/` is an ordinary committed page (no build step). The download zip (`.github/workflows/release.yml`) copies
+`india/`, `teach/` and the `sky/` stand-ins.
+
+## Checks that run on GitHub
+
+- `ci.yml`, on every push: syntax checks, the accessibility check, the type check (`tsconfig.json` over `src/core/`,
+  `mcp/` and `test/helpers/`; `tsconfig.workers.json` over the two core workers, the only ones given the WebWorker
+  names; `types/page.d.ts` declares the one browser name the rest of the core uses, `Worker`), ESLint, npm audit, the
+  licence check, the tests with a coverage floor, and the browser tests as a second job.
+- `install-test.yml`, the clean-machine install test: when a release is published (or the Release workflow finishes),
+  by hand, and on pushes to `ci-e2e`. It unzips the download zip on fresh Linux, Windows and macOS runners, runs
+  `node serve.js` with no npm install and fetches every page and every file they load (`test/helpers/installsmoke.mjs`),
+  and installs the `npm pack` tarball into an empty folder for an MCP initialize and tools/list round trip.
+- `codeql.yml` (CodeQL), and `npm.yml`, which would publish the MCP server to npm on a `v*` tag but is skipped until the
+  owner sets the repository variable NPM_PUBLISH to true.
 
 ## Rendering notes (solar)
 
@@ -184,5 +221,6 @@ refreshes every 6 hours, so visitors never hit CelesTrak directly.
 
 ## Testing
 
-`node --test` (from the repo root) — no dependencies. Fixtures in `test/fixtures/` are real JPL Horizons vectors, so a regression in
+`node --test` (from the repo root); the one npm dependency, satellite.js, is only for the MCP satellite tests, which
+are skipped with a note without it. Fixtures in `test/fixtures/` are real JPL Horizons vectors, so a regression in
 the orbital maths shows up as a distance error in AU, not as a vague visual change.

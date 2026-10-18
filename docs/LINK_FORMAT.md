@@ -20,7 +20,7 @@ https://destinjones.github.io/open-overwatch/globe.html#c=-0.1278,51.5074,3500,3
 - [What happens on arrival](#what-happens-on-arrival)
 - [A hash that changes in an open page](#a-hash-that-changes-in-an-open-page)
 - [Building links from code](#building-links-from-code)
-- [Other pages](#other-pages): the Solar System view's own links
+- [Other pages](#other-pages): the Solar System view's own links, the 2D map, Tonight, the city sky pages, and the links the MCP server shows
 - [Checklist](#checklist)
 
 ## The parameters at a glance
@@ -155,6 +155,10 @@ A Julian Date from a Unix time in milliseconds: `jd = ms / 86400000 + 2440587.5`
 
 Moving the clock away from live hides aircraft (there is no record of where they were); satellites, the Sun, the Moon
 and the weather follow it.
+
+In the past the quake layer shows the 24 hours before the clock (`QUAKE_WINDOW_MS` in `src/core/history.js`), so a
+link meant to show one quake must put its clock less than a day after it. The teachers page's Tōhoku link uses
+`t=2455632.72917,0`, 2011-03-12 05:30 UTC: 23 h 44 min after the M9.1 main shock (05:46 UTC on 11 March).
 
 ### `k` — a country
 
@@ -400,7 +404,7 @@ either view opens the same area on the other:
   globe link's `l` or `a` instead switches on the 2D counterparts of its globe layers, leaving the others as they are:
   `quakes`, `storms`, `cams`, `transit`, `bikes`, `aurora` (same ids), `ships` → `ships_fi`, `fires` → `hotspots` and
   `fireperims`, `sun` → `terminator`, `mil` → `air_mil`, `airports`, `buoys`, `dart`, `tides`, `sst`, `smoke`, `airq`,
-  `lightpollution` (same ids) (`mapLayersFor`; the globe's `air` switches nothing on, as the 2D aircraft layers query
+  `lightpollution`, `events`, `reentry`, `alpr`, `milareas` (same ids) (`mapLayersFor`; the globe's `air` switches nothing on, as the 2D aircraft layers query
   the area themselves). `x` switches 2D layers off.
 - The other way (`globeLayersFor`, the map's 3D globe button): the same pairs, plus `air_local` and `air_opensky` →
   `air` and the keyed 2D `fires` → `fires` (`MAP_TO_GLOBE` in viewlink.js).
@@ -420,6 +424,38 @@ its forecast layers and the drawing.
 `tonight.html` reads `at`, `name`, `embed` and `sections` (above): `tonight.html#embed=1&at=28.61,77.21&name=Delhi&sections=passes,planets`
 is a light card for an `<iframe>`, with no toasts or location buttons and a link back. It hands launches and eclipses to
 the globe with `#go=…&id=…` (from an embed, in a new tab).
+
+### The city sky pages (sky/)
+
+"What's in the sky tonight in <city>" pages, made at each deploy by `brand/tools/make_sky_pages.mjs` from
+`data/cities.json`, live at fixed addresses with no hash:
+
+| Address | What |
+|---|---|
+| `sky/` | the list of every city |
+| `sky/<slug>/` | one city, in English: `sky/pune/`, `sky/new-york-city/`, `sky/sao-paulo/` (ASCII slugs; a name two cities share goes to the larger, the other gets its country code: `hyderabad`, `hyderabad-pk`) |
+| `sky/hi/` | the list of India's cities, in Hindi |
+| `sky/hi/<slug>/` | an Indian city in Hindi; it and the English page name each other with `hreflang` (en, hi, and x-default for English) |
+
+Each city page links on with the formats above, its place written by `tonightHash` (rounded to 0.01°): the full card
+at `tonight.html#at=…&name=…`, the globe at `globe.html#go=tonight&at=…&name=…`, and the live card it embeds at
+`tonight.html#embed=1&at=…&name=…`. The two lists are not translations of each other (one lists every city, the other
+only India's), so they carry no `hreflang` pair. `sitemap-sky.xml` lists every page.
+
+### Links the MCP server shows
+
+`show_on_globe` with a `url` shows a link the site made, in the chat panel and as a link: the same origin and path as
+the site its links point at (the published site, or the one given with `--site` or `OO_SITE`), or an archived copy's
+(`v/<version>/…`), and one of these pages:
+
+| Page | Accepted | What the answer carries |
+|---|---|---|
+| `globe.html` | any hash (or none), but no `?query` | `view`: the hash decoded by `decodeView` |
+| `solar.html` | a hash, a query (`?focus=mars`) or neither | `solar`: the hash decoded by `decodeSolarView` |
+| `tonight.html` | any hash (or none), but no `?query` | `tonight`: the hash decoded by `decodeTonight` |
+
+Anything else (another site, another page, the 2D map) is refused as invalid arguments. `where_in_space` and
+`solar_system` answer with `solar.html` links and `night_sky` with `tonight.html` ones, so each can be passed straight on.
 
 ## Checklist
 

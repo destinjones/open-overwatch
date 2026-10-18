@@ -2,12 +2,24 @@
 
 ## Unit tests
 `node --test` from the repo root (the browser tests are separate: [below](#end-to-end-browser-tests-playwright-in-ci)): the maths in `src/core/` against JPL Horizons fixtures and textbook identities, the country lookup (`core/borders.js`: cities land in their countries, ocean is nobody's, every border has facts) and the share-link format (`core/viewlink.js`: round trip, bad links refused)
-(no dependencies). CI runs them on every push, plus a syntax check of every module and a link check of every page.
-[DEVELOPING.md](DEVELOPING.md#3-tests) has the table of what each file covers. Two kinds behave differently: the site
+(no dependencies but satellite.js, for the MCP satellite tests, which are skipped with a note without it). On
+2026-10-17 that is 114 files and 1,051 tests, about 14 s; the count is the `# tests` line at the end of the output.
+CI runs them on every push with a coverage floor (`npm run coverage`), plus a syntax check of every module and a link
+check of every page. [DEVELOPING.md](DEVELOPING.md#3-tests) has the table of what each file covers. Two kinds behave differently: the site
 build's tests (`sitebuild`, `sitebudget`, `tlearchive`) run `.github/build_site.py` in Python and are skipped without
 it, and `test/india.test.mjs` reads the real date: from two weeks before an ISRO track runs out (Chandrayaan-2 on
 2026-11-08, Aditya-L1 on 2027-01-19) it prints a `WARNING` diagnostic, without failing, that names the refresh
 (`python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"`).
+
+### Type check and lint
+Both are dev dependencies (`npm install` once) and run in CI's test job; neither builds or ships anything.
+
+```bash
+npm run typecheck    # TypeScript over the JSDoc of src/core, mcp and test/helpers (tsconfig.json), then the two workers (tsconfig.workers.json)
+npm run lint         # ESLint, bug rules only (eslint.config.mjs): undefined names, duplicate keys, unreachable code; unused variables warn
+```
+
+[DEVELOPING.md](DEVELOPING.md#3-tests) says how to settle what they report.
 
 ### Fuzz tests
 `test/fuzz.test.mjs` (in `node --test`, a few seconds) feeds tens of thousands of mutated inputs to the decoders that
@@ -24,6 +36,23 @@ OO_FUZZ=1 OO_FUZZ_SEED=31337 node --test test/fuzz.test.mjs  # replay the seed a
 ```
 
 A bug it finds gets fixed in the decoder and its input added as a regression at the bottom of `test/fuzz.test.mjs`.
+
+## The clean-machine install test (GitHub Actions)
+`.github/workflows/install-test.yml` checks the download and the npm package the way a new user gets them, on fresh
+Linux, Windows and macOS runners. It runs when a release is published or the Release workflow finishes, by hand from
+the Actions tab (`latest` takes the newest release's zip, `build` builds one from the branch with release.yml's own
+step), and on pushes to `ci-e2e`, which builds the zip.
+- **site**: the zip unzipped as a person would (Expand-Archive on Windows, unzip elsewhere), the folder checked for
+  its main files and for no `package.json` or `node_modules`, then `node serve.js` with no npm install. Every page,
+  every local file the pages load (scripts and the modules they import, stylesheets and fonts, images, the manifest's
+  icons), the data files and one file from each texture and model folder the zip copies must answer 200.
+- **mcp**: the `npm pack` tarball installed into an empty folder, `open-overwatch-mcp --version` through the installed
+  bin against `package.json`'s version, and an initialize and tools/list round trip over stdio.
+
+The same helper, `test/helpers/installsmoke.mjs`, runs locally with no browser (`site .` serves this checkout; on
+2026-10-17 361 files answered 200; `mcp mcp/server.mjs` lists 38 tools), and `test/installsmoke.test.mjs` runs it on
+this checkout inside `node --test`. One concurrency group per release tag: a release made in the GitHub UI runs it
+twice for the same tag, one after the other; only `ci-e2e` pushes cancel a run.
 
 ## End-to-end browser tests (Playwright, in CI)
 `npm run e2e` (or `npx playwright test`) opens every page in headless Chromium against `serve.js` and drives it like a

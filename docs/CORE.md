@@ -356,7 +356,7 @@ byte range, and the state that answers the question. Used by mcp (its `where_in_
 - `TRACKS`: named small bodies with a Horizons track of their own (Apophis, `data/solar/apophis.json`, 2026-2035, round
   Earth through its 13 April 2029 pass 38,000 km from Earth's centre). `trackedAt`: a position function from that
   track, or from the elements outside it. `trackOrbit(track, el, jd)`: the orbit in force ({ el, era, note }): the
-  catalogued elements before the flyby, the orbit it leaves the flyby on (osculating a month after it) until the track
+  catalogued elements before the flyby, the orbit it leaves the flyby on (osculating `AFTER_FLYBY_DAYS`, 30 days, after it) until the track
   ends, then that orbit at the track's end with a note that the planets' later pulls are not modelled (where_in_space's orbit
   note, the Solar view's card). `trackElements`, `elementsFromState`: osculating elements from the track's samples.
 
@@ -512,11 +512,27 @@ every 20 km. Used by globe, core.
 
 ### `borders.js`
 
-Which country is at a point: plain geometry on the simplified borders in `data/borders.json`. Used by globe, sky.
+Which country is at a point, and which sea is off its coast: plain geometry on the simplified borders in
+`data/borders.json`. Used by globe, sky, mcp (`mcp/place.mjs`, `mcp/country.mjs`, and the dark-sky and eclipse tools).
 
-- `prepare`: add the bounding boxes the lookups use (once, after loading).
+- `prepare`: add the bounding boxes the lookups use (once, after loading). A part drawn across the antimeridian
+  (Russia's mainland with Chukotka, Wrangel Island) also gets its rings with longitudes run on past 180, so the
+  even-odd test sees one shape, not a band round the world that would claim Alaska and Canada.
 - `countryAt`: the border record at a point, or null at sea. `inCountry`: is a point inside one country?
-- `mainBox`: the biggest part's box, so a far island doesn't drag a fly-to off the mainland. `inRing`, `boxOf`.
+- `mainBox`: the biggest part's box, so a far island doesn't drag a fly-to off the mainland (flat: Russia's is -180 to
+  179.9). `mainBoxWrapped`: the same with a crossing part kept whole, west < east and east past 180 (Russia's mainland
+  is about [27.4, 41.2, 190.3, 77.7]); the globe's country fly-to, Measure's outline label and the MCP briefing use it.
+  `boxContains(box, lat, lon, pad)`: inside a box grown by `pad` degrees, written either way across the antimeridian.
+  `boxCentre`: its middle as [lon, lat], wrapped to ±180 (Russia: about 108.8° E). `boxWidth`: its width in degrees
+  of longitude, the short way across 180. `inRing`, `boxOf`.
+- Off the coast, for the MCP tools that ask about a country at sea (quakes, storms, volcanoes off it):
+  `OFFSHORE_DEG` (2.5°, about 280 km) is how far "off its coast" reaches. `nearParts`: the cheap first test, is the
+  point inside any part's box grown by that much (no ring walked). `coastDistance`: degrees (longitude scaled by
+  cos(lat)) to the nearest edge of the country's part outlines. `offCoast(borders, b, lat, lon, pad, reach)`: at sea,
+  in nobody's outline, within `pad` of b's, and no other country nearer (the Aleutian trench is the United States',
+  not Russia's). `reach` widens it for storms (mcp passes 8°): sea within `reach` counts whichever coast is nearer
+  (a hurricane in the central Gulf at 25° N 88° W is the United States'), but another country's land never does (a
+  typhoon over Hokkaido is not in Russia). All of them need `prepare` first.
 
 ### `mgrs.js`
 
@@ -557,12 +573,26 @@ from one is dropped when it is read back. Used by map.
 ### `launches.js`
 
 Rocket launches from Launch Library 2, one mapping for the site build's copy (`data/launches.json`) and the live API.
-Used by globe, sky, mcp.
+Used by globe, sky, mcp, core (`earthnow.js`, `india.js`).
 
 - `fromLL2`: one launch (any response mode) → `{ id, name, mission, orbit, rocket, provider, net, windowStart,
   windowEnd, precision, status, … }`.
-- `when`: how sure the time is, in words. `countdown`: "T-2 d 04:10:22".
-- `upcoming`: upcoming first; a launch stays listed for 2 hours after its time.
+- `precisionCode`: LL2's precision, given as its abbreviation or its name ('DAY' or 'Day', 'Q4' or 'Quarter 4',
+  'PM' or 'Afternoon (local time)'), as one code: SEC MIN HR AM PM DAY WK M Q1-Q4 H1 H2 Y FY DEC, or '' when not
+  given. Every reader of a launch time goes through it.
+- `preciseLaunch`: a launch with a finite time to the hour or better (SEC, MIN, HR, or no precision at all), so a
+  countdown means something; LL2 parks "NET October", "Q4" and day-only dates at 00:00Z.
+- `when`: how sure the time is, in words: the full UTC time when it is timed (a missing precision counts as timed),
+  else "2026-10-31 (time not set)", "October 2026 (no date yet)", "Q4 2026 (no date yet)", "FY 2026 (no date
+  yet)", "the 2020s (no date yet)". `countdown`: "T-2 d 04:10:22", "T+00:01:12" after lift-off.
+- `periodEnd(net, precision)`: the end (ms, UTC) of the period an imprecise time names: the end of its UTC day (DAY,
+  AM, PM, and WK and FY, which LL2 dates on the period's last day), month, quarter, half, year or decade; null for a
+  time to the hour or better. `listedUntil(net, precision, grace)`: `grace` after the time, or that period's end,
+  whichever is later.
+- `upcoming`: upcoming first; a launch stays listed for 2 hours after its time, to the end of the period an imprecise
+  time names (a "NET October" launch dated 31 October 00:00Z stays through 31 October), while marked in flight, or
+  when it has no time at all. The site build, the globe and Tonight ask LL2's upcoming endpoint without
+  hide_recent_previous, so it also returns the last 24 hours and this filter decides when a launch leaves.
 
 ### `ascent.js`
 
@@ -587,8 +617,11 @@ is inferred (China's crews: Tiangong; others: the ISS). Used by globe, mcp.
 The India landing page's logic without the page (`india/india.js` draws it). Used by the India page.
 
 - `fromIndia`: a Launch Library 2 launch from a pad in India. `indianLaunches`: India's launches still to come, soonest
-  first. `launchWhen`: when one is due in IST, in English or Hindi, only as precisely as announced ("target: October
-  2026").
+  first: under an hour past a precise time, or to the end of the period an imprecise one names (listedUntil in
+  `launches.js`), and a launch dated to the day stays to the end of that day in India too, the day the page shows.
+  `launchWhen`: when one is due in IST, in English or Hindi, only as precisely as announced, reading LL2's codes and
+  names through precisionCode in `launches.js` ("target: October 2026", "target: Q4 2026", "target: FY 2027",
+  "target: the 2020s").
 - `CITIES`: the six cities (English and Hindi names, latitude, longitude). `cityPasses`: a city's next ISS pass and next
   visible one in a week (`findPasses` from `passes.js`). `dir8`: an azimuth as one of eight directions in either language.
 - `cleanUrl`: the address without the tags ad links carry (utm_* and fbclid). `fmtIST`, `TZ`, `overIndia`, `inSouthAsia`.
@@ -629,6 +662,13 @@ forecast hour's files and inventories, and which GRIB2 parameters are which fiel
 - `ecmwfCycles`, `ecmwfFile`, `parseEcIndex`, `ECMWF_BUCKET`: ECMWF's runs, files and JSON inventories.
 - `gfsWaveFile`: the WAVEWATCH III file of a GFS run. `paramKey`: a GRIB2 parameter to our field.
 - `bracketFor`: the forecast hours either side of a moment. `runWords`: "the 12:00 UTC run of 11/10".
+- The forecast horizon: a run is hours old when it is read and a timeline counts from now, so both views ask the
+  models for `RUN_SLACK_H` (24) hours past the last one they show (`reachH`), and stop the timeline at `runEnd`, the
+  last moment the run really covers (past it `bracketFor` would repeat the last hour under later labels).
+- `snapFits(grid, t, fcst)`: whether the globe's Open-Meteo snapshot of now may stand in for moment t: never on a
+  forecast frame, and only within `SNAP_SPAN` (an hour) of the snapshot's own time.
+- `clockWords`: a moment in the viewer's own clock with its zone ("Sat 9:20 AM GMT+1"), the one clock both views'
+  timelines use. `gustNote`: in compare mode, "Gusts: GFS at the hour · ECMWF strongest in the hour before".
 
 ### `wxload.js`
 
@@ -692,6 +732,10 @@ Mercator tiles), the darts for the way waves run, and the isobar chart. Used by 
 - `washRgba`, `tempRgb`, `cloudRgba`, `stepped`: a value's colour. `TEMP`, `RAIN`, `GUST`, `WAVE`, `WASH_ALPHA`.
 - `WIND_COLORS`, `WIND_EDGES`, `windBucket`: the streak colours.
 - `paintWash`: a wash into pixels. `waveDarts`: where waves run, on a grid fixed to the world.
+- `paintMercatorTile(kind, px, { x, y, z }, step, value, blur)`: one 256 px Web Mercator tile of a wash, sampled once
+  every `step` px into a buffer of (256 / step)² that the 2D map scales up without smoothing (the same picture as
+  step-sized blocks, at a step² fraction of the pixel writes). The blur (cloud and rain) averages four samples half a
+  model cell apart, so the steep colour ramps don't show the cells as squares.
 - `pressureChart`: isobars every 4 hPa, their labels, H and L. `splitJumps`: a wrapped line cut for a flat map.
 - `legendFor`: title, CSS gradient and ticks, metric or imperial.
 ### `wxpoint.js`
@@ -709,7 +753,8 @@ draws as maps read off for a place, in a forecaster's words. Used by mcp (its `w
 
 ### `hazards.js`
 
-Tropical cyclone forecasts, wildfires and recent satellite pictures, parsed. Used by globe.
+Tropical cyclone forecasts, wildfires and recent satellite pictures, parsed. Used by globe, map, mcp, core
+(`cyclones.js`, `fireclusters.js`, `fires.worker.js`).
 
 - `nhcForecasts`: NOAA NHC's map service → cones, tracks, watches and warnings, wind fields; `coherent` only when they
   all come from the same advisory (`stormKey`, `WW`). Each forecast's `advisoryAt` is the points' file time
@@ -721,6 +766,12 @@ Tropical cyclone forecasts, wildfires and recent satellite pictures, parsed. Use
 - `parseCmrCsv`, `imageryDates`, `pickPair`: Landsat and Sentinel-2 picture dates and the first before/after pair;
   `IMAGERY`, `gibsTemplate` for the tiles.
 - `rings`, `paths`, `csvLine`: GeoJSON and CSV helpers (rings and paths of fewer than 2 points are dropped).
+- Round the antimeridian: `lonWrap`: a longitude, or a difference of two, in [-180, 180). `lonBoxes(w, e)`: a span of
+  longitude that may run past ±180 as boxes inside [-180, 180], split at the line (`fireclusters.js`: a wildfire search
+  round Fiji asks for tiles on both sides).
+- `retryBackoff({ first, max })`: time travel's catalogue requests while an upstream fails (the globe's quakes, storms
+  and natural events sync every second): a failed day is asked again only after 30 s, doubling to 5 minutes, until a
+  load works; `claim(key)` holds a retry so only one request is out, `failed(key)` and `ok()` move it on.
 
 ### `quakes.js`
 
@@ -767,6 +818,10 @@ service (forecast cones, watches, wind fields) and GDACS for every other basin. 
   fixes, at most 500 km) of its freshest fix, each agency counted once (`agencyOf`: EONET's or GDACS's copy of an NHC
   advisory is not a second witness). `sameStorm`: two fixes within that.
 - `parseNhcCurrent`, `parseGdacsCyclones`: the sources' lists. `noaaLayerUrl`, `gdacsTcUrl`, `gdacsGeometryUrl`.
+- The GDACS geometry cache (the `kept` Map, about 0.4 MB an episode, and GDACS issues a new episode with every
+  advisory): `gdacsKey` ("event/episode"), `pruneKept(kept, current, cap)`: the episodes in `current` always stay, the
+  others go oldest first until at most cap (default 24) are left. `loadCyclones` prunes after each answer; the globe keeps a second
+  cache for time travel's past days, pruned the same way.
 - `category`, `catName`, `CYCLONE_CAT`, `NHC_CLASS`: Saffir-Simpson and NHC's codes. `activeLine`, `shortName`,
   `stormSources`: words for labels and cards.
 
@@ -852,7 +907,9 @@ quality, plus the words the cards use. Used by globe, map.
 Fire detections in an area made answerable: the GIBS tiles that cover it, and hot pixels grouped into fires (within
 about 2.5 km of each other), each with size, power and last sighting. Used by mcp (its `wildfires` tool).
 
-- `fireTilesAround`, `clusterFires`, `fireWords`, `perimeterRows`.
+- `fireTilesAround`, `clusterFires`, `fireWords`, `perimeterRows`. Both work across the antimeridian (`hazards.js`
+  lonWrap and lonBoxes): a search round 180° takes tiles from both sides, a fire astride it stays one fire, and a
+  fire's centre comes back in [-180, 180).
 
 ### `fires.worker.js`
 
@@ -873,7 +930,9 @@ against SWPC's own G-scale labels, EONET wildfires).
   `kpLevel` (NOAA's G scale: Kp 5- (4.67) is G1, as SWPC marks it), `auroraReach`.
 - `summarizeStorms`, `summarizeWildfires` (prescribed burns apart: `prescribed`, `wildfireRegion`),
   `launchesSoon`, `launchesToday`, `launchesByMonth` (months the list can't fill are flagged partial),
-  `summarizeFlybys`.
+  `summarizeFlybys`. `launchesSoon` counts only launches timed to the hour or better (and any in flight), so a
+  "NET October" placeholder at 00:00Z is no launch "in the next 24 hours"; `preciseLaunch` is the test, re-exported
+  from `launches.js`.
 - `fieldExtremes`, `windiest`, `weatherExtremes`: the highest, lowest and windiest grid points of a model field, with
   where they are; `tempWords`, `windWords`, `latLonWords`.
 - `barsSvg`: an accessible, theme-aware bar chart as SVG markup (a title, a description listing every value, a tooltip
@@ -887,6 +946,8 @@ Aircraft records from the two kinds of feed both views read: readsb-style JSON (
 OpenSky's state vectors, in the feeds' own units plus SI. Used by globe, map.
 
 - `readsb`, `openskyState`: one record each. `cleanHex`, `EMERGENCY_SQUAWKS`, `FT`.
+- `emergencyLabel`: the boards' tag for a plane in an emergency, "SQUAWK 7700" for an emergency squawk, else
+  "EMERGENCY" (a declared emergency can come with any squawk), '' when it is in none; both views' airport boards use it.
 
 ### `actype.js`
 
@@ -907,7 +968,9 @@ owner, a photo) and the route its callsign flies, asked one at a time, cached a 
 own store (never in the repository: the route data may not be copied into other databases), silent while rate limited.
 Used by globe, map.
 
-- `createAcInfo`: the client (peek, get, limited). `acKey`, `retryAfter`, `ADSBDB`.
+- `createAcInfo`: the client (peek, get, limited). `acKey`, `retryAfter`, `ADSBDB`. A non-ICAO address (readsb's "~":
+  a TIS-B track number, an anonymous address) keeps its "~" in the cache key and is never looked up, since its six
+  digits belong to some other, real aircraft.
 
 ### `phase.js`
 
@@ -941,10 +1004,14 @@ up with, and the runway in use. Used by globe, map.
 
 METAR and TAF from their raw text (the WMO code and the US variant: statute miles, inHg, the RMK T-group) into numbers
 and plain words, and the FAA flight category from the visibility and the ceiling. Checked against the Aviation Weather
-Center's own decode of 191 METARs and 41 TAFs (test/metar.test.mjs). Used by globe (airport cards, dot colours), map (airport cards, through the local helper).
+Center's own decode of 191 METARs and 41 TAFs (test/metar.test.mjs). Used by globe (airport cards, dot colours), map (airport cards, through the local helper), mcp (its airport_weather tool).
 
 - `parseMetar`, `metarWords`, `parseTaf`, `tafAt` (the forecast in force at a time, BECMG carried forward, TEMPO/PROB as
-  the worse case), `tafWords`, `tafWorst`, `flightCategory`, `worseCat`, `ceilingFt`.
+  the worse case), `tafWords`, `tafWorst`, `flightCategory`, `worseCat`, `ceilingFt`. `tafWords` names the UTC day
+  of a time that is not today's ("Now until tomorrow 18Z"), since a TAF runs 24-30 hours.
+- `usableWind`: a report's wind when the runway-in-use guess can use it (a direction, variable or calm, with a speed),
+  else null: "///15KT" has no direction, and both views' airport cards then fall back to the Open-Meteo model's wind,
+  labelled as such.
 - Groups: `parseWind`, `parseCloud`, `parseWeather`, `weatherText`, `windText`, `visText`, `cloudText`, `conditionText`,
   `humidity`, `compass`, `reportTime`, `tafPeriod`, `ageText`.
 - The source: `metarUrl`, `tafUrl`, `idBatches`, `readAwcMetars`, `readAwcTafs`; `CATEGORIES`, `CAT_COLOR`, `CAT_WORDS`.
@@ -1000,9 +1067,16 @@ transponder. Also a callsign, an ICAO hex address or a registration. Used by glo
 ### `ais.js`
 
 Ships from AIS: Fintraffic Digitraffic's positions and ship details, AIS codes in words, and where a ship is between
-reports. Used by globe, mcp.
+reports. Used by globe, map, mcp.
 
 - `parseAisLocations`, `parseAisVessels`: the feed's answers; "not available" codes become null.
+- `cleanAisSentinels`: one report's motion with those codes made null (a speed of 102 kn or more, course 360, a
+  heading of 360 or more such as 511, a rate of turn of ±127 or -128), from Digitraffic's field names or aisstream.io's
+  (Sog, Cog, TrueHeading, RateOfTurn); a navigational status out of range becomes 15, "not defined".
+- aisstream.io works only in the download: `aisstreamSocketUrl(location)` is the local helper's relay on the page's
+  own host (ws://localhost:8787/aisstream; wss: for an https page) for a page served from localhost, 127.0.0.1 or
+  [::1], and null anywhere else, so the website never opens the socket. `AISSTREAM_UPSTREAM`: where the helper's
+  tunnel goes (wss://stream.aisstream.io/v0/stream).
 - `shipAt`: a ship's position now, along its course and through the turn it reports. `underway`.
 - `shipKind`, `SHIP_KINDS`, `shipTypeName`, `NAV_STATUS`, `flagOf`, `rotDegPerSec`, `etaParts`, `etaTime`: codes in
   words (an AIS ETA has no year).
@@ -1115,7 +1189,10 @@ for a place. Used by globe, map, sky, mcp, core.
 - `encodeView`, `decodeView`: a view ↔ `c=…&l=…&…`. Nothing decoded is trusted: the heading is wrapped to 0-360°, the
   pitch clamped to ±90°, and a clock rate to ±10 years per second (the Solar view's fastest).
 - `zoomToHeight`, `heightToZoom`: the 2D map's zoom and the globe's camera height, so a link made on one opens the
-  same area on the other. `MAP_TO_GLOBE`, `globeLayersFor`, `mapLayersFor`: the two views' layer ids.
+  same area on the other. `MAP_TO_GLOBE`, `globeLayersFor`, `mapLayersFor`: the two views' layer ids (the pairs are
+  listed in [LINK_FORMAT.md](LINK_FORMAT.md#the-2d-map-open-overwatchhtml)).
+- `noradKeys`: the spellings a satellite is looked up by, ['00005', '5'] for a zero-padded catalogue number (a TLE
+  keeps the padding, links and SOCRATES don't), else just the id; the globe's satellite index files each one under both.
   `MAP_TO_WEATHER`, `weatherFor`, `mapWeatherFor`: the 2D map's forecast layers ↔ the globe's `w=` list and model.
 - `decodeExtras`: the parts that work without a camera: the panel to open, a flight, an item id, and the place Tonight
   answers for. `GO`: the panels a link may open.
@@ -1155,7 +1232,10 @@ Who owns the globe's details card: modules that start something with their card 
 view, a launch replay, a re-entry corridor) register a stop under their card's marker attribute, and it runs once when
 that card closes by any route or another card replaces it. Used by globe (ui.js, through `hooks.onCardClosed`).
 
-- `cardOwners`: a registry with `own(marker, stop)` and `check(shown, has)`.
+- `cardOwners`: a registry with `own(marker, stop)` and `check(shown, has)`. ui.js's closeCard() runs the check at
+  once, so a module that closes the card through `hooks.closeCard()` finds its owners stopped by its next line; a
+  MutationObserver on the card is the backstop for every other route. A module whose card was replaced (not hidden)
+  should not send the clock back to live: the new card may just have set it.
 
 ### `voicecmd.js`
 
@@ -1175,6 +1255,10 @@ Spoken commands without an AI service: a sentence in, one action out. Used by gl
 - `EXAMPLES`: the phrases the help card suggests. `SENSORS`: the Ops looks.
 - `skyWords`, `weatherSentence`, `seaWords`: weather readings in words (with gusts, pressure and its trend, and the sea
   state), metric or imperial.
+- `weatherSource`: where a spoken weather answer comes from: 'model' only for a point on a forecast frame of weather
+  mode whose fields are loaded; a named place, an observed frame or weather mode closed is 'now' (Open-Meteo's
+  conditions at the point). `weatherReply`: the answer naming its source ("Paris, now: …", or "Paris, NOAA GFS
+  forecast for Thursday 3 pm: …").
 
 ### `format.js`
 
@@ -1336,7 +1420,8 @@ the globe and the 2D map shows it, the MCP answers carry its line.
 
 - `source`: one source's report, times to ms. `provenance`: `{ sources, agree, of, dataAt, ageMs, maxAgeMs, confidence, rule }`,
   confidence confirmed, reported, stale or unknown (`CONFIDENCE`, `RULE`).
-- `provenanceText`: one plain line. `provenanceHtml`: the card block, upstream strings escaped. `ageText`.
+- `provenanceText`: one plain line. `provenanceHtml`: the card block, upstream strings escaped, with the confidence
+  rule as the word's tooltip and again as visually hidden text (`.oo-sr`) for screen readers, which often skip a title. `ageText`.
 
 ### `liveprov.js`
 
