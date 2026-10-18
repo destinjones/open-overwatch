@@ -12,6 +12,7 @@ import { decodeSolarView } from '../src/core/solarlink.js';
 import { PLANET_KEYS } from '../src/core/planets.js';
 import { cometFromRow, cometPeriodYears, conicInPlane } from '../src/core/comets.js';
 import { msFromJd } from '../src/core/time.js';
+import { quakeInWindow } from '../src/core/history.js';
 import { LAYERS, WEATHER } from '../mcp/place.mjs';
 import { checkPage, inlineScripts } from '../src/core/sricheck.js';
 import { checkHtml } from '../src/core/a11ycheck.js';
@@ -28,7 +29,7 @@ const text = s => unamp(s.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
 const activities = [...html.matchAll(/<article class="activity" id="([^"]+)" data-age="([^"]+)" data-minutes="(\d+)"([^>]*)>([\s\S]*?)<\/article>/g)]
   .map(([, id, age, minutes, attrs, body]) => ({
     id, age, minutes: +minutes, attrs, body,
-    title: text((body.match(/<h3[^>]*>([\s\S]*?)<\/h3>/) || [])[1] || ''),
+    title: text((body.match(/<h4[^>]*>([\s\S]*?)<\/h4>/) || [])[1] || ''),
     meta: text((body.match(/<p class="meta">([\s\S]*?)<\/p>/) || [])[1] || ''),
     goal: text((body.match(/<p class="goal">([\s\S]*?)<\/p>/) || [])[1] || ''),
     steps: [...((body.match(/<ol class="steps">([\s\S]*?)<\/ol>/) || [])[1] || '').matchAll(/<li>/g)].length,
@@ -60,7 +61,7 @@ test('8 to 12 activities in three age groups, each complete', () => {
     assert.ok(a.links.length >= 1, `${a.id}: a link that opens the view`);
     assert.match(a.body, new RegExp(`<button type="button" class="btn small" data-print="${a.id}" hidden>Print this activity</button>`), `${a.id}: its own print button`);
     assert.match(a.attrs, new RegExp(`aria-labelledby="${a.id}-h"`), `${a.id}: named by its heading`);
-    assert.match(a.body, new RegExp(`<h3 id="${a.id}-h">`), `${a.id}: the heading it is named by`);
+    assert.match(a.body, new RegExp(`<h4 id="${a.id}-h">`), `${a.id}: the heading it is named by`);
   }
   // the topics the page promises
   for (const t of [/night/i, /Moon/, /Solar System/, /storm/i, /plate boundaries/i, /ISS/, /Seasons/, /Light pollution/i, /Kepler/, /TRAPPIST-1/, /eclipses/i])
@@ -138,13 +139,19 @@ test('the dates the links set are the dates their labels give', () => {
   const want = {
     'December solstice': '2026-12-21T12:00', 'March equinox': '2027-03-20T12:00', 'June solstice': '2027-06-21T12:00',
     'Hurricane Ian': '2022-09-28T19:05',   // landfall at Cayo Costa, 3:05 pm EDT
-    'Tōhoku': '2011-03-12T06:00',          // the day after: the 24 hours before include the 05:46 UTC main shock
+    'Tōhoku': '2011-03-12T05:30',          // 23 h 44 min after the main shock, so the 24-hour quake window holds it
   };
   for (const [label, iso] of Object.entries(want)) {
     const l = allLinks.find(x => x.label.includes(label));
     assert.ok(l, `a link labelled ${label}`);
     assert.equal(at(decodeView('#' + l.href.split('#')[1]).time.jd), iso, label);
   }
+  // the globe draws the quakes of the 24 hours before its clock: the M9.1 main shock (05:46:24 UTC, 11 March 2011)
+  // must be one of them, and the clock must not be so late that only aftershocks remain
+  const tohoku = allLinks.find(x => x.label.includes('Tōhoku'));
+  const ms = msFromJd(decodeView('#' + tohoku.href.split('#')[1]).time.jd);
+  assert.ok(quakeInWindow({ time: Date.UTC(2011, 2, 11, 5, 46, 24) }, ms), 'the Tōhoku link shows the main shock');
+  assert.ok(quakeInWindow({ time: Date.UTC(2011, 2, 11, 6, 30) }, ms), 'and the first aftershocks');
   // the Solar System links carry their dates in plain ISO
   const shadow = allLinks.find(l => l.label.startsWith("The Moon's shadow"));
   assert.equal(new Date(msFromJd(decodeSolarView('#' + shadow.href.split('#')[1]).jd)).toISOString().slice(0, 16), '2027-08-02T10:07');
@@ -222,6 +229,10 @@ test('the CSP and accessibility checks pass; no inline script to hash', () => {
   const { errors } = checkHtml(html);
   assert.deepEqual(errors.map(e => `teach/index.html:${e.line} [${e.rule}] ${e.what}`), []);
   assert.match(html, /<a class="skip" href="#main">/);
+  assert.match(html, /<nav class="toc" aria-label="On this page">/, 'the contents list is a named navigation landmark');
+  assert.doesNotMatch(html, /<div[^>]*aria-label=/, 'no accessible names on generic elements');
+  const outline = [...html.matchAll(/<h([1-6])[\s>]/g)].map(m => +m[1]);
+  outline.forEach((n, i) => assert.ok(i === 0 || n <= outline[i - 1] + 1, `heading ${i}: h${n} after h${outline[i - 1]} skips a level`));
   assert.match(html, /<html lang="en">/);
   assert.match(html, /@media \(prefers-reduced-motion:reduce\)/);
 });

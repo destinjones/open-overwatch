@@ -14,7 +14,7 @@ test('the buttons appear; "Print this activity" prints that activity alone', asy
   await expect(page.locator('#printOne article')).toHaveCount(1);
   expect(await page.evaluate(() => document.querySelectorAll('#printOne [id]').length)).toBe(0);   // no repeated ids
   await page.emulateMedia({ media: 'print' });
-  await expect(page.locator('#printOne h3')).toHaveText('The ISS: why you see it at night');
+  await expect(page.locator('#printOne h4')).toHaveText('The ISS: why you see it at night');
   await expect(page.locator('#printOne')).toBeVisible();
   await expect(page.locator('main')).toBeHidden();
   await expect(page.locator('#printOne .tools')).toBeHidden();
@@ -22,7 +22,8 @@ test('the buttons appear; "Print this activity" prints that activity alone', asy
   await expect(page.locator('#printOne')).toHaveCount(0);
   // the whole page on paper: no navigation, every activity there, white paper
   await expect(page.locator('main')).toBeVisible();
-  await expect(page.locator('nav')).toBeHidden();
+  await expect(page.locator('body > nav')).toBeHidden();
+  await expect(page.locator('nav.toc')).toBeHidden();
   await expect(page.locator('article.activity:visible')).toHaveCount(12);
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(255, 255, 255)');
   await page.emulateMedia({ media: 'screen' });
@@ -46,5 +47,5 @@ test('every link resolves, and the page fits a phone', async ({ page }) => {
     expect(r.status(), h).toBe(200);
   }
   await page.setViewportSize({ width: 360, height: 760 });
-  await expectFitsWidth(page, ['nav', '.wrap', '.activity', '.cite', '.url']);
+  await expectFitsWidth(page, ['body > nav', 'nav.toc', '.wrap', '.activity', '.cite', '.url']);
 });
