@@ -33,7 +33,7 @@ What's in the sky tonight in your city, a page for teachers, and the second audi
   Hawaii, and Russia claims neither them nor Hokkaido's coast; storms count up to 8° out to sea, never over another
   country's land; `sun_and_moon` uses the place's own calendar day (right at UTC+12 to +14).
 - MCP answers say what they know: the website has no live aircraft, so its links leave them out and point to the
-  download; an empty answer keeps the last good one; aurora's Kp skips readings older than 72 h; a time with no zone is
+  download; an empty 200 answer keeps the last good one (a 204 means "nothing", as for a field with no METAR); aurora's Kp skips readings older than 72 h; a time with no zone is
   UTC or the place's clock, never the host's; `show_on_globe` also takes Solar System, Tonight and `/v/` links.
 - Your location comes only from your device: the 2D map's IP lookup (ipapi.co) is gone. If the device says no, tap the
   map or search "lat, lon"; the place is kept rounded to 0.01° for 24 hours. Worldwide ships (aisstream.io) come only
@@ -50,8 +50,8 @@ What's in the sky tonight in your city, a page for teachers, and the second audi
   India page's live strip and the Tonight card are no longer re-read as they update; Tonight keeps focus and has real
   headings; the 2D map's splash and welcome card hold focus; the Solar System works from the keyboard; the demo clips
   play once with a pause button; Hindi words are marked `lang="hi"`, and `/india/hi/` is labelled in Hindi without JS.
-- Phones: the 2D map's sheets survive rotation and the keyboard, centring aims above an open sheet, its buttons are
-  44 px; Solar System lists and cards no longer cover each other, and its credits open as a sheet.
+- Phones: the 2D map's sheets survive rotation and the keyboard, centring aims above an open sheet, its card and probe
+  buttons, zoom control and forecast buttons are 44 px and its pills 40 px; Solar System lists and cards no longer cover each other, and its credits open as a sheet.
 - The dateline: a storm at 179.5°E and 179.5°W is one storm, drawn once on the 2D map; fire tiles load on both sides
   of 180; satellites numbered under 10000 are found by links and lookups.
 - Volcano heights are in metres (Mount Blackburn 4,996 m, not 16,390). "///15KT" reads "direction not reported" and

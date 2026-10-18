@@ -468,8 +468,9 @@ Round 2 (2026-10-10, local):
 ### Audit 2 and round 3 (2026-10-17, local; for v0.9.2.16)
 - [x] Engineering round: `npm run typecheck` and `npm run lint` in CI, fuzz tests of the decoders of untrusted bytes
       and the hangs and size bugs they found (test/fuzz.test.mjs), the MCP server ready for npm and the MCP Registry
-- [x] Audit 2: 118 confirmed findings (1 high, 48 medium) fixed in 15 packages, with the owner's downloads done:
-      Apophis 2026-2035 (data/solar/apophis.json), BepiColombo at Mercury, Uranus in the Horizons fixture, Chandrayaan-2
+- [x] Audit 2: 117 of its 118 confirmed findings (1 high, 48 medium) fixed in 15 packages (the CSP sweep,
+      security2-r1-5, is deferred below, and the checker-rule parts of a11y-r1-1 and a11y-r1-10 too), with the owner's
+      downloads done: Apophis 2026-2035 (data/solar/apophis.json), BepiColombo at Mercury, Uranus in the Horizons fixture, Chandrayaan-2
       and Aditya-L1 re-fetched, data/volcanoes.json from Wikidata in metres
 - [x] No IP location (src/core/myplace.js: the device's fix or a picked place, 0.01°, 24 h); aisstream.io only through
       the download's helper (serve.js/serve.py `/aisstream`); Esri tiles streamed only (sw.js STREAM_ONLY)
@@ -484,8 +485,8 @@ Round 2 (2026-10-10, local):
       package agent): the relay (relay/: the LIMITER rate limit, `t=` only on stills within 10 minutes), the MCP Worker
       (mcp-worker/: the dateline areas and honest answers reach claude.ai users only then) and a new .mcpb into Claude
       Desktop
-- [ ] One CSP sweep: each page's bare `cdn.jsdelivr.net` in script-src / worker-src / child-src becomes per-package
-      path prefixes, and src/core/sricheck.js flags a bare jsDelivr host (audit 2 security2-r1-5, deferred until the
+- [ ] One CSP sweep: each page's bare `cdn.jsdelivr.net` becomes per-package path prefixes (script-src on every page;
+      globe.html also in style-src, worker-src and child-src), and src/core/sricheck.js flags a bare jsDelivr host (audit 2 security2-r1-5, deferred until the
       packages merged)
 - [ ] Checker rules deferred by audit 2 (src/core/a11ycheck.js): an aria-live container holding text a timer rewrites;
       Devanagari text whose nearest `lang` is not "hi" (test/attribution.test.mjs checks four pages only); opacity
@@ -493,14 +494,15 @@ Round 2 (2026-10-10, local):
 - [ ] The 2D map's CSP: add `ws://localhost:* ws://127.0.0.1:*` to connect-src for older WebKit (the download's
       aisstream socket relies on 'self' matching ws: on the same host)
 - [ ] MCP areas, left from round 3: the US territories (Puerto Rico, Guam, American Samoa, the Virgin Islands) are not
-      in data/borders.json; `plate_readers` and `military_areas` tile only the USA's main box (mcp/osm.mjs areaBox),
-      so they miss Alaska and Hawaii; fires in Alaska use the plain circle (mcp/fires.mjs); answers for Alaska and
+      in data/borders.json; `plate_readers` tiles only the USA's main box (mcp/osm.mjs areaBox), so it
+      misses Alaska and Hawaii (`military_areas` turns away any area wider than 150 km); fires in Alaska use the plain circle (mcp/fires.mjs); answers for Alaska and
       Chukotka say "within N km of" (mcp/words.mjs where) for an area wider than that circle; measure round-the-world
       areas against the Worker's 10 ms free-plan CPU (offCoast on thousands of Alaskan quakes)
 - [ ] mcp/reentry.mjs still promises a flat ±25%: say "usually ±25%, wider when the two drag estimates disagree", as
       both views' cards do
-- [ ] src/globe/launches.js keeps its own precise(): use core/launches.js preciseLaunch (a launch with no precision field
-      gets "—" in the globe's launch list but a countdown in Earth now); src/map/feeds.js keeps its own GDACS prune
+- [ ] src/globe/launches.js keeps its own precise(): use core/launches.js preciseLaunch (precise() only upper-cases LL2's
+      precision, so a long name such as "Hour", "Minute" or "Second" gets "—" in the globe's launch list but a countdown
+      in Earth now, where precisionCode maps it to HR/MIN/SEC); src/map/feeds.js keeps its own GDACS prune
       (GDACS_KEEP): use core/cyclones.js pruneKept, as the globe does
 - [ ] Apophis's faint point in the packed asteroid file and click-picking (src/solar/smallbodies.js pickAsteroid) use
       the SBDB elements, so from 2029 that point drifts away from Apophis's own dot
