@@ -76,7 +76,8 @@ CelesTrak after the first timeout, and index.json lists the groups it `kept`.
 `open-overwatch.zip` (the download the lander links to via releases/latest/download). Keep the zip file list in that
 workflow in sync when the app starts needing new files. gh CLI (portable): ~/bin/gh-cli/bin/gh.exe.
 - 2026-10-17, the Pages budget: the site root is HEAD minus SKIP_ROOT, which now also leaves out the dev-only folders
-  test/, e2e/, notes/, relay/, mcp-worker/ and brand/clip/ (KEEP_ROOT puts back the one file a page loads from them,
+  test/, e2e/, notes/, relay/, mcp-worker/ and brand/clip/, and the dev tools' configs (types/, tsconfig.json,
+  tsconfig.workers.json, eslint.config.mjs, playwright.config.mjs) (KEEP_ROOT puts back the one file a page loads from them,
   test/fixtures/horizons_2026-10-02.json for the Solar view's accuracy table). Only the newest ARCHIVE_KEEP (6) tags by
   version number get a full /v/<tag>/ copy (`online_tags`); an older tag's pages are a small script-free page linking
   its release zip, and its versions.json entry has `online: false` and no map/globe/solar paths. versions.json's top
@@ -84,9 +85,10 @@ workflow in sync when the app starts needing new files. gh CLI (portable): ~/bin
   warns over SITE_BUDGET (900 MB); pages.yml fails the build over 950 MB.
 - 2026-10-17, news and the sitemap: a partial GDELT run fills the countries that failed from the live copy (up to 3 days
   old) and lists them in news.json's `kept` map ({ISO2: ms of their own fetch}); the globe's country panel labels those
-  headlines with that time and says "last few days" once they are over 24 h old. sitemap.xml's <loc> list is
-  hand-written, but the build rewrites every <lastmod> from git (`date_sitemap`); the app pages (APP_PAGES: globe,
-  solar, open-overwatch, tonight) also count commits to src/ and data/.
+  headlines with that time and says "last few days" once they are over 24 h old. sitemap-pages.xml's <loc> list
+  (sitemap.xml is now a sitemap index of it and sitemap-sky.xml) is hand-written, but the build rewrites every <lastmod>
+  from git (`date_sitemap`); the app pages (APP_PAGES: globe, solar, open-overwatch, tonight) also count commits to src/
+  and data/.
 - 2026-10-17, the release: `Publish Update.bat` now runs `git fetch origin main` and `git merge --ff-only origin/main`
   before it bumps anything (it stops if this branch and main have both moved), shows which branch goes to main, pushes
   the branch and the tag together (`git push --atomic`), and on a failed push deletes the tag and takes back the version
@@ -97,6 +99,18 @@ workflow in sync when the app starts needing new files. gh CLI (portable): ~/bin
   from the website. test/release.test.mjs reads the zip list from release.yml and fails on a file README.txt lists, a
   data/ file a view fetches, a page or srcset image a shipped page links, a manifest icon or screenshot, or a folder
   whose asset paths pages build in JS (brand/lander/clips/, brand/india/clips/, brand/models/) that the zip lacks.
+- 2026-10-17, the clean-machine install test (.github/workflows/install-test.yml): the release's open-overwatch.zip
+  (on ci-e2e pushes, one built by release.yml's own zip step: the `zip` job), unzipped and run with `node serve.js` and no
+  npm install on fresh Linux, Windows and macOS runners (the `site` job); every page and every local file the pages load
+  must answer 200 (test/helpers/installsmoke.mjs, which test/installsmoke.test.mjs also runs against the checkout). The
+  `mcp` job packs the npm tarball, installs it into an empty folder and runs `open-overwatch-mcp --version` plus an
+  initialize + tools/list round trip over stdio, on the same three systems. It runs on a published release, when the
+  Release workflow finishes (a release made with release.yml's GITHUB_TOKEN starts no workflows), by hand, and on ci-e2e
+  pushes. The concurrency group is keyed on the release tag (workflow_run's github.ref is always the default branch)
+  and only ci-e2e pushes cancel, so a release made in the GitHub UI runs the test twice, one after the other; the site
+  job checks out workflow_run.head_sha, like the mcp job, so the helper is the released commit's. DATA_FILES lists every
+  data file plus one file from each texture and model folder release.yml copies: a new run-time folder in release.yml
+  needs one of its files added there.
 
 ### Search and sharing (SEO)
 `index.html`, `about.html` and the three app pages each carry a title, description, canonical URL, Open Graph and Twitter tags; the landing and About
@@ -157,7 +171,7 @@ arrive without CORS and are reported as such); airplanes.live only when picked (
 `noaa` group gone (in `weather`), `last-30-days` often has no TLE-format data (new catalog numbers outgrow TLE).
 Helpers (serve.js/serve.py) are locked down: Host check, /proxy only for the helper's own pages, no ACAO, each
 redirect hop re-checked against the allowlist. Keep their allowlists = NEEDS_RELAY (+ old hosts for archived pages;
-test/relayhosts.test.mjs checks since 2026-10-17).
+test/relayhosts.test.mjs checks since 2026-10-17). Their aisstream tunnel and later hardening: "Local helpers" below.
 
 ## Blender (for 3D assets)
 - Production renders run HEADLESS via the launcher (blocks, returns the exit code, but stdout is lost: log to files).
@@ -219,8 +233,22 @@ test/relayhosts.test.mjs checks since 2026-10-17).
 - NCEP packs every field we use with GRIB2 template 5.3 (complex packing, second-order spatial differencing, 13-ish
   bits, no bitmap). core/grib2.js matched eccodes (pip `eccodes`, a dev check only) to 9e-7 on all five fields;
   test/grib2.test.mjs carries its own small encoder instead of a data file.
-- The run to read: newest first from 3.5 h after the run starts, accepted once the last hour we show (f120, f072 on
-  phones) exists. A newer run replaces it every 6 h (checked every 20 min while weather is open).
+- The run to read: newest first from 3.5 h after the run starts, accepted once the last hour we read exists: since
+  2026-10-17 that is a day past the last hour shown (core/wxmodels.js `reachH` = MAX_H + RUN_SLACK_H 24: f144, f096 on
+  phones; ECMWF's 00/12 UTC runs stop at 144). A newer run replaces it every 6 h (checked every 20 min while weather is
+  open).
+- 2026-10-17, the forecast horizon: the timeline counts from now but the run from hours ago (GFS is read 3.5-9.5 h after
+  its start, ECMWF 7.5-19.5 h), so reading only to MAX_H let `bracketFor` hold the run's last file under later labels
+  (GFS 00Z at 09:20Z: +123..+129 h repeated the +120 h field). Both views now read a day further and stop the globe
+  timeline and the map slider at `runEnd` (the run's own last hour); in compare mode at the shorter of the two runs
+  (globe `until()`, map `top()`). Times on both halves of the globe slider, the scale, rain from space and the map bar are
+  the viewer's clock with its zone (`clockWords`; the run itself is named in UTC). The map bar's "+2 h 40 min" follows
+  the clock: it refreshes when the hour turns and on every feed tick.
+- 2026-10-17, the Open-Meteo snapshot (globe wind.js, the fallback when no model can be reached) stands in only for an
+  observed frame within an hour of its own time (`snapFits`, SNAP_SPAN); a forecast frame the model can't give shows
+  nothing and says so. The site's data/wind.json mirror is rebuilt every 6 h, so for most of each cycle it is too old to
+  use near now: the page then asks Open-Meteo directly (612 points, at most once every 30 min, and only near now with
+  the model unreachable) and keeps the newest copy if that fails.
 - Weather mode opens on the pictures without waiting for the run (`Weather.adoptRun` adds the forecast later): a failed
   fetch to a bucket is retried like S3's CORS-less "503 Slow Down" (wxload.js runComplete, 8 tries, 4 runs, then the
   other model), so an unreachable S3 kept the panel on "loading…" for minutes (the e2e weather test caught it).
@@ -278,8 +306,10 @@ test/relayhosts.test.mjs checks since 2026-10-17).
   rule takes /snapshots/ or an image name, because its list was empty on 2026-10-17 and no live ImageURL could be seen).
 - CityBikes: 300 requests an hour per address (`ratelimit-*` headers); `?fields=` trims the answer; times look like
   `…+00:00Z`; some systems' feeds stopped months ago (their last numbers stay): greyed after 2 days.
-- AIS: positions are the antenna's (A to the bow, C to port: the hull is offset); ROT_AIS = 4.733 √(°/min); heading 511
-  and course 360 mean none; the ETA has no year. Digitraffic `?from=<ms>` returns only what changed (~270 a minute).
+- AIS: positions are the antenna's (A to the bow, C to port: the hull is offset); ROT_AIS = 4.733 √(°/min); heading 511,
+  course 360 and speed 102.3 mean none (core/ais.js `cleanAisSentinels` turns them into null for Digitraffic and
+  aisstream alike); the ETA has no year. Digitraffic `?from=<ms>` returns only what changed (~270 a minute).
+  aisstream.io (worldwide) is the download's only, through its local helper (see "Local helpers").
 
 ## Hazards and imagery (storms.js, fires.js, imagery.js) — 2026-10-11
 - NOAA's tropical map service is CORS-open (it echoes the origin) and carries everything NHC's KMZ files do, as
@@ -302,6 +332,25 @@ test/relayhosts.test.mjs checks since 2026-10-17).
   advisory time), and a layer that still errors warns 'NHC forecast layer <id>' instead of quietly drawing no storms.
   GDACS's forecast is skipped only for storms that actually got a NOAA forecast (`fc.src === 'NOAA NHC'`). Worth a live
   look after a publish: a layer-5 query with idp_filedate should still return features.
+- 2026-10-17, across the date line (test/dateline.test.mjs): every longitude difference is wrapped before it is a
+  distance. core/cyclones.js `distKm` puts fixes at 179.5°E and 179.5°W ~106 km apart (not 38,000 km), so the merge and
+  the provenance agreement join them. Fire tiles: `fireTilesWanted` splits a view at ±180 (core/hazards.js `lonBoxes`,
+  shared with `fireTilesAround`) and ranks tiles by wrapped distance, so a Suva/Taveuni view gets both sides;
+  `clusterFires` wraps its grid columns and links, unwraps a group's longitudes round its first detection, and returns
+  centres in [-180, 180) (`lonWrap`: a centre exactly on the line is -180). On the 2D map every shape of one storm (wind
+  rings, cone, forecast track, warnings, past and EONET tracks) unwraps from the storm's own longitude, so a storm across
+  180 is drawn in one world copy.
+- 2026-10-17, bounded and polite: the globe keeps two GDACS geometry caches, `gdacsKept` (live) and `pastKept` (time
+  travel), so a past day never evicts the live storms' entries; each is cut to 24 by core/cyclones.js `pruneKept`, which
+  never drops an episode still listed. The 2D map still prunes its own (the episodes the last list did not use, then the
+  oldest past 24, feeds.js GDACS_KEEP); moving it to `pruneKept` is a tidy-up. A failed past day (quakes, storms, natural
+  events) is asked again after 30 s, doubling to 5 min (core/hazards.js `retryBackoff`), not every second. The fire worker
+  aborts a tile after 30 s (AbortSignal.timeout covers the body too) and globe/fires.js gives up on the worker after 45 s.
+- Volcanoes (brand/tools/make_volcanoes.py, Wikidata): heights are best-rank values normalised to metres
+  (psn:P2044; the plain wdt: value keeps the unit it was entered in, so Mount Blackburn's feet came out as "16,390 m";
+  now 4,996 m), and a volcano with several positions takes
+  the smallest (lat, lon): SPARQL's row order is not stable, so the file must come from the values, never the order. A
+  height entered with no unit has no psn: value and stays empty (Gunung Barujari); adding a fallback means a new query.
 
 ## Draw and measure (measure.js, core/measure.js) — 2026-10-11
 - Distances: Vincenty's inverse and direct formulae on WGS84, within 0.08 mm of GeographicLib 2.1 (Karney; pip
@@ -401,6 +450,16 @@ test/relayhosts.test.mjs checks since 2026-10-17).
 - The scene renders on request: in the pane, call `scene.requestRender()` before trusting a screenshot of a change, and
   `viewer.clock.currentTime` lags the wall clock while idle (it ticks only on rendered frames). The violet vertical
   lines over cities are the Big-employers towers (Michelin at Clermont-Ferrand), not a stray polyline.
+- 2026-10-17, wording rules (core, so both views say the same): a METAR wind of "///15KT" is "Wind direction not
+  reported, 15 knots", never "variable" (the direction is missing, not variable), and "27015G//KT" keeps its wind with no
+  gust. `usableWind(w)` (core/metar.js) is the one test of a wind that can pick a runway (a speed plus a direction, VRB or
+  calm); without one both airport cards keep the METAR and ask the Open-Meteo model for the wind only, so the runway in
+  use and "wind on it" still show, labelled "(Open-Meteo model wind)". TAF lines name another UTC day ("Now until
+  tomorrow 18Z") and the card notes say "times and days in UTC (tomorrow is the next UTC day)". `emergencyLabel(r)`
+  (core/aircraft.js) shows "SQUAWK 7700" for an emergency squawk and "EMERGENCY" for one declared with any other squawk.
+  readsb's "~" addresses (TIS-B tracks, anonymous) are not ICAO addresses: never looked up on adsbdb (their digits belong
+  to some real airframe), their own cache key, no "Registered in" country. A plane's height is barometric, else
+  geometric, never 0 m for a cruiser; AWC's empty 204 is "no METAR for this field", a cached miss, not an outage.
 
 ## Airport weather, estimates and runway history (fieldwx.js, fieldwatch.js; core metar, eta, runwaylog) — 2026-10-13
 - aviationweather.gov's data API sends no `Access-Control-Allow-Origin` (GET and OPTIONS checked 2026-10-13), so METAR
@@ -453,9 +512,12 @@ for buoys and DART, and tsunami.gov), each host limited to its feed paths (PATHS
 forwarded one let anyone poison the shared cache with DriveBC's HTML rendering: 2026-10-11 review), HTML and error
 answers never cached, a 30 MB cap counted on the stream, `Access-Control-Allow-Origin` fixed to the published site,
 test/relay.test.mjs exercises it with a stand-in upstream. Rate limiting per address: not a WAF rule (the relay lives
-only on workers.dev, which has no zone for one) but a Workers Rate Limiting binding in relay/wrangler.toml
-(`[[ratelimits]]`, as mcp-worker/ has), checked per `cf-connecting-ip` after the allowlist; its deploy waits for the
-owner. Workers Cache in front (works on the free plan: `CF-Cache-Status: HIT`; per-host max-age in TTL).
+only on workers.dev, which has no zone for one) but the Workers Rate Limiting binding `LIMITER` in relay/wrangler.toml
+(`[[ratelimits]]`, namespace 4722 beside the MCP Worker's 4721; 60 requests per 60 s per `cf-connecting-ip`), counted
+only for a request that has passed the allowlist and missed both caches, so cache hits never use it up; over it is a 429
+with retry-after 60, and a broken binding lets the request through. It was added after the 2026-10-17 redeploy, so it
+goes live only with the owner's next `npx wrangler deploy` from relay/. Workers Cache in front (works on the free plan:
+`CF-Cache-Status: HIT`; per-host max-age in TTL).
 The ADS-B networks and OpenSky refused Cloudflare's servers on 2026-10-10 (adsb.lol 429, airplanes.live / adsb.fi /
 adsb.one 403, OpenSky timeout); don't disguise the relay to get past that. adsb.lol's API terms say a key (given to feeders)
 is coming.
@@ -477,7 +539,10 @@ is coming.
   the map logs one line (rule 6 of the layer contract; the globe notes of 2026-10-17).
 - 2026-10-17, one request form: the Worker accepts only `PUBLIC_RELAY + encodeURIComponent(new URL(feed).href)` (core
   relay.js `relayUrl`, which every client uses), optionally followed by `&t=<digits>` (a camera still's minute,
-  core/cameras.js `bustUrl`), and no query string or fragment on the target itself. Any other spelling (extra or
+  core/cameras.js `bustUrl`), and no query string or fragment on the target itself. Since the hardening after that
+  redeploy (not deployed yet), t= is taken only for a camera still (the four still hosts and DriveBC's /images/,
+  `T_STILLS` / `takesT`) and only within T_WINDOW = 10 minutes of the Worker's own minute (`freshT`), so each still has at
+  most 21 cache keys at a time; any other t= is a 400. Any other spelling (extra or
   reordered parameters, a re-encoded or upper-case target) gets a 400, since each would be a separate entry in the shared
   caches. A carried host asked for a path outside PATHS gets 403 'path not on the relay allowlist: <host>'; only 'host not
   on the relay allowlist' reads as `relayRefused`, so a stray path never stops the whole host for the visit.
@@ -491,6 +556,28 @@ is coming.
   (NHC, cameras, NDBC buoys/DART, cables; www.tsunami.gov is allowed but nothing asks for it yet); when it runs out
   they all fail until midnight UTC. Workers Cache is per data centre, so "one upstream request per interval" is per
   Cloudflare location. Watch the Worker's request graph after advertising; Workers Paid ($5/month, 10 M requests) if needed.
+
+## Local helpers: the aisstream tunnel and hardening (serve.js, serve.py) — 2026-10-17
+- aisstream.io takes no connection from a web page, so worldwide ships work only in the download: the 2D map opens
+  `ws://<the helper's host>/aisstream` (core/ais.js `aisstreamSocketUrl`: only on localhost, 127.0.0.1 or [::1]) and
+  both helpers pass the bytes unchanged to wss://stream.aisstream.io/v0/stream. The visitor's key travels in the first
+  frame and is never read or logged (a query string is refused with a 400, and serve.py masks one in its log). The
+  website never opens aisstream.io's socket; its ships stay Fintraffic's, and the layer stops for the visit with
+  "Worldwide ships via aisstream need the free download" (a `notCarried` error). Setup's key field is disabled there.
+- The tunnel serves only the helper's own pages (Host 421, missing or foreign Origin 403), at most AIS_MAX = 4 at once
+  (503 beyond), and the upstream connect + TLS + handshake share one 15 s budget (serve.js AIS_HANDSHAKE_MS, serve.py
+  AIS_HANDSHAKE_S). serve.py pumps both directions from one thread with non-blocking sockets and select: an OpenSSL
+  object must never be read and written from two threads (under TLS 1.3 that could drop a stream). It buffers up to
+  AIS_BUF = 1 MB for a slow side (then stops reading the other), retries an SSL write that has to wait with the same
+  bytes, reads SSL-pending bytes before select, and ends the tunnel when a side takes nothing for AIS_SEND_S = 60 s.
+  OW_AIS_UPSTREAM points both at a loopback stand-in for test/serve.test.mjs, which starts each helper on a spare port.
+- The 2D map's connect-src has no `ws:` entry: the socket relies on CSP3 letting 'self' match ws: on the same host,
+  which Chromium and Firefox do. An older WebKit may block it; the fix would be `ws://localhost:* ws://127.0.0.1:*` in
+  open-overwatch.html's connect-src (the inline-script hashes would not change).
+- Hardening: a NUL byte in a path is a 400 in both (fs.stat threw on it, so any page's `<img src=".../%00">` used to end
+  serve.js); serve.js answers any other synchronous throw with a 500 and a malformed request with a plain 400 through a
+  `clientError` handler, and keeps running. Both pin the same MIME table, .js included (test/serve.test.mjs compares
+  them), so a Windows registry that maps .js to text/plain can't blank every module page. serve.py honours OW_NO_OPEN.
 
 ## MCP server (mcp/) — 2026-10-11
 - Layout: `server.mjs` (CLI, stdio) → `index.mjs` (assembly) → `protocol.mjs` (JSON-RPC by hand: initialize with version
@@ -540,7 +627,8 @@ is coming.
   shop of the same name, and a typed lat, lon is never second-guessed; the globe link carries the line as `&d=`),
   `volcanoes` (a town is a 60 km circle round it, a country its box), `road_speeds` (core/traffic.js parsers).
 - Also `close_approaches` (data/socrates.json + SGP4 for where), `sun_and_moon` (riseSet at -0.833/-4/-6/+6/-12/-18°;
-  the local day from Intl offsets; V8 rolls 2026-02-30 over to March, so dates are checked by round trip), and
+  the local day from Intl offsets, since 2026-10-17 the zone's own calendar day: see below; V8 rolls 2026-02-30 over to
+  March, so dates are checked by round trip), and
   `meteor_showers`. Prompts (`prompts.mjs`, `prompts/list` + `prompts/get`): five requests that name only real tools (a
   test checks), arguments quoted as one cleaned line. `worker.mjs`: the server as a fetch handler, bearer token
   (MCP_TOKEN, 16+ characters, compared without early exit) or 503/401; Host check off, Origin check on. Not deployed.
@@ -585,6 +673,46 @@ is coming.
   (FDSN's empty 204 = no events). If EMSC fails or takes over 10 s, the summary's last EMSC list is used, kept in a
   WeakMap on `feeds.scope` (the memo every server in a Worker isolate shares), so the Worker's per-request servers keep it
   too.
+- 2026-10-17, places that run round the world (mcp/place.mjs `wideArea`, core/borders.js): Photon gives the USA, Russia,
+  Fiji, Alaska and Chukotka an extent of west -180, east 180, which used to read as a band over every longitude. A
+  round-the-world country is now its own outline (data/borders.json) or off its coast: `offCoast` = at sea (in nobody's
+  outline), within OFFSHORE_DEG = 2.5° (~280 km) of the nearest edge of any of its parts, and no other country's outline
+  nearer. So the Fiji region east of 180, the Aleutian trench and the sea off Hawaii are in Fiji and the United States,
+  and Russia no longer claims Aleutian or Hokkaido-coast quakes. The frame is the main part's box with the antimeridian
+  kept whole (`mainBoxWrapped`: Russia 27°E to 170°W). A round-the-world state of such a country (Alaska, Chukotka) is
+  rougher: the country's land and sea inside the state's latitudes and within STATE_GROW = 2.2 times its circle (Adak,
+  Attu and Ketchikan are in Alaska, Seattle and Whitehorse are not), while the words still say "within N km of Alaska"
+  (the circle), smaller than what is counted. Every country that does not cross 180 still uses its whole box, sea
+  included. country_briefing counts "off its coast" with `offCoast` itself; earthquakes, volcanoes ("United States" lists
+  Kilauea and Alaska's, not Mexico's), plate readers and military areas filter with `inArea`.
+- Storms reach further out to sea: `inArea(a, lat, lon, { sea })` passes a reach to `offCoast`, and tropical_storms and
+  natural_events' severe storms use STORM_SEA_DEG = 8 (~890 km, country_briefing's "storms near it" box pad). Sea within
+  the reach counts whichever coast is nearer (a hurricane in the central Gulf at 25°N 88°W is nearer Yucatán, one at 30°N
+  75°W nearer the Bahamas; both are the USA's, 35°N 40°W is not), but another country's land never does (a typhoon over
+  Hokkaido is not in Russia, a storm over Havana not in the United States). test/mcpgeo.test.mjs pins these points.
+- Known gaps: borders.json has no Puerto Rico, Guam, American Samoa or US Virgin Islands, so "United States" leaves out
+  their quakes and storms although Photon's US extent reaches them. osm.mjs `areaBox` tiles only the main box, so plate
+  readers and military areas for the USA miss Alaska and Hawaii. fires.mjs spreads the area for a circle, which drops
+  the hidden border, so fires "in Alaska" use the plain circle.
+- Worker CPU: `nearParts` (each part's box grown by the reach) runs before any ring walk, but an at-sea point near a
+  coast still costs about 40 µs in `offCoast` (3,000 points off Alaska in Node, measured 2026-10-17), and the first call
+  prepares borders.json. `earthquakes` is not in HEAVY: a week of M1+ "in the United States" (thousands of Alaskan and
+  offshore quakes) could pass the free plan's 10 ms; measure it at the next Worker CPU review.
+- 2026-10-17, `sun_and_moon`'s day: core/traffic.js `zonedToUtc` reads a local 00:00 that never happened as 23:00 the
+  evening before, so mcp/sun.mjs `localDay` walks it forward to the day's first real instant: a day whose clocks spring
+  forward at midnight (Santiago, Havana, Asunción, Cairo) starts at 01:00 and is 23 h long (Santiago
+  2026-09-06: 04:00 UTC). Clock-change days elsewhere are 23 or 25 h (London 2026-03-29, 2026-10-25). A date a zone
+  skipped (Apia 2011-12-30) is an invalid_arguments error, not empty windows.
+- 2026-10-17, answers: in feeds.mjs only a 204 is "nothing" (null, AWC's METAR for a field with none); an empty 200 is
+  unreadable, so a slip upstream keeps the last good answer instead of remembering null over it. aurora's Kp now is
+  `kpNowFrom` over the forecast product's rows of the last 72 h (as the globe's kpSeries), then the observed product,
+  and only then the forecast's newest row however old, marked stale. Time arguments (`words.parseTime`) honour Z or an
+  offset and read a zone-less time as UTC, or as the place's clock when there is a place, never the host's zone.
+  show_on_globe and the panel take the site's globe.html#…, solar.html and tonight.html links, an archived copy's
+  (v/<version>/…) too. `SITE_HAS_AIRCRAFT` is false for the published site: aircraft_lookup, airport_weather and
+  show_on_globe leave `air` and flight= out of its links and say live aircraft come with the download (a --site
+  http://localhost copy keeps them). traffic_cameras tries at most pictures + 2 cameras at once under one 15 s deadline
+  (PICTURE_DEADLINE_MS) for the whole call.
 
 ## NYC measured traffic speeds — 2026-10-12
 - NYC DOT's Traffic Speeds dataset (i4gi-tjb9) lags far more than "a few hours": on 2026-10-12 the newest row was 27 h
@@ -785,6 +913,35 @@ is coming.
 - Renders: brand/tools/page_check.mjs (screenshots + script errors) works for the map. From Git Bash, give OW_WORK as
   a Windows path (`C:\Users\…`): with `$LOCALAPPDATA/…` Edge started but cdp.mjs never found DevToolsActivePort.
 
+## The 2D map on phones: sheets, focus, your place (detail.js, brief.js, presets.js, main.js, core/myplace.js) — 2026-10-17
+- **No IP location.** The ipapi.co fallback is gone (the owner's decision; no "ask first" variant): "Around me" and
+  "Center on me" use only the device's own fix. When it is denied or unavailable, the toast asks the visitor to tap the
+  map where they are or search "lat, lon", and for the next 60 s (`Locate.picking`; phones have no Escape, Escape on a
+  desktop cancels) a tap on open ground, a coordinate search or the probe's "I am here" sets the place. A tap on an
+  aircraft, quake or other glyph meanwhile opens its card instead: the click handler hit-tests the glyphs first. The kept
+  place (core/myplace.js) is rounded to 0.01° (about 1 km), lasts PLACE_TTL = 24 h, and comes only from 'device' or
+  'picked'; an older version's 'approximate (IP)' place is deleted at load and a full-precision one is written back
+  rounded. Setup has "Forget my location". Nothing in src/ or the pages names ipapi.co (the CSP never listed it).
+- **Sheets.** On a phone the card sheet covers the lower half, so `sheetAware()` (detail.js) aims every fly or pan above
+  it: window.flyTo (Center, search, alerts), Follow, Follow ISS, Surprise and the Brief's items; a tapped glyph under a
+  sheet that just opened is panned into the visible part. The layout is re-applied only when the phone/desktop media
+  query (`PHONE`, max-width 900px) changes, not on every resize, so rotating or a keyboard opening keeps the sheet. A live
+  card is not rebuilt mid-press (the pressed button would be detached and the tap lost) and an unchanged card keeps its
+  nodes; Detail and the Brief skip their refreshes while the sheet is down and render once when it comes up. No backdrop
+  blur on the phone sheets (a blur over the live map is redone every map frame); 44 px targets on the bar and tabs.
+- **Not every dot is a target.** The plate-reader heat cloud (below map zoom 10) is drawn with `noSel` and no kind or
+  object: a tap there opens the probe, never `Detail.show(undefined)` or a selection ring on 20,000 dots.
+- **Focus.** The splash makes #app inert and focuses "Enter silent"; closing it hands the focus to the welcome card or
+  the map. The welcome card is a dialog (aria-modal, focus on the first view, Tab kept inside, what is behind it inert,
+  focus restored on the way out). Opened as a file, the page says to run the helper, as globe.html does.
+- **A line swallowed by a comment:** Follow ISS's `Presets.satOpt('sat_tracks', true)` once sat behind a trailing `//`
+  on the line before it and silently stopped turning the ground track on; test/mapphones.test.mjs fails if that call is
+  ever inside a comment again. One statement per line where a comment trails.
+- **NWS zone-only alerts** (most Severe/Extreme ones: tropical, winter, wind, fire, freeze have no polygon) are listed
+  under the layer; opening one draws its first 5 forecast zones from api.weather.gov. The list keeps its open state
+  across the 5-minute refresh and empties while the layer is off; opened with the layer off, the card says the zones were
+  read, not drawn (they go into gNws and show once the layer is on).
+
 ## Installable app, touch hints, accessibility (sw.js, src/app/, core/pwa.js, core/spot.js, core/a11ycheck.js) — 2026-10-12
 - **Where the worker runs.** `src/app/pwa.js` registers `sw.js` (scope = the site root, `updateViaCache: 'none'`) only on
   the website. Archived `/v/<tag>/` pages are inside that scope, so two guards: their pages never register or talk to the
@@ -804,8 +961,11 @@ is coming.
   load + idle so it never competes with the globe's start). A module only reached by a computed path would be missed:
   keep imports literal. Save-Data: pages only.
 - **Libraries via `<script>` are no-cors**; the worker refetches pinned CDN files with CORS so the cache holds readable
-  copies (an opaque one counts as ~7 MB of quota in Chrome). Leaflet's base tiles are `crossOrigin: false`: OSM and Esri
-  answer CORS, so they are kept; anything that does not is passed through uncached.
+  copies (an opaque one counts as ~7 MB of quota in Chrome). Leaflet's base tiles are `crossOrigin: false`: OSM answers
+  CORS, so its tiles are kept; anything that does not is passed through uncached. Esri's (arcgisonline.com) are never kept
+  although they answer CORS (2026-10-17, `STREAM_ONLY` in sw.js: streamed live only, any copy an older worker kept is
+  dropped at activate); offline, the globe shows NASA's Blue Marble. Kept tiles: NASA GIBS Blue/Black Marble, OSM,
+  OpenFreeMap and terrain, cache first for 30 days, at most 1,200.
 - **Testing offline in WebKit:** Playwright's `setOffline` with a service worker makes WebKit fail with "internal error";
   pwa_check.mjs drops the connections in its own server instead (and also sets offline in Chromium for the banner).
 - **Touch hints** (`gestures.js`): phones only (`pointer: coarse` without a fine pointer), not in embeds, after the
@@ -841,6 +1001,12 @@ is coming.
 - **2026-10-17, the install sheet:** a maskable icon (brand/emblem/emblem-maskable-512.png) and two screenshots,
   brand/social/screen-narrow.jpg (720x1280) and screen-wide.jpg (1280x800), JPEG quality 85 with a copyright comment,
   made by brand/tools/pwa_images.py from the hero stills. They are in APP_PATHS and the release zip.
+- **2026-10-17, pages the worker must not freeze:** the 6-hourly website rebuild keeps the same commit, so BUILD and the
+  worker stay the same while the city sky pages change; as ordinary 'page' requests a published build served the first
+  copy it saved for good. `classify()` now gives same-origin sky/ (the pages and sky.css) the kind 'page-live': network
+  first in every build, the last copy kept with the feed copies for offline (bounded, kept across versions), the offline
+  page for a city never opened. Anything else regenerated by the scheduled build without a commit belongs there too.
+  PAGES (precached at install) has teach/ and both India pages, never sky/ (~530 pages).
 
 ## Time travel (timetravel.js, events.js; quakes/storms/satellites follow the clock; core/history.js) — 2026-10-13 (branch grow3-timetravel)
 
@@ -897,8 +1063,10 @@ is coming.
   SWPC tags a 3-hour block by its start and sometimes "estimates" a block that hasn't begun: "now" is the last
   non-predicted row at or before now.
 - **Honest labels.** EONET's wildfires are incident reports (mostly IRWIN, US/Canada), and half of them are
-  prescribed burns: counted apart. Launches per month come from the upcoming list (the next 40): the current month
-  (flown launches are gone) and months past the list's end are drawn faint and say "partial". Weather extremes are
+  prescribed burns: counted apart. Launches per month come from the upcoming list (the site copy is LL2's upcoming
+  endpoint with limit=40, which since 2026-10-17 also holds the last 24 hours' launches: "about the next 40", never
+  "exactly"): the current month (flown launches are gone) and months past the list's end are drawn faint and say
+  "partial". Weather extremes are
   model grid cells, sea and Antarctica included (2 m temperature and 10 m wind of the GFS hour nearest now), named by the
   globe's own borders.
 - **Charts** are inline SVG built as strings in core (`barsSvg`): `role="img"`, a `<title>` and a `<desc>` that lists
@@ -1022,7 +1190,8 @@ is coming.
   - Quakes: USGS plus GDACS's earthquake alerts on the 2D map (`stampQuake`, `sameQuake` = 60 s, 100 km, 0.6 magnitude). GDACS
     takes most solutions from NEIC (USGS), so those are listed "GDACS (USGS solution)" and don't confirm. Since 2026-10-17 EMSC
     is the second catalogue on the globe, the 2D map and the MCP server (see "EMSC" below); GDACS stays on the 2D map only.
-  - Ships (2D map): Digitraffic and aisstream records of one MMSI (`sameShip`: ≤ 10 min, 300 m + run). Needs an aisstream key.
+  - Ships (2D map): Digitraffic and aisstream records of one MMSI (`sameShip`: ≤ 10 min, 300 m + run). Needs an aisstream key
+    and the download (aisstream goes through the local helper only, so the website never has a second ship source).
   - Everything else is single-source: "reported" at best.
 - Export: core/export.js turns items into rows (plain fields, plus provenance, confidence, sources, agree, of, data_time,
   data_age_s; CSV cells that would run as formulas get a leading '), app/save.js the buttons and a Blob download. 2D map:
@@ -1143,6 +1312,35 @@ is coming.
   It counts thrown errors only from src/globe, src/core or cdn.jsdelivr.net (not extensions or injected scripts), and
   main.js's boot text clears the failure styling when a slow boot recovers.
 
+## Globe cards, Look up and Tonight: who owns the card, focus, live regions (ui.js, core/cardowners.js, core/speakgate.js, tonight.js) — 2026-10-17
+- **Close means stop.** Modules that start something with #card (the near-miss HUD `data-cj`, a flyby's scale view
+  `data-fb`, the launch replay `data-as`, a picked re-entry corridor `data-re`) register `hooks.onCardClosed(marker,
+  stop)`; core/cardowners.js stops each owner once its card is closed by any route (×, Esc, a globe click, the phone's
+  Layers button) or replaced by a card without its marker. ui.js `closeCard()` runs the check (`syncCard`) at once, so
+  code that closes the card and reads state on the next line sees the owners stopped (Look up saving the camera lock
+  after a launch replay); the MutationObserver on #card is only the backstop for modules that remove `.show` or rewrite
+  the card themselves.
+- **A replaced card keeps the new clock.** An owner goes back to live time only when its card is hidden, not when
+  another card replaced it: a share link's time plus a satellite, or an eclipse, may have just set the clock
+  (conjunctions.js `stop(!shown)`, as eclipses.js does). Do the same in any new module that moves the clock.
+- **Flyby scale view:** after it closes, the Solar System hand-off is held off until the camera is inside HOLD_M =
+  2.5e8 m or has zoomed in 10% from its highest point since closing (flybys.js); zooming out after that is meant.
+- **Focus:** a card that held the focus gives it back to its opener, or to #globe when the opener is gone or hidden. A
+  closed card is `visibility: hidden` once it has slid out (0.35 s), so it leaves the tab order.
+- **Live regions:** #card has no aria-live in the markup; a11y.js says each selection once. Look up's Find rewrites its
+  "turn left 40°, up 12°" every frame, so it speaks through OOApp.announce only when the instruction changes kind (turn
+  left, turn right, there it is) and at most every 3 s (core/speakgate.js `speakGate`), not through a live region.
+- **Tonight card** (globe and tonight.html): each fold is a real button inside its h3 (`button.foldbtn`, aria-expanded and
+  aria-controls: the APG accordion pattern); the button is the hit area and carries the ▾/▸ arrow, the h3 keeps only its
+  margin. A redraw finds the focused control again by its data-* key or id (FOCUS_KEYS) and an unchanged card is not
+  rewritten at all. The card is not a live region: one summary is announced once the passes are in, and the toasts are
+  role=status.
+- **"Look up now" nudges** (a minute before each visible ISS or Tiangong pass of 20°+ in the next 12 h over the saved
+  place): re-armed every 6 h and when the place changes, cleared when it is forgotten, never repeated for a pass already
+  said (matched by where it sets, within 120 s, because a pass under way at re-arming starts at the search's start). A
+  timer that fires late (a laptop asleep, a frozen tab) with less than a minute of the pass left says nothing. A nudge
+  is said once, urgently; the toast is hidden from screen readers for 1 s, or until another toast replaces it.
+
 ## Solar System: the hand-over, orbit lines, the deferred asteroid file, ISRO (embed.js, util.js, smallbodies.js, craft.js) — 2026-10-17
 - **Hand-over:** the globe hands over beyond 3.0e8 m and the Solar view hands back below EXIT_M = 2.2e8 m. After the
   hand-over the 1.6 s roll (aim at Earth, roll to ecliptic north) is Earth-centred (at the globe's 1 h/s Earth moves
@@ -1169,6 +1367,22 @@ is coming.
   around orbit raising or lowering burns (craft.js). Chandrayaan-2's track ends 2026-11-08 and Aditya-L1's 2027-01-19:
   test/india.test.mjs prints a WARNING two weeks before an India link loses its position; rerun `python
   brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"` and republish (ROADMAP).
+- **Apophis** (data/solar/apophis.json from JPL Horizons, core/whereis.js TRACKS): hourly Earth-centred sets through the
+  13 April 2029 pass (38,011 km from Earth's centre). From the flyby on, the white orbit line and where_in_space's orbit
+  are the orbit it leaves on (`trackOrbit`: a ~1.10 AU, a 1.16-year period), not the pre-flyby ellipse; past the track's
+  end (2035-12-31) it moves two-body on its orbit at the end of the track, and the card and the MCP answer
+  (`orbit_note`) say the planets' later pulls are not modelled. `local.blend_days` (0.25 day for Apophis; craft.js
+  `localWeight`) eases the Earth-centred stretch into the heliocentric samples, removing the ~10,000 km jump between
+  core/planets.js's Earth and Horizons' at its edges. Known gap: the packed asteroid file's GPU point for Apophis and
+  `pickAsteroid` still use the SBDB elements, so from 2029 that faint point drifts away from Apophis's own dot (only the
+  selected body follows the track): hide the packed point or pick from the track.
+- **Phones and focus (solar/ui.js, lists.js, find.js):** a new details card or opening the menu closes the credits sheet
+  (it drew over both), and its X hands the focus to the menu button. The search box shows its results again when it
+  gets the focus with 2+ characters in it, and Enter on a hidden list shows it again, so "type, tap away, come back,
+  Enter" flies. A keyboard Try again that turns into "Loading…" moves the focus to the list's Close button, not
+  <body>. The boot watchdog in solar.html treats only a failed main.js module graph as blocked (a failed shell.js is
+  ignored), and since a module-graph error does not say which import failed, it names cdn.jsdelivr.net as the likely
+  blocker.
 
 ## EMSC: a second earthquake catalogue (core/quakes.js; globe/quakes.js, map/feeds.js, mcp/hazards.mjs) — 2026-10-17
 - EMSC's FDSN service (www.seismicportal.eu, keyless, CORS *, credit "EMSC") is asked beside USGS on the globe, the 2D
@@ -1194,7 +1408,7 @@ is coming.
   from versions.json and counts every release, zip-only ones too; its version picker lists only those still online.
 - india/hi/ is generated from india/index.html by `node brand/tools/india_hi.mjs` (it stops if an alt-text swap matches
   nothing); run it after every edit of the English page, then `node brand/tools/sri.mjs --csp`. test/india.test.mjs
-  fails when the Hindi page is out of date. Each language is self-canonical and sitemap.xml names the pair with
+  fails when the Hindi page is out of date. Each language is self-canonical and sitemap-pages.xml names the pair with
   xhtml:link alternates. The Hindi ad URL is india/hi/ (docs/INDIA.md).
 - Phones: opening the menu moves focus to its first link (the button comes after the links in the DOM); under 380 px the
   home bar's brand is 15 px with a 24 px emblem so it fits 360 px; under 760 px the live dot does not blink (home and
@@ -1204,3 +1418,74 @@ is coming.
   visit only and opens its footer links in a new tab; a place opened from a link has no aurora alert button (it would
   save the link's place), and `Tonight.peek({ nudge: false })` re-arms reminders and aurora watching but says nothing
   about the visitor's home.
+- 2026-10-17, India launch times (src/core/launches.js, src/core/india.js): LL2 gives a precision as a code or a name
+  ('DAY' or 'Day', 'Q4' or 'Quarter 4', 'PM' or 'Afternoon (local time)'); `precisionCode` turns either into one code,
+  and `when()`, the globe cards, the MCP launches tool and the India page all read it through that (WK words like M, AM
+  and PM like DAY, "FY 2027", "the 2020s"). A missing precision counts as timed and prints the full UTC time
+  (`preciseLaunch`, beside `when()`). LL2 dates an imprecise launch on its period's last day (a "NET October" launch at
+  31 October 00:00Z), so `periodEnd` / `listedUntil` keep it listed to the end of that day, month, quarter, half, year or
+  decade; WK and FY end with the day LL2 dates them on (an assumption about LL2's habit worth checking). That only works
+  because the site build and the globe's and the sky page's LL2 fallbacks ask without `hide_recent_previous`, so the list
+  still holds the last 24 hours: never put it back. On the India page a DAY launch stays through the day it shows in
+  IST. src/globe/launches.js still has its own `precise()` (a missing precision reads as not timed there; `when()` then
+  prints the same full time): replacing it with core's `preciseLaunch` is a tidy-up.
+- The Hindi page names its buttons, the Clips list and the recording in Hindi before any JS runs: brand/tools/india_hi.mjs
+  `LABELS` writes the same words india.js `setLang` does, and test/india.test.mjs fails when the two differ or an English
+  aria-label is left on the Hindi page.
+
+## City sky pages (/sky/) and the Teachers page (/teach/) — 2026-10-17
+- **Build step, not repo content.** pages.yml runs `node brand/tools/make_sky_pages.mjs _site` after build_site.py at
+  every site build (6-hourly): "What's in the sky tonight in <city>" for each of data/cities.json's 441 cities, plus
+  Hindi pages for its 84 Indian ones and the two lists (sky/, sky/hi/): 527 pages. Tonight's facts (sunset, the Moon's
+  phase and rise/set, planets after dark, the next visible ISS pass from the site's own data/tle/stations.txt, Bortle class
+  and SQM, three binocular targets) are worked out by src/core at build time and stamped with it; the live Tonight card
+  (tonight.html#embed=1) follows. Each page is under 15 KB with the site's CSP and no inline script (the JSON-LD is a
+  data block); test/skypages.test.mjs checks three fixture cities against src/core for a fixed date.
+- The pages are never committed and never in /v/<tag>/ (build_site.py makes those from git before this runs). The repo
+  holds only stand-ins for the two lists and for sitemap-sky.xml, so links to sky/ resolve in the download, locally and
+  in the e2e link checks; a run replaces all three. Everything is written to sky.tmp and moved into place at the end,
+  and a failed run removes sky.tmp, so it never leaves half a set. Every city-page step in pages.yml (setup-node, npm
+  ci, the generator) has continue-on-error: an npm outage only drops the ISS line, and no city-page failure stops the
+  deploy. The service worker fetches sky/ network first in every build ('page-live', see "Installable app").
+- **Discovery:** robots.txt is read only at the host's root (destinjones.github.io/robots.txt), never under
+  /open-overwatch/, so its Sitemap line alone finds nothing. sitemap.xml is a sitemap index of sitemap-pages.xml and
+  sitemap-sky.xml, which is how crawlers reach the city pages; the generator's extra robots.txt line is harmless. The
+  Hindi city pages are hreflang pairs (sitemap-sky.xml carries en, hi and x-default); the two list pages are not
+  alternates of each other (one lists every city, the other only India's).
+- **Wording:** an ISS pass is "bright, easy to see" only at ISS_HIGH = 40° or more; a lower one says "low; look for a
+  steady moving light".
+- **The city list** (brand/tools/make_cities.py, one Wikidata SPARQL query, CC0): the 400 largest cities (at most 60 from
+  one country) plus every Indian city over 500,000, rebuilt from the cached answer without asking Wikidata again. NAME_FIX
+  is matched on the ASCII-folded name (Wikidata says 'Đồng Nai'); DROP takes QIDs for districts of listed cities and bad
+  populations (Queens, The Bronx, Soweto, Santo Domingo in Chile). Wikidata's P421 almost never carries an IANA zone, so a
+  zone is the nearest zone.tab city of the same country unless TZ_FIX says otherwise; the script prints those picks on
+  every rebuild: check the ones near zone borders (the traps were the DRC, west on UTC+1 and Kasai/east on UTC+2, and
+  Odesa, which the rule put on Simferopol's Moscow time).
+- **/teach/** (teach/index.html, teach.js): twelve classroom activities for ages 7-11, 11-14 and 14-18, each with deep
+  links into the globe, the Solar System view and Tonight; age groups are h3, activities h4. The top bar and the contents
+  list are both nav landmarks, so page CSS styles `body>nav`, never a bare `nav`. No inline script, so the CSP needs no
+  hash. It is in sw.js PAGES (a classroom can open it offline), the release zip, sitemap-pages.xml and the sri.mjs and
+  a11y_check.mjs page lists. test/teach.test.mjs decodes every activity link with the real decoders and checks the facts
+  against the data. A time-travel link meant to show a quake must put the clock less than 24 h after it (core/history.js
+  QUAKE_WINDOW_MS is the 24 h before the clock): the Tōhoku link is t=2455632.72917 (05:30 UTC on 12 March 2011, so the
+  05:46 UTC M9.1 of the day before is inside the window; `quakeInWindow` tests it).
+
+## Type check, lint and fuzzing (tsconfig*.json, eslint.config.mjs, test/fuzz.test.mjs) — 2026-10-17
+- Dev dependencies only: nothing is built, none of it runs on the site or ships in the zip or the .mcpb, and the configs
+  stay off the Pages site (SKIP_ROOT). How to run them: docs/DEVELOPING.md and docs/TESTING.md; CI's test job runs both
+  `npm run typecheck` and `npm run lint`.
+- A `lib` (or a `/// <reference lib="webworker" />`) applies to the whole TypeScript program: one in a worker let every
+  core and MCP module see self, postMessage and importScripts. So the two core workers have their own
+  tsconfig.workers.json (ES2022 + WebWorker), the main tsconfig.json excludes them, and types/page.d.ts declares the one
+  browser name the rest of the core uses (wxload.js's Worker). Not strict yet: strictNullChecks alone finds ~500 places.
+- The fuzz harness (test/helpers/fuzz.mjs) runs each decoder of untrusted bytes (GRIB2, CCSDS AEC, JPEG 2000, vector
+  tiles, GTFS-RT, METAR/TAF, MQTT, the text feeds) in a worker with a deadline, from a seeded PRNG: seeds, every
+  truncation, mutations and round-trip properties. A call must return a well-formed result or throw an Error within 250 ms,
+  with no NaN or Infinity where a number belongs and no allocation over ALLOC_LIMIT = 2^25 elements. The default run
+  takes a few seconds; OO_FUZZ=1 runs 50 times the cases from a new seed and OO_FUZZ_SEED replays a failure. What it
+  found: hangs (a GRIB2 length of 0 or a cut-off message, an AEC rsi or block size of 0, JPEG 2000 cut inside a tile-part
+  or packet header, protobuf lengths past the end), sizes believed past the data, NaN and out-of-range values, METAR/TAF
+  winds past 360 and impossible days, and a GRIB2 bitmap reused by the next field of the same message (a section 6 of 255
+  now clears it). Each is a regression test at the bottom of test/fuzz.test.mjs; a new decoder gets a target there.
+- In a typed-array check, a DataView holds no numbers of its own: test for it before reading `v[i]` (the type check
+  caught the fuzz helper doing that).
