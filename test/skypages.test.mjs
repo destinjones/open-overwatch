@@ -9,7 +9,7 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync, mkdirSync, rmSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { build, writePages, loadCities, nightAnchor, cityFacts, ROOT, CSP, ldJson } from '../brand/tools/make_sky_pages.mjs';
+import { build, writePages, loadCities, nightAnchor, cityFacts, factRows, ROOT, CSP, ldJson, ISS_HIGH } from '../brand/tools/make_sky_pages.mjs';
 import { riseSet, moonPhase, planetsTonight, darkWindow } from '../src/core/sky.js';
 import { decodeAtlas, skyAt } from '../src/core/lightpollution.js';
 import { findPasses, ecfAt, compass } from '../src/core/passes.js';
@@ -85,6 +85,10 @@ test('canonical and hreflang: each page names itself; the English and Hindi page
   assert.ok(!map.includes('sky/hi/new-york-city'));
   assert.ok(map.includes(`<xhtml:link rel="alternate" hreflang="hi" href="${hi}"/>`));
   assert.ok(map.includes('<lastmod>2026-10-01</lastmod>'));
+  // the two lists are not translations of each other (every city / India's): plain language links, no hreflang
+  for (const p of ['index.html', 'hi/index.html']) assert.deepEqual(links(page(p), 'alternate'), [], p);
+  assert.ok(!map.includes(`hreflang="hi" href="${SITE}sky/hi/"`));
+  assert.match(page('index.html'), /<a href="hi\/" hreflang="hi" lang="hi">/);
 });
 
 test('a name with markup in it is escaped everywhere: text, attributes, the live card\'s link and the JSON-LD', () => {
@@ -166,6 +170,7 @@ test('the numbers on the page are src/core\'s for that city and date', () => {
       const pass = findPasses(ecfAt(sl, sl.twoline2satrec(iss.l1, iss.l2)), observer(c.lat, c.lon, 0), T0, T0 + 72 * 3600e3, { step: 30e3, minEl: 10, sunAt: sunEcef }).find(p => p.visible);
       const day = new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: c.tz }).format(pass.rise);
       assert.ok(html.includes(`next visible pass ${day} ${t(pass.rise)}: look ${compass(pass.azRise)}, it climbs to ${Math.round(pass.maxEl)}°`), `${c.en}: ISS ${day} ${t(pass.rise)}`);
+      assert.ok(html.includes(pass.maxEl >= ISS_HIGH ? 'bright, easy to see' : 'low; look for a steady moving light'), `${c.en}: ${Math.round(pass.maxEl)}°`);
     }
   }
   assert.match(page('pune/index.html'), /Computed 2026-10-01 06:00 UTC for the night of Thursday, 1 October 2026; times are Pune&#39;s clock \(Asia\/Kolkata, GMT\+5:30\)\. The live card below updates\./);
@@ -177,12 +182,30 @@ test('the numbers on the page are src/core\'s for that city and date', () => {
   assert.match(page('pune/index.html'), /<dt>For binoculars<\/dt><dd><ol>(<li>[^<]+<\/li>){3}<\/ol>/);
 });
 
+test('the ISS line says "easy to see" only for a pass that climbs high', () => {
+  const f = { sun: {}, moon: { lit: 0.5, name: 'First quarter' }, planets: [], deep: [], sky: null, dark: null };
+  const pass = maxEl => ({ rise: T0, set: T0 + 5 * 60e3, maxEl, azRise: 270, azSet: 90 });
+  const iss = (maxEl, lang) => factRows(pune, { ...f, iss: pass(maxEl) }, lang).find(r => r[0] === (lang === 'hi' ? 'ISS' : 'Space station'))[1];
+  assert.match(iss(64, 'en'), /bright, easy to see$/);
+  assert.match(iss(14, 'en'), /low; look for a steady moving light$/);
+  assert.match(iss(64, 'hi'), /आसानी से दिखेगा$/);
+  assert.ok(!iss(14, 'hi').includes('आसानी'));
+});
+
 test('without element sets the ISS line is left out, and the rest is still there', () => {
   assert.equal(bareResult.iss, false);
   const html = page('pune/index.html', bare);
   assert.ok(!html.includes('Space station') && !html.includes('next visible pass'));
   assert.ok(html.includes('<dt>Moon</dt>') && html.includes('<dt>Sky darkness</dt>'));
   assert.ok(!existsSync(join(bare, 'robots.txt')), 'no robots.txt to add to: none made');
+});
+
+test('a run that fails part-way removes sky.tmp and leaves the last good set in place', () => {
+  const broken = mkdtempSync(join(tmp, 'broken-'));
+  writePages(broken, { t0: T0, cities: [nyc], site: SITE });
+  assert.throws(() => writePages(broken, { t0: T0, cities: [pune, { ...nyc, slug: undefined }], site: SITE }));
+  assert.ok(!existsSync(join(broken, 'sky.tmp')), 'no half-written folder to upload');
+  assert.ok(existsSync(join(broken, 'sky', 'new-york-city', 'index.html')) && !existsSync(join(broken, 'sky', 'pune')), 'the earlier set untouched');
 });
 
 test('robots.txt names the city sitemap once, however often the pages are rebuilt', () => {
@@ -221,6 +244,12 @@ test('data/cities.json: Wikidata, ~400 world cities plus India\'s, unique ASCII 
   for (const s of ['pune', 'delhi', 'mumbai', 'new-york-city', 'sao-paulo', 'tokyo', 'london', 'mexico-city']) assert.ok(list.some(c => c.slug === s), s);
   const tz = Object.fromEntries(list.map(c => [c.slug, c.tz]));
   assert.equal(tz.dallas, 'America/Chicago', 'the hand-checked zone (the nearest zone.tab city is Vincennes, on Eastern time)');
+  for (const s of ['kananga', 'kisangani', 'tshikapa', 'mbuji-mayi', 'lubumbashi']) assert.equal(tz[s], 'Africa/Lubumbashi', `${s}: Central Africa Time`);
+  assert.equal(tz.kinshasa, 'Africa/Kinshasa');
+  assert.equal(tz.odesa, 'Europe/Kyiv', 'not Simferopol (Moscow time)');
+  // provinces (NAME_FIX matched on the ASCII-folded name) and districts of listed cities (DROP) are left out
+  for (const s of ['dong-nai', 'bac-ninh', 'quang-ninh', 'queens', 'the-bronx', 'dispur', 'soweto', 'santo-domingo-cl']) assert.ok(!(s in tz), s);
+  assert.ok(!list.some(c => c.qid === 'Q188011'), 'Santo Domingo, Chile (a commune Wikidata lists at a million)');
   assert.equal(tz['los-angeles'], 'America/Los_Angeles');
   assert.ok(!list.some(c => /metropolitan|province/i.test(c.en)), 'areas fold into their city');
 });
@@ -231,6 +260,10 @@ test('the website build runs the generator after build_site.py, with Node set up
   const build = at('python3 .github/build_site.py _site'), node = at('node brand/tools/make_sky_pages.mjs _site'), upload = at('actions/upload-pages-artifact@');
   assert.ok(build < node && node < upload, 'after the site is built, before it is uploaded');
   assert.ok(at('actions/setup-node@') < node && at('npm ci --omit=dev') < node);
+  // a failure anywhere in the city-page steps (setup-node, npm ci, the generator) never stops the deploy
+  const steps = yml.slice(at('actions/setup-node@'), upload).split(/\n\s+- (?=uses:|name:)/);
+  for (const step of steps.filter(t => /setup-node@|npm ci --omit=dev|make_sky_pages\.mjs/.test(t))) assert.match(step, /continue-on-error: true/, step.split('\n')[0]);
+  assert.equal(steps.filter(t => /setup-node@|npm ci --omit=dev|make_sky_pages\.mjs/.test(t)).length, 3);
   for (const [, ref] of yml.matchAll(/uses: [\w/-]+@(\S+)/g)) assert.match(ref, /^[0-9a-f]{40}$/, 'pinned by SHA');
   const ci = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
   assert.ok(ci.includes(yml.match(/uses: (actions\/setup-node@\S+)/)[1]), 'the same setup-node as CI');

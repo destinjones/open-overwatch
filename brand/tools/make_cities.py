@@ -6,7 +6,7 @@
 ONE SPARQL query to query.wikidata.org (polite User-Agent with the repo URL): every city (an instance of city, Q515, or
 any subclass) with at least 500,000 people, its coordinates, population, country (ISO 3166-1 alpha-2 from the country's
 P297), English and Hindi labels and the IANA ids (P6687) of the time zones it says it is in (P421). From that answer
-the world's TOP largest cities (default 400) plus every Indian city of the answer are kept: 443 rows on 2026-10-17 (85 Indian).
+the world's TOP largest cities (default 400) plus every Indian city of the answer are kept: 441 rows on 2026-10-17 (84 Indian).
 
 The raw answer is cached outside the repo (default: <system temp>/open-overwatch/cities-wikidata.json; delete it, or
 pass another --cache, to ask Wikidata again), so a rebuild of the file is reproducible from the same answer.
@@ -25,7 +25,7 @@ prefecture-level city counts its whole prefecture). One place, several items, me
 larger population: a metropolitan area or municipality and its city ("Greater Mexico City" and "Mexico City", "City of
 Cape Town" and "Cape Town": the same name once "Greater", "Metro", "City of", "metropolitan area"... are taken off,
 within 50 km), or two centres under 3 km apart. Items named as a province, state or region are left out, and a few
-names are put right by hand (NAME_FIX). The world list takes at most PER_COUNTRY cities from one country (China's
+names are put right by hand (NAME_FIX, matched on the ASCII-folded name); a few items are dropped by QID (DROP). The world list takes at most PER_COUNTRY cities from one country (China's
 prefecture-level cities would otherwise fill most of it); every Indian city of the answer is kept besides.
 Slugs are ASCII (diacritics dropped): pune, new-york-city, sao-paulo; a name two cities share goes to the larger, the
 other gets its country code (hyderabad, hyderabad-pk).
@@ -47,6 +47,9 @@ NAME_FIX = {'eThekwini Metropolitan Municipality': 'Durban', 'City of Tshwane Me
             'Madrid city': 'Madrid', 'Metropolis of Lyon': 'Lyon', 'Katowice urban area': 'Katowice',
             # a region's population on an item without "province" in its name, or two countries' metropolitan area
             'El Paso–Juárez': None, 'Dong Nai': None, 'Bac Ninh': None, 'Quang Ninh': None, 'Veracruz': None, 'Masvingo': None}
+# Items dropped by QID: a district of a city already in the list (Queens and The Bronx: New York City; Dispur: Guwahati;
+# Soweto: Johannesburg), or a population Wikidata has wrong (Santo Domingo, Chile: a commune of ~10,000 listed at 1,029,110)
+DROP = {'Q18424', 'Q18426', 'Q271911', 'Q217426', 'Q188011'}
 # Rule 3 (the nearest zone.tab city of the country) checked by hand on 2026-10-17 for every city in a country with more
 # than one zone: these were wrong (Dallas is not on Indiana's Eastern time, Kazan not on Ulyanovsk's) or named a
 # small zone with the same clock (Munich: Busingen) where the usual one reads better. Rebuilds print the rule-3 picks.
@@ -54,7 +57,11 @@ TZ_FIX = {'Dallas': 'America/Chicago', 'Houston': 'America/Chicago', 'San Antoni
           'Kazan': 'Europe/Moscow', 'Nizhny Novgorod': 'Europe/Moscow', 'Krasnodar': 'Europe/Moscow', 'Rostov-on-Don': 'Europe/Moscow',
           'Goiânia': 'America/Sao_Paulo', 'Guadalajara': 'America/Mexico_City', 'Zapopan': 'America/Mexico_City',
           'Munich': 'Europe/Berlin', 'Cologne': 'Europe/Berlin', 'Shymkent': 'Asia/Almaty', 'Astana': 'Asia/Almaty',
-          'Medan': 'Asia/Jakarta', 'Batam': 'Asia/Jakarta', 'Ürümqi': 'Asia/Shanghai', 'Urumqi': 'Asia/Shanghai'}
+          'Medan': 'Asia/Jakarta', 'Batam': 'Asia/Jakarta', 'Ürümqi': 'Asia/Shanghai', 'Urumqi': 'Asia/Shanghai',
+          # DR Congo: Kasaï, Kasaï-Central and Tshopo keep Central Africa Time (UTC+2), not Kinshasa's UTC+1
+          'Kananga': 'Africa/Lubumbashi', 'Kisangani': 'Africa/Lubumbashi', 'Tshikapa': 'Africa/Lubumbashi',
+          # Ukraine: the nearest zone.tab city to Odesa is Simferopol, on Moscow time since 2014
+          'Odesa': 'Europe/Kyiv'}
 NOT_A_CITY = re.compile(r'\b(province|state of|region|governorate|oblast)\b', re.I)
 AREA = re.compile(r'^(greater|metro|city of|kota)\s+|\s+(metropolitan area|metropolitan municipality|metropolitan region|urban area|agglomeration|metropolis|city)$', re.I)
 
@@ -154,15 +161,21 @@ def slug_of(name):
     return re.sub(r'[^a-z0-9]+', '-', s).strip('-')
 
 
+# NAME_FIX matched on the ASCII-folded name: Wikidata says 'Đồng Nai', the table 'Dong Nai'
+NAME_FIX_ASCII = {slug_of(k): v for k, v in NAME_FIX.items()}
+
+
 def build(bindings, zones, top=TOP):
     """The cached answer's rows -> the kept cities, most populous first: dicts with slug, en, hi, cc, lat, lon, pop, tz, qid."""
     items = {}
     for r in bindings:
         qid = r['c']['value'].rsplit('/', 1)[1]
         m = re.match(r'Point\(([-\d.eE+]+) ([-\d.eE+]+)\)', r['coord']['value'])
+        if qid in DROP:
+            continue
         en = r.get('en', {}).get('value')
-        if en in NAME_FIX:
-            en = NAME_FIX[en]
+        if en and slug_of(en) in NAME_FIX_ASCII:
+            en = NAME_FIX_ASCII[slug_of(en)]
         if not m or not en or re.fullmatch(r'Q\d+', en) or NOT_A_CITY.search(en):
             continue
         try:

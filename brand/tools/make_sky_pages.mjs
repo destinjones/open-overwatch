@@ -8,9 +8,11 @@
 //
 // Writes <out>/sky/<slug>/index.html for every city, <out>/sky/hi/<slug>/index.html (Hindi) for the Indian ones,
 // <out>/sky/index.html and <out>/sky/hi/index.html (the lists), <out>/sky/sky.css, <out>/sitemap-sky.xml, and adds a
-// Sitemap: line for it to <out>/robots.txt. The pages are build output: never committed, never in the /v/<tag>/ copies
+// Sitemap: line for it to <out>/robots.txt (harmless, but crawlers read robots.txt only at the host's root, and the
+// project site lives under /open-overwatch/: until a site page links to /sky/, sitemap-sky.xml is found only when it is
+// submitted by hand in Search Console). The pages are build output: never committed, never in the /v/<tag>/ copies
 // (build_site.py makes those from git before this runs). Everything goes to <out>/sky.tmp first and is moved into place
-// at the end, so a failed run leaves no half set. ISS passes come from the site's element-set copy
+// at the end; a run that fails on the way removes sky.tmp, so it leaves no half set. ISS passes come from the site's element-set copy
 // (<out>/data/tle/stations.txt, or --tle) and satellite.js; without either the pages leave the pass out.
 // The pages carry no inline script (the JSON-LD is a data block); the lists load src/sky/cityfind.js for their search.
 import { readFileSync, writeFileSync, mkdirSync, rmSync, renameSync, existsSync, appendFileSync } from 'node:fs';
@@ -108,6 +110,9 @@ export function clock(tz, lang = 'en') {
 }
 export const utcStamp = ms => new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
 
+/** The ISS pass height (degrees) from which the page calls it "bright, easy to see". */
+export const ISS_HIGH = 40;
+
 /** Tonight's facts as [[term, html]] rows (already escaped) for the page's <dl>, in English or Hindi. */
 export function factRows(city, f, lang = 'en') {
   const c = clock(city.tz, lang), hm = c.hm, hi = lang === 'hi', rows = [];
@@ -128,10 +133,13 @@ export function factRows(city, f, lang = 'en') {
   rows.push([hi ? 'ग्रह' : 'Planets', pl.length ? `<ul>${pl.map(s => `<li>${esc(s)}</li>`).join('')}</ul>` : esc(hi ? 'अँधेरा रहते कोई चमकीला ग्रह ऊपर नहीं है।' : 'None of the bright planets is up while it is dark.')]);
   // the space station
   if (f.iss) {
-    const p = f.iss, mins = Math.max(1, Math.round((p.set - p.rise) / 60e3));
+    // a pass that stays low (under ~40°) is fainter and easily lost behind buildings: no "easy to see" for it
+    const p = f.iss, mins = Math.max(1, Math.round((p.set - p.rise) / 60e3)), high = p.maxEl >= ISS_HIGH;
+    const how = hi ? (high ? 'चमकीला, आसानी से दिखेगा' : 'नीचे रहेगा; धीरे-धीरे चलती एक स्थिर रोशनी खोजें')
+      : (high ? 'bright, easy to see' : 'low; look for a steady moving light');
     rows.push([hi ? 'ISS' : 'Space station', esc(hi
-      ? `${c.day(p.rise)} पर ${dirHi(p.azRise)} में उगेगा, ${Math.round(p.maxEl)}° तक ऊपर जाएगा और ${dirHi(p.azSet)} में डूबेगा · ${mins} मिनट · चमकीला, आसानी से दिखेगा`
-      : `next visible pass ${c.day(p.rise)}: look ${compass(p.azRise)}, it climbs to ${Math.round(p.maxEl)}° and sets in the ${compass(p.azSet)} · ${mins} min · bright, easy to see`)]);
+      ? `${c.day(p.rise)} पर ${dirHi(p.azRise)} में उगेगा, ${Math.round(p.maxEl)}° तक ऊपर जाएगा और ${dirHi(p.azSet)} में डूबेगा · ${mins} मिनट · ${how}`
+      : `next visible pass ${c.day(p.rise)}: look ${compass(p.azRise)}, it climbs to ${Math.round(p.maxEl)}° and sets in the ${compass(p.azSet)} · ${mins} min · ${how}`)]);
   }
   // how dark the sky is
   if (f.sky) {
@@ -255,7 +263,7 @@ export function renderIndex(cities, { lang = 'en', site = SITE, t0 = Date.now() 
     const cs = groups.get(k).sort((a, b) => coll.compare(nameIn(a, lang), nameIn(b, lang)));
     return `<h2>${esc(k)}</h2>\n<ul>${cs.map(c => `<li><a href="${c.slug}/">${esc(nameIn(c, lang))}</a>`).join('')}</ul>`;
   }).join('\n');
-  return head({ lang, title, desc, canonical, alternates: [['en', `${site}sky/`], ['hi', `${site}sky/hi/`], ['x-default', `${site}sky/`]], ld, css: hi ? '../sky.css' : 'sky.css', ogLocale: hi ? 'hi_IN' : 'en_US' }) + `<body>
+  return head({ lang, title, desc, canonical, alternates: [], ld, css: hi ? '../sky.css' : 'sky.css', ogLocale: hi ? 'hi_IN' : 'en_US' }) + `<body>
 <header><nav aria-label="${hi ? 'रास्ता' : 'Breadcrumb'}"><a href="${hi ? '../../' : '../'}">Open Overwatch</a> · ${hi ? '<a href="../" hreflang="en" lang="en">English</a> · <a href="../../india/hi/">भारत</a>' : '<a href="hi/" hreflang="hi" lang="hi">हिन्दी</a>'}</nav></header>
 <main>
 <h1>${esc(hi ? 'आज रात आपके शहर का आसमान' : "Tonight's sky, city by city")}</h1>
@@ -299,7 +307,7 @@ export function sitemap(cities, { site = SITE, t0 = Date.now() } = {}) {
   const alt = (u) => `\n    <xhtml:link rel="alternate" hreflang="en" href="${esc(u.en)}"/>\n    <xhtml:link rel="alternate" hreflang="hi" href="${esc(u.hi)}"/>\n    <xhtml:link rel="alternate" hreflang="x-default" href="${esc(u.en)}"/>`;
   const url = (loc, a = '') => `  <url><loc>${esc(loc)}</loc><lastmod>${day}</lastmod><changefreq>daily</changefreq>${a}</url>`;
   const idx = { en: `${site}sky/`, hi: `${site}sky/hi/` };
-  const rows = [url(idx.en, alt(idx)), url(idx.hi, alt(idx))];
+  const rows = [url(idx.en), url(idx.hi)];   // the lists are not translations of each other (every city / India's): no hreflang
   for (const c of cities) {
     const u = urls(site, c.slug);
     if (hasHindi(c)) rows.push(url(u.en, alt(u)), url(u.hi, alt(u)));
@@ -328,18 +336,23 @@ export function writePages(out, { t0, cities, site = SITE, atlas = null, deepsky
   rmSync(tmp, { recursive: true, force: true });
   const ctx = { atlas, deepsky, issAt };
   let pages = 0, bytes = 0, largest = ['', 0];
-  const put = (rel, text) => {
-    const file = join(tmp, rel); mkdirSync(join(file, '..'), { recursive: true }); writeFileSync(file, text);
-    const n = Buffer.byteLength(text); pages++; bytes += n; if (n > largest[1] && rel.endsWith('.html') && rel !== 'index.html' && rel !== join('hi', 'index.html')) largest = [rel, n];
-  };
-  for (const c of cities) {
-    const f = cityFacts(c, t0, ctx);
-    put(join(c.slug, 'index.html'), renderCity(c, f, { lang: 'en', site }));
-    if (hasHindi(c)) put(join('hi', c.slug, 'index.html'), renderCity(c, f, { lang: 'hi', site }));
+  try {
+    const put = (rel, text) => {
+      const file = join(tmp, rel); mkdirSync(join(file, '..'), { recursive: true }); writeFileSync(file, text);
+      const n = Buffer.byteLength(text); pages++; bytes += n; if (n > largest[1] && rel.endsWith('.html') && rel !== 'index.html' && rel !== join('hi', 'index.html')) largest = [rel, n];
+    };
+    for (const c of cities) {
+      const f = cityFacts(c, t0, ctx);
+      put(join(c.slug, 'index.html'), renderCity(c, f, { lang: 'en', site }));
+      if (hasHindi(c)) put(join('hi', c.slug, 'index.html'), renderCity(c, f, { lang: 'hi', site }));
+    }
+    put('index.html', renderIndex(cities, { lang: 'en', site, t0 }));
+    put(join('hi', 'index.html'), renderIndex(cities, { lang: 'hi', site, t0 }));
+    writeFileSync(join(tmp, 'sky.css'), CSS);
+  } catch (e) {
+    rmSync(tmp, { recursive: true, force: true });   // never a half-written /sky.tmp/ in the uploaded site
+    throw e;
   }
-  put('index.html', renderIndex(cities, { lang: 'en', site, t0 }));
-  put(join('hi', 'index.html'), renderIndex(cities, { lang: 'hi', site, t0 }));
-  writeFileSync(join(tmp, 'sky.css'), CSS);
   rmSync(dest, { recursive: true, force: true });
   renameSync(tmp, dest);
   writeFileSync(join(out, 'sitemap-sky.xml'), sitemap(cities, { site, t0 }));
