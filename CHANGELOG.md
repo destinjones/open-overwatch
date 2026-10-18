@@ -8,68 +8,65 @@ file was built from.
 
 ## [Unreleased]
 
+What's in the sky tonight in your city, a page for teachers, and the second audit.
+
 ### Added
-- A type check and a bug-finding linter, as dev dependencies only (the site still has no build step): `npm run
-  typecheck` runs TypeScript 6.0 over the JSDoc of `src/core/`, `mcp/` and the test helpers (`tsconfig.json`, no
-  output; the two core workers get the WebWorker names in `tsconfig.workers.json` alone); `npm run lint` runs ESLint 10 with bug rules only (`eslint.config.mjs`). Both run in CI's test job.
-- Fuzz and property tests of every decoder that reads untrusted bytes (`test/fuzz.test.mjs`, a few seconds in
-  `node --test`; `OO_FUZZ=1` for 50 times the cases): GRIB2, CCSDS, JPEG 2000, vector tiles, GTFS-RT, METAR/TAF, MQTT
-  and the text feeds, each in a worker with a deadline, from a seeded PRNG and no new dependency.
-- The MCP server is ready for npm and the MCP Registry (nothing published yet): `.github/workflows/npm.yml` publishes
-  `open-overwatch-mcp` with trusted publishing and provenance once the owner turns it on (`NPM_PUBLISH`), skipping a
-  version npm already has; `mcp/server.json` is the registry entry (`io.github.destinjones/open-overwatch`).
-- `test/npmpack.test.mjs`: the npm tarball holds exactly what `mcp/server.mjs` imports, checked with
-  `npm pack --dry-run --json` against the import graph. It also fails on a load the scan cannot follow (a computed
-  `import()`, `import.meta.url` outside `new URL('./…', import.meta.url)`, a run-time file read) and on a link in
-  `mcp/README.md` that would break on the npm page.
+- "What's in the sky tonight in <city>" for 441 cities (`/sky/`), in Hindi for India's 84 (`/sky/hi/`): sunset, the
+  Moon, the planets after dark, the next visible ISS pass, the Bortle class and three binocular targets, worked out at
+  every 6-hourly site build, then the live Tonight card. Cities from Wikidata (CC0, `brand/tools/make_cities.py`);
+  `sitemap.xml` is now an index naming `sitemap-sky.xml`; the pages are build output, never in the zip or `/v/`.
+- For teachers (`/teach/`): twelve classroom activities for ages 7-11, 11-14 and 14-18, with links that open the globe,
+  the Solar System view or Tonight at the right moment, questions and what to check, print styles and a citation.
+- Solar System: Apophis on its JPL Horizons track for 2026-2035, through its 13 April 2029 pass 38,011 km from Earth's
+  centre and on the orbit it leaves on; BepiColombo in orbit around Mercury from its capture on 12 November 2026; both
+  habitable zones round other stars (Kopparapu 2014, conservative and optimistic).
+- A clean-machine install test on Linux, Windows and macOS (`.github/workflows/install-test.yml`: the release zip with
+  `node serve.js` and no npm install, and the npm package's MCP server); a 1280x640 GitHub social preview; the README's
+  one-line installs, a comparison with six similar projects and "Why not just use X?".
+- For developers (dev dependencies only, still no build step): `npm run typecheck` (TypeScript 6.0 over the JSDoc) and
+  `npm run lint` (ESLint 10, bug rules only) in CI; fuzz tests of every decoder of untrusted bytes
+  (`test/fuzz.test.mjs`); the MCP server ready for npm and the MCP Registry, nothing published (`.github/workflows/npm.yml`, `NPM_PUBLISH`).
 
 ### Changed
-- JSDoc types where the checker could not infer them (option objects, tables of pairs), so it passes
-  with no errors and no `@ts-ignore`; `Sim` (core/traffic.js) assigns its fields one by one so they are typed.
-- The npm package ships 105 files instead of 154: only the 62 `src/core/` modules the server imports (not the
-  website's other core modules) and no `mcp/worker.mjs` (the Cloudflare Worker entry); `mcpName`, `publishConfig`
-  and more keywords in `package.json`.
-- Credits and licences follow the sources' own terms: "Powered by Esri" with each Esri service's own source line
-  (Vantor, not Maxar; the 2D map's label overlays are credited too); OpenStreetMap credits link to its copyright page
-  and OpenMapTiles to its site; OpenSky's paper (Schäfer et al., IPSN 2014) on every OpenSky card and credit; the home
-  page's licence table adds TeleGeography, the Falchi atlas, OpenNGC, ECMWF, EMSC, OpenFreeMap, Re:Earth, Google's 3D
-  Tiles, hls.js and d3-celestial, and RainViewer gets its personal-and-educational terms; docs/DATA_SOURCES.md and the
-  about page list every source a commercial fork must drop, not only the light-pollution grid; NOTICE adds the planet,
-  Phobos (CC BY-SA 3.0 IGO) and star-field textures and `data/countries.json`; `data/wind.json` carries its source
-  and licence.
-- The privacy notices (home page, guide, MCP README) say what each service is sent: your location comes only from
-  your device and only when you ask, with no lookup by IP address; Tonight's forecast gets it rounded to ~10 km; the
-  relay's buoy, DART and tsunami.gov hosts; ECMWF beside GFS; Google's geocoder while Photoreal is on; worldwide ships
-  only in the download, through the helper (aisstream.io does not permit browser connections); the MCP tools' routes
-  to FOSSGIS OSRM, fire tiles to NASA GIBS and airport codes to the Aviation Weather Center.
+- MCP answers across the dateline: a round-the-world country is its outline plus the sea within 2.5° that no other
+  country is nearer, so Fiji's quakes include those east of 180, the United States' the Aleutians and the sea off
+  Hawaii, and Russia claims neither them nor Hokkaido's coast; storms count up to 8° out to sea, never over another
+  country's land; `sun_and_moon` uses the place's own calendar day (right at UTC+12 to +14).
+- MCP answers say what they know: the website has no live aircraft, so its links leave them out and point to the
+  download; an empty answer keeps the last good one; aurora's Kp skips readings older than 72 h; a time with no zone is
+  UTC or the place's clock, never the host's; `show_on_globe` also takes Solar System, Tonight and `/v/` links.
+- Your location comes only from your device: the 2D map's IP lookup (ipapi.co) is gone. If the device says no, tap the
+  map or search "lat, lon"; the place is kept rounded to 0.01° for 24 hours. Worldwide ships (aisstream.io) come only
+  with the download, through its helper; Esri's maps are streamed, never cached (offline: NASA's Blue Marble).
+- Credits and licences follow the sources' terms ("Powered by Esri", OpenStreetMap's copyright link, OpenSky's paper,
+  every non-commercial source listed), privacy notices say what each service is sent, and LICENSE is the plain MIT text.
+- Launches with a vague date ("NET October", a quarter, a week, a fiscal year) stay listed until that period ends and
+  read "Q4 2026" or "FY 2027"; one with no precision given shows its full time.
+- Weather stops at the model run's last hour (later frames repeated it under new labels), and compare mode at the
+  shorter run; times are on your clock with its zone; voice answers name their source.
 
 ### Fixed
-- Claims that overstated: "18,000+ satellites (every active one plus three debris clouds)", not "every tracked
-  satellite"; the log depth buffer spans 24 orders of magnitude, not 26; the download is about 85 MB; the forecast
-  reaches 5 days ahead (3 on phones); the README's accuracy table is measured on 2 Oct 2026, within looser test
-  limits, and includes Uranus (1.5″; the fixture now has it).
-- Home page accessibility: the live feed no longer reads its seconds clock and countdown aloud; the demo clips play
-  through once, with a pause button over the screen, and the clip tabs are a full tab pattern (a label, a panel,
-  arrow keys, Home and End); Hindi words on the English pages are marked `lang="hi"` (home, guide, 404).
-- The download's README.txt and `Start Open Overwatch.bat` no longer say the map works opened as a file (its ES
-  modules cannot load from file://); the helper's host list points at `ALLOWED_HOSTS` in serve.js; ADS-B is paced at
-  one request every 2.5 s.
-- Hangs on corrupt or cut-off data: a GRIB2 message of length 0 or cut short, a CCSDS stream with 0 blocks per
-  interval, a JPEG 2000 stream cut inside a tile-part or packet header, and a vector tile or GTFS-RT feed whose
-  declared length runs past the end (it walked billions of missing bytes).
-- No decoder believes a size past its data: GRIB2 grids and value counts, CCSDS sample counts and JPEG 2000 images
-  are capped (2^24 points) and checked against the bytes before anything is allocated (a GRIB2 JPEG 2000 image more
-  than about twice its field's values is refused); a JPEG 2000 header asking for 65,535 layers no longer runs out of
-  memory. A GRIB2 CCSDS section 5 too short for its parameters is an error.
-- GRIB2: a field with no bitmap after one with a bitmap, in the same message, no longer takes the earlier bitmap; a
-  message cut off after whole ones keeps the whole ones (it threw them all away).
-- No NaN or Infinity where a number is promised: GRIB2 values that overflow float32 or come without a bitmap, CCSDS
-  zero runs past their interval, wider-than-declared samples, endless varints, NaN tile values and a tile extent of 0,
-  GTFS-RT speeds and headings (and vehicles past the poles), SOCRATES speeds and probabilities, DART modes, `.idx` and
-  ECMWF index offsets that are not offsets.
-- METAR and TAF: a wind direction past 360°, a variable range past 360°, impossible days, hours and minutes (which
-  rolled into another month) and a visibility of 400 nines are left unread instead of believed. A short SOCRATES row
-  no longer throws away the whole list.
+- Accessibility: a closed globe card stops what it started and gives focus back; Look up, the home page's feed, the
+  India page's live strip and the Tonight card are no longer re-read as they update; Tonight keeps focus and has real
+  headings; the 2D map's splash and welcome card hold focus; the Solar System works from the keyboard; the demo clips
+  play once with a pause button; Hindi words are marked `lang="hi"`, and `/india/hi/` is labelled in Hindi without JS.
+- Phones: the 2D map's sheets survive rotation and the keyboard, centring aims above an open sheet, its buttons are
+  44 px; Solar System lists and cards no longer cover each other, and its credits open as a sheet.
+- The dateline: a storm at 179.5°E and 179.5°W is one storm, drawn once on the 2D map; fire tiles load on both sides
+  of 180; satellites numbered under 10000 are found by links and lookups.
+- Volcano heights are in metres (Mount Blackburn 4,996 m, not 16,390). "///15KT" reads "direction not reported" and
+  the runway in use falls back to the model wind; the 2D map lists NWS alerts that have only forecast zones.
+- Claims that overstated: 18,000+ satellites (every active one plus three debris clouds), 24 orders of magnitude, a
+  download of about 85 MB, a forecast of 5 days (3 on phones); the accuracy table includes Uranus (1.5″).
+
+### Security
+- Decoders of untrusted bytes, hardened by the fuzz tests: no hang on GRIB2, CCSDS, JPEG 2000, vector-tile or GTFS-RT
+  data that is cut off or lies about its length; no size believed past the data (capped at 2^24 points); no NaN where a
+  number is promised; METAR and TAF winds past 360° and impossible days are left unread.
+- The local helpers answer a NUL byte in a path or a malformed request with a 400 (a `%00` path could stop them); the
+  aisstream tunnel serves only their own pages, at most 4 at once, and never reads or logs the key.
+- The public relay takes `t=` only on camera stills within 10 minutes of now, and gets a rate limit of 60 requests a
+  minute per address on the way upstream. Not deployed yet.
 
 ## [0.9.2.15] - 2026-10-17
 
