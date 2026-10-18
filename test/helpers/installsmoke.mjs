@@ -3,7 +3,8 @@
 // The clean-machine install check (.github/workflows/install-test.yml, and test/installsmoke.test.mjs on this repo):
 //   node test/helpers/installsmoke.mjs zip-script            print release.yml's "Build the download zip" step as a shell script
 //   node test/helpers/installsmoke.mjs site <folder>         start <folder>/serve.js (no npm install, no browser), fetch every
-//                                                            page and every local file the pages load, and a few data files
+//                                                            page and every local file the pages load, and the data,
+//                                                            texture and model files in DATA_FILES
 //   node test/helpers/installsmoke.mjs mcp <server.mjs>      initialize + tools/list over stdio against an installed MCP server
 // Exits 1 on any problem, printing what failed. Node only (no dependencies), so it runs the same on Linux, Windows and macOS.
 import { spawn } from 'node:child_process';
@@ -12,9 +13,21 @@ import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** Data files the views load at start (not found by the crawl: the JavaScript builds their paths). */
-export const DATA_FILES = ['data/eclipses.json', 'data/countries.json', 'data/airports.json', 'data/lightpollution.bin',
-  'data/lightpollution.md', 'data/solar/stars.bin', 'data/solar/ephem.json', 'data/solar/exoplanets.json'];
+/**
+ * Files the views load by paths their JavaScript builds (so the crawl cannot find them): every data file, and one from
+ * each texture and model folder release.yml copies, so a dropped `cp` line in its "Build the download zip" step fails here.
+ */
+export const DATA_FILES = [
+  'data/eclipses.json', 'data/countries.json', 'data/airports.json', 'data/runways.json', 'data/borders.json',
+  'data/companies.json', 'data/lighthouses.json', 'data/volcanoes.json', 'data/constellations.json',
+  'data/deepsky.json', 'data/deepsky.md', 'data/lightpollution.bin', 'data/lightpollution.md',
+  'data/solar/stars.bin', 'data/solar/stars.json', 'data/solar/ephem.json', 'data/solar/exoplanets.json',
+  'data/solar/moons.json', 'data/solar/small_bodies.json', 'data/solar/spacecraft.json', 'data/solar/galaxies.bin',
+  'data/solar/asteroids_a.bin',
+  'brand/textures/planets/earth_2k.jpg', 'brand/textures/planets/saturn_ring.png', 'brand/textures/moons/io_1k.jpg',
+  'brand/textures/moons/maps.json', 'brand/textures/sky/px.jpg', 'brand/textures/sky_1k/px.jpg',
+  'brand/textures/sky_equirect_2k.jpg', 'brand/textures/night/0/0/0.jpg', 'brand/textures/earth_fx_2k.jpg',
+  'brand/models/iss.glb', 'brand/models/aircraft/airliner_civ.glb', 'brand/models/tex/skin.png'];
 
 /** The run: | block of release.yml's "Build the download zip" step, dedented, so a CI run can build the same zip. */
 export function zipScript(yml) {

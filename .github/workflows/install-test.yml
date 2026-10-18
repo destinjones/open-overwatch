@@ -3,8 +3,8 @@
 #  - site: the download zip (the release's open-overwatch.zip, or one built from this branch exactly as release.yml
 #    builds it), unzipped as a person would (Expand-Archive on Windows, unzip elsewhere), then `node serve.js` with no
 #    npm install. test/helpers/installsmoke.mjs starts it (no browser), fetches every page and every local file the pages
-#    load (scripts and the modules they import, stylesheets and fonts, images, the manifest's icons) plus a few data
-#    files, fails on anything but 200, and stops it.
+#    load (scripts and the modules they import, stylesheets and fonts, images, the manifest's icons) plus the data files
+#    and one texture or model from each folder the zip copies, fails on anything but 200, and stops it.
 #  - mcp: `npm pack` of this repository (the tarball that would go to npm), installed into an empty folder from the
 #    tarball, then `open-overwatch-mcp --version` through the bin and an initialize + tools/list round trip over stdio.
 # Runs when a release is published (a release made by release.yml's GITHUB_TOKEN starts no workflows, so the Release
@@ -27,9 +27,12 @@ on:
     branches: [ci-e2e]
 permissions:
   contents: read
+# One group per release (for workflow_run, github.ref is always the default branch, so it cannot tell two releases
+# apart). A release made in the GitHub UI on a new tag starts both a release run and, once Release finishes, a
+# workflow_run run for the same tag: they share the group and run one after the other. Only ci-e2e pushes cancel.
 concurrency:
-  group: install-test-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: install-test-${{ github.event.release.tag_name || github.event.workflow_run.head_branch || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 defaults:
   run:
     shell: bash
@@ -81,6 +84,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4   (only for test/helpers/installsmoke.mjs)
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}   # the helper from the released commit
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
