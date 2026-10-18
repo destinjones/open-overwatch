@@ -605,7 +605,7 @@ def apophis():
                t0_jd=t0, step_days=step, n=len(rows), end_jd=t0 + (len(rows) - 1) * step,
                closest=dict(jd=round(ca_jd, 5), km=round(ca_km)),
                events=[[round(ca_jd, 5), f'Closest to Earth: {round(ca_km, -2):,.0f} km from its centre, closer than the geostationary satellites']],
-               xyz=xyz, local=dict(center='earth', gm=gm, t0_jd=round(a, 6), step_days=1 / 24, el=el, pj=[]))
+               xyz=xyz, local=dict(center='earth', blend_days=0.25, gm=gm, t0_jd=round(a, 6), step_days=1 / 24, el=el, pj=[]))   # blend_days: eased into the 2-day samples over 6 h at each end (core/craft.js localWeight)
     with open(APOPHIS_OUT, 'w', encoding='utf-8') as f:
         json.dump(out, f, separators=(',', ':'))
     with open(APOPHIS_FIXTURE, 'w', encoding='utf-8') as f:

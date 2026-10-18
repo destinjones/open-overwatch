@@ -156,7 +156,8 @@ the samples), how fast, what its mission does next, and how long its signal take
   30 minutes for 3 hours around each perijove. `trackPosition(c, jd, out, centerAt)` puts the craft on that orbit
   around the planet as the caller draws it (within 150 km of Horizons through a perijove); `localPosition`,
   `localOrbit` (the set in force, never carried across a perijove), `inLocal` (never past the end of the track),
-  `periapses` (the perijove times).
+  `periapses` (the perijove times). `localWeight`: with `local.blend_days` (Apophis: 6 hours) the local position eases
+  into the heliocentric samples at each end of the stretch, so the planet-against-Horizons offset is no jump.
 - ISRO's Moon orbiters (Chandrayaan-1, Chandrayaan-2, the Chandrayaan-3 propulsion module, Vikram) carry the same around
   'moon', and Mars Orbiter Mission around 'mars': a set every 3 days (6 hours for Chandrayaan-3's short stay), within
   ~300 km of Horizons in quiet orbit (~20 km for Chandrayaan-3), but off by up to ~5,000 km across an orbit burn.
@@ -354,7 +355,10 @@ byte range, and the state that answers the question. Used by mcp (its `where_in_
   `distanceWords`, `IAU_NAMES` (the 88 constellations by abbreviation), `CLASS_WORDS`.
 - `TRACKS`: named small bodies with a Horizons track of their own (Apophis, `data/solar/apophis.json`, 2026-2035, round
   Earth through its 13 April 2029 pass 38,000 km from Earth's centre). `trackedAt`: a position function from that
-  track, or from the elements outside it.
+  track, or from the elements outside it. `trackOrbit(track, el, jd)`: the orbit in force ({ el, era, note }): the
+  catalogued elements before the flyby, the orbit it leaves the flyby on (osculating a month after it) until the track
+  ends, then that orbit at the track's end with a note that the planets' later pulls are not modelled (where_in_space's orbit
+  note, the Solar view's card). `trackElements`, `elementsFromState`: osculating elements from the track's samples.
 
 ### `meteors.js`
 

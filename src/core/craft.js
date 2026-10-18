@@ -106,18 +106,36 @@ export function moonCenterAt(key, jd, out = {}) {
 /** Periapsis passages (Juno's perijoves) inside the local stretch: [jd], in time order. */
 export const periapses = c => (c.local?.pj || []).map(p => p.tp);
 
-const P = [{}, {}, {}, {}], LP = {}, CP = {};
+const P = [{}, {}, {}, {}], LP = {}, CP = {}, HP = {};
+/**
+ * How much of the local (planet-centred) position to use at jd: 1, except within track.local.blend_days of either end
+ * of the local stretch, where it eases to 0 (smoothstep) so the hand-over to the heliocentric samples does not jump.
+ * The jump is the caller's planet against Horizons' (Apophis: ~10,000 km, 1.3 million km from Earth).
+ */
+export function localWeight(c, jd) {
+  const L = c.local, b = L && L.blend_days; if (!(b > 0)) return 1;
+  const lo = L.t0_jd - L.step_days / 2, hi = Math.min(L.t0_jd + (L.el.length - 0.5) * L.step_days, c.end_jd ?? Infinity);
+  const t = Math.max(0, Math.min(1, Math.min(jd - lo, hi - jd) / b));
+  return t * t * (3 - 2 * t);
+}
 /**
  * Heliocentric position at jd (AU) into out, or null before the first sample / past the track for a craft that stays.
  * centerAt(key, jd, out) places a planet as the caller draws it; with it, a craft in orbit around that planet is put on
- * its two-body orbit around it (track.local) instead of the heliocentric samples.
+ * its two-body orbit around it (track.local) instead of the heliocentric samples (eased into them at the ends of
+ * the local stretch when it sets blend_days).
  */
 export function trackPosition(c, jd, out = {}, centerAt = null) {
   if (centerAt && inLocal(c, jd) && jd >= (c.launch_jd ?? -Infinity) && centerAt(c.local.center, jd, CP)) {
     localPosition(c, jd, LP);
+    const w = localWeight(c, jd);
     out.x = CP.x + LP.x; out.y = CP.y + LP.y; out.z = CP.z + LP.z;
+    if (w < 1 && samplePosition(c, jd, HP)) { out.x = HP.x + w * (out.x - HP.x); out.y = HP.y + w * (out.y - HP.y); out.z = HP.z + w * (out.z - HP.z); }
     return out;
   }
+  return samplePosition(c, jd, out);
+}
+/** trackPosition from the heliocentric samples alone (Catmull-Rom between them; past the end, a craft that escapes coasts). */
+function samplePosition(c, jd, out) {
   const n = sampleCount(c); if (n < 2) return null;
   const f = (jd - c.t0_jd) / c.step_days;
   if (f < 0) return null;

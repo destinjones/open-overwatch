@@ -5,7 +5,7 @@
 // how long its light (or its radio signal) takes, how fast it moves, which way to look (RA/Dec, constellation, evening
 // or morning sky, how bright), and, for a place, how high it is there now. The site's own data copies (JPL Horizons tracks, SBDB elements) and core
 // maths; an asteroid's elements come out of the packed files by byte range. Links open the Solar System view on it.
-import { catalogue, indexCatalogue, findBody, quickIndex, findQuick, recordRanges, elementsFromBytes, fileRecords, hgMagnitude, stateAt, lightWords, distanceWords, IAU_NAMES, seeingWords, CLASS_WORDS, TRACKS, trackedAt } from '../src/core/whereis.js';
+import { catalogue, indexCatalogue, findBody, quickIndex, findQuick, recordRanges, elementsFromBytes, fileRecords, hgMagnitude, stateAt, lightWords, distanceWords, IAU_NAMES, seeingWords, CLASS_WORDS, TRACKS, trackedAt, trackOrbit } from '../src/core/whereis.js';
 import { planetPosition, earthPosition, moonGeocentric, PHYSICAL } from '../src/core/planets.js';
 import { SKY_PLANETS, planetFromEarth } from '../src/core/solarsys.js';
 import { moonOffset, moonPeriod } from '../src/core/moons.js';
@@ -142,15 +142,19 @@ export function spaceTool(ctx) {
         words.push(`A ${cometClass(c)}${Number.isFinite(P) ? `, around the Sun every ${r1(P)} years` : ''}; perihelion ${r2(c.q)} AU from the Sun, ${jd < peri ? 'next' : 'last'} ${extra.perihelion_note ? `around ${iso(msFromJd(peri)).slice(0, 7)} (the planets' pull moves it by weeks)` : `on ${iso(msFromJd(peri)).slice(0, 10)}`}.${fact ? ' ' + fact : ''}`);
       } else {
         small = small || await json('data/solar/small_bodies.json', signal);
-        const row = ref.asteroid, el = await asteroidElements(row, small, signal), cls = (small.classes || EMPTY)[row[5]] || null;
+        const row = ref.asteroid, cls = (small.classes || EMPTY)[row[5]] || null;
+        let el = await asteroidElements(row, small, signal);
         // Apophis: its own Horizons track for 2026-2035, round Earth through the 2029 flyby (two-body elements elsewhere)
         const track = TRACKS[row[2]] ? await json(TRACKS[row[2]], signal).catch(() => null) : null;
         at = trackedAt(track, el);
+        const orb = trackOrbit(track, el, jd); el = orb.el;   // after the flyby: the orbit it left on
         const P = el.a ** 1.5;
         extra = { class: cls, absolute_magnitude: row[3], diameter_km: row[4], orbit: { a_au: r2(el.a), e: Number(el.e.toFixed(3)), inclination_deg: r1(el.i * 180 / Math.PI), period_years: r2(P), perihelion_au: r2(el.a * (1 - el.e)), aphelion_au: r2(el.a * (1 + el.e)) } };
         const what = hit.kind === 'dwarf planet' ? 'dwarf planet' : CLASS_WORDS[cls] || 'asteroid';
         words.push(`${/^[aeiou]/i.test(what) ? 'An' : 'A'} ${what}${row[4] ? `, about ${row[4] < 10 ? r1(row[4]) : Math.round(row[4]).toLocaleString('en-US')} km across` : ''}: around the Sun every ${r2(P)} years, ${r2(el.a * (1 - el.e))} to ${r2(el.a * (1 + el.e))} AU out.`);
-        if (track?.closest) words.push(`Placed by its own JPL Horizons track (2026-2035): closest to Earth on ${iso(msFromJd(track.closest.jd - 69.184 / 86400)).slice(0, 16).replace('T', ' ')} UTC, ${(Math.round(track.closest.km / 100) * 100).toLocaleString('en-US')} km from Earth's centre.`);   // the track's times are TDB
+        const on = orb.era === 'pre' || orb.era === 'post', ca = track?.closest && `closest to Earth on ${iso(msFromJd(track.closest.jd - 69.184 / 86400)).slice(0, 16).replace('T', ' ')} UTC, ${(Math.round(track.closest.km / 100) * 100).toLocaleString('en-US')} km from Earth's centre`;   // the track's times are TDB
+        if (ca) words.push(`${on ? 'Placed by its own JPL Horizons track (2026-2035)' : 'Its JPL Horizons track (2026-2035) has it'}: ${ca}${orb.era === 'post' ? '; the orbit given is the one it left the flyby on' : ''}.${orb.note ? ' ' + orb.note : ''}`);
+        if (orb.note) extra.orbit_note = orb.note;
       }
       const s = stateAt(at, earth, jd);
       if (!s) throw new ToolError(`${hit.name} can't be placed at that time`, 'not_found');

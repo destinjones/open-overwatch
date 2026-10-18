@@ -141,7 +141,8 @@ test('whereis: Aditya-L1 rides near Sun-Earth L1; the ended missions have honest
 });
 
 // ---------------------------------------------------------------- Apophis: a Horizons track through its 2029 flyby
-import { TRACKS, trackedAt } from '../src/core/whereis.js';
+import { TRACKS, trackedAt, trackOrbit, trackElements, elementsFromState, AFTER_FLYBY_DAYS } from '../src/core/whereis.js';
+import { localWeight } from '../src/core/craft.js';
 const APOPHIS = json('data/solar/apophis.json'), FLYBY = json('test/fixtures/horizons_apophis_2029.json');
 
 test('whereis: Apophis passes 38,000 km from Earth\'s centre on 13 April 2029, as Horizons has it', () => {
@@ -164,4 +165,43 @@ test('whereis: Apophis passes 38,000 km from Earth\'s centre on 13 April 2029, a
   const before = jdFromMs(Date.UTC(2020, 0, 1)), p = at(before), q = positionAt(el, before, {});
   assert.deepEqual([p.x, p.y, p.z], [q.x, q.y, q.z]);
   assert.equal(trackedAt(null, el)(before).x, q.x, 'no track: the elements');
+});
+
+test('whereis: elements from a state vector give back the orbit they came from', () => {
+  const el = { a: 0.92, e: 0.191, i: 3.3 * Math.PI / 180, node: 204 * Math.PI / 180, peri: 127 * Math.PI / 180, M0: 1.2, epoch: 2461000.5 }, h = 1e-3;
+  const r = positionAt(el, el.epoch, {}), p = positionAt(el, el.epoch + h, {}), m = positionAt(el, el.epoch - h, {});
+  const back = elementsFromState(r, { x: (p.x - m.x) / (2 * h), y: (p.y - m.y) / (2 * h), z: (p.z - m.z) / (2 * h) }, el.epoch);
+  for (const k of ['a', 'e', 'i', 'node', 'peri', 'M0']) assert.ok(Math.abs(back[k] - el[k]) < 1e-5, k + ' ' + back[k]);
+  assert.equal(elementsFromState({ x: 1, y: 0, z: 0 }, { x: 0, y: 0.03, z: 0 }, 0), null, 'faster than escape: no ellipse');
+});
+
+test('whereis: Apophis after the flyby: the orbit it left on, and past 2035 a two-body orbit with a caveat', () => {
+  const el = { a: 0.92, e: 0.19, i: 0.06, node: 3.6, peri: 2.2, M0: 1, epoch: 2461000.5 }, fly = APOPHIS.closest.jd, end = APOPHIS.end_jd;
+  assert.equal(trackOrbit(null, el, fly).era, 'elements');
+  assert.equal(trackOrbit(APOPHIS, el, APOPHIS.t0_jd - 10).el, el); assert.equal(trackOrbit(APOPHIS, el, fly - 1).era, 'pre');
+  const post = trackOrbit(APOPHIS, el, fly + 1), after = trackOrbit(APOPHIS, el, end + 1);
+  assert.equal(post.era, 'post'); assert.equal(post.note, null); assert.equal(after.era, 'after');
+  // the flyby lifts it from a 0.92 AU (Aten) orbit to about 1.1 AU (Apollo), as Horizons has it
+  assert.ok(Math.abs(trackElements(APOPHIS, fly - 60).a - 0.92) < 0.01 && Math.abs(post.el.a - 1.10) < 0.01, String(post.el.a));
+  // the line drawn after the flyby stays near the track to 2035 (Earth's later nudges are small)
+  let worst = 0;
+  for (let j = fly + AFTER_FLYBY_DAYS; j < end; j += 10) { const t = trackPosition(APOPHIS, j, {}), k = positionAt(post.el, j, {}); worst = Math.max(worst, Math.hypot(t.x - k.x, t.y - k.y, t.z - k.z)); }
+  assert.ok(worst < 0.01, worst + ' AU');
+  // past the track: no jump where it ends, and the answer says the later planets' pulls are not modelled
+  const at = trackedAt(APOPHIS, el), a = at(end - 1e-6), b = at(end + 1e-6);
+  assert.ok(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) * AU_KM < 20000, 'end of the track');
+  assert.match(after.note, /track ends with 2035/); assert.match(after.note, /not modelled/);
+  const far = at(end + 3650), pre = positionAt(el, end + 3650, {});
+  assert.ok(Math.hypot(far.x - pre.x, far.y - pre.y, far.z - pre.z) > 0.05, 'not the pre-flyby ellipse');
+});
+
+test('craft: Apophis eases between its Earth-centred hours and the 2-day samples (no 10,000 km jump)', () => {
+  const L = APOPHIS.local, lo = L.t0_jd - L.step_days / 2, hi = L.t0_jd + (L.el.length - 0.5) * L.step_days;
+  assert.equal(L.blend_days, 0.25); assert.equal(localWeight(APOPHIS, APOPHIS.closest.jd), 1); assert.equal(localWeight(APOPHIS, lo), 0);
+  assert.equal(localWeight({ local: { ...L, blend_days: 0 } }, lo), 1, 'without blend_days: as before');
+  for (const edge of [lo, hi]) {
+    let worst = 0, prev = null;
+    for (let j = edge - 0.4; j < edge + 0.4; j += 1 / 1440) { const p = trackPosition(APOPHIS, j, {}, moonCenterAt); if (prev) worst = Math.max(worst, Math.hypot(p.x - prev.x, p.y - prev.y, p.z - prev.z) * AU_KM); prev = p; }
+    assert.ok(worst < 2500, `${worst.toFixed(0)} km in a minute at ${edge}`);   // ~30 km/s: 1,800 km a minute
+  }
 });

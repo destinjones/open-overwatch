@@ -578,7 +578,11 @@ test('captions: the counts named are the ones drawn (phones draw the brightest 1
   assert.equal(drawnWords(300000, 1569434), 'the brightest 300,000 of 1.57 million');
   assert.equal(countWords(1569434), '1.57 million');
   const story = src('src/solar/story.js'), cosmic = src('src/solar/cosmic.js');
-  assert.equal(+story.match(/export const ASTEROIDS_CATALOGUED = (\d+);/)[1], SB.files.reduce((n, f) => n + f.count, 0));
+  const counts = story.match(/export const ASTEROIDS_CATALOGUED = (\d+), ASTEROIDS_BRIGHTEST = (\d+);/);
+  assert.equal(+counts[1], SB.files.reduce((n, f) => n + f.count, 0)); assert.equal(+counts[2], SB.files[0].count, 'the first file: the brightest');
+  // before the files load: the plan quality.js set (setFull), else on a phone the brightest 300,000, not the catalogue
+  assert.match(story, /L\?\.n \|\| \(\(L\?\.full \?\? !phone\) \? 0 : ASTEROIDS_BRIGHTEST\)/);
+  assert.match(src('src/solar/smallbodies.js'), /S\.full = on; layer\('asteroids'\)\.full = on;/);
   assert.equal(+cosmic.match(/export const GALAXIES = \{ total: (\d+),/)[1], read('data/solar/galaxies.json').count);
   assert.match(cosmic, /GALAXIES\.total = meta\.count; GALAXIES\.drawn = N;/);
   for (const fixed of ['43,480 of them', '43,480 real galaxies', '1.5 million of them']) assert.ok(!story.includes(fixed), fixed);

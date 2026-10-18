@@ -8,7 +8,7 @@ import { CLASSES, viewSmallBodies, decodeElements, cometElements, packSmallBodie
 import { fetchAsset } from '../core/assets.js';
 import { distance, period } from '../core/format.js';
 import { decodeSolarView } from '../core/solarlink.js';
-import { TRACKS } from '../core/whereis.js';
+import { TRACKS, trackOrbit } from '../core/whereis.js';
 import { trackPosition } from '../core/craft.js';
 import { formatUtc } from '../core/time.js';
 import { LOGDEPTH_V, LOGDEPTH_F, PHONE, rebasedLine, refill, rebase } from './util.js';
@@ -147,11 +147,17 @@ export function createSmallBodies({ scene, renderer, focus: focusOf = () => null
     const group = new THREE.Group(); scene.add(group);
     const kind = cls === 0 ? 'main-belt asteroid' : (CLASSES[cls] || 'asteroid').replace(/s$/, '').replace(/ & beyond$/, ' object').toLowerCase();
     const b = addBody({ key, name: label, kind, color: '#e6d6b8', radius: (diam || 1) / 2 * KM_AU, pos: positionAt(el, uniforms.uDays.value + S.epoch, new THREE.Vector3()), group, el, small: true, transient: true, layer: 'asteroids',
-      // Apophis: its own Horizons track (core/whereis.js TRACKS) round the Earth on screen through the 2029 flyby
-      update(jd) { if (!(b.track && trackPosition(b.track, jd, b.pos, earthAt))) positionAt(el, jd, b.pos); },
-      info: () => [['Distance from Sun', distance(b.pos.length())], ['From Earth', distance(b.pos.distanceTo(byKey.earth.pos))], ['Year', period(periodDays(el.a))],
-        ['Size', diam ? diam + ' km across' : 'unknown (H ' + H + ')'], ['Orbit', 'a ' + el.a.toFixed(2) + ' AU · e ' + el.e.toFixed(3) + ' · i ' + (el.i / DEG).toFixed(1) + '°'],
-        ...(b.track?.closest ? [['Closest to Earth', formatUtc(b.track.closest.jd).slice(0, 10) + ' · ' + Math.round(b.track.closest.km).toLocaleString('en-US') + ' km from its centre']] : [])] });
+      // Apophis: its own Horizons track (core/whereis.js TRACKS) round the Earth on screen through the 2029 flyby; the
+      // white line is the orbit in force (trackOrbit: the one it leaves the flyby on), and past the track's end it moves on that
+      update(jd) {
+        const o = b.track && trackOrbit(b.track, el, jd);
+        if (o && o.era !== b.era) { b.era = o.era; b.el = o.el; b.note = o.note; if (picked.userData.body === key) refill(picked, fillOrbit(o.el, 720)); }
+        if (!(b.track && trackPosition(b.track, jd, b.pos, earthAt))) positionAt(b.el, jd, b.pos);
+      },
+      info: () => [['Distance from Sun', distance(b.pos.length())], ['From Earth', distance(b.pos.distanceTo(byKey.earth.pos))], ['Year', period(periodDays(b.el.a))],
+        ['Size', diam ? diam + ' km across' : 'unknown (H ' + H + ')'], ['Orbit', 'a ' + b.el.a.toFixed(2) + ' AU · e ' + b.el.e.toFixed(3) + ' · i ' + (b.el.i / DEG).toFixed(1) + '°' + (b.era === 'post' ? ' (since the flyby)' : '')],
+        ...(b.track?.closest ? [['Closest to Earth', formatUtc(b.track.closest.jd).slice(0, 10) + ' · ' + Math.round(b.track.closest.km).toLocaleString('en-US') + ' km from its centre']] : []),
+        ...(b.note ? [['Past its track', b.note]] : [])] });
     if (TRACKS[label]) fetchAsset(TRACKS[label], 'json').then(t => { b.track = t; }, e => console.warn(label, e));
     refill(picked, fillOrbit(el, 720)); picked.userData.body = key; picked.visible = true;
     return b;
@@ -181,7 +187,7 @@ export function createSmallBodies({ scene, renderer, focus: focusOf = () => null
   return {
     /** All 1.57M asteroids (true) or the brightest 300k (false); the second file loads on first use. */
     setFull(on) {
-      S.full = on; if (S.files[1]) S.files[1].points.visible = on && layerOn('asteroids'); else if (on && S.files[0] && layerOn('asteroids')) loadAll();
+      S.full = on; layer('asteroids').full = on; if (S.files[1]) S.files[1].points.visible = on && layerOn('asteroids'); else if (on && S.files[0] && layerOn('asteroids')) loadAll();
       layer('asteroids').n = S.files[0] ? S.files[0].view.N + (on && S.files[1] ? S.files[1].view.N : 0) : 0; onChange();
     },
     /** Hold the big file back (inside the globe: until the view is actually entered; true, or 'near': until the camera

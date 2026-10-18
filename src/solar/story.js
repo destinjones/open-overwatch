@@ -6,15 +6,17 @@ import { LY_AU, KM_AU, C_KM_S } from '../core/units.js';
 import { PLANET_KEYS } from '../core/planets.js';
 import { lightTime, distance } from '../core/format.js';
 import { drawnWords, findAlignment as searchAlignment, alignmentCaption } from '../core/storytext.js';
-import { surfaceMaterial } from './util.js';
+import { surfaceMaterial, PHONE } from './util.js';
 import { byKey, layer } from './world.js';
 import { GALAXIES } from './cosmic.js';
 
 // every asteroid in the two packed files (small_bodies.json files: 300,000 + 1,269,434); phones and the Low quality
-// level draw only the first, brightest 300,000, and the captions say so (layer('asteroids').n is what is drawn)
-export const ASTEROIDS_CATALOGUED = 1569434;
+// level draw only the first, brightest 300,000, and the captions say so (layer('asteroids').n is what is drawn; before
+// the files are in, .full from smallbodies.js setFull, or on a phone the 300,000 it will draw)
+export const ASTEROIDS_CATALOGUED = 1569434, ASTEROIDS_BRIGHTEST = 300000;
 const galaxyWords = (whole = '') => drawnWords(GALAXIES.drawn, GALAXIES.total, whole);
-const asteroidWords = () => drawnWords(layer('asteroids')?.n || 0, ASTEROIDS_CATALOGUED, ' of them');
+export const asteroidsDrawn = (L = layer('asteroids'), phone = PHONE) => L?.n || ((L?.full ?? !phone) ? 0 : ASTEROIDS_BRIGHTEST);
+const asteroidWords = () => drawnWords(asteroidsDrawn(), ASTEROIDS_CATALOGUED, ' of them');
 
 // [camera distance from the Sun below which this band applies (AU), band name, title, text, comparison]
 export const BANDS = [
