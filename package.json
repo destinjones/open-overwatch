@@ -27,6 +27,6 @@
   "engines": { "node": ">=20" },
   "publishConfig": { "access": "public", "provenance": true },
   "dependencies": { "satellite.js": "5.0.0" },
-  "devDependencies": { "@playwright/test": "1.63.0", "@types/node": "22.20.5", "eslint": "10.12.0", "globals": "17.13.0", "typescript": "6.0.3" },
+  "devDependencies": { "@playwright/test": "1.64.1", "@types/node": "22.20.5", "eslint": "10.12.0", "globals": "17.13.0", "typescript": "6.0.3" },
   "scripts": { "mcp": "node mcp/server.mjs", "test": "node --test", "coverage": "node --test --experimental-test-coverage --test-coverage-include=\"src/core/**\" --test-coverage-include=\"mcp/**\" --test-coverage-lines=96 --test-coverage-branches=83 --test-coverage-functions=91", "e2e": "playwright test", "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.workers.json", "lint": "eslint src mcp test e2e brand/tools relay sw.js serve.js playwright.config.mjs eslint.config.mjs" }
 }
