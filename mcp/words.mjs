@@ -1,6 +1,38 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Small helpers every tool uses: times, numbers, coordinates and places in words, and the place's time zone.
+import { zonedToUtc } from '../src/core/traffic.js';
+
 const METEO = 'https://api.open-meteo.com/v1/forecast';
+
+// ISO 8601 as tools take it: a date, or a date and time (T or a space), with Z, UTC/GMT or an offset, or nothing
+const ISO_TIME = /^(\d{4})-(\d\d)-(\d\d)(?:[T ](\d\d):(\d\d)(?::(\d\d)(\.\d+)?)?)?\s*(Z|UTC|GMT|[+-]\d\d(?::?\d\d)?)?$/i;
+/**
+ * A tool's time argument -> UTC ms, or NaN when it is not an ISO 8601 date or date-time. An explicit Z or offset is
+ * honoured. A time without one is read as UTC, or as the wall clock in `tz` (the place's IANA zone) when one is given;
+ * never in the host's own zone, which Date.parse would use: the stdio server on a PC and the Worker (UTC) would then
+ * answer the same question hours apart.
+ * @param {any} s @param {string | null} [tz]
+ */
+export function parseTime(s, tz = null) {
+  const m = ISO_TIME.exec(String(s ?? '').trim()); if (!m) return NaN;
+  const [, y, mo, d, h = '00', mi = '00', se = '00', frac = '', z] = m;
+  if (+mo < 1 || +mo > 12 || +d < 1 || +h > 23 || +mi > 59 || +se > 59) return NaN;
+  const ms = frac ? Math.round(parseFloat('0' + frac) * 1000) : 0, wall = Date.UTC(+y, +mo - 1, +d, +h, +mi, +se) + ms;
+  if (new Date(wall).getUTCDate() !== +d) return NaN;   // 31 February
+  if (z) {
+    if (/^(z|utc|gmt)$/i.test(z)) return wall;
+    const [, sign, oh, om = '0'] = /** @type {RegExpExecArray} */ (/^([+-])(\d\d):?(\d\d)?$/.exec(z));
+    return wall - (sign === '-' ? -1 : 1) * (+oh * 60 + +om) * 60e3;
+  }
+  if (tz) {
+    try { const t = zonedToUtc(`${y}-${mo}-${d}T${h}:${mi}:${se}`, tz); if (Number.isFinite(t)) return t + ms; } catch { /* an unknown zone: UTC */ }
+  }
+  return wall;
+}
+/** Whether a time argument names its own zone (Z, UTC or an offset). */
+export const timeHasZone = s => { const m = ISO_TIME.exec(String(s ?? '').trim()); return !!(m && m[8]); };
+/** What a zone-less time argument was read as, for the answer to say: '' when it named its zone. */
+export const timeReadAs = (s, tz = null) => (s == null || timeHasZone(s) ? '' : ` (the time given, read as ${tz ? `local time in ${tz}` : 'UTC'})`);
 
 export const iso = ms => (Number.isFinite(ms) ? new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z') : null);
 export const utc = ms => new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';

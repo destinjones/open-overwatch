@@ -22,7 +22,7 @@ export function aircraftTool(ctx) {
   return {
     name: 'aircraft_lookup',
     title: 'What a plane is, and where a flight goes',
-    description: "Look up an aircraft or a flight in adsbdb, the open aircraft and route database: by registration (tail number, e.g. \"G-XLEA\", \"N628TS\", \"JA873A\") or ICAO 24-bit address (hex, e.g. \"4007f6\") its type and ICAO type code, maker, class (narrow-body, wide-body, business jet, helicopter…), registered owner and country, the country its address was allocated to, and a photo link; by callsign (\"BAW15\", \"UAL1\", \"QFA1\") the airline and the route it usually flies, with both airports and the distance. Routes on file are what a callsign normally flies, not a live flight plan. The globe link draws the route and looks for the flight.",
+    description: `Look up an aircraft or a flight in adsbdb, the open aircraft and route database: by registration (tail number, e.g. "G-XLEA", "N628TS", "JA873A") or ICAO 24-bit address (hex, e.g. "4007f6") its type and ICAO type code, maker, class (narrow-body, wide-body, business jet, helicopter…), registered owner and country, the country its address was allocated to, and a photo link; by callsign ("BAW15", "UAL1", "QFA1") the airline and the route it usually flies, with both airports and the distance. Routes on file are what a callsign normally flies, not a live flight plan. The globe link draws the route${feeds.hasAircraft ? ' and looks for the flight' : ' (live aircraft show only in the download version of Open Overwatch)'}.`,
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -31,15 +31,22 @@ export function aircraftTool(ctx) {
       },
     },
     async run(a, { signal }) {
-      const reg = a.aircraft ? a.aircraft.trim().replace(/\s+/g, '') : '', cs = a.callsign ? a.callsign.trim().toUpperCase().replace(/\s+/g, '') : '';
+      let reg = a.aircraft ? a.aircraft.trim().replace(/\s+/g, '') : '';
+      const cs = a.callsign ? a.callsign.trim().toUpperCase().replace(/\s+/g, '') : '';
       if (!reg && !cs) throw new ToolError('Give an aircraft (registration or hex address) or a callsign', 'invalid_arguments');
       if (reg && !HEX.test(reg) && !REG.test(reg)) throw new ToolError('aircraft must be a registration ("G-XLEA") or a 6-digit hex address ("4007f6")', 'invalid_arguments');
       if (cs && !CALLSIGN.test(cs)) throw new ToolError('callsign must be 2 to 8 letters and digits ("BAW15")', 'invalid_arguments');
+      // "~" marks a non-ICAO address (a TIS-B track number, an anonymous address): its digits belong to some other, real
+      // airframe, so it is never looked up as one; with a callsign only the route is
+      const anon = reg && reg.startsWith('~') ? reg.toLowerCase() : '';
+      if (anon && !cs) throw new ToolError(`${anon} is a non-ICAO address (a TIS-B track or an anonymous one, marked "~"): it names no airframe to look up. Give the flight's callsign instead`, 'invalid_arguments');
+      if (anon) reg = '';
       const key = reg ? (HEX.test(reg) ? reg.replace(/^~/, '').toLowerCase() : reg.toUpperCase()) : '';
       const d = reg ? await ask(`aircraft/${encodeURIComponent(key)}${cs ? `?callsign=${encodeURIComponent(cs)}` : ''}`, `aircraft ${key}`, signal) : await ask(`callsign/${encodeURIComponent(cs)}`, `callsign ${cs}`, signal);
       const { aircraft: ac, route } = parseAdsbdb(d);
       if (!ac && !route) throw new ToolError(`adsbdb has no record of ${reg ? `aircraft ${key}` : `callsign ${cs}`}`, 'not_found');
-      const out = [], data = { source: 'adsbdb.com (open aircraft and flight-route data)' };
+      const out = [], data = { source: 'adsbdb.com (open aircraft and flight-route data)' }, live = feeds.hasAircraft;
+      if (anon) { out.push(`${anon} is a non-ICAO address (a TIS-B track or an anonymous one): it names no airframe, so only the callsign was looked up.`); data.non_icao_address = anon; }
       if (ac) {
         const k = classify({ type: ac.icaoType, desc: ac.type }), alloc = hexCountry(ac.hex);
         out.push(`${ac.reg || key}${ac.hex ? ` (ICAO ${ac.hex})` : ''}: ${[ac.manufacturer && !ac.type.toLowerCase().startsWith(ac.manufacturer.toLowerCase().split(' ')[0]) ? ac.manufacturer : '', ac.type].filter(Boolean).join(' ') || 'type unknown'}${ac.icaoType ? ` (${ac.icaoType})` : ''}, ${k.why === 'guess' ? 'class unknown' : k.name.toLowerCase()}.`
@@ -55,7 +62,7 @@ export function aircraftTool(ctx) {
           out.push(`${route.callsign || cs}${al ? ` (${al.name}${al.callsign ? `, radio "${al.callsign}"` : ''})` : ''}: ${portWords(o)} → ${mid ? `${portWords(mid)} → ` : ''}${portWords(dst)}; ${Math.round(km).toLocaleString('en-US')} km great circle, setting off to the ${compass(bearing(o.lat, o.lon, dst.lat, dst.lon))}. This is the route on file for the callsign, not a live flight plan.`);
           const coords = [[o.lon, o.lat], ...(mid ? [[mid.lon, mid.lat]] : []), [dst.lon, dst.lat]];
           const c = { lat: (o.lat + dst.lat) / 2, lon: Math.abs(o.lon - dst.lon) > 180 ? (((o.lon + dst.lon) / 2 + 360) % 360) - 180 : (o.lon + dst.lon) / 2 };
-          url = globeUrl(site, { camera: frame(c.lat, c.lon, Math.max(300, km * 0.75)), on: ['air', 'airports'], flight: route.icao || route.callsign || cs, drawing: [{ kind: coords.length === 2 ? 'arrow' : 'line', coords, name: route.callsign || cs }] });
+          url = globeUrl(site, { camera: frame(c.lat, c.lon, Math.max(300, km * 0.75)), on: live ? ['air', 'airports'] : ['airports'], flight: live ? route.icao || route.callsign || cs : null, drawing: [{ kind: coords.length === 2 ? 'arrow' : 'line', coords, name: route.callsign || cs }] });
           data.route = { callsign: route.callsign || cs, callsign_iata: route.iata || null, airline: al ? { name: al.name, icao: al.icao || null, iata: al.iata || null, country: al.country || null, radio_callsign: al.callsign || null } : null,
             origin: port(o), midpoint: port(mid), destination: port(dst), distance_km: Math.round(km), note: 'the route on file for this callsign (callsigns can be reused); not a live flight plan' };
         } else if (al) {
@@ -63,8 +70,15 @@ export function aircraftTool(ctx) {
           data.route = { callsign: route.callsign || cs, airline: { name: al.name, icao: al.icao || null, iata: al.iata || null, country: al.country || null, radio_callsign: al.callsign || null }, origin: null, destination: null };
         }
       } else if (cs) out.push(`No route on file for ${cs}.`);
-      if (!url) url = globeUrl(site, { camera: frame(30, 0, 9000), on: ['air'], flight: cs && /^[A-Z0-9]{2,8}$/.test(cs) ? cs : null });
-      out.push(`${route && route.origin ? 'The route' : 'Live aircraft'} on the globe${cs ? ` (it looks for ${route?.icao || route?.callsign || cs} in the live traffic)` : ''}: ${url}`);
+      const drawn = !!url;
+      if (live) {
+        if (!url) url = globeUrl(site, { camera: frame(30, 0, 9000), on: ['air'], flight: cs && /^[A-Z0-9]{2,8}$/.test(cs) ? cs : null });
+        out.push(`${drawn ? 'The route' : 'Live aircraft'} on the globe${cs ? ` (it looks for ${route?.icao || route?.callsign || cs} in the live traffic)` : ''}: ${url}`);
+      } else {   // the website has no live aircraft: the link draws the route (or opens the airports), and says where planes are
+        if (!url) url = globeUrl(site, { camera: frame(30, 0, 9000), on: ['airports'] });
+        out.push(`${drawn ? 'The route' : 'The airports'} on the globe (live aircraft show in the download version of Open Overwatch, not on the website): ${url}`);
+        data.live_aircraft = 'in the download version only';
+      }
       return { text: out.join('\n'), data: { ...data, url } };
     },
   };

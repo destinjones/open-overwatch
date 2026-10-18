@@ -36,6 +36,15 @@ derive.builds = 0;
 const local = u => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(u.hostname);
 
 /**
+ * Whether the Open Overwatch at `site` shows live aircraft: the published website has none (its relay does not carry
+ * adsb.lol, so the aircraft layer stays empty and a flight= link finds nothing); the download version, served by its
+ * local helper (--site http://localhost:8787/), does. Links and words about live traffic follow this.
+ */
+export const siteHasAircraft = site => { try { return local(new URL(site)); } catch { return false; } };
+/** The published website's answer (false): live aircraft come with the download version. */
+export const SITE_HAS_AIRCRAFT = siteHasAircraft(SITE);
+
+/**
  * fetchImpl: fetch-compatible (tests pass their own). site: the Open Overwatch address links point at and the data copies
  * come from. Returns { json, text, bytes, site(path), siteBase, scope, clear() }; json/text/bytes(url, { ttl, headers, timeout, signal,
  * method, body, maxBytes }). bytes resolves to { bytes: Uint8Array, type } (a picture, a protobuf feed, a gzipped tile).
@@ -70,6 +79,9 @@ export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntr
     }
     if (!r.ok) throw new ToolError(`${u.hostname} answered HTTP ${r.status}${r.status === 429 ? ' (too many requests): try again later' : ''}`, r.status === 429 ? 'retry_later' : r.status === 404 ? 'not_found' : 'unavailable');
     if (+r.headers.get('content-length') > maxBytes) throw new ToolError(`${u.hostname} sent more than ${Math.round(maxBytes / 1e6)} MB`, 'unavailable');
+    // 204 is "nothing" (AWC's METAR for a field with none), not an unreadable answer. An empty 200 stays unreadable, so a
+    // slip upstream keeps the last good answer (STALE_OK_MS) instead of remembering null over it.
+    if (as === 'json' && r.status === 204) return null;
     let b;
     try { b = as === 'bytes' ? new Uint8Array(await r.arrayBuffer()) : as === 'json' ? await r.json() : await r.text(); }
     catch (e) { throw new ToolError(`${u.hostname} sent something unreadable`, 'unavailable'); }
@@ -109,6 +121,8 @@ export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntr
     /** A file on the Open Overwatch site (its data copies: data/tle/…, data/launches.json, …). */
     site: path => new URL(path, base).href,
     siteBase: base,
+    /** Whether that site shows live aircraft (siteHasAircraft): false for the published website. */
+    hasAircraft: siteHasAircraft(base),
     /** The memo itself: what outlives this server (the Worker makes one per request), for state kept beside the answers. */
     scope: cache,
     clear: () => cache.clear(),

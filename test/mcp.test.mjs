@@ -114,7 +114,7 @@ function pretendInternet(routes = ROUTES) {
       const b = typeof body === 'function' ? body(url, init) : body;
       if (b instanceof Error) throw b;
       if (b instanceof Uint8Array) return new Response(b, { status: 200, headers: { 'content-type': 'application/octet-stream' } });
-      if (b && b.status) return new Response(b.body ?? '', { status: b.status });
+      if (b && b.status) return new Response(b.status === 204 ? null : b.body ?? '', { status: b.status });   // a 204 has no body at all
       return new Response(typeof b === 'string' ? b : JSON.stringify(b), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     return new Response('nothing here', { status: 404 });
@@ -198,6 +198,15 @@ test('mcp: CelesTrak is never asked; answers are cached, and an old answer beats
   assert.deepEqual(await feeds.json('https://a.example/x', { ttl: 1000 }), { v: 1 }, 'stale but there'); assert.equal(n, 2);
   t = 2 * 864e5;
   await assert.rejects(feeds.json('https://a.example/x', { ttl: 1000 }), /did not answer/);
+  // 204 is "nothing" (null); an empty 200 is a slip upstream: unreadable, so the last good answer stands
+  let body = '{"v":2}', status = 200;
+  const f2 = createFeeds({ fetchImpl: async () => new Response(status === 204 ? null : body, { status }), now: () => t });
+  assert.deepEqual(await f2.json('https://b.example/x', { ttl: 1000 }), { v: 2 });
+  t += 5000; body = '';
+  assert.deepEqual(await f2.json('https://b.example/x', { ttl: 1000 }), { v: 2 }, 'an empty 200 keeps the stale copy');
+  await assert.rejects(f2.json('https://b.example/y', { ttl: 1000 }), /sent something unreadable/);
+  t += 5000; status = 204;
+  assert.equal(await f2.json('https://b.example/x', { ttl: 1000 }), null, 'a 204 is no answer at all');
 });
 
 test('mcp: framing, areas (an outline across the antimeridian too) and links in the globe\'s own format', () => {
@@ -315,6 +324,11 @@ test('mcp: ISS passes over Helsinki, in local time, and a link that replays the 
   assert.equal(v.time.rate, 20); assert.ok(Math.abs((v.time.jd - 2440587.5) * 864e5 - (Date.parse(first.rise) - 60e3)) < 2000);
   const vis = ok(await call(server, 'satellite_passes', { place: 'Helsinki', visible_only: true }));
   assert.ok(vis.structuredContent.passes.every(p => p.visible));
+  // more passes than listed: the headline says how many follow, and the data has the total
+  const few = ok(await call(server, 'satellite_passes', { place: 'Helsinki', days: 3, limit: 2 })), fd = few.structuredContent;
+  assert.equal(fd.passes.length, 2); assert.equal(fd.returned, 2); assert.equal(fd.truncated, true); assert.equal(fd.total, d.total); assert.ok(fd.total > 2);
+  assert.match(few.content[0].text, new RegExp(`^${fd.total} passes of ISS \\(ZARYA\\) over Helsinki, Uusimaa, Finland in the next 3 days \\(the first 2 below\\)`));
+  assert.equal(d.truncated, d.total > 10); assert.equal(d.returned, d.passes.length);
 });
 
 test('mcp: launches, crew and asteroid flybys come from the website copies', async () => {
@@ -378,6 +392,26 @@ test('mcp: the aurora: Kp now and ahead, the chance at a place, the oval on the 
   assert.equal(d.kp_now, 5.67); assert.match(d.activity, /G1/); assert.deepEqual(d.forecast.map(x => x.max_kp), [6, 4]);
   assert.equal(d.local.overhead_percent, 5); assert.equal(d.local.horizon_percent, 40); assert.match(d.local.verdict, /likely on the northern horizon/);
   assert.deepEqual(hashOf(d.url).add, ['aurora']); assert.equal(ok(await call(server, 'aurora', {})).structuredContent.local, null);
+  assert.equal(d.kp_kind, 'observed'); assert.match(r.content[0].text, /^Kp 5\.67 \(a minor geomagnetic storm \(G1\)\), measured 3 h ago\./);
+  // the OVATION file failing leaves the Kp answer standing, with the local chance said to be unknown
+  const ovDown = ok(await call(serve(pretendInternet([['https://services.swpc.noaa.gov/json/ovation_aurora_latest.json', { status: 503 }], ...ROUTES])).server, 'aurora', { place: 'Helsinki' }));
+  assert.equal(ovDown.structuredContent.kp_now, 5.67); assert.equal(ovDown.structuredContent.local.overhead_percent, null);
+  assert.match(ovDown.content[0].text, /At Helsinki, Uusimaa, Finland: the OVATION aurora model did not answer/); assert.doesNotMatch(ovDown.content[0].text, /null%/);
+  // Kp now is the forecast product's running estimate for the block under way, as on the globe's Earth-now card, not the
+  // observed product's last finished block (a block behind)
+  const est = [{ time_tag: '2026-10-01T15:00:00', kp: 5.67, observed: 'observed' }, { time_tag: '2026-10-01T18:00:00', kp: 4.33, observed: 'estimated' }, { time_tag: '2026-10-01T21:00:00', kp: 6.0, observed: 'predicted', noaa_scale: 'G2' }];
+  const e = ok(await call(serve(pretendInternet([['https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json', est], ...ROUTES])).server, 'aurora', {}));
+  assert.equal(e.structuredContent.kp_now, 4.33); assert.equal(e.structuredContent.kp_kind, 'estimated'); assert.equal(e.structuredContent.kp_time, '2026-10-01T18:00:00Z');
+  assert.match(e.content[0].text, /^Kp 4\.33 \(active\), estimated for the 3-hour block that began 0 s ago/);
+  // without the forecast, the observed product
+  const fb = ok(await call(serve(pretendInternet([['https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json', { status: 503 }], ...ROUTES])).server, 'aurora', {}));
+  assert.equal(fb.structuredContent.kp_now, 5.67); assert.equal(fb.structuredContent.kp_kind, 'observed');
+  // a forecast product gone stale (nothing in the last 72 h) falls through to the observed product, as kpSeries does
+  const old = [{ time_tag: '2026-09-20T18:00:00', kp: 2.0, observed: 'estimated' }];
+  const st = ok(await call(serve(pretendInternet([['https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json', old], ...ROUTES])).server, 'aurora', {}));
+  assert.equal(st.structuredContent.kp_now, 5.67); assert.equal(st.structuredContent.kp_kind, 'observed');
+  const { kpNowFrom } = await import('../mcp/tools.mjs'), nowMs = Date.parse('2026-10-01T18:00:00Z');
+  assert.equal(kpNowFrom(old, nowMs), null); assert.equal(kpNowFrom(old, nowMs, Infinity).kp, 2, 'the last resort: however old');
 });
 
 test('mcp: space weather: the solar wind and Bz, flares, SWPC warnings, each with its data age', async () => {
@@ -427,6 +461,34 @@ test('mcp: show_on_globe builds a view, or shows another answer\'s link, and onl
   }
   assert.match(ok(await call(server, 'show_on_globe', {})).content[0].text, /the whole Earth/);
   assert.equal((await call(server, 'show_on_globe', { time: 'yesterday-ish' })).isError, true);
+  // where_in_space's Solar System links and night_sky's Tonight card are the site's own pages too: shown, not refused
+  const sol = ok(await call(server, 'show_on_globe', { url: SITE + 'solar.html#f=planet%3Amars' })).structuredContent;
+  assert.deepEqual([sol.kind, sol.view, sol.solar.focus], ['solar', null, 'planet:mars']);
+  assert.equal(ok(await call(server, 'show_on_globe', { url: SITE + 'solar.html?focus=mars' })).structuredContent.kind, 'solar');
+  assert.equal(ok(await call(server, 'show_on_globe', { url: SITE + 'tonight.html#p=60.17,24.94' })).structuredContent.kind, 'tonight');
+  assert.equal(ok(await call(server, 'show_on_globe', { url: SITE + 'v/0.9.2.13/globe.html#c=1,2,3' })).structuredContent.kind, 'globe', 'an archived copy of the site');
+  for (const url of ['https://example.com/open-overwatch/solar.html#f=planet%3Amars', SITE + 'v/solar.html#f=x', SITE + 'v/0.9.2.13/about.html',SITE + 'about.html', SITE + 'globe.html?x=1#c=1,2,3']) {
+    const r = await call(server, 'show_on_globe', { url }); assert.equal(r.isError, true, url);
+  }
+  // a time without a zone is UTC, or the place's clock with a place, whichever host runs this (not the host's own zone)
+  const z = ok(await call(server, 'show_on_globe', { time: '2026-12-25T21:00' }));
+  assert.ok(Math.abs((hashOf(z.structuredContent.url).time.jd - 2440587.5) * 864e5 - Date.UTC(2026, 11, 25, 21)) < 1000); assert.match(z.content[0].text, /at 2026-12-25 21:00 UTC \(the time given, read as UTC\)/);
+  const zh = ok(await call(server, 'show_on_globe', { place: 'Helsinki', time: '2026-12-25T21:00' }));   // Europe/Helsinki, UTC+2 in December
+  assert.ok(Math.abs((hashOf(zh.structuredContent.url).time.jd - 2440587.5) * 864e5 - Date.UTC(2026, 11, 25, 19)) < 1000); assert.match(zh.content[0].text, /read as local time in Europe\/Helsinki/);
+  // the website has no live aircraft: a flight (and the aircraft layer) is left out of the link, and the answer says why
+  const fl = ok(await call(server, 'show_on_globe', { flight: 'baw15', layers_on: ['air', 'quakes'] }));
+  const fv = hashOf(fl.structuredContent.url); assert.equal(fv.flight, null); assert.deepEqual(fv.add, ['quakes']);
+  assert.match(fl.content[0].text, /live aircraft, and so flight BAW15, show in the download version, not on the website/);
+});
+
+test('mcp: the globe panel frames only the site\'s globe (with a view), its Solar System and its Tonight card', async () => {
+  const { panelResource } = await import('../mcp/panel.mjs'), page = panelResource(SITE, 't').text, js = page.split('<script>')[1].split('</script>')[0];
+  const src = /** @type {RegExpMatchArray} */ (js.match(/const pageOf = [\s\S]*?\n {2}\};/))[0];
+  const pageOf = new Function('cfg', `${src}; return pageOf;`)({ site: SITE });
+  assert.deepEqual([SITE + 'globe.html#c=1,2,3', SITE + 'solar.html#f=planet%3Amars', SITE + 'solar.html?focus=mars', SITE + 'tonight.html#p=1,2'].map(pageOf), ['globe', 'solar', 'solar', 'tonight']);
+  assert.equal(pageOf(SITE + 'v/0.9.2.13/globe.html#c=1,2,3'), 'globe', 'an archived copy of the site');
+  for (const u of [SITE + 'globe.html', SITE + 'about.html', SITE + 'v/globe.html#c=1', SITE + 'v/x/globe.html#c=1','https://example.com/globe.html#c=1', SITE + 'tonight.html?x', null]) assert.equal(pageOf(u), null, String(u));
+  assert.match(js, /frame\.addEventListener\('load'/, 'pages without oo:ready lift the veil when loaded');
 });
 
 test('mcp: show_on_globe follows a satellite by name', needsSgp4, async () => {
@@ -812,6 +874,13 @@ test('mcp: volcanoes near a place, erupting ones first, with this week\'s earthq
   assert.deepEqual(etna.structuredContent.volcanoes[0].quakes_week && etna.structuredContent.volcanoes[0].quakes_week.strongest, 3.4, "this week's M3.4 under it");
   assert.match(etna.content[0].text, /1 earthquake M2\.5\+ within 30 km this week \(strongest M3\.4, latest 10 h ago\)/);
   assert.match(ok(await call(server, 'volcanoes', { lat: 0, lon: -30, radius_km: 50 })).content[0].text, /^No volcanoes within 50 km/);
+  assert.match(etna.structuredContent.volcanoes[0].eruption.provenance, /^NASA EONET · data \d/, "the eruption carries EONET's provenance");
+  assert.equal(etna.structuredContent.quakes_known, true); assert.equal(etna.structuredContent.eruptions_known, true);
+  // USGS down: the earthquake column is said to be missing, not left to read as "none this week"
+  const noUsgs = ok(await call(serve(pretendInternet([[/earthquake\.usgs\.gov\//, { status: 503 }], ...ROUTES])).server, 'volcanoes', { lat: 37.75, lon: 15.0, radius_km: 40 }));
+  assert.match(noUsgs.content[0].text, /\(USGS did not answer: earthquakes are not counted\.\)/); assert.equal(noUsgs.structuredContent.quakes_known, false);
+  const noEonet = ok(await call(serve(pretendInternet([[/eonet\.gsfc\.nasa\.gov\//, { status: 503 }], ...ROUTES])).server, 'volcanoes', { lat: 37.75, lon: 15.0, radius_km: 40 }));
+  assert.match(noEonet.content[0].text, /\(NASA EONET did not answer: eruptions are not marked\.\)/); assert.equal(noEonet.structuredContent.eruptions_known, false);
 });
 
 test('mcp: road speeds: Finland live per direction, New York with its delay said, nowhere else', async () => {
@@ -921,7 +990,7 @@ test('mcp: prompts: listed with their arguments, rendered with the place quoted 
 
 // ---- 0.3.0: weather details, aircraft lookups, where in the Solar System -------------------------------------------------
 const HOURS = Array.from({ length: 51 }, (_, i) => new Date(Date.parse('2026-10-01T18:00Z') + i * 3600e3).toISOString().slice(0, 16));
-const DETAIL = { timezone: 'Europe/Helsinki', timezone_abbreviation: 'EEST',
+const DETAIL = { timezone: 'Europe/Helsinki', timezone_abbreviation: 'EEST', utc_offset_seconds: 10800,
   current: { time: '2026-10-01T21:15', pressure_msl: 1007.5, surface_pressure: 1006.9, temperature_2m: 9.4, dew_point_2m: 7.2, relative_humidity_2m: 86, wind_speed_10m: 11.2, wind_direction_10m: 225, wind_gusts_10m: 19.4,
     cape: 40, visibility: 24000, freezing_level_height: 1450, uv_index: 0, cloud_cover_low: 80, cloud_cover_mid: 40, cloud_cover_high: 10, weather_code: 61 },
   hourly: { time: HOURS, pressure_msl: HOURS.map((_, i) => (i <= 27 ? 1012 - 1.5 * i : 971.5 + (i - 27))), wind_speed_10m: HOURS.map((_, i) => 8 + (i === 27 ? 12 : 0)), wind_gusts_10m: HOURS.map((_, i) => (i === 27 ? 31 : 14)),
@@ -972,7 +1041,10 @@ test('mcp: weather details: pressure falling quickly, the storm ahead, fog, thun
   assert.equal(d.pressure_tendency, 'falling quickly'); assert.equal(d.now.beaufort.force, 6); assert.equal(d.sea.sea.name, 'moderate'); assert.equal(d.models.length, 3);
   assert.deepEqual(hashOf(d.url).weather, ['pres', 'gust', 'wave']);
   assert.ok(net.asked.some(u => /models=ecmwf_ifs025,gfs_seamless,icon_seamless/.test(u)) && net.asked.some(u => /cell_selection=sea/.test(u)));
+  assert.equal(d.provenance, 'Open-Meteo (model) · data 0 s old · reported', 'the model hour (21:15 EEST is 18:15 UTC), not its local clock read as UTC');
+  assert.match(t, /freezing level 1,500 m/i, 'a height to the nearest 100 m, not "1 km"');
   const inland = ok(await call(server, 'weather_details', { place: 'Texas', units: 'imperial' }));
+  assert.match(inland.content[0].text, /freezing level 4,800 ft/i, 'feet to the nearest 100, not "1 mi"');
   assert.doesNotMatch(inland.content[0].text, /The sea/, 'no sea inland (the marine API refuses)');
   assert.match(inland.content[0].text, /Pressure 29\.75 inHg/); assert.match(inland.content[0].text, /rain 0\.00-0\.47 in, highs 48-57 °F/);
   assert.deepEqual(hashOf(inland.structuredContent.url).weather, ['pres', 'gust']);
@@ -986,9 +1058,22 @@ test('mcp: aircraft lookup by registration, by hex with a callsign, by callsign;
   const r = ok(await call(server, 'aircraft_lookup', { callsign: 'baw15' })), rd = r.structuredContent;
   assert.match(r.content[0].text, /BAW15 \(British Airways, radio "SPEEDBIRD"\): London Heathrow Airport \(LHR\), United Kingdom → Singapore Changi Airport \(SIN\), Singapore; 10,8\d\d km great circle, setting off to the ENE/);
   assert.equal(rd.route.origin.iata, 'LHR'); assert.equal(rd.route.destination.icao, 'WSSS');
-  const v = hashOf(rd.url); assert.equal(v.flight, 'BAW15'); assert.equal(v.drawing[0].kind, 'arrow'); assert.deepEqual(v.drawing[0].coords[1].map(Math.round), [104, 1]);
+  // the published website has no live aircraft: the link draws the route and opens the airports, and the answer says so
+  const v = hashOf(rd.url); assert.equal(v.flight, null); assert.ok(!v.add.includes('air'), JSON.stringify(v.add)); assert.ok(v.add.includes('airports'));
+  assert.equal(v.drawing[0].kind, 'arrow'); assert.deepEqual(v.drawing[0].coords[1].map(Math.round), [104, 1]);
+  assert.match(r.content[0].text, /The route on the globe \(live aircraft show in the download version of Open Overwatch, not on the website\): https:\/\/destinjones\.github\.io\//);
+  assert.doesNotMatch(r.content[0].text, /live traffic/);
+  // the download version (its local helper) has them: the link turns them on and looks for the flight
+  const dl = createOverwatchServer({ site: 'http://localhost:8787/', fetchImpl: pretendInternet(withFns([...NEW_ROUTES, ...ROUTES])).fetchImpl, now: () => NOW });
+  const lr = ok(await call(dl, 'aircraft_lookup', { callsign: 'baw15' })), lv = hashOf(lr.structuredContent.url);
+  assert.equal(lv.flight, 'BAW15'); assert.ok(lv.add.includes('air')); assert.match(lr.content[0].text, /it looks for BAW15 in the live traffic\): http:\/\/localhost:8787\//);
   const both = ok(await call(server, 'aircraft_lookup', { aircraft: '40688B', callsign: 'BAW15' }));
   assert.ok(both.structuredContent.aircraft && both.structuredContent.route);
+  // "~" marks a non-ICAO address: its digits belong to another airframe, so it is never looked up as one
+  const tilde = await call(server, 'aircraft_lookup', { aircraft: '~40688b' });
+  assert.equal(tilde.isError, true); assert.match(tilde.content[0].text, /non-ICAO address/); assert.equal(tilde.structuredContent.error, 'invalid_arguments');
+  const tcs = ok(await call(server, 'aircraft_lookup', { aircraft: '~40688B', callsign: 'BAW15' })).structuredContent;
+  assert.equal(tcs.aircraft, undefined, 'no airframe for a "~" address'); assert.equal(tcs.non_icao_address, '~40688b'); assert.equal(tcs.route.callsign, 'BAW15');
   assert.match(ok(await call(server, 'aircraft_lookup', { callsign: 'ZZZ9' })).content[0].text, /ZZZ9 is flown by Zed Air \(Nowhere\); no route on file/);
   const none = await call(server, 'aircraft_lookup', { aircraft: 'N0PE' });
   assert.equal(none.isError, true); assert.match(none.content[0].text, /adsbdb has no record of aircraft N0PE/); assert.equal(none.structuredContent.error, 'not_found');
@@ -1005,6 +1090,14 @@ test('mcp: where in space: a mission, an asteroid read by byte range, a comet, a
   assert.equal(ad.name, '99942 Apophis'); assert.equal(ad.class, 'Near-Earth'); assert.ok(Math.abs(ad.orbit.a_au - 0.92) < 0.01 && Math.abs(ad.orbit.e - 0.191) < 0.005, JSON.stringify(ad.orbit));
   assert.ok(ad.magnitude > 15, 'faint'); assert.match(a.content[0].text, /A near-Earth asteroid, about 0\.3 km across/);
   assert.equal(net.asked.filter(u => u.endsWith('asteroids_b.bin')).length, 7, 'seven tiny reads of the 19 MB file, not the file');
+  assert.match(a.content[0].text, /Its Earth flyby on 13 April 2029 .* is not modelled here/); assert.match(ad.accuracy_note, /13 April 2029/);
+  const a31 = ok(await call(server, 'where_in_space', { name: 'Apophis', time: '2031-04-13T00:00Z' }));
+  assert.match(a31.content[0].text, /at or after its 13 April 2029 Earth flyby .* may be off by tenths of an AU/, 'two-body after the flyby: said, not hidden');
+  const aEve = ok(await call(server, 'where_in_space', { name: 'Apophis', time: '2029-04-13T12:00Z' }));   // hours before closest approach
+  assert.match(aEve.content[0].text, /Its Earth flyby on 13 April 2029 .* is not modelled here/); assert.doesNotMatch(aEve.content[0].text, /at or after/);
+  const brooks = ok(await call(server, 'where_in_space', { name: '16P' })), bd = brooks.structuredContent;
+  assert.equal(bd.kind, 'comet'); assert.equal(bd.position_uncertain, true); assert.equal(bd.orbit_epoch.slice(0, 4), '2016');
+  assert.match(brooks.content[0].text, /Orbit data from 2016: placed two-body from then, so it may be well off its real place/);
   const h = ok(await call(server, 'where_in_space', { name: 'Halley' })).structuredContent;
   assert.equal(h.kind, 'comet'); assert.equal(h.class, 'Halley-type comet'); assert.ok(h.sun_au > 30, h.sun_au); assert.equal(h.perihelion.slice(0, 3), '206');
   const ti = ok(await call(server, 'where_in_space', { name: 'Titan' })).structuredContent;
@@ -1042,7 +1135,14 @@ test('mcp: where in space without a name: the missions nearest first, or the com
   const c = ok(await call(server, 'where_in_space', { list: 'comets' })), cd = c.structuredContent;
   assert.equal(cd.comets.length, 10); assert.match(cd.note, /not by brightness/);
   for (const x of cd.comets) { assert.ok(x.sun_au <= 4, x.name); if (x.perihelion_estimated) assert.ok(Math.abs(Date.parse(x.perihelion) - NOW) < (x.period_years / 2 + 0.01) * 3.156e10, `${x.name}: the return nearest now`); }
-  assert.match(c.content[0].text, /how bright each is isn't in the data/);
+  assert.match(c.content[0].text, /closest to the Sun and Earth together, not the brightest/);
+  // a comet whose orbit is too old to trust says so (the Solar System view's rule, core/comets.js orbitFresh), and gets no brightness
+  for (const x of cd.comets) assert.equal(typeof x.position_uncertain, 'boolean', x.name);
+  for (const x of cd.comets.filter(x => x.position_uncertain)) {
+    assert.equal(x.magnitude, null, x.name); assert.ok(Date.parse(x.orbit_epoch) < NOW - 2 * 365 * 864e5, x.name);
+    assert.ok(c.content[0].text.split('\n').some(l => l.startsWith(x.name + ':') && / · orbit data from \d{4}: position uncertain$/.test(l)), x.name);
+  }
+  assert.match(cd.source, /^JPL Small-Body Database elements \(the website's copy(, made \d{4}-\d\d-\d\d)?\)$/);
 });
 
 // ---- airport weather (METAR and TAF from the Aviation Weather Center) ------------------------------------------------
@@ -1053,8 +1153,11 @@ ROUTES.unshift(
     rawOb: 'METAR KDEN 011753Z 06010KT 3/4SM R35L/P6000FT BR OVC003 09/08 A2999 RMK AO2 SLP100 T00890078' }]],
   ['https://aviationweather.gov/api/data/taf?ids=KDEN&', [{ icaoId: 'KDEN', validTimeFrom: Date.parse('2026-10-01T18:00:00Z') / 1000, validTimeTo: Date.parse('2026-10-03T00:00:00Z') / 1000,
     rawTAF: 'TAF KDEN 011720Z 0118/0300 05010KT 5SM BR OVC003 TEMPO 0118/0120 2SM -DZ BR FM012000 06007KT P6SM BKN008 OVC020 FM020200 04010KT P6SM SCT040' }]],
-  ['https://aviationweather.gov/api/data/metar?ids=EGLL&', []],
-  ['https://aviationweather.gov/api/data/taf?ids=EGLL&', []],
+  ['https://aviationweather.gov/api/data/metar?ids=EGLL&', { status: 204 }],   // what AWC sends for a field with no METAR: 204 and no body
+  ['https://aviationweather.gov/api/data/taf?ids=EGLL&', [{ icaoId: 'EGLL', issueTime: '2026-10-01T17:00:00Z', validTimeFrom: Date.parse('2026-10-01T18:00:00Z') / 1000, validTimeTo: Date.parse('2026-10-03T00:00:00Z') / 1000,
+    rawTAF: 'TAF EGLL 011700Z 0118/0300 24012KT 9999 SCT030 BECMG 0200/0203 BKN012' }]],
+  ['https://aviationweather.gov/api/data/metar?ids=LPPM&', { status: 204 }],
+  ['https://aviationweather.gov/api/data/taf?ids=LPPM&', { status: 204 }],
 );
 test('mcp: airport weather decodes the METAR and TAF, says the category and the runway the wind favours', async () => {
   const { server, net } = serve(), r = ok(await call(server, 'airport_weather', { airport: 'DEN' })), d = r.structuredContent, text = r.content[0].text;
@@ -1068,7 +1171,17 @@ test('mcp: airport weather decodes the METAR and TAF, says the category and the 
   assert.ok(net.asked.some(u => u.startsWith('https://aviationweather.gov/api/data/metar?ids=KDEN&format=json')), 'straight to AWC: Node needs no relay');
   assert.equal(ok(await call(server, 'airport_weather', { airport: 'Denver' })).structuredContent.airport.icao, 'KDEN', 'a city: its largest airport');
   assert.equal(ok(await call(server, 'airport_weather', { lat: 39.9, lon: -104.6 })).structuredContent.airport.icao, 'KDEN', 'a point: the nearest');
-  const lhr = ok(await call(server, 'airport_weather', { airport: 'Heathrow' })); assert.match(lhr.content[0].text, /sent no METAR/); assert.match(lhr.content[0].text, /No TAF/);
+  assert.equal(d.provenance, 'Aviation Weather Center (NOAA) · data 7 min old · reported', "the METAR's own time");
+  assert.ok(!hashOf(d.url).add.includes('air'), 'the website has no live aircraft'); assert.match(text, /KDEN on the globe \(live aircraft show in the download version\): /);
+  // a field with no METAR: AWC answers 204 with no body, which is "none", not an unreadable answer; the TAF still answers
+  const lhr = ok(await call(server, 'airport_weather', { airport: 'Heathrow' })), lt = lhr.content[0].text;
+  assert.match(lt, /sent no METAR/); assert.match(lt, /Forecast \(TAF issued 17:00Z; at worst MVFR in the next 6 h\):/); assert.equal(lhr.structuredContent.taf.raw.slice(0, 8), 'TAF EGLL');
+  assert.match(lhr.structuredContent.provenance, /^Aviation Weather Center \(NOAA\) · data 60 min old · reported$/, "the TAF's issue time without a METAR");
+  const none = ok(await call(server, 'airport_weather', { airport: 'LPPM' }));
+  assert.match(none.content[0].text, /sent no METAR/); assert.match(none.content[0].text, /No TAF/); assert.equal(none.structuredContent.provenance, null);
+  // the METAR service failing while the TAF answers: said, and the forecast given
+  const down = ok(await call(serve(pretendInternet([['https://aviationweather.gov/api/data/metar?ids=EGLL&', { status: 503 }], ...ROUTES])).server, 'airport_weather', { airport: 'EGLL' }));
+  assert.match(down.content[0].text, /the latest METAR could not be had \(aviationweather\.gov answered HTTP 503\)/); assert.equal(down.structuredContent.metar_unavailable, true); assert.ok(down.structuredContent.taf);
   assert.equal((await call(server, 'airport_weather', { airport: 'Nowhere Intergalactic' })).isError, true);
   assert.equal((await call(server, 'airport_weather', {})).isError, true);
 });
@@ -1137,7 +1250,9 @@ test('mcp: each upstream failure reaches the model as a readable tool error with
   await fails([[SITE + 'data/airports.json', { cols: ['icao', 'iata', 'name', 'city', 'cc', 'lat', 'lon', 'elevFt', 'size'], airports: [['BCW', '', 'Benguera Island Airstrip', 'Benguera', 'MZ', -21.85, 35.43, 10, 2]] }]],   // a local code, as 12 of the real list have
     'airport_weather', { airport: 'Benguera' }, /^Benguera Island Airstrip has no ICAO code to ask the Aviation Weather Center about$/, 'not_found');
   await fails([[/api\.open-meteo\.com\/v1\/forecast\?.*&current=temperature_2m,apparent_temperature/, { timezone: 'UTC' }]], 'weather', { lat: 60.17, lon: 24.94 }, /^Open-Meteo sent no forecast for that place$/);
-  await fails([['https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json', []]], 'aurora', {}, /^NOAA SWPC sent no Kp readings$/);
+  await fails([['https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json', []], ['https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json', { status: 503 }]], 'aurora', {}, /^NOAA SWPC sent no Kp readings$/);
+  await fails([[/eonet\.gsfc\.nasa\.gov\//, { status: 503 }]], 'volcanoes', { lat: 37.75, lon: 15.0, radius_km: 40, erupting_only: true }, /^NASA EONET did not answer, so eruptions can't be listed/);
+  await fails([['https://aviationweather.gov/api/data/metar?ids=EGLL&', { status: 503 }], ['https://aviationweather.gov/api/data/taf?ids=EGLL&', { status: 204 }]], 'airport_weather', { airport: 'EGLL' }, /^aviationweather\.gov answered HTTP 503/);
   await fails([[/api\.citybik\.es\/v2\/networks\/velib$/, { network: { stations: [] } }]], 'bike_share', { place: 'Paris' }, /^Vélib' Métropole lists no stations right now$/);
   await fails([[CAM_NETS.tfl.url, { status: 503 }]], 'traffic_cameras', { lat: 51.5079, lon: -0.1283 }, /^The camera list for .* did not load \(TfL JamCams\): .*HTTP 503/);
   const long = await call(serve().server, 'airport_weather', { airport: 'x'.repeat(81) });
@@ -1170,11 +1285,36 @@ test('mcp: a second server in the same isolate (the Worker makes one a request) 
     const server = createOverwatchServer({ fetchImpl: net.fetchImpl, now: () => NOW, memo });
     ok(await call(server, 'country_briefing', { country: 'Japan' })); ok(await call(server, 'eclipses', { lat: 25.687, lon: 32.639 }));
     ok(await call(server, 'submarine_cables', { place: 'Marseille' })); ok(await call(server, 'dark_sky', { lat: 39.74, lon: -104.99 }));
+    ok(await call(server, 'airport_weather', { airport: 'Denver' })); ok(await call(server, 'airport_weather', { lat: 39.9, lon: -104.6 }));   // the airports, their index and the runways
   };
   const before = derive.builds;
   await ask();
   const first = derive.builds - before;
-  assert.ok(first >= 6, `the borders (once for three tools), the eclipse tracks, the cables and landings, the grid and the catalogue: ${first}`);
+  assert.ok(first >= 9, `the borders (once for three tools), the eclipse tracks, the cables and landings, the grid and the catalogue, the airports, their index and the runways: ${first}`);
   await ask();
   assert.equal(derive.builds - before, first, 'the second server reused every one');
+});
+
+test('mcp: a time without a zone reads the same on every host: UTC, or the place\'s clock (never the host\'s own zone)', async () => {
+  const { parseTime, timeHasZone } = await import('../mcp/words.mjs'), at = s => new Date(s).toISOString();
+  assert.equal(at(parseTime('2026-12-25T21:00')), '2026-12-25T21:00:00.000Z'); assert.equal(at(parseTime('2026-12-25 21:00:30.5')), '2026-12-25T21:00:30.500Z');
+  assert.equal(at(parseTime('2026-12-25')), '2026-12-25T00:00:00.000Z'); assert.equal(at(parseTime('2026-12-25T21:00Z')), '2026-12-25T21:00:00.000Z');
+  assert.equal(at(parseTime('2026-12-25T21:00+05:30')), '2026-12-25T15:30:00.000Z'); assert.equal(at(parseTime('2026-12-25T21:00-0500')), '2026-12-26T02:00:00.000Z');
+  assert.equal(at(parseTime('2026-12-25T21:00 UTC')), '2026-12-25T21:00:00.000Z');
+  assert.equal(at(parseTime('1850-01-01T12:00:00.5', 'UTC')), '1850-01-01T12:00:00.500Z', 'a fraction before 1970, on the zone path');
+  assert.equal(at(parseTime('2026-12-25T21:00', 'Asia/Kolkata')), '2026-12-25T15:30:00.000Z'); assert.equal(at(parseTime('2026-12-25T21:00Z', 'Asia/Kolkata')), '2026-12-25T21:00:00.000Z', 'an explicit zone wins');
+  assert.equal(at(parseTime('2026-07-01T12:00', 'America/New_York')), '2026-07-01T16:00:00.000Z', 'summer time'); assert.equal(at(parseTime('2026-12-25T21:00', 'Not/AZone')), '2026-12-25T21:00:00.000Z');
+  for (const bad of ['yesterday', '2026-02-31T10:00', '2026-13-01', '2026-12-25T25:00', 'Dec 25 2026 21:00', '', null]) assert.ok(Number.isNaN(parseTime(bad)), String(bad));
+  assert.deepEqual(['2026-12-25T21:00', '2026-12-25T21:00Z', '2026-12-25T21:00+01:00'].map(timeHasZone), [false, true, true]);
+  // in a process whose own zone is New York, where Date.parse reads the same string five hours later
+  const words = new URL('../mcp/words.mjs', import.meta.url).href;
+  const code = `import(${JSON.stringify(words)}).then(w => console.log(JSON.stringify([new Date(w.parseTime('2026-12-25T21:00')).toISOString(), new Date(Date.parse('2026-12-25T21:00')).toISOString()])))`;
+  const out = await new Promise((res, rej) => { const p = spawn(process.execPath, ['-e', code], { env: { ...process.env, TZ: 'America/New_York' } }); let s = ''; p.stdout.on('data', d => { s += d; }); p.on('error', rej); p.on('close', () => res(s)); });
+  assert.deepEqual(JSON.parse(out), ['2026-12-25T21:00:00.000Z', '2026-12-26T02:00:00.000Z'], 'parseTime: 21:00Z; Date.parse: the host zone');
+  // the tools: solar_system with a place reads it as the place's clock and says so
+  const { server } = serve(), s = ok(await call(server, 'solar_system', { place: 'Helsinki', time: '2026-12-25T21:00', body: 'mars' }));
+  assert.equal(s.structuredContent.at, '2026-12-25T19:00:00Z'); assert.match(s.content[0].text, /\(the time given, read as local time in Europe\/Helsinki\)/);
+  assert.equal(ok(await call(server, 'solar_system', { time: '2026-12-25T21:00', body: 'mars' })).structuredContent.at, '2026-12-25T21:00:00Z');
+  const w = ok(await call(serve3().server, 'where_in_space', { name: 'Mars', time: '2026-12-25T21:00' }));
+  assert.equal(w.structuredContent.at, '2026-12-25T21:00:00Z'); assert.match(w.content[0].text, /on 2026-12-25 21:00:00 UTC \(the time given, read as UTC\)/);
 });

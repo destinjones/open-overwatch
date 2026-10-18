@@ -11,14 +11,15 @@ import { observer, sunEcef } from '../src/core/observer.js';
 import { planetsTonight, moonPhase, darkWindow, auroraAt, describePass, riseSet, sunAlt } from '../src/core/sky.js';
 import { showersFor } from '../src/core/meteors.js';
 import { skyWords, weatherSentence, SENSORS } from '../src/core/voicecmd.js';
-import { decodeView, tonightHash } from '../src/core/viewlink.js';
+import { decodeView, tonightHash, decodeTonight } from '../src/core/viewlink.js';
+import { decodeSolarView } from '../src/core/solarlink.js';
 import { AU_KM } from '../src/core/units.js';
 import { ToolError } from './feeds.mjs';
 import { rep, lineFor } from '../src/core/liveprov.js';
 import { areaProps, resolveArea, inArea, distKm, frame, frameArea, globeUrl, panelUrl, LAYERS, WEATHER } from './place.mjs';
 import { findSats, satState, ecefAt, GROUP_LAYER } from './sats.mjs';
 import { PANEL_URI } from './panel.mjs';
-import { iso, utc, r1, r2, coord, plural, ago, clocks, areaData, where, limitProp, take, zoneAt } from './words.mjs';
+import { iso, utc, r1, r2, coord, plural, ago, clocks, areaData, where, limitProp, take, zoneAt, parseTime, timeHasZone, timeReadAs } from './words.mjs';
 import { loadQuakes, loadStorms, loadEvents, EONET_CATS } from './hazards.mjs';
 import { camerasTool } from './cams.mjs';
 import { transitTool } from './transit.mjs';
@@ -48,6 +49,25 @@ const CITYBIKES = 'https://api.citybik.es/v2/networks';
 const METEO = 'https://api.open-meteo.com/v1/forecast';
 const SWPC = 'https://services.swpc.noaa.gov/';
 const LD_KM = 384400, EARTH_VIEW = { lon: 0, lat: 20, height: 2.0e7, heading: 0, pitch: -90 };
+const inTimeRange = ms => Number.isFinite(ms) && ms >= Date.UTC(1900, 0, 1) && ms <= Date.UTC(2100, 0, 1);
+/**
+ * Kp now from NOAA's Kp products ({ time_tag, Kp | kp, observed } rows, or arrays after a header): the latest observed or
+ * estimated block that has begun, { t, kp, kind } or null. The rule of the globe's Earth-now card (core/earthnow.js
+ * kpSummary, which the npm package does not carry: it imports the weather grids), so both say the same Kp. Rows older
+ * than maxAgeMs are skipped (the card's kpSeries keeps 72 h), so a stale product falls through to the next one.
+ */
+export function kpNowFrom(doc, now, maxAgeMs = 72 * 3600e3) {
+  let best = null;
+  for (const r of Array.isArray(doc) ? doc : []) {
+    const tag = Array.isArray(r) ? r[0] : r && r.time_tag, kp = parseFloat(Array.isArray(r) ? r[1] : r && (r.Kp ?? r.kp ?? r.kp_index));
+    const kind = Array.isArray(r) ? (/^(observed|estimated|predicted)$/.test(r[2]) ? r[2] : 'observed') : (/^(observed|estimated|predicted)$/.test(r && r.observed) ? r.observed : 'observed');
+    if (typeof tag !== 'string' || !Number.isFinite(kp) || kp < 0 || kp > 9 || kind === 'predicted') continue;
+    const t = Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(tag) ? tag : tag.replace(' ', 'T') + 'Z');
+    if (!Number.isFinite(t) || t > now || t < now - maxAgeMs) continue;
+    if (!best || t >= best.t) best = { t, kp, kind };
+  }
+  return best;
+}
 
 // ---- the tools ------------------------------------------------------------------------------------------------------
 export function createTools(ctx) {
@@ -61,17 +81,17 @@ export function createTools(ctx) {
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
-        url: { type: 'string', maxLength: 4000, description: "An Open Overwatch globe link from another tool's answer: shows exactly that." },
+        url: { type: 'string', maxLength: 4000, description: "An Open Overwatch link from another tool's answer (the globe, the 3D Solar System or the Tonight card): shows exactly that." },
         ...areaProps('to show'),
         tilt: { type: 'number', minimum: 0, maximum: 80, description: 'Degrees from straight down: 0 is a map view, 50-70 looks across the land at the place.' },
         heading: { type: 'number', minimum: 0, maximum: 360, description: 'The way the camera faces, degrees clockwise from north (with tilt).' },
         layers_on: { type: 'array', maxItems: 32, items: { type: 'string', enum: LAYERS }, description: 'Layers to turn on: stations, visual, gnss, geo, weather (satellites), starlink, active, debris, launches, air, mil, airq (air quality), smoke, airports, quakes, transit, buoys (ocean), dart (tsunami buoys), tides, sst (sea temperature), ships (Baltic), bikes, traffic, storms, events (natural events), fires, radio, lighthouses, sun, terrain, buildings, cams, cctv, photoreal, volcanoes, companies, aurora, clouds, night, labels.' },
         layers_off: { type: 'array', maxItems: 32, items: { type: 'string', enum: LAYERS }, description: 'Layers to turn off.' },
         weather: { type: 'array', maxItems: 9, items: { type: 'string', enum: WEATHER }, description: 'Open weather mode with these: ir (clouds seen by satellites), radar (rain), rain (rain from space), lightning, wind, temp (temperature), pres (sea-level pressure: isobars, highs and lows), gust (wind gusts), wave (ocean wave height and direction).' },
-        time: { type: 'string', maxLength: 40, description: "A moment to set the globe's clock to, ISO 8601 (e.g. a satellite pass). Omit for live." },
+        time: { type: 'string', maxLength: 40, description: "A moment to set the globe's clock to, ISO 8601 (e.g. a satellite pass). Omit for live. Give Z or an offset to be exact; a time without one is read as the place's local time, or as UTC without a place." },
         time_speed: { type: 'number', minimum: -100000, maximum: 100000, description: 'With time: simulated seconds per real second (1 real time, 60 a minute a second, 0 paused). Default 1.' },
         satellite: { type: 'string', maxLength: 80, description: 'A satellite to follow, by name or NORAD number ("ISS", "Hubble", "NOAA 19", "25544").' },
-        flight: { type: 'string', pattern: '^[A-Za-z0-9]{2,8}$', description: 'A flight callsign to look for, e.g. "BAW123".' },
+        flight: { type: 'string', pattern: '^[A-Za-z0-9]{2,8}$', description: `A flight callsign to look for, e.g. "BAW123"${feeds.hasAircraft ? '' : ' (live aircraft show only in the download version of Open Overwatch, so on the website this is left out of the link)'}.` },
         country: { type: 'string', pattern: '^[A-Za-z]{2}$', description: "Two-letter ISO country code: opens the country's card and outline." },
         sensor: { type: 'string', enum: SENSORS, description: 'A camera look: nvg (night vision), flir (thermal, white hot), flirbh (black hot), iron (thermal colours), crt (old screen), noir (black and white), normal.' },
       },
@@ -80,29 +100,40 @@ export function createTools(ctx) {
     async run(a, { signal }) {
       if (a.url) {
         let u; try { u = new URL(a.url); } catch { throw new ToolError('That url is not a link', 'invalid_arguments'); }
-        const own = new URL(site);
-        if (u.origin !== own.origin || !/\/globe\.html$/.test(u.pathname) || !u.pathname.startsWith(own.pathname)) throw new ToolError(`Only Open Overwatch globe links (${site}globe.html#…) can be shown`, 'invalid_arguments');
-        const v = decodeView(u.hash);
-        return { text: `Showing it on the globe: ${u.href}`, data: { url: u.href, view: v } };
+        // the site's own pages only (an archived copy's too, v/<version>/…): the globe, the 3D Solar System (where_in_space,
+        // solar_system) and the Tonight card (night_sky)
+        const own = new URL(site), page = u.pathname.startsWith(own.pathname) ? u.pathname.slice(own.pathname.length).replace(/^v\/\d[\w.-]*\//, '') : '';
+        const kind = u.origin !== own.origin ? null : page === 'globe.html' && !u.search ? 'globe' : page === 'solar.html' ? 'solar' : page === 'tonight.html' && !u.search ? 'tonight' : null;
+        if (!kind) throw new ToolError(`Only Open Overwatch links (${site}globe.html#…, solar.html or tonight.html) can be shown`, 'invalid_arguments');
+        if (kind === 'globe') return { text: `Showing it on the globe: ${u.href}`, data: { url: u.href, kind, view: decodeView(u.hash) } };
+        if (kind === 'solar') return { text: `Showing it in the 3D Solar System: ${u.href}`, data: { url: u.href, kind, view: null, solar: decodeSolarView(u.hash) } };
+        return { text: `Showing the Tonight card: ${u.href}`, data: { url: u.href, kind, view: null, tonight: decodeTonight(u.hash) } };
       }
       let camera = null, sat = null, on = [...(a.layers_on || [])], what = '';
+      if (a.time != null && !inTimeRange(parseTime(a.time))) throw new ToolError('time must be an ISO 8601 date between 1900 and 2100', 'invalid_arguments');   // before any network
       const area = await resolveArea(a, feeds, { pointKm: 150, signal });
+      // a time without a zone is the place's clock (UTC without a place), whichever host runs this
+      const tz = area && a.time != null && !timeHasZone(a.time) ? await zoneAt(ctx, area.lat, area.lon, signal) : null;
+      const at = a.time != null ? parseTime(a.time, tz) : null;
+      if (at != null && !inTimeRange(at)) throw new ToolError('time must be an ISO 8601 date between 1900 and 2100', 'invalid_arguments');
       if (a.satellite) {
         const [s] = await findSats(feeds, a.satellite, { signal, max: 1 }), sl = await ctx.sgp4();
-        const st = satState(sl, s, Number.isFinite(Date.parse(a.time)) ? Date.parse(a.time) : now());
+        const st = satState(sl, s, at ?? now());
         sat = s.id; if (GROUP_LAYER[s.group]) on.push(GROUP_LAYER[s.group]);
         what = `${s.name} (NORAD ${s.id})`;
         if (st && !area) camera = frame(st.lat, st.lon, Math.max(1500, st.altKm * 1.2));
       }
       if (area) camera = frameArea(area, { tilt: a.tilt, heading: a.heading || 0 });
       if (!camera) camera = EARTH_VIEW;
-      let time = null;
-      if (a.time != null) { const t = Date.parse(a.time); if (!Number.isFinite(t) || t < Date.UTC(1900, 0, 1) || t > Date.UTC(2100, 0, 1)) throw new ToolError('time must be an ISO 8601 date between 1900 and 2100', 'invalid_arguments'); time = { ms: t, rate: a.time_speed ?? 1 }; }
-      const country = a.country ? a.country.toUpperCase() : null, flight = a.flight ? a.flight.toUpperCase() : null;
+      const time = at != null ? { ms: at, rate: a.time_speed ?? 1 } : null;
+      const country = a.country ? a.country.toUpperCase() : null, asked = a.flight ? a.flight.toUpperCase() : null;
+      const flight = feeds.hasAircraft ? asked : null;   // the website has no live aircraft: a flight to look for would find nothing there
+      if (!feeds.hasAircraft && on.some(l => l === 'air' || l === 'mil')) on = on.filter(l => l !== 'air' && l !== 'mil');
       const url = link({ camera, on, off: a.layers_off, weather: a.weather, time, country, flight, sat, sensor: a.sensor && a.sensor !== 'normal' ? a.sensor : null });
       const lead = area ? `Showing ${area.label}` : what ? `Following ${what}` : `Showing ${country ? `country ${country}` : 'the whole Earth'}`;
-      const bits = [lead, area && what && `following ${what}`, flight && `looking for flight ${flight}`, a.weather?.length && `weather: ${a.weather.join(', ')}`, time && `at ${utc(time.ms)}`].filter(Boolean);
-      return { text: `${bits.join(' · ')} on the globe: ${url}`, data: { url, view: decodeView(new URL(url).hash), area: areaData(area) } };
+      const bits = [lead, area && what && `following ${what}`, flight && `looking for flight ${flight}`, a.weather?.length && `weather: ${a.weather.join(', ')}`, time && `at ${utc(time.ms)}${timeReadAs(a.time, tz)}`].filter(Boolean);
+      const noAir = !feeds.hasAircraft && (asked || (a.layers_on || []).some(l => l === 'air' || l === 'mil')) ? ` (live aircraft${asked ? `, and so flight ${asked},` : ''} show in the download version, not on the website)` : '';
+      return { text: `${bits.join(' · ')} on the globe${noAir}: ${url}`, data: { url, kind: 'globe', view: decodeView(new URL(url).hash), area: areaData(area), ...(noAir ? { aircraft: 'live aircraft show in the download version, not on the website' } : {}) } };
     },
   };
 
@@ -189,11 +220,11 @@ export function createTools(ctx) {
       const shown = list.slice(0, a.limit || 10), first = shown.find(p => p.visible) || shown[0];
       const camera = frameArea({ ...area, radiusKm: 1100 });
       const url = link({ camera, on: GROUP_LAYER[s.group] ? [GROUP_LAYER[s.group]] : [], time: first ? { ms: first.rise - 60e3, rate: 20 } : null });
-      const head = shown.length ? `${plural(list.length, `${a.visible_only ? 'visible ' : ''}pass`, `${a.visible_only ? 'visible ' : ''}passes`)} of ${s.name} over ${area.label} in the next ${plural(a.days || 3, 'day')} (times ${tz || 'UTC'}):`
+      const head = shown.length ? `${plural(list.length, `${a.visible_only ? 'visible ' : ''}pass`, `${a.visible_only ? 'visible ' : ''}passes`)} of ${s.name} over ${area.label} in the next ${plural(a.days || 3, 'day')}${list.length > shown.length ? ` (the first ${shown.length} below)` : ''} (times ${tz || 'UTC'}):`
         : `${s.name} has no ${a.visible_only ? 'visible ' : ''}passes above ${minEl}° over ${area.label} in the next ${plural(a.days || 3, 'day')}.`;
       const lines = shown.map(p => describePass(s.name, p, { time: c.full }));
       return { text: [head, ...lines, first ? `Replay the ${first.visible ? 'first visible' : 'next'} pass on the globe: ${url}` : `On the globe: ${url}`].join('\n'),
-        data: { satellite: { name: s.name, norad: s.id }, place: areaData(area), timezone: tz, passes: shown.map(p => ({ rise: iso(p.rise), peak: iso(p.peak), set: iso(p.set), rise_local: c.full(p.rise),
+        data: { satellite: { name: s.name, norad: s.id }, place: areaData(area), timezone: tz, total: list.length, returned: shown.length, truncated: list.length > shown.length, passes: shown.map(p => ({ rise: iso(p.rise), peak: iso(p.peak), set: iso(p.set), rise_local: c.full(p.rise),
           max_elevation_deg: r1(p.maxEl), rise_direction: compass(p.azRise), peak_direction: compass(p.azPeak), set_direction: compass(p.azSet), minutes: r1((p.set - p.rise) / 60e3), visible: !!p.visible })), url } };
     },
   };
@@ -415,11 +446,16 @@ export function createTools(ctx) {
     description: "The aurora and geomagnetic activity from NOAA's Space Weather Prediction Center: the planetary Kp index now and its 3-day forecast, and, for a place, the chance of seeing the aurora overhead or on the horizon right now (the OVATION model) and whether it is dark there.",
     inputSchema: { type: 'object', additionalProperties: false, properties: { ...areaProps(null) } },
     async run(a, { signal }) {
-      const [kp, fc, area] = await Promise.all([feeds.json(`${SWPC}products/noaa-planetary-k-index.json`, { ttl: 10 * 60e3, signal }), feeds.json(`${SWPC}products/noaa-planetary-k-index-forecast.json`, { ttl: 30 * 60e3, signal }).catch(() => []),
-        resolveArea(a, feeds, { signal })]);
-      const rows = (Array.isArray(kp) ? kp : []).map(r => (Array.isArray(r) ? { time_tag: r[0], Kp: +r[1] } : r)).filter(r => Number.isFinite(+(r.Kp ?? r.kp)));
-      const last = rows[rows.length - 1]; if (!last) throw new ToolError('NOAA SWPC sent no Kp readings', 'unavailable');
-      const kpNow = +(last.Kp ?? last.kp), t = now(), at = Date.parse(last.time_tag + (/Z$/.test(last.time_tag) ? '' : 'Z'));
+      const [fc, area] = await Promise.all([feeds.json(`${SWPC}products/noaa-planetary-k-index-forecast.json`, { ttl: 30 * 60e3, signal }).catch(() => []), resolveArea(a, feeds, { signal })]);
+      const t = now();
+      // Kp now as the globe's Earth-now card has it: the forecast product's latest observed or estimated block that has
+      // begun; the observed-only product (finished blocks only, so a block behind) when the forecast has none
+      // (each within the last 72 h); failing both, the forecast's latest however old (its provenance says it is stale)
+      let cur = kpNowFrom(fc, t);
+      if (!cur) cur = kpNowFrom(await feeds.json(`${SWPC}products/noaa-planetary-k-index.json`, { ttl: 10 * 60e3, signal }).catch(() => null), t);
+      if (!cur) cur = kpNowFrom(fc, t, Infinity);
+      if (!cur) throw new ToolError('NOAA SWPC sent no Kp readings', 'unavailable');
+      const kpNow = cur.kp, at = cur.t, estimated = cur.kind === 'estimated';
       const ahead = new Map();
       for (const r of Array.isArray(fc) ? fc : []) {
         const tt = Date.parse(r.time_tag + (/Z$/.test(r.time_tag) ? '' : 'Z')), v = +r.kp; if (!Number.isFinite(tt) || !Number.isFinite(v) || r.observed === 'observed' || tt < t - 3 * 3600e3) continue;
@@ -428,15 +464,19 @@ export function createTools(ctx) {
       const days = [...ahead.entries()].slice(0, 3).map(([date, o]) => ({ date, max_kp: r2(o.kp), scale: o.scale }));
       let local = null;
       if (area) {
-        const ov = await feeds.json(`${SWPC}json/ovation_aurora_latest.json`, { ttl: 10 * 60e3, timeout: 30e3, signal });
-        const ch = auroraAt((ov && ov.coordinates) || [], area.lat, area.lon), sun = sunAlt(area.lat, area.lon, t);
-        local = { place: areaData(area), overhead_percent: ch.overhead, horizon_percent: ch.horizon, level: ch.level, verdict: ch.text, dark: sun < -12, sun_altitude_deg: r1(sun), forecast_time: ov && ov['Forecast Time'] };
+        const ov = await feeds.json(`${SWPC}json/ovation_aurora_latest.json`, { ttl: 10 * 60e3, timeout: 30e3, signal }).catch(() => null);   // the Kp answer stands without it
+        const sun = sunAlt(area.lat, area.lon, t);
+        if (ov && Array.isArray(ov.coordinates)) {
+          const ch = auroraAt(ov.coordinates, area.lat, area.lon);
+          local = { place: areaData(area), overhead_percent: ch.overhead, horizon_percent: ch.horizon, level: ch.level, verdict: ch.text, dark: sun < -12, sun_altitude_deg: r1(sun), forecast_time: ov['Forecast Time'] || null };
+        } else local = { place: areaData(area), overhead_percent: null, horizon_percent: null, level: null, verdict: 'the OVATION aurora model did not answer, so the chance there is not known just now.', dark: sun < -12, sun_altitude_deg: r1(sun), forecast_time: null };
       }
       const pole = area ? (area.lat >= 0 ? 66 : -66) : 66, camera = frame(pole, area ? area.lon : -100, 2600), url = link({ camera, on: ['aurora'] });
-      const lines = [`Kp ${r2(kpNow)} (${kpWords(kpNow)}), measured ${ago(at, t)}.`, days.length ? `Forecast: ${days.map(d => `${d.date} up to Kp ${d.max_kp}${d.scale ? ` (${d.scale})` : ''}`).join('; ')}.` : '',
-        local ? `At ${area.label}: ${local.verdict}${local.dark ? '' : ' It is not dark there now, so wait for night.'} (chance overhead ${local.overhead_percent}%, on the horizon ${local.horizon_percent}%)` : '',
+      const kpLine = `Kp ${r2(kpNow)} (${kpWords(kpNow)}), ${estimated ? `estimated for the 3-hour block that began ${ago(at, t)} (NOAA's running estimate)` : `measured ${ago(at, t)}`}.`;
+      const lines = [kpLine, days.length ? `Forecast: ${days.map(d => `${d.date} up to Kp ${d.max_kp}${d.scale ? ` (${d.scale})` : ''}`).join('; ')}.` : '',
+        local ? `At ${area.label}: ${local.verdict}${local.dark ? '' : ' It is not dark there now, so wait for night.'}${local.overhead_percent != null ? ` (chance overhead ${local.overhead_percent}%, on the horizon ${local.horizon_percent}%)` : ''}` : '',
         `The aurora oval on the globe: ${url}`].filter(Boolean);
-      return { text: lines.join('\n'), data: { provenance: lineFor('aurora', [rep('swpc', { dataAt: at })], { now: t }), kp_now: r2(kpNow), kp_time: iso(at), activity: kpWords(kpNow), forecast: days, local, url, source: 'NOAA Space Weather Prediction Center (Kp, OVATION aurora model)' } };
+      return { text: lines.join('\n'), data: { provenance: lineFor('aurora', [rep('swpc', { dataAt: at })], { now: t }), kp_now: r2(kpNow), kp_time: iso(at), kp_kind: estimated ? 'estimated' : 'observed', activity: kpWords(kpNow), forecast: days, local, url, source: 'NOAA Space Weather Prediction Center (Kp, OVATION aurora model)' } };
     },
   };
 
@@ -494,5 +534,5 @@ export function createTools(ctx) {
 /** Server instructions: how the tools fit together. */
 export const INSTRUCTIONS = 'Open Overwatch answers questions about the live Earth from public open data (USGS, NOAA, NASA, Launch Library 2, CelesTrak element sets, Fintraffic AIS, CityBikes, Open-Meteo, '
   + 'adsbdb, JPL Horizons and small-body elements, public traffic cameras, transit operators, TeleGeography, Wikidata, the World Bank, and OpenStreetMap through OpenFreeMap and FlockHopper map tiles). '
-  + 'Every answer includes a url that opens the live 3D globe on it. When the person would like to see something, call show_on_globe with that url (or describe the view): '
-  + 'in hosts with MCP Apps, such as Claude Desktop, the globe then appears in the conversation. Give people the url too.';
+  + 'Every answer includes a url that opens the live 3D globe on it (where_in_space\'s opens the 3D Solar System; night_sky also gives the Tonight card). When the person would like to see something, call show_on_globe with that url (or describe the view): '
+  + 'in hosts with MCP Apps, such as Claude Desktop, the view then appears in the conversation. Give people the url too. Times without Z or an offset are read as the place\'s local time, or as UTC without a place.';
