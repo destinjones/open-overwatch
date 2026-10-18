@@ -22,7 +22,7 @@ const specs = new Map(), tiles = new Map();
 async function spec(url) {
   const s = specs.get(url);
   if (s && Date.now() - s.at < 6 * 3600e3) return s.v;
-  const v = await Net.json(url, { timeout: 20000 }); if (!v?.tiles?.[0]) throw new Error('no tile URL');
+  const v = await Net.json(url, { timeout: 20000, cache: 'default' }); if (!v?.tiles?.[0]) throw new Error('no tile URL');   // a slow-changing spec: the HTTP cache may answer
   specs.set(url, { at: Date.now(), v }); return v;
 }
 async function tile(src, key, want) {
@@ -64,7 +64,7 @@ feed(lyAlpr, { interval: 3600, viewDependent: true, minZoom: 3, fetch: async () 
     }
   } else {
     const step = Math.max(1, total / MAX_HEAT);
-    for (const l of lists) for (let i = 0; i < l.length; i += step) { const c = l[Math.floor(i)]; items.push({ lat: c.lat, lon: c.lon, r: 1.4, color: ALPR_COL, alpha: .55, fillAlpha: .9 }); }
+    for (const l of lists) for (let i = 0; i < l.length; i += step) { const c = l[Math.floor(i)]; items.push({ lat: c.lat, lon: c.lon, r: 1.4, color: ALPR_COL, alpha: .55, fillAlpha: .9, noSel: true }); }   // a cloud, not targets: no kind, no card
   }
   Points.set('alpr', items);
   lyAlpr.feed.count = detail ? items.length : total;

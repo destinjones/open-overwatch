@@ -1,9 +1,10 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Views (presets), the legend, your location, and the ISS follow mode.
-import { $, $$, C, esc, late, Net, pick, Store, toast } from './util.js';
+import { $, $$, C, esc, late, pick, Store, toast } from './util.js';
+import { keptPlace, makePlace } from '../core/myplace.js';
 import { map, vecRenderer } from './mapview.js';
 import { Dyn, Layers } from './engine.js';
-import { Detail, Tracks } from './detail.js';
+import { Detail, Tracks, sheetAware } from './detail.js';
 import { Air } from './aircraft.js';
 import { Sats, lySats } from './satellites.js';
 
@@ -38,25 +39,42 @@ export const LEGEND = [['civil aircraft', C.civ], ['military', C.mil], ['emergen
 export function legendHtml() { return LEGEND.map(([n, c, cls]) => `<span><i class="${cls || ''}" style="--c:${c}"></i>${esc(n)}</span>`).join(''); }
 
 /* ============================================================ LOCATION */
+// Only the device's own fix, or a place the visitor picks on the map: never an IP lookup. Kept rounded to 0.01° (about
+// 1 km) for 24 h (core/myplace.js); Setup → "Forget my location" removes it.
+const kept = keptPlace(Store.get('pos', null)); if (!kept) Store.del('pos'); else Store.set('pos', kept);   // too old, or an older version's IP lookup; else stored rounded
 export const Locate = {
-  pos: Store.get('pos', null), // {lat, lon, how, t}
+  _pos: kept, _pickUntil: 0,
+  // a place is wanted after a failed fix: for 60 s only (phones have no Escape), so a much later tap is not taken as the place
+  get picking() { return Date.now() < this._pickUntil; },
+  set picking(v) { this._pickUntil = v ? Date.now() + 60e3 : 0; },
+  get pos() { if (this._pos && !keptPlace(this._pos)) this.forget(true); return this._pos; },   // {lat, lon, how, t}, 24 h at most
+  keep(lat, lon, how) { const p = makePlace(lat, lon, how); if (!p) return null; this._pos = p; Store.set('pos', p); return p; },
+  forget(quiet = false) { this._pos = null; this.picking = false; Store.del('pos'); if (!quiet) { toast('Your location is forgotten on this device'); late.Brief.render(); } },
   refresh() {
     return new Promise((resolve, reject) => {
-      const ok = (lat, lon, how) => { this.pos = { lat, lon, how, t: Date.now() }; Store.set('pos', this.pos); resolve(this.pos); };
-      const ip = () => Net.json('https://ipapi.co/json/').then(d => { if (d.latitude) ok(d.latitude, d.longitude, 'approximate (IP)'); else reject(new Error('no fix')); }).catch(reject);
-      // fall back to an IP lookup when the device can't get a fix, but not when the user refused location access
-      if (navigator.geolocation) navigator.geolocation.getCurrentPosition(p => ok(p.coords.latitude, p.coords.longitude, 'device'), e => e && e.code === 1 ? reject(new Error('location access was denied')) : ip(), { timeout: 8000, maximumAge: 60000 }); else ip();
+      if (!navigator.geolocation) { reject(new Error('this browser has no location service')); return; }
+      navigator.geolocation.getCurrentPosition(p => resolve(this.keep(p.coords.latitude, p.coords.longitude, 'device')),
+        e => reject(new Error(e && e.code === 1 ? 'location access was denied' : 'the device found no position')), { timeout: 8000, maximumAge: 60000 });
     });
   },
-  async go() { try { const p = await this.refresh(); map.flyTo([p.lat, p.lon], 8, { duration: 1 }); L.circleMarker([p.lat, p.lon], { radius: 6, color: C.accent, weight: 2, fillOpacity: .2, interactive: false, renderer: vecRenderer }).addTo(Tracks.group); toast(`Centered on your ${p.how} position`); late.Brief.render(); } catch (e) { toast('Could not determine location: ' + e.message, 'alert'); } },
+  mark(p) { L.circleMarker([p.lat, p.lon], { radius: 6, color: C.accent, weight: 2, fillOpacity: .2, interactive: false, renderer: vecRenderer }).addTo(Tracks.group); },
+  async go() {
+    try { const p = await this.refresh(); this.picking = false; map.flyTo([p.lat, p.lon], 8, { duration: 1 }); this.mark(p); toast('Centered on your device position'); late.Brief.render(); }
+    catch (e) { this.picking = true; toast(`No location: ${e.message}. Tap the map where you are (or search "lat, lon") to set your place.`, 'alert'); }   // the visitor picks it instead
+  },
+  /** This spot is the visitor's place (the tap after a failed fix, a coordinate search then, or the probe's button). */
+  setHere(lat, lon) { this.picking = false; const p = this.keep(lat, lon, 'picked'); if (!p) return null; this.mark(p); toast('Your place is set here, to about 1 km · Setup → Forget my location removes it'); late.Brief.render(); return p; },
+  /** A map tap while a place is wanted: true when the tap was taken. */
+  pick(lat, lon) { return this.picking && !!this.setHere(lat, lon); },
 };
+Object.assign(late, { Locate });
 
 /* ============================================================ FUN */
 export const Fun = {
   surprise() {
     const pool = [...Dyn.air.values()].filter(a => a.mil && !a.ground && Air.notable(a)); const pool2 = pool.length ? pool : [...Dyn.air.values()].filter(a => a.mil && !a.ground);
     if (!pool2.length) { toast(Layers.on('air_mil') ? 'No military aircraft loaded yet — give the feed a few seconds' : 'Turn on "Military aircraft, worldwide" first', 'alert'); return; }
-    const a = pick(pool2); map.flyTo([a.lat, a.lon], 7, { duration: 1.2 }); Detail.show('air', a, a.hex); setTimeout(() => Air.trail(a.hex), 1300);
+    const a = pick(pool2); Detail.show('air', a, a.hex); map.flyTo(sheetAware([a.lat, a.lon], 7), 7, { duration: 1.2 }); setTimeout(() => Air.trail(a.hex), 1300);
     toast(`${a.flight || a.r || a.hex.toUpperCase()} · ${a.desc || a.t || 'military'} · ${Air.roleOf(a)} · near ${Air.where(a)}`);
   },
   followIss() {
@@ -65,7 +83,7 @@ export const Fun = {
       if (!Layers.on('sats')) Layers.set('sats', true); if (!Sats.groupsOn().includes('stations')) Presets.satOpt('sat_groups', [...Sats.groupsOn(), 'stations']);
       this.issPending = Date.now(); toast('Loading the ISS orbit… the map will follow it once it is in'); return;
     }
-    this.issPending = 0; map.flyTo([iss.lat, iss.lon], Math.max(map.getZoom(), 3), { duration: 1 }); Detail.show('sat', iss, iss.id); Sats.drawTrack(iss); if (!Layers.opt('sat_tracks')) Presets.satOpt('sat_tracks', true);
+    this.issPending = 0; Detail.show('sat', iss, iss.id); const z = Math.max(map.getZoom(), 3); map.flyTo(sheetAware([iss.lat, iss.lon], z), z, { duration: 1 }); Sats.drawTrack(iss); if (!Layers.opt('sat_tracks')) Presets.satOpt('sat_tracks', true);   // the card first: on a phone its sheet decides where "centre" is
     this.issFollow = true; toast('Following the ISS — pan the map to stop');
   },
   issInView() { const iss = Sats.iss(); if (!iss || iss.lat == null) return true; const b = map.getBounds(), c = b.getCenter(); return iss.lat >= b.getSouth() && iss.lat <= b.getNorth() && Math.abs(((iss.lon - c.lng) % 360 + 540) % 360 - 180) <= (b.getEast() - b.getWest()) / 2; },
@@ -78,5 +96,5 @@ map.on('movestart', () => { mapMovingAt = Date.now(); });
 map.on('moveend', () => { mapMovingAt = 0; if (Fun.issFollow && !Fun.issInView()) Fun.issFollow = false; });
 setInterval(() => {
   if (Fun.issPending) { const iss = Sats.iss(); if (!Layers.on('sats') || Date.now() - Fun.issPending > 120e3) Fun.issPending = 0; else if (iss && iss.lat != null) Fun.followIss(); }
-  if (Fun.issFollow) { const iss = Sats.iss(); if (!Layers.on('sats')) Fun.issFollow = false; else if (iss && iss.lat != null && !document.hidden && Date.now() - mapMovingAt > 4000) map.panTo([iss.lat, iss.lon], { animate: true, duration: .8 }); }
+  if (Fun.issFollow) { const iss = Sats.iss(); if (!Layers.on('sats')) Fun.issFollow = false; else if (iss && iss.lat != null && !document.hidden && Date.now() - mapMovingAt > 4000) map.panTo(sheetAware([iss.lat, iss.lon]), { animate: true, duration: .8 }); }   // phones: above the open sheet
 }, 2500);

@@ -4,7 +4,7 @@ import { $, $$, C, deg, esc, fmt, FONT_MONO, haversine, hexA, late, pick, rad, r
 import { map } from './mapview.js';
 import { sunAlt as sunElevation } from '../core/sky.js';
 import { Dyn, Layers } from './engine.js';
-import { Detail } from './detail.js';
+import { Detail, sheetAware } from './detail.js';
 import { Air, AirSweep, lyAirEmg, lyAirMil, publicAir } from './aircraft.js';
 import { Sats } from './satellites.js';
 import { Aurora, Space, World, lyQuakes, lyStorms } from './feeds.js';
@@ -20,6 +20,7 @@ export const Brief = {
   magLat(lat, lon) { const p = rad(80.8); return deg(Math.asin(Math.sin(rad(lat)) * Math.sin(p) + Math.cos(rad(lat)) * Math.cos(p) * Math.cos(rad(lon + 72.6)))); },
   render() {
     if (!this.el || !$('#tab-brief').classList.contains('on')) return;
+    if ($('#panel').classList.contains('hidden')) return;   // phones: the Intel sheet is down; openSheet('panel') renders it when it comes up
     // a rebuild mid-press swallows the click and wipes a text selection: skip this tick (the next one catches up)
     const sel = getSelection(); if (this.el.matches(':active') || (sel && !sel.isCollapsed && this.el.contains(sel.anchorNode))) return;
     const air = [...Dyn.air.values()], now = Date.now(); const pos = Locate.pos; const parts = [];
@@ -106,31 +107,52 @@ export const Brief = {
   },
   act(a) {
     const [kind, v] = a.split(/:(.*)/s);
-    if (kind === 'air') { const x = Dyn.air.get(v); if (x) { map.flyTo([x.lat, x.lon], Math.max(map.getZoom(), 7), { duration: 1 }); Detail.show('air', x, x.hex); } }
-    else if (kind === 'type') { const pool = [...Dyn.air.values()].filter(x => x.mil && !x.ground && (x.t || '').toUpperCase() === v); const x = pick(pool); if (x) { map.flyTo([x.lat, x.lon], 7, { duration: 1 }); Detail.show('air', x, x.hex); } }
-    else if (kind === 'fly') { const [la, lo, z] = v.split(',').map(Number); map.flyTo([la, lo], z || 6, { duration: 1 }); }
-    else if (kind === 'quake') { const q = World.quakes.find(x => x.id === v); if (q) { map.flyTo([q.lat, q.lon], 6, { duration: 1 }); Detail.show('quake', q, q.id); } }
-    else if (kind === 'storm') { const s = World.storms.find(x => x.id === v); if (s) { map.flyTo([s.lat, s.lon], 6, { duration: 1 }); Detail.show('storm', s, s.id); } }
-    else if (kind === 'news') { const n = World.news.find(x => x.iso === v); if (n) { map.flyTo([n.lat, n.lon], 5, { duration: 1 }); Detail.show('news', n, n.iso); } }
+    // the card first, then the fly: on a phone its sheet covers the lower half, and sheetAware centres above it
+    const show = (k, o, id, z) => { Detail.show(k, o, id); map.flyTo(sheetAware([o.lat, o.lon], z), z, { duration: 1 }); };
+    if (kind === 'air') { const x = Dyn.air.get(v); if (x) show('air', x, x.hex, Math.max(map.getZoom(), 7)); }
+    else if (kind === 'type') { const pool = [...Dyn.air.values()].filter(x => x.mil && !x.ground && (x.t || '').toUpperCase() === v); const x = pick(pool); if (x) show('air', x, x.hex, 7); }
+    else if (kind === 'fly') { const [la, lo, z] = v.split(',').map(Number); map.flyTo(sheetAware([la, lo], z || 6), z || 6, { duration: 1 }); }
+    else if (kind === 'quake') { const q = World.quakes.find(x => x.id === v); if (q) show('quake', q, q.id, 6); }
+    else if (kind === 'storm') { const s = World.storms.find(x => x.id === v); if (s) show('storm', s, s.id, 6); }
+    else if (kind === 'news') { const n = World.news.find(x => x.iso === v); if (n) show('news', n, n.iso, 5); }
     else if (kind === 'surprise') Fun.surprise(); else if (kind === 'iss') Fun.followIss(); else if (kind === 'locate') Locate.go();
   },
 };
 setInterval(() => { if (!document.hidden) Brief.render(); }, 5000);
 
 /* ============================================================ WELCOME (first run) */
+/** What sits behind the card (it lives inside #stage): inert while the card is up, so Tab and screen readers stay in it. */
+const BEHIND = ['#top', '#rail', '#mapwrap', '#panel', '#mobilebar', '#hovertip'];
 export const Welcome = {
+  key: null, prev: null,
   show() {
-    const el = $('#welcome'); el.hidden = false;
-    el.innerHTML = `<div class="wcard" role="dialog" aria-labelledby="wt"><h2 id="wt">Open Overwatch</h2><p class="sub">A live picture of what is moving right now — aircraft, satellites, ships, storms and quakes — pulled straight from open feeds, no accounts. Pick where to start:</p>
+    const el = $('#welcome'), wasHidden = el.hidden; el.hidden = false; if (wasHidden) this.prev = document.activeElement;
+    el.innerHTML = `<div class="wcard" role="dialog" aria-modal="true" aria-labelledby="wt"><h2 id="wt">Open Overwatch</h2><p class="sub">A live picture of what is moving right now — aircraft, satellites, ships, storms and quakes — pulled straight from open feeds, no accounts. Pick where to start:</p>
       ${!Relay.available && location.hostname === 'destinjones.github.io' ? `<div class="wnote">${publicAir() ? "Aircraft come from adsb.lol through the website's relay: military and emergencies worldwide, and the area round the centre of the map. The download version (its helper) sweeps the whole view and adds OpenSky." : 'No live aircraft on the website: they need the free download (its helper sweeps the whole view and adds OpenSky). Everything else works from here.'}</div>` : ''}
       ${!Relay.available && location.hostname !== 'destinjones.github.io' ? `<div class="wnote">Aircraft feeds need the bundled helper. ${Relay.local ? 'It is not answering on this port.' : 'Run <span class="mono">Start Open Overwatch.bat</span> (or serve.py / serve.js) and open the page it gives you.'} Everything else works from here.</div>` : ''}
       <div class="wgrid">${PRESETS.map(p => `<button class="view" data-preset="${p.id}"><b>${esc(p.name)}</b><small>${esc(p.desc)}</small></button>`).join('')}</div>
       <div class="legend">${legendHtml()}</div>
-      <div class="foot"><span>Shown once · reopen from Setup → Welcome</span><a id="wSkip" href="#" role="button">Just show the map</a></div></div>`;
+      <div class="foot"><span>Shown once · reopen from Setup → Welcome</span><button type="button" id="wSkip">Just show the map</button></div></div>`;
     $$('.view', el).forEach(b => b.addEventListener('click', () => { this.hide(); Presets.apply(b.dataset.preset); }));
-    $('#wSkip').addEventListener('click', e => { e.preventDefault(); this.hide(); });
+    $('#wSkip').addEventListener('click', () => this.hide());
+    for (const q of BEHIND) { const b = $(q); if (b) b.inert = true; }
+    // a modal card: Tab cycles inside it until a way out is taken (a view, "Just show the map", Escape in main.js, keys 1-5)
+    if (this.key) document.removeEventListener('keydown', this.key, true);
+    this.key = e => { if (e.key !== 'Tab' || el.hidden) return; const f = [...el.querySelectorAll('button')]; if (!f.length) return; const i = f.indexOf(document.activeElement); e.preventDefault(); f[i < 0 ? 0 : (i + (e.shiftKey ? f.length - 1 : 1)) % f.length].focus(); };
+    document.addEventListener('keydown', this.key, true);
+    const first = $('.wgrid .view', el); if (first) first.focus({ preventScroll: true });   // keyboard users start on the first view
   },
-  hide() { const el = $('#welcome'); if (el.hidden) return; Store.set('welcomed', true); el.hidden = true; }, // any way out counts as "shown once"
+  hide() {
+    const el = $('#welcome'); if (el.hidden) return; Store.set('welcomed', true);   // any way out counts as "shown once"
+    const held = el.contains(document.activeElement); el.hidden = true;
+    for (const q of BEHIND) { const b = $(q); if (b) b.inert = false; }
+    if (this.key) { document.removeEventListener('keydown', this.key, true); this.key = null; }
+    if (held || document.activeElement === document.body) {   // focus back where it was (the Setup button), else on the map
+      const p = this.prev, back = p && p.isConnected && p !== document.body && !p.closest('#splash, #welcome') ? p : $('#map');
+      if (back) back.focus({ preventScroll: true });
+    }
+    this.prev = null;
+  },
 };
 
 Object.assign(late, { Brief });

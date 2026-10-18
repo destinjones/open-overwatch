@@ -4,7 +4,7 @@ import { num, idArg } from '../core/format.js';
 import { $, C, Log, Net, Relay, Store, debounce, destination, esc, fmt, haversine, isHttp, late, regionOf, toast } from './util.js';
 import { map, vecRenderer } from './mapview.js';
 import { Dyn, Exports, Layers, Sel, UI, airAt, feed, requestDraw } from './engine.js';
-import { Detail, Tracks } from './detail.js';
+import { Detail, Tracks, sheetAware } from './detail.js';
 import { readsb, openskyState, noteAircraftReport, readsbTime } from '../core/aircraft.js';
 import { AIR_TTL, ROW_DEG, TILE_KM, gridRow, tileAt } from '../core/airgrid.js';
 import { onPublishedSite, publicRelayable } from '../core/relay.js';
@@ -89,7 +89,11 @@ export const Air = {
   trail(hex) {
     const a = Dyn.air.get(hex); if (!a) return; Tracks.clear();
     const n = late.Trails ? late.Trails.pin(hex, true) : 0;
-    if (a.gs > 30 && a.track != null && !a.ground) { const ahead = destination(a.lat, a.lon, a.track, a.gs * 0.514444 * 600); L.polyline([[a.lat, a.lon], ahead], { color: C.accent, weight: 1, dashArray: '4 6', opacity: .7, renderer: vecRenderer }).addTo(Tracks.group); }
+    if (a.gs > 30 && a.track != null && !a.ground) {
+      const ahead = destination(a.lat, a.lon, a.track, a.gs * 0.514444 * 600);   // its longitude comes back wrapped to ±180
+      while (ahead[1] - a.lon > 180) ahead[1] -= 360; while (ahead[1] - a.lon < -180) ahead[1] += 360;   // so a line over 180° stays short (Leaflet does not wrap)
+      L.polyline([[a.lat, a.lon], ahead], { color: C.accent, weight: 1, dashArray: '4 6', opacity: .7, renderer: vecRenderer }).addTo(Tracks.group);
+    }
     toast(`Trail pinned: ${n} fixes, coloured by altitude · dashed line = the next 10 min at this track`);
   },
   follow(hex) { this.following = this.following === hex ? null : hex; Detail.render(); toast(this.following ? 'Following — pan the map to stop' : 'Stopped following'); },
@@ -117,7 +121,7 @@ setInterval(() => {
   const hs = $('#hudSweep'); if (hs) hs.textContent = lyAirLocal.on && AirSweep.tiles.length ? `sweep ${AirSweep.tiles.length} tiles${AirSweep.passMs ? ' · ' + (AirSweep.passMs / 1000).toFixed(0) + ' s/pass' : ''}` : '';
   if (Air.following) { // pan to the dead-reckoned spot the icon is drawn at (airAt, as Glyphs.draw), not the last raw fix
     const a = Dyn.air.get(Air.following);
-    if (a) map.panTo(airAt(a), { animate: true, duration: .5 });
+    if (a) map.panTo(sheetAware(airAt(a)), { animate: true, duration: .5 });   // phones: above the open sheet
     else Air.following = null;
   }
 }, 3000);

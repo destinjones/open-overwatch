@@ -73,9 +73,16 @@ export const Splash = {
     }
     this.line('ready', `${((Date.now() - t0) / 1000).toFixed(1)} s`, 'ok'); this.done = true;
   },
-  close(withAudio) { const el = $('#splash'); el.classList.add('out'); setTimeout(() => { el.hidden = true; }, 650); if (withAudio) { Music.auto = true; Store.set('music_auto', true); Music.start(); } else { Music.auto = false; Store.set('music_auto', false); } if (!Store.get('welcomed', false)) Welcome.show(); requestDraw(); },
+  close(withAudio) {
+    const el = $('#splash'); el.classList.add('out'); el.inert = true; $('#app').inert = false; setTimeout(() => { el.hidden = true; }, 650);   // fading out: no longer the modal
+    if (withAudio) { Music.auto = true; Store.set('music_auto', true); Music.start(); } else { Music.auto = false; Store.set('music_auto', false); }
+    if (!Store.get('welcomed', false)) Welcome.show(); else $('#map').focus({ preventScroll: true });   // the focus leaves the splash (the welcome takes it)
+    requestDraw();
+  },
 };
 $('#enterAudio').addEventListener('click', () => Splash.close(true)); $('#enterSilent').addEventListener('click', () => Splash.close(false));
+// the splash is modal: the app behind it is inert (Tab and screen readers stay on the splash) and the safe choice has the focus
+if (!$('#splash').hidden && !$('#splash').classList.contains('out')) { $('#app').inert = true; $('#enterSilent').focus({ preventScroll: true }); }
 if (Music.auto) $('#enterAudio').classList.add('vibe'); else { $('#enterAudio').classList.remove('vibe'); $('#enterSilent').classList.add('primary'); }
 Splash.run();
 $('#btnAudio').addEventListener('click', () => Music.togglePop());
@@ -87,7 +94,7 @@ if (Locate.pos && Date.now() - Locate.pos.t < 24 * 3600e3) setTimeout(() => Brie
 document.addEventListener('keydown', e => {
   const t = e.target; if (t && t.matches && t.matches('input,textarea,select')) { if (e.key === 'Escape') t.blur(); return; }
   if (e.metaKey || e.ctrlKey || e.altKey) return; const k = e.key.toLowerCase();
-  if (e.key === 'Escape') { Detail.clear(); map.closePopup(); Welcome.hide(); Fun.issFollow = false; Fun.issPending = 0; } else if (e.key === '/') { e.preventDefault(); $('#q').focus(); } else if (k === 'l') { $('#rail').classList.toggle('hidden'); setTimeout(() => map.invalidateSize(), 50); } else if (k === 'p') { $('#btnPause').click(); }
+  if (e.key === 'Escape') { Detail.clear(); map.closePopup(); Welcome.hide(); Fun.issFollow = false; Fun.issPending = 0; Locate.picking = false; } else if (e.key === '/') { e.preventDefault(); $('#q').focus(); } else if (k === 'l') { $('#rail').classList.toggle('hidden'); setTimeout(() => map.invalidateSize(), 50); } else if (k === 'p') { $('#btnPause').click(); }
   else if (k === 'm') Fun.surprise(); else if (k === 'i') Fun.followIss(); else if (k === 's') Sound.toggle(); else if (k === 'a') Music.toggle(); else if (k === 'n') { const ks = Object.keys(Synth.SETS); Music.setSet(ks[(ks.indexOf(Music.set) + 1) % ks.length]); if (!Music.playing) Music.start(); toast('Audio: ' + Music.label()); } else if (/^[1-5]$/.test(k)) { Welcome.hide(); Presets.apply(PRESETS[+k - 1].id); }
 });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { requestDraw(); Sats.prop(true); Brief.render(); } });

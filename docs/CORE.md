@@ -21,7 +21,7 @@ is also used by its tests in `test/`.
 - [Orbits and the Solar System](#orbits-and-the-solar-system): `kepler.js`, `planets.js`, `moons.js`, `smallbodies.js`, `comets.js`, `craft.js`, `accuracy.js`
 - [Satellites](#satellites): `tle.js`, `passes.js`, `observer.js`, `ecfvel.js`, `socrates.js`, `decay.js`, `explain.js`
 - [The night sky](#the-night-sky): `sky.js`, `skyfacts.js`, `skyplace.js`, `solarsys.js`, `whereis.js`, `meteors.js`, `clouds.js`, `eclipse.js`, `eclipselocal.js`, `syzygy.js`, `orientation.js`, `speakgate.js`, `deepsky.js`, `lightpollution.js`, `darksky.js`
-- [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`
+- [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`, `myplace.js`
 - [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`, `india.js`
 - [Weather](#weather): `gfs.js`, `grib2.js`, `wxmodels.js`, `wxload.js`, `model.worker.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpaint.js`, `wxpoint.js`
 - [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `history.js`, `aurora.js`, `spaceweather.js`, `ocean.js`, `fireclusters.js`, `fires.worker.js`, `earthnow.js`
@@ -508,6 +508,14 @@ words ("West", "Zoom north"), else the road it stands on. Used by globe.
 - `alongRoad`, `roadBearings`: headings from nearby OpenStreetMap roads. `angleDiff`.
 - `enuDir`, `axes`, `cornerRays`, `footprint`: the camera's view geometry and the patch of ground it sees.
 - `PRESETS`: a typical mount (height, tilt, field of view) per camera network.
+
+### `myplace.js`
+
+The visitor's own place on the 2D map ("Around me", "Center on me", the Brief): only the device's fix or a place
+picked on the map, rounded to 0.01° (about 1 km) and kept for 24 hours. No IP lookups; a position an older version got
+from one is dropped when it is read back. Used by map.
+
+- `makePlace`, `keptPlace`, `roundPlace`: a place to keep, and one read back. `PLACE_TTL`, `PLACE_SOURCES`.
 
 ## Launches and people in space
 
