@@ -15,7 +15,7 @@
 //  along the whole timeline. A legend says what the colours mean; pointing at the globe reads every field there.
 // Nothing is fetched until the mode is opened. Frames are Cesium imagery layers made on demand; only the current frame (and
 // the next, while playing) is shown, so the GPU holds a few tiles, not the whole loop.
-import { C, $, toast, store, PHONE } from './env.js';
+import { C, $, toast, store, PHONE, esc } from './env.js';
 import { viewer, camHeight } from './viewer.js';
 import { Earth } from './earth.js';
 import { state, hooks } from './state.js';
@@ -116,14 +116,24 @@ export const Weather = {
   },
   /** Where the forecast part of the timeline stops: MAX_H from now, but never past the last hour run reaches (a later
    *  frame would repeat that hour under a later label). The models are read a day past MAX_H (model.js), so this only
-   *  bites on an old fallback run. */
-  until(run, now) { return run ? Math.min(now + MAX_H * H, runEnd(this.model.def, run, this.model.maxH)) : now; },
+   *  bites on an old fallback run, on either side when two are compared. */
+  until(run, now) {
+    if (!run) return now;
+    const end = Math.min(now + MAX_H * H, runEnd(this.model.def, run, this.model.maxH)), o = this.other;
+    return this.compare && o.run ? Math.min(end, runEnd(o.def, o.run, o.maxH)) : end;   // side by side: the run that ends sooner (as the map's top())
+  },
+  /** The second model's run was found after the timeline was built: cut the frames past where it ends. */
+  fitOther() {
+    const last = this.frames[this.frames.length - 1];
+    if (this.on && this.compare && this.run && last && last.fcst && this.until(this.run, Date.now()) < last.t) this.retime();
+  },
   /** The model choice in a share link, beside the layer ids: 'ecmwf' (GFS is the default), 'compare'. */
   shareTokens() { return [...(this.modelId !== 'gfs' ? [this.modelId] : []), ...(this.compare ? ['compare'] : [])]; },
   fromTokens(list) { this.modelId = Object.keys(Models).find(id => id !== 'gfs' && list.includes(id)) || 'gfs'; this.compare = list.includes('compare'); },
   /** The chosen model's newest run; if it can't be reached, the other model's (and say so). */
   async findRun() {
     const run = await this.model.ready().catch(e => { console.warn('weather model', e.message); return null; });
+    if (this.compare) this.other.ready().then(() => this.fitOther()).catch(() => {});   // its run may end sooner: the timeline stops there
     if (run || this.compare) return run;
     const alt = await this.other.ready().catch(() => null);
     if (alt) { toast(`${this.model.def.short} is not reachable right now: showing ${this.other.def.short}`, 3500); this.modelId = this.other.id; Wind.setModels(this.model, null); }
@@ -279,7 +289,7 @@ export const Weather = {
     el.innerHTML = kinds.map(k => legendFor(k, IMPERIAL)).filter(Boolean).map(l => l.gradient
       ? `<div class="wx-leg"><span class="wx-leg-t">${l.title}</span><span class="wx-leg-bar" style="background:${l.gradient}"></span><span class="wx-leg-ticks">${l.ticks.map(([p, t]) => `<i style="left:${p.toFixed(1)}%">${t}</i>`).join('')}</span></div>`
       : `<div class="wx-leg"><span class="wx-leg-t">${l.title}</span></div>`).join('')
-      + (S.gust.on ? `<div class="wx-leg-n">${gustNote(this.compare ? [this.model.def, this.other.def] : [this.model.def])}</div>` : '');   // GFS's gust is at the hour, ECMWF's the hour's strongest
+      + (S.gust.on ? `<div class="wx-leg-n">${esc(gustNote(this.compare ? [this.model.def, this.other.def] : [this.model.def]))}</div>` : '');   // GFS's gust is at the hour, ECMWF's the hour's strongest
   },
   /** Every loaded field at a point, in a line per model (two side by side). `at` null clears it. */
   readout(at) {

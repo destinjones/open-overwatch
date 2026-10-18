@@ -57,6 +57,7 @@ export const Wx = {
     const t0 = Math.floor(now / H) * H; if (t0 <= this.t0) return;
     this.h = Math.max(0, this.h - Math.round((t0 - this.t0) / H)); this.t0 = t0;
     if (Bar.slider) Bar.slider.value = String(this.h);
+    Bar.label();   // the relative words and the slider's end follow the clock (load() may answer from its cache: same moment)
   },
   /** The last hour after t0 the slider reaches: MAX_H, or less where a run shown ends sooner (an older run: past its
    *  last file the same hour would repeat under later labels). */
@@ -447,6 +448,7 @@ function wxLayer(ly) {
     const c = await Wx.load();
     if (!c || !c.a[kind]) throw new Error(`${Wx.model.def.short} has no ${kind === 'pres' ? 'pressure' : kind} for this hour`);
     ly.desc = `${c.model.def.short} · ${relNow()} · ${base}`;
+    Bar.label();   // every 15 min: '+2 h 40 min' counts down with the clock
     ly.feed.count = 0;
   } });
   return ly;

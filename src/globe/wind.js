@@ -16,7 +16,7 @@ import { viewer, camera, camHeight } from './viewer.js';
 import { fetchAsset } from '../core/assets.js';
 import { momentOf, momentValue, momentWind, momentReading } from '../core/wxload.js';
 import { WIND_COLORS as COLORS, WASH_ALPHA, paintWash, windBucket, waveDarts, pressureChart } from '../core/wxpaint.js';
-import { runWords, snapFits } from '../core/wxmodels.js';
+import { runWords, snapFits, clockWords } from '../core/wxmodels.js';
 import { Model } from './model.js';
 
 const LATS = [], LONS = [];
@@ -37,7 +37,7 @@ const HI = !PHONE;   // detailed images (waves, isobars) at desktop size
 const KEEP_IMAGES = 12;   // washes kept as images; dropped when weather closes (a loop of 46 frames never fits anyway)
 
 export const Wind = {
-  grid: null, loading: null, canvas: null, ctx: null, parts: [], raf: 0, windOn: false,
+  grid: null, loading: null, tried: 0, canvas: null, ctx: null, parts: [], raf: 0, windOn: false,
   model: Model,     // the model shown (model.js Models.*)
   cmpModel: null,   // a second model, side by side, or null
   cur: null,        // the model at the moment shown: { a, b, w, h0, h1, run, model } (model.js), or null (snapshot only)
@@ -65,20 +65,29 @@ export const Wind = {
 
   // ---- the snapshot (fallback): Open-Meteo, now only
   async load() {
-    if (this.grid) return this.grid;
+    if (this.grid && snapFits(this.grid, Date.now())) return this.grid;
     if (this.loading) return this.loading;
+    if (this.grid && Date.now() - this.tried < TTL) return this.grid;   // asked lately and nothing newer came: no new burst of 612 points
+    this.tried = Date.now();
     this.loading = (async () => {
+      // a snapshot stands in only within an hour of its own time (snapFits), so a copy older than that is no use near now:
+      // the site's mirror is rebuilt every 6 h, so for most of each cycle it is too old and Open-Meteo is asked instead
+      const ok = g => !!(g && g.u && g.u.length === NX * NY), fits = g => ok(g) && snapFits(g, Date.now());
       const c = store.get(KEY, null);
-      if (c && Date.now() - c.t < TTL && c.u && c.u.length === NX * NY) return (this.grid = c);
+      if (fits(c) && Date.now() - c.t < TTL) return (this.grid = c);
       // the site's scheduled build keeps a copy (data/wind.json, up to 6 h old): no quota spent, one small file
       const mirror = await fetchAsset('data/wind.json', 'json').catch(() => null);
-      if (mirror && mirror.u && mirror.u.length === NX * NY && Date.now() - mirror.t < MIRROR_MAX) { store.set(KEY, mirror); return (this.grid = mirror); }
+      if (fits(mirror) && Date.now() - mirror.t < MIRROR_MAX) { store.set(KEY, mirror); return (this.grid = mirror); }
       try { return (this.grid = await this.live()); }
-      catch (e) { if (mirror && mirror.u && mirror.u.length === NX * NY) return (this.grid = mirror); throw e; }   // an old snapshot beats none
-    })().catch(e => { this.loading = null; throw e; });
+      catch (e) {   // the newest of what we have (it draws nothing unless it fits the moment, and the note says so)
+        const old = [mirror, c, this.grid].filter(ok).sort((a, b) => b.t - a.t)[0];
+        if (old) return (this.grid = old);
+        throw e;
+      }
+    })().finally(() => { this.loading = null; });
     return this.loading;
   },
-  async live() {   // straight from Open-Meteo: 612 locations (it limits visitors per hour), used only when the site's copy is missing or stale
+  async live() {   // straight from Open-Meteo: 612 locations (it limits visitors per hour), used only when the site's copy is missing or more than an hour off now
     const pts = []; for (const la of LATS) for (const lo of LONS) pts.push([la, lo]);
     const u = new Array(NX * NY), v = new Array(NX * NY), t = new Array(NX * NY); let when = '';
     const jobs = []; for (let i = 0; i < pts.length; i += CHUNK) jobs.push(i);
@@ -145,7 +154,7 @@ export const Wind = {
     const c = this.data(side);
     if (c) return `${c.model.def.name}, ${runWords(c.run)}`;
     if (side === 'cmp') return this.cmpModel ? `${this.cmpModel.def.name} not reachable` : '';
-    if (this.snap()) return `${this.model.def.name} not reachable; wind and temperature: Open-Meteo, now (${String(this.grid.at || '').slice(11)} UTC)`;
+    if (this.snap()) return `${this.model.def.name} not reachable; wind and temperature: Open-Meteo, now (${clockWords(Date.parse(this.grid.at + 'Z') || this.grid.t)})`;
     return this.missed ? `${this.model.def.name} not reachable for this moment, so nothing is drawn` : '';
   },
 

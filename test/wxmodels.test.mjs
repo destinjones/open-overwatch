@@ -123,7 +123,7 @@ test("gust notes: what each model's gust is, side by side", () => {
 test('one clock on the weather timeline, with its zone', () => {
   const t = Date.UTC(2026, 9, 17, 9, 20), words = clockWords(t);
   assert.match(words, /\d/);
-  assert.match(words, /(UTC|GMT|[A-Z]{2,5}|[+−-]\d)\s*$/, 'the zone is named: an observed frame and a forecast frame read on the same clock');
+  assert.match(words, /(UTC|GMT|[A-Z]{2,5}|[+−-]\d{1,2}(:\d\d)?)\s*$/, 'the zone is named: an observed frame and a forecast frame read on the same clock');
   assert.equal(words, clockWords(t + 30e3 - 30e3));
 });
 
