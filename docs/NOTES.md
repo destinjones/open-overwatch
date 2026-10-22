@@ -1366,7 +1366,7 @@ is coming.
 - **ISRO missions** (make_spacecraft.py, JPL Horizons): Chandrayaan-1, -2, the Chandrayaan-3 propulsion module, Vikram,
   the Mars Orbiter Mission and Aditya-L1. A working craft past its last sample reads "past the published track (JPL
   Horizons)", not "mission over", and inLocal stops at the track's end. Moon-centred orbits can be off by up to ~5,000 km
-  around orbit raising or lowering burns (craft.js). Chandrayaan-2's track ends 2026-11-08 and Aditya-L1's 2027-01-19:
+  around orbit raising or lowering burns (craft.js). Chandrayaan-2's track ends 2026-11-26 and Aditya-L1's 2027-01-19:
   test/india.test.mjs prints a WARNING two weeks before an India link loses its position; rerun `python
   brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"` and republish (ROADMAP).
 - **Apophis** (data/solar/apophis.json from JPL Horizons, core/whereis.js TRACKS): hourly Earth-centred sets through the

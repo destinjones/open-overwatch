@@ -162,7 +162,7 @@ the samples), how fast, what its mission does next, and how long its signal take
   'moon', and Mars Orbiter Mission around 'mars': a set every 3 days (6 hours for Chandrayaan-3's short stay), within
   ~300 km of Horizons in quiet orbit (~20 km for Chandrayaan-3), but off by up to ~5,000 km across an orbit burn.
   `moonCenterAt`: a centre for callers with no view of their own (the MCP): the Moon from `planets.js`, Earth's centre
-  for 'earth' (Apophis's flyby), null for any other key. Chandrayaan-2's published track ends 2026-11-08 and Aditya-L1's 2027-01-19 (their `end_jd` fields); a
+  for 'earth' (Apophis's flyby), null for any other key. Chandrayaan-2's published track ends 2026-11-26 and Aditya-L1's 2027-01-19 (their `end_jd` fields); a
   working craft past its track reads "past the published track (JPL Horizons)" in the Solar view's list.
 - BepiColombo carries one around 'mercury' from its capture (12 November 2026), a set every 6 hours, within ~10 km of
   Horizons. `statusAt`: the status in force at a time (a track's phases, [[jd, status], ...]: BepiColombo "In

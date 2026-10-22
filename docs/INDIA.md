@@ -104,7 +104,7 @@ city page exists once a site build has run with the city in `data/cities.json`, 
   System view from NASA JPL Horizons tracks (`data/solar/spacecraft.json`, `brand/tools/make_spacecraft.py`); the
   Moon and Mars orbiters fly Moon- or Mars-centred orbits. The page names where each track ends, and
   `test/india.test.mjs` warns two weeks before a "now" link (Chandrayaan-2, Aditya-L1) runs past its track. Chandrayaan-2's
-  track ends 2026-11-08 and Aditya-L1's 2027-01-19: before 2026-11-01, rerun
+  track ends 2026-11-26 and Aditya-L1's 2027-01-19: before 2026-11-12, rerun
   `python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"` (a few Horizons requests) and republish.
   Past the end, the missions list says "past the published track (JPL Horizons)" rather than "mission over".
 - **Air quality**: modelled (CAMS via Open-Meteo), not CPCB stations; the page points to CPCB, IMD and NCS for anything

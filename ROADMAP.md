@@ -22,9 +22,11 @@ programmer would enjoy reading, not three big HTML files.
 - [x] 2D map split into modules (`src/map/`, generated from an AST analysis of the old script), keeping its layer contract; satellites via `src/core/tle.js`
 - [x] CI: syntax check, page→module links, tests on every push (`.github/workflows/ci.yml`; runs once we publish)
 - [x] `docs/DATA_SOURCES.md` (every feed: what, licence, refresh, accuracy)
-- [ ] Refresh ISRO spacecraft tracks before they run out (Chandrayaan-2 2026-11-08, Aditya-L1 2027-01-19): `python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"` (JPL Horizons, public domain); test/india.test.mjs warns two weeks ahead.
-      Re-fetched on 2026-10-17 and Horizons still ends them on those dates; try again before 2026-11-01 and republish. If Chandrayaan-2 still ends on
-      2026-11-08, the owner picks where the India page's main button goes instead (Aditya-L1 or the Moon). BepiColombo's track ends 2027-04-09
+- [ ] Refresh ISRO spacecraft tracks before they run out (Chandrayaan-2 2026-11-26, Aditya-L1 2027-01-19): `python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"` (JPL Horizons, public domain); test/india.test.mjs warns two weeks ahead.
+      Re-fetched on 2026-10-21: Horizons revised Chandrayaan-2 on 2026-10-20 (tracking through 2026-10-18, a prediction to 2026-11-27 10:00 TDB), so
+      its track now ends 2026-11-26 (was 2026-11-08); Aditya-L1's still ends 2027-01-19 (Horizons to 2027-01-21). Next refresh before 2026-11-12
+      and republish (Aditya-L1 before 2027-01-05). If Chandrayaan-2 is not extended again, the owner picks where the India page's main button goes
+      instead (Aditya-L1 or the Moon). BepiColombo's track ends 2027-04-09
 - [x] Honest README with a demo clip (README.md: brand/clip/zoom-preview.webp and the 30 s MP4)
 
 Housekeeping before publishing: `src`, `earth_fx_2k.jpg` and `brand/textures/moons` are now in `APP_PATHS` / the release zip;
