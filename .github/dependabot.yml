@@ -14,8 +14,8 @@ updates:
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
-    # satellite.js stays on 5.x (5.0.0): the site and the MCP server must run the same major, and 6/7 cannot serve the
-    # site. 7 is ESM only, with no minified or UMD build, so the satellite workers' importScripts copy
+    # satellite.js stays on 5.x (5.0.0): the site and the MCP server must run the same major, and 6 and 7 can't serve the
+    # site as it is. 7 is ESM only, with no minified or UMD build (6 still had one), so the satellite workers' importScripts copy
     # (src/vendor/satellite.min.js) and the pages' pinned, hashed CDN script tags (window.satellite on globe, map,
     # Tonight, India) have nothing to load. From 6, a failed propagate returns null instead of { position: false }, and
     # the page and worker code reads pv.position unguarded. 7 also changes ndot/nddot units and needs Node 20.19+.
