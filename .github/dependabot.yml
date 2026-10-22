@@ -14,6 +14,17 @@ updates:
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
+    # satellite.js stays on 5.x (5.0.0): the site and the MCP server must run the same major, and 6/7 cannot serve the
+    # site. 7 is ESM only, with no minified or UMD build, so the satellite workers' importScripts copy
+    # (src/vendor/satellite.min.js) and the pages' pinned, hashed CDN script tags (window.satellite on globe, map,
+    # Tonight, India) have nothing to load. From 6, a failed propagate returns null instead of { position: false }, and
+    # the page and worker code reads pv.position unguarded. 7 also changes ndot/nddot units and needs Node 20.19+.
+    # SGP4 itself is unchanged: 5.0.0 and 7.1.0 give identical positions and velocities (0 m, 0 m/s) and the same error
+    # codes on every fixture TLE (PR #6, checked 2026-10-21). Moving needs a planned change: vendor the ESM files, module
+    # workers, module imports on the pages, null-safe propagate calls, browser tests on GitHub.
+    ignore:
+      - dependency-name: satellite.js
+        update-types: ['version-update:semver-major']
     commit-message:
       prefix: deps
   - package-ecosystem: github-actions

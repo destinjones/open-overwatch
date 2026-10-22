@@ -237,7 +237,9 @@ needs one of its files in `DATA_FILES` in the helper.
 
 `.github/workflows/codeql.yml` runs CodeQL (JavaScript and the workflows) on pushes and pull requests to `main` and
 weekly, skipping `data/`, renders and fixtures; `.github/dependabot.yml` opens weekly grouped updates for npm and the
-workflows' actions against `main`.
+workflows' actions against `main`. It ignores satellite.js major versions: 7 is ESM only (no build the workers'
+`importScripts` or the pages' hashed script tags can load) and from 6 a failed `propagate` returns `null`; the SGP4
+numbers are the same (0 m apart on the fixture TLEs), so the move waits for a planned change to both the site and the MCP.
 
 Other browser-level checks (frame rates, the phone journeys, the Android emulator, WebKit) are in [TESTING.md](TESTING.md).
 
