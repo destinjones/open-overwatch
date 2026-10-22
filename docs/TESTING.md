@@ -8,7 +8,7 @@ CI runs them on every push with a coverage floor (`npm run coverage`), plus a sy
 check of every page. [DEVELOPING.md](DEVELOPING.md#3-tests) has the table of what each file covers. Two kinds behave differently: the site
 build's tests (`sitebuild`, `sitebudget`, `tlearchive`) run `.github/build_site.py` in Python and are skipped without
 it, and `test/india.test.mjs` reads the real date: from two weeks before an ISRO track runs out (Chandrayaan-2 on
-2026-11-08, Aditya-L1 on 2027-01-19) it prints a `WARNING` diagnostic, without failing, that names the refresh
+2026-11-26, Aditya-L1 on 2027-01-19) it prints a `WARNING` diagnostic, without failing, that names the refresh
 (`python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"`).
 
 ### Type check and lint

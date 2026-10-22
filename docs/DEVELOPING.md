@@ -166,7 +166,7 @@ The tests of `.github/build_site.py` (`sitebuild`, `sitebudget`, `tlearchive`) r
 replaced by a fake, and are skipped when no Python is installed.
 
 **One check reads the real date.** `test/india.test.mjs` warns, without failing, from two weeks before an ISRO track it
-links to runs out (Chandrayaan-2 on 2026-11-08, Aditya-L1 on 2027-01-19): a `WARNING` diagnostic in the test output that
+links to runs out (Chandrayaan-2 on 2026-11-26, Aditya-L1 on 2027-01-19): a `WARNING` diagnostic in the test output that
 names the refresh, `python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1"` (JPL Horizons, a few
 requests: downloading is the owner's call). After that date the India page's "now" links show the craft with no
 published position until the data is rebuilt and republished.

@@ -52,7 +52,7 @@ test('the 2D map, Solar System and Tonight links', t => {
     assert.ok(c && c.agency === 'ISRO', v.focus);
     const jd = v.jd ?? jdFromMs(Date.UTC(2026, 9, 17));
     assert.ok(trackPosition(c, jd, {}, moonCenterAt), `${v.focus}: a position at ${v.jd ?? 'today'}`);
-    // a "now" link (no &t=) shows "No published position after <date>" once the track runs out (Chandrayaan-2 2026-11-08,
+    // a "now" link (no &t=) shows "No published position after <date>" once the track runs out (Chandrayaan-2 2026-11-26,
     // Aditya-L1 2027-01-19). Warn two weeks ahead, on the real date, without failing CI for an unrelated change: the
     // refresh is python brand/tools/make_spacecraft.py --only "Chandrayaan-2,Aditya-L1" (ROADMAP)
     if (v.jd == null && !trackPosition(c, jdFromMs(Date.now()) + 14, {}, moonCenterAt))
