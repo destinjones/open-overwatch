@@ -34,9 +34,14 @@ html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%} /* no page pin
   --bg:#04060a; --glass:rgba(8,12,18,.62); --glass-strong:rgba(8,12,18,.82); --edge:rgba(125,255,166,.16); --edge-dim:rgba(230,237,243,.08);
   --ink:#e6edf3; --dim:#8b9bab; --faint:#738599; --accent:#7dffa6;
   --civ:#5fd3ff; --mil:#ffb44d; --emg:#ff4d5e; --sat:#d9ccff; --gnss:#ffd45c; --geo:#b48cff; --wx:#62e0c8; --qk:#ff7b4f;
-  --display:"Big Shoulders Display","Arial Narrow",sans-serif; --body:"Barlow",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
-  /* motion: one easing out (panels arriving), one in-out (things that travel), three durations; shell.css stops them all under reduced motion */
-  --ease:cubic-bezier(.2,.8,.2,1); --ease-io:cubic-bezier(.65,0,.35,1); --t-fast:.16s; --t:.28s; --t-slow:.42s;
+  /* type and motion: the shared tokens (src/app/shell.css, docs/DESIGN.md) when they are defined, else the same values. The
+     fallback faces are size-matched to the web fonts (brand/fonts/fonts.css), so the swap does not move the header and band */
+  --display:var(--oo-font-display,"Big Shoulders Display","Big Shoulders Fallback","Arial Narrow",sans-serif);
+  --body:var(--oo-font-body,"Barlow","Barlow Fallback",system-ui,sans-serif);
+  --mono:var(--oo-font-mono,"IBM Plex Mono","Plex Mono Fallback",ui-monospace,Consolas,monospace);
+  /* one easing out (panels arriving), one in-out (things that travel), three durations; shell.css stops them all under reduced motion */
+  --ease:var(--oo-ease-out,cubic-bezier(.2,.8,.2,1)); --ease-io:var(--oo-ease-in-out,cubic-bezier(.65,0,.35,1));
+  --t-fast:var(--oo-dur-2,.16s); --t:var(--oo-dur-3,.28s); --t-slow:var(--oo-dur-4,.42s);
   color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -58,11 +63,11 @@ button{font:inherit;color:inherit;cursor:pointer}
 .brand small{display:block;font:500 10px/1.2 var(--mono);letter-spacing:.16em;color:var(--accent);text-transform:uppercase;margin-top:3px}
 .stats{display:flex;gap:2px;padding:6px;margin-left:auto}
 .timebar{display:flex;align-items:center;gap:3px;padding:6px 8px}
-.tnow{padding:0 8px 0 4px;min-width:150px} .tnow b{display:block;font:500 13.5px/1.2 var(--mono)} .tnow span{font:500 9.5px/1 var(--mono);letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+.tnow{padding:0 8px 0 4px;min-width:172px;line-height:1} /* wide enough for "2026-10-31 14:05 UTC" before it arrives; line-height:1 here, on .stat and .alt: their height no longer follows the body font (shifts at boot, perf finding 18) */ .tnow b{display:block;font:500 13.5px/1.2 var(--mono)} .tnow span{font:500 9.5px/1 var(--mono);letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
 .tnow span.off{color:var(--mil)}
 .tb{min-width:28px;height:28px;padding:0 7px;border-radius:8px;border:1px solid transparent;background:none;font:500 11.5px/1 var(--mono);color:var(--dim)}
 .tb:hover{color:var(--ink);border-color:var(--edge-dim)} .tb.on{color:#04060a;background:var(--accent)}
-.stat{padding:4px 12px;border-radius:9px;text-align:center;min-width:64px}
+.stat{padding:4px 12px;border-radius:9px;text-align:center;min-width:84px;line-height:1} /* room for "18,000": the counters fill in after the boot */
 .stat b{display:block;font:600 17px/1.1 var(--mono)}
 .stat span{font:500 9.5px/1 var(--mono);letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
 body.no-air .stats .stat:nth-child(-n+2){display:none} /* the website has no aircraft feed (main.js noAir): no AIR and MIL */
@@ -90,7 +95,7 @@ body.no-air .stats .stat:nth-child(-n+2){display:none} /* the website has no air
 #band .gos.at-start{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)} /* the fade only where more is hidden (ui.js) */
 #band .gos.at-end{-webkit-mask-image:linear-gradient(90deg,transparent,#000 28px);mask-image:linear-gradient(90deg,transparent,#000 28px)}
 #band .gos.at-start.at-end{-webkit-mask-image:none;mask-image:none}
-.alt{padding:4px 14px 4px 10px;border-right:1px solid var(--edge-dim);margin-right:2px;min-width:170px}
+.alt{flex:none;padding:4px 14px 4px 10px;border-right:1px solid var(--edge-dim);margin-right:2px;width:206px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* a fixed width: the band does not move as the height reading changes */
 .alt b{display:block;font:900 20px/1 var(--display);letter-spacing:.12em;color:var(--accent);text-transform:uppercase}
 .alt span{font:500 11px/1.4 var(--mono);color:var(--dim)}
 .go{flex:none;white-space:nowrap;padding:10px 14px;border-radius:9px;border:1px solid transparent;background:none;font:600 12px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
@@ -173,7 +178,7 @@ body.lookup #top,body.lookup #band,body.lookup #dock,body.lookup #card,body.look
   body.no-air .stats .stat:nth-child(n+3){display:block} /* without aircraft, SAT and QK take their places */
   .links{padding:4px} .links a{display:none} /* keep the Layers button: it is the only way to open the dock on a phone */
   .alt b{font-size:16px;white-space:nowrap} .alt span{white-space:nowrap}
-  #band{left:10px;right:10px;transform:none;bottom:10px;max-width:none} .alt{min-width:120px}
+  #band{left:10px;right:10px;transform:none;bottom:10px;max-width:none} .alt{width:auto;min-width:120px}
   #card{left:10px;right:10px;width:auto;top:auto;bottom:100px;transform:translateY(160%);max-height:calc(100dvh - 190px);overflow:auto;overscroll-behavior:contain} #card.show{transform:none}
   #card h2{font-size:24px} .cjl{max-height:none}
   #credits{left:12px;right:12px;bottom:86px;max-width:none;text-align:left;font-size:8.5px;opacity:.75}

@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Main-thread manners for the views: long jobs cut into slices that leave room for frames, a latch that holds work back
-// until the view has shown its first picture, and a debounce. DOM-free: the page hands in its clock
+// until the view has shown its first picture, a debounce and a pacer. DOM-free: the page hands in its clock
 // and how to yield (scheduler.yield, a timeout), so Node tests drive them with fakes.
 
 /** How a page yields by default: scheduler.yield where the browser has it (the job keeps its place in line), else a
@@ -44,4 +44,16 @@ export function debounce(fn, ms, { setTimer = (f, t) => setTimeout(f, t), clearT
   d.flush = () => { if (timer !== null) { clearTimer(timer); run(); } };
   d.cancel = () => { if (timer !== null) clearTimer(timer); timer = null; last = null; };
   return d;
+}
+
+/** fn() at most once every `gapMs` (a number, or a function read at each call: a gap that depends on what the view is
+ *  doing). Calling it sooner does nothing and returns false. .now() runs fn at once and starts the gap again. */
+export function paced(fn, gapMs, { now = () => performance.now() } = {}) {
+  let last = -Infinity;
+  const p = () => {
+    const t = now(); if (t - last < (typeof gapMs === 'function' ? gapMs() : gapMs)) return false;
+    last = t; fn(); return true;
+  };
+  p.now = () => { last = now(); fn(); };
+  return p;
 }
