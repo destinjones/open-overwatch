@@ -120,7 +120,8 @@ kbd{display:inline-block;min-width:1.7em;text-align:center;padding:1px 6px;borde
 .btn:focus-visible{outline-offset:-4px!important}
 .btn.primary:focus-visible{outline-color:var(--oo-on-accent)!important}
 .btn[aria-disabled=true]{opacity:.35;pointer-events:none}
-.cta{display:flex;flex-wrap:wrap;gap:var(--oo-s-3);align-items:center;margin-top:30px}
+.cta{display:flex;flex-wrap:wrap;gap:var(--oo-s-3);align-items:center}
+.doc .cta{margin-top:30px}
 /* a text link that reads as an action */
 .lnk{font:var(--oo-fw-medium) 12.5px var(--oo-font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--oo-ink);text-decoration:none;
   border-bottom:1px solid var(--oo-line-strong);padding-bottom:2px;transition:color var(--oo-dur-2),border-color var(--oo-dur-2)}
