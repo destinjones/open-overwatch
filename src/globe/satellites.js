@@ -149,6 +149,7 @@ export const Sats = {
         const kx = nx / nl, ky = ny / nl, kz = nz / nl, c = Math.cos(a), sn = Math.sin(a);
         P.x = (x * c + (ky * z - kz * y) * sn) * 1000; P.y = (y * c + (kz * x - kx * z) * sn) * 1000; P.z = (z * c + (kx * y - ky * x) * sn) * 1000;
       }
+      if (!(P.x === P.x && P.y === P.y && P.z === P.z)) { s.pt.show = false; continue; }   // one NaN dot makes the collection's bounds NaN: Cesium then fails every frame
       s.pt.position = P;
     }
   },

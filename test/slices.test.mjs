@@ -1,8 +1,8 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
-// core/slices.js: long jobs yield on a time budget, the boot latch, and the debounce. Fake clocks.
+// core/slices.js: long jobs yield on a time budget, the boot latch, the debounce and the pacer. Fake clocks.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sliced, latch, debounce, defaultYield } from '../src/core/slices.js';
+import { sliced, latch, debounce, defaultYield, paced } from '../src/core/slices.js';
 
 test('sliced: runs every item in order and yields once per budget', async () => {
   let t = 0, pauses = 0; const seen = [];
@@ -68,4 +68,21 @@ test('debounce: real timers by default', async () => {
   const calls = []; const d = debounce(x => calls.push(x), 1);
   d(1); d(2); await new Promise(r => setTimeout(r, 15));
   assert.deepEqual(calls, [2]);
+});
+
+test('paced: at most once per gap, the gap read at each call, now() at once', () => {
+  let t = 0, runs = 0, moving = false;
+  const p = paced(() => runs++, () => (moving ? 2000 : 1000), { now: () => t });
+  assert.equal(p(), true); assert.equal(runs, 1);       // the first call runs
+  t = 999; assert.equal(p(), false);                    // too soon
+  t = 1000; assert.equal(p(), true); assert.equal(runs, 2);
+  moving = true; t = 2500; assert.equal(p(), false);    // a longer gap while moving
+  t = 3000; assert.equal(p(), true); assert.equal(runs, 3);
+  t = 3100; p.now(); assert.equal(runs, 4);             // forced, and the gap starts again from here
+  moving = false; t = 4000; assert.equal(p(), false); t = 4100; assert.equal(p(), true);
+});
+
+test('paced: a fixed gap and the real clock by default', () => {
+  let runs = 0; const p = paced(() => runs++, 60000);
+  p(); p(); assert.equal(runs, 1);
 });

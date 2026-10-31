@@ -16,6 +16,8 @@ import { Quakes } from './quakes.js';
 import { Lighthouses } from './lighthouses.js';
 import { updateStats, updateBand, PRESETS, Lighting, select } from './ui.js';
 import { Space } from './space.js';
+import { dropBadPositions } from './pick.js';
+import { paced } from '../core/slices.js';
 import { Quality, LEVELS } from './quality.js';
 import { Conj } from './conjunctions.js';
 import { Reentry } from './reentry.js';
@@ -97,6 +99,19 @@ Quality.follow(q => { AirModels.max = q.air; SatModels.max = q.sat; Earth.setQua
 // before each frame: follow camera, model lighting; before rendering: sun direction, satellite dots, Earth fades
 scene.preUpdate.addEventListener((sc, time) => { Follow.track(time); Ops.ride(time); Lighting.update(); });   // the cockpit sits on the followed position of this frame, so it rides after track
 scene.preRender.addEventListener((sc, time) => { SatModels.updateSun(time); Sats.update(Time.nowMs()); Earth.update(camHeight()); Space.update(); Transit.update(Date.now()); Ships.update(Date.now()); Traffic.update(); });   // transit and ships are live: the time bar doesn't move them
+// A render that throws stops Cesium's loop for good: its "Rendering has stopped" panel over a dead globe, and no hand-off to
+// the Solar System ever after (perf run 2026-10-31: a RangeError after a 27 s pick). Mend what usually causes it (a dot
+// at NaN, pick.js) and start the loop again a moment later, three times a minute at most, then say so once.
+viewer.cesiumWidget.showRenderLoopErrors = false;
+{
+  let fails = [], told = false;
+  scene.renderError.addEventListener((sc, err) => {
+    const now = Date.now(); fails = fails.filter(t => now - t < 60e3); fails.push(now);
+    console.warn('render failed', err, `(${dropBadPositions()} dots at a bad position hidden)`);
+    if (fails.length > 3) { if (!told) { told = true; toast('The globe stopped drawing after an error: reload the page to bring it back', 12000); } return; }
+    setTimeout(() => { if (!Space.active && !viewer.useDefaultRenderLoop) viewer.useDefaultRenderLoop = true; }, 250);   // the Solar System view stops this loop on purpose
+  });
+}
 PRESETS.space = () => Space.go();
 PRESETS.conj = () => Conj.openList();
 PRESETS.reentry = () => Reentry.openList();
@@ -132,7 +147,15 @@ initNavpad();
 initWeather();   // everything else: zoom, north and reset buttons
 $('#luExit').onclick = () => LookUp.leave();
 addEventListener('keydown', e => { if (e.key === 'Escape' && (LookUp.active || LookUp.state.starting)) LookUp.leave(); });
-setInterval(() => SatModels.refresh(), 400);
+// which satellites get a 3D model (the nearest few) changes slowly: once a second while the camera is still, every 2 s
+// while it moves, and once when it stops (every 400 ms was the top own code in every zoom and pan on a phone: perf finding 9)
+{
+  let moving = false;
+  const refresh = paced(() => SatModels.refresh(), () => (moving ? 2000 : 1000));
+  setInterval(refresh, 250);
+  camera.moveStart.addEventListener(() => { moving = true; });
+  camera.moveEnd.addEventListener(() => { moving = false; refresh.now(); });
+}
 setInterval(() => AirModels.refresh(), 500);
 // aircraft dead reckoning: 4 times a second close in, once a second from high up (a quarter-second of flight is invisible
 // from 1,000 km, and each pass moves ~8,000 dots: the globe's biggest main-thread cost on a phone)

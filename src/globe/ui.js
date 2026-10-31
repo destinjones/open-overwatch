@@ -13,6 +13,7 @@ import { sunlitView, moonPosition, showPlaceNames } from './earth.js';
 import { Time } from './time.js';
 import { explainSat } from '../core/explain.js';
 import { Crew } from './crew.js';
+import { pickAt } from './pick.js';
 import { provBlock } from '../core/liveprov.js';
 import { cardOwners } from '../core/cardowners.js';
 
@@ -108,7 +109,9 @@ addEventListener('blur', () => { held = false; });
 scene.canvas.addEventListener('pointerleave', () => { hoverAt = null; hideTip(); });
 camera.moveStart.addEventListener(() => { camMoving = true; hideTip(); });
 camera.moveEnd.addEventListener(() => { camMoving = false; clearTimeout(hoverTimer); if (hoverAt && !touchInput) hoverTimer = setTimeout(hoverPick, 80); });
-function pickObj(pos, r = touchInput ? 28 : 3) { const p = scene.pick(pos, r, r), id = p && p.id; return id ? (id.kind ? id : id.sat || id.air || id.obj || null) : null; }   // obj: an entity drawn for something (a storm's cone, a fire's perimeter)
+// dots and icons are picked on the CPU from their screen positions, models and entities by scene.pick with the dots hidden
+// (pick.js: a GPU pick with every satellite drawn was a 27 s freeze); hover picks back off while scene picks are slow
+function pickObj(pos, r = touchInput ? 28 : 3, hover = false) { return pickAt(pos, r, { hover }); }
 /** The hover tip for anything pickable (voice.js reads it aloud too). */
 export function tipFor(o) {
   if (o.kind === 'sat') return `${o.name} · ${L[o.layer].name.split(' (')[0]}`;
@@ -123,7 +126,7 @@ export function tipFor(o) {
 function hoverPick() {
   hoverTimer = 0;
   if (!hoverAt || touchInput || held || (camMoving && !Follow.obj && ctrl.enableInputs)) return;   // following and scripted cameras (tower, chase, fly-through) move every frame: still tip then
-  const o = pickObj(hoverAt), t = $('#hover');
+  const o = pickObj(hoverAt, 3, true), t = $('#hover');
   if (!o) { hideTip(); return; }
   // moved by transform (a compositor move), not left/top (a layout each time)
   t.textContent = tipFor(o); t.style.transform = `translate3d(${Math.round(hoverAt.x + 14)}px,${Math.round(hoverAt.y + 12)}px,0)`; t.style.display = 'block'; scene.canvas.style.cursor = 'pointer';
@@ -149,6 +152,7 @@ handler.setInputAction(c => {
 }, C.ScreenSpaceEventType.LEFT_CLICK);
 // double-click a satellite or aircraft to follow it (replaces Cesium's default entity tracking)
 viewer.screenSpaceEventHandler.removeInputAction(C.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+viewer.screenSpaceEventHandler.removeInputAction(C.ScreenSpaceEventType.LEFT_CLICK);   // the Viewer's own entity selection: a second full scene pick on every click, for a selectedEntity nothing reads
 handler.setInputAction(c => {
   if (state.lookup || state.picking) return;   // following would fight look-up's camera; while picking (directions, measuring) a double-click is theirs
   const o = pickObj(c.position); if (!o) return;

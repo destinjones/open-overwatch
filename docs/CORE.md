@@ -24,12 +24,12 @@ is also used by its tests in `test/`.
 - [Geometry on the Earth](#geometry-on-the-earth): `geo.js`, `measure.js`, `borders.js`, `mgrs.js`, `route.js`, `campose.js`, `myplace.js`
 - [Launches and people in space](#launches-and-people-in-space): `launches.js`, `ascent.js`, `crew.js`, `india.js`
 - [Weather](#weather): `gfs.js`, `grib2.js`, `wxmodels.js`, `wxload.js`, `model.worker.js`, `aec.js`, `jpx.js`, `fields.js`, `contour.js`, `wxpaint.js`, `wxpoint.js`
-- [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `history.js`, `aurora.js`, `spaceweather.js`, `ocean.js`, `fireclusters.js`, `fires.worker.js`, `earthnow.js`
+- [Hazards and imagery](#hazards-and-imagery): `hazards.js`, `quakes.js`, `eonet.js`, `cyclones.js`, `gdacs.js`, `history.js`, `aurora.js`, `aurora.worker.js`, `spaceweather.js`, `ocean.js`, `fireclusters.js`, `fires.worker.js`, `earthnow.js`
 - [Aviation](#aviation): `aircraft.js`, `actype.js`, `acinfo.js`, `phase.js`, `airports.js`, `runways.js`, `metar.js`, `eta.js`, `runwaylog.js`, `aloft.js`, `trail.js`
 - [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `transitfeeds.js`, `gtfsrt.js`, `bikes.js`, `cameras.js`, `cables.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
 - [OpenStreetMap](#openstreetmap): `osmtiles.js`, `overpass.js`
 - [Links, words and the interface](#links-words-and-the-interface): `viewlink.js`, `solarlink.js`, `search.js`, `scene.js`, `cardowners.js`, `voicecmd.js`, `format.js`, `ics.js`, `radio.js`
-- [Network and devices](#network-and-devices): `assets.js`, `relay.js`, `airgrid.js`, `gpu.js`, `poll.js`, `quality.js`, `slices.js`
+- [Network and devices](#network-and-devices): `assets.js`, `relay.js`, `airgrid.js`, `gpu.js`, `poll.js`, `quality.js`, `slices.js`, `screenpick.js`
 - [The app shell](#the-app-shell): `pwa.js`, `whatsnew.js`, `spot.js`, `a11ycheck.js`, `sricheck.js`, `provenance.js`, `liveprov.js`, `export.js`
 
 ## Time, units and frames
@@ -878,6 +878,13 @@ layer. Pictures are RGBA arrays the views put on a canvas. Used by globe, map.
 - `paintEquirect`, `paintMercator`: the grid as a picture for the globe or the map. `auroraColor`, `auroraAlpha`,
   `AURORA_STOPS`.
 
+### `aurora.worker.js`
+
+A Web Worker (no exports) for the globe's aurora layer: it fetches the OVATION grid, reads it (`parseOvation`) and paints
+the 360 × 181 picture (`paintEquirect`) off the main thread, and posts the pixels back as a transfer. On the page this
+was a 462 ms task in the globe's boot (perf run 2026-10-31). src/globe/aurora.js reads the grid itself only when a module
+worker cannot start.
+
 ### `spaceweather.js`
 
 The Sun side of space weather from NOAA SWPC: the solar wind at L1 (speed, density, Bz), GOES X-ray flares and SWPC's
@@ -1371,7 +1378,7 @@ Used by globe.
 ### `slices.js`
 
 Main-thread manners: long jobs cut into slices that leave room for frames, a latch that holds work back until a view has
-shown its first picture, and a debounce. DOM-free: the page passes its clock and how to yield. Used by globe.
+shown its first picture, a debounce and a pacer. DOM-free: the page passes its clock and how to yield. Used by globe.
 
 - `sliced`: runs `each(item, i)` over items, yielding (`defaultYield`: `scheduler.yield` where there is one, else a zero
   timeout) whenever a slice has run `budget` ms (8 by default); `stop()` after a yield ends it early. Resolves with the
@@ -1380,6 +1387,20 @@ shown its first picture, and a debounce. DOM-free: the page passes its clock and
 - `latch`: `open()` once, `wait()` resolves after it (the globe's settled latch in src/globe/state.js: the first idle
   moment after the boot screen).
 - `debounce`: `fn` once `ms` have passed with no newer call; `.flush()` and `.cancel()`.
+- `paced`: `fn` at most once per gap (a number, or a function read at each call); `.now()` runs it at once. The globe
+  picks which satellites get a 3D model once a second, every 2 s while the camera moves (src/globe/main.js).
+
+### `screenpick.js`
+
+Picking dots on the CPU: which of many world points is drawn nearest a spot on the screen. The globe's GPU pick
+(`scene.pick`) draws the scene again and reads it back; with the full satellite catalogue under software WebGL one hover
+pick was a 27 s task (perf run 2026-10-31). DOM-free and Cesium-free: the view passes its view-projection matrix (column
+major, Cesium's layout) and canvas size. Used by globe (src/globe/pick.js). Tests: `test/screenpick.test.mjs`.
+
+- `project`: world → window pixels, false behind the camera.
+- `behindSphere`: the line from the camera to a point passes inside the Earth (`EARTH_MIN_R`, the polar radius).
+- `makePicker`: `offer(x, y, z, sizePx, item, near, far)` for every dot, keeps the one nearest the spot within `r` px of
+  its edge, skipping NaN positions, dots outside their display range and dots behind the Earth; `.item` and `.d`.
 
 ### `quality.js`
 
