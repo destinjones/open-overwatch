@@ -130,7 +130,7 @@ test('every other link on the page opens a page and a section that exist', () =>
     assert.ok(existsSync(new URL(f || 'index.html', root)), `${h}: ${f} exists`);
     if (frag && !frag.includes('=')) assert.match(read(f), new RegExp(`id="${frag}"`), `${h}: ${f} has the section ${frag}`);
   }
-  for (const s of ['../brand/fonts/fonts.css', '../brand/emblem/favicon.svg', '../brand/emblem/emblem-256.png', '../manifest.webmanifest', '../src/app/shell.js'])
+  for (const s of ['../brand/fonts/fonts.css', '../brand/emblem/favicon.svg', '../brand/emblem/emblem-96.webp', '../src/app/site.css', '../manifest.webmanifest', '../src/app/shell.js'])
     assert.ok(html.includes(`"${s}"`) && existsSync(new URL(s.slice(3), root)), s);
 });
 
@@ -234,7 +234,8 @@ test('the CSP and accessibility checks pass; no inline script to hash', () => {
   const outline = [...html.matchAll(/<h([1-6])[\s>]/g)].map(m => +m[1]);
   outline.forEach((n, i) => assert.ok(i === 0 || n <= outline[i - 1] + 1, `heading ${i}: h${n} after h${outline[i - 1]} skips a level`));
   assert.match(html, /<html lang="en">/);
-  assert.match(html, /@media \(prefers-reduced-motion:reduce\)/);
+  assert.ok(html.includes('"../src/app/site.css"'), 'the shared styles, with their reduced-motion rules');
+  assert.match(read('src/app/site.css'), /@media \(prefers-reduced-motion:reduce\)/);
 });
 
 test('it prints: no navigation or buttons, every activity on its own when it fits, one activity alone on request', () => {

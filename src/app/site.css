@@ -1,0 +1,172 @@
+/* Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
+   The content pages' components (index, about, guide, teach/, india/): one nav, one button, one type ramp, one footer,
+   built only from the tokens in src/app/shell.css (linked just before this file). A page's own <style> comes after and
+   holds only what is that page's: its hero, its grids, its colours of the day. docs/DESIGN.md has the rules. */
+
+/* the short names the page styles were written with, now pointing at the tokens */
+:root{
+  --bg:var(--oo-bg); --panel:var(--oo-surface); --panel-2:var(--oo-surface-2); --line:var(--oo-line); --line-strong:var(--oo-line-strong);
+  --ink:var(--oo-ink); --ink-dim:var(--oo-ink-dim); --ink-faint:var(--oo-ink-faint);
+  --accent:var(--oo-accent); --accent-dim:var(--oo-accent-soft);
+  --civ:var(--oo-civ); --mil:var(--oo-mil); --emg:var(--oo-emg); --sat:var(--oo-sat); --ship:var(--oo-ship); --qk:var(--oo-qk);
+  --evt:var(--oo-evt); --cam:var(--oo-cam); --lch:var(--oo-lch);
+  --display:var(--oo-font-display); --body:var(--oo-font-body); --mono:var(--oo-font-mono);
+  --gut:var(--oo-gutter); --max:var(--oo-max-doc);
+  color-scheme:dark;
+}
+
+/* ---- base */
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-padding-top:calc(var(--oo-nav-h) + 12px)}
+body{margin:0;background:var(--oo-bg);color:var(--oo-ink);font:var(--oo-fs-base)/var(--oo-lh-body) var(--oo-font-body);
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;text-rendering:optimizeLegibility}
+a{color:inherit;text-underline-offset:.18em;text-decoration-thickness:1px}
+a:hover{text-decoration-color:var(--oo-accent)}
+img,video{display:block;max-width:100%}
+img{height:auto}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--oo-gutter)}
+[hidden]{display:none!important}
+.mono{font-family:var(--oo-font-mono)}
+/* the pages' own skip link looks like the shared one (.oo-skip in shell.css) */
+.skip{position:fixed;left:12px;top:-60px;z-index:var(--oo-z-overlay);padding:10px 14px;border-radius:var(--oo-r-sm);background:var(--oo-accent);
+  color:var(--oo-on-accent);font:var(--oo-fw-semibold) var(--oo-fs-sm)/1 var(--oo-font-mono);text-decoration:none;box-shadow:var(--oo-shadow-1)}
+.skip:focus{top:calc(10px + env(safe-area-inset-top,0px))}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---- type */
+.eyebrow{font:var(--oo-fw-medium) var(--oo-fs-xs)/1.3 var(--oo-font-mono);letter-spacing:var(--oo-track-eyebrow);text-transform:uppercase;
+  color:var(--oo-accent);display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";flex:none;width:22px;height:1px;background:currentColor}
+h1,h2,h3,h4{font-family:var(--oo-font-display);font-weight:var(--oo-fw-black);text-transform:uppercase;letter-spacing:.01em;
+  line-height:var(--oo-lh-tight);margin:0;text-wrap:balance}
+h1{font-size:var(--oo-fs-h1)}
+h2{font-size:var(--oo-fs-h2)}
+h3{font-size:var(--oo-fs-h3);font-weight:var(--oo-fw-bold);letter-spacing:.03em}
+h4{font-size:var(--oo-fs-h4);font-weight:var(--oo-fw-bold);letter-spacing:.03em}
+p{text-wrap:pretty}
+.lede{font-size:var(--oo-fs-lede);color:var(--oo-ink-dim);max-width:40em}
+code,kbd{font:var(--oo-fw-medium) .86em var(--oo-font-mono);color:var(--oo-ink)}
+p code,li code{overflow-wrap:anywhere}
+kbd{display:inline-block;min-width:1.7em;text-align:center;padding:1px 6px;border:1px solid var(--oo-line-strong);border-bottom-width:2px;
+  border-radius:var(--oo-r-xs);background:var(--oo-surface)}
+
+/* ---- the nav: sticky and solid on reading pages; .over (index, india) floats over the hero and turns solid once you
+   scroll. The solid layer is a pseudo-element faded by opacity, so scrolling repaints nothing but that layer. */
+.site-nav{position:sticky;top:0;z-index:var(--oo-z-nav);isolation:isolate}
+.site-nav::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--oo-scrim);border-bottom:1px solid var(--oo-line);
+  -webkit-backdrop-filter:var(--oo-blur);backdrop-filter:var(--oo-blur);transition:opacity var(--oo-dur-3) var(--oo-ease-std)}
+.site-nav.over{position:fixed;inset:0 0 auto}
+.site-nav.over::before{opacity:0}
+.site-nav.over.solid::before,.site-nav.over.open::before{opacity:1}
+/* over the hero picture, a soft shade keeps the links readable before the bar turns solid */
+.site-nav.over::after{content:"";position:absolute;inset:0 0 -28px;z-index:-2;pointer-events:none;
+  background:linear-gradient(180deg,rgba(4,6,10,.72),rgba(4,6,10,0));transition:opacity var(--oo-dur-3) var(--oo-ease-std)}
+.site-nav.over.solid::after{opacity:0}
+.site-nav .wrap{display:flex;align-items:center;gap:var(--oo-s-6);height:var(--oo-nav-h);max-width:none}
+.brand{display:flex;align-items:center;gap:var(--oo-s-3);text-decoration:none;font:var(--oo-fw-black) 21px/1 var(--oo-font-display);
+  letter-spacing:.08em;text-transform:uppercase;color:var(--oo-ink);white-space:nowrap}
+.brand img{width:32px;height:32px;flex:none}
+.brand.sm{font-size:18px} .brand.sm img{width:26px;height:26px}
+.site-nav .links{display:flex;gap:var(--oo-s-6);margin-left:auto;font:var(--oo-fw-medium) var(--oo-fs-sm)/1 var(--oo-font-mono);
+  letter-spacing:var(--oo-track-caps);text-transform:uppercase}
+.site-nav .links a{position:relative;display:inline-flex;align-items:center;min-height:var(--oo-tap);text-decoration:none;color:var(--oo-ink-dim);
+  transition:color var(--oo-dur-2) var(--oo-ease-std)}
+.site-nav .links a::after{content:"";position:absolute;left:0;right:0;bottom:10px;height:1px;background:var(--oo-accent);
+  transform:scaleX(0);transform-origin:left;transition:transform var(--oo-dur-3) var(--oo-ease-out)}
+.site-nav .links a:hover,.site-nav .links a[aria-current]{color:var(--oo-ink)}
+.site-nav .links a:hover::after,.site-nav .links a[aria-current]::after{transform:none}
+.menu-btn{display:none;align-items:center;justify-content:center;flex:none;width:var(--oo-tap);height:var(--oo-tap);padding:0;margin-left:auto;
+  border:1px solid var(--oo-line-strong);background:var(--oo-glass-soft);color:var(--oo-ink);cursor:pointer;
+  transition:border-color var(--oo-dur-2) var(--oo-ease-std)}
+.menu-btn:hover{border-color:var(--oo-accent)}
+.menu-btn svg{width:20px;height:20px;overflow:visible}
+.menu-btn svg path{transform-box:fill-box;transform-origin:center;transition:transform var(--oo-dur-3) var(--oo-ease-out),opacity var(--oo-dur-2)}
+.site-nav.open .menu-btn .m1{transform:translateY(5px) rotate(45deg)}
+.site-nav.open .menu-btn .m2{opacity:0}
+.site-nav.open .menu-btn .m3{transform:translateY(-5px) rotate(-45deg)}
+@keyframes oo-drop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+/* the phone menu on the reading pages (data-menu="shared", wired by src/app/site.js): the same links stacked under the bar */
+@media (max-width:860px){
+  .site-nav[data-menu=shared] .links{display:none}
+  .site-nav[data-menu=shared] .menu-btn{display:inline-flex}
+  .site-nav[data-menu=shared].open .links{display:flex;flex-direction:column;gap:0;position:absolute;top:100%;left:0;right:0;margin:0;
+    padding:6px var(--oo-gutter) 14px;background:rgba(4,6,10,.97);border-bottom:1px solid var(--oo-line);font-size:14px}
+  .site-nav[data-menu=shared].open .links a{padding:8px 0;border-bottom:1px solid var(--oo-line)}
+  .site-nav[data-menu=shared].open .links a:last-child{border-bottom:0}
+  .site-nav[data-menu=shared].open .links a::after{display:none}
+  .site-nav .links a[aria-current]{color:var(--oo-accent)}
+}
+.site-nav.open .links{animation:oo-drop var(--oo-dur-3) var(--oo-ease-out)}
+@media (max-width:480px){.brand{font-size:16px;gap:9px}.brand img{width:26px;height:26px}}
+/* phones: a solid bar instead of a live blur, which costs frames on low-end Android */
+@media (max-width:760px){.site-nav::before{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(4,6,10,.96)}}
+
+/* ---- buttons: one shape (square, one cut corner), three kinds (default, .primary, .ghost) and one smaller size.
+   Hover lifts 1 px, a press sinks back; the focus ring is drawn inside, as the cut corner clips anything outside. */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:48px;padding:14px 22px;
+  border:1px solid var(--oo-line-strong);background:var(--oo-glass-soft);color:var(--oo-ink);text-decoration:none;
+  font:var(--oo-fw-semibold) var(--oo-fs-sm)/1.1 var(--oo-font-mono);letter-spacing:var(--oo-track-caps);text-transform:uppercase;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  clip-path:polygon(var(--oo-cut) 0,100% 0,100% calc(100% - var(--oo-cut)),calc(100% - var(--oo-cut)) 100%,0 100%,0 var(--oo-cut));
+  transition:background-color var(--oo-dur-2) var(--oo-ease-std),border-color var(--oo-dur-2) var(--oo-ease-std),
+    color var(--oo-dur-2) var(--oo-ease-std),transform var(--oo-dur-2) var(--oo-ease-out)}
+.btn:hover{background-color:var(--oo-surface-2);border-color:var(--oo-ink-faint);transform:translateY(-1px)}
+.btn:active{transform:translateY(0) scale(.985);transition-duration:var(--oo-dur-1)}
+.btn.primary{background:var(--oo-accent);color:var(--oo-on-accent);border-color:var(--oo-accent)}
+.btn.primary:hover{background:var(--oo-accent-hover);border-color:var(--oo-accent-hover)}
+.btn.ghost{background:transparent}
+.btn.small{min-height:40px;padding:10px 15px;font-size:var(--oo-fs-xs)}
+.btn svg{flex:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn:focus-visible{outline-offset:-4px!important}
+.btn.primary:focus-visible{outline-color:var(--oo-on-accent)!important}
+.btn[aria-disabled=true]{opacity:.35;pointer-events:none}
+.cta{display:flex;flex-wrap:wrap;gap:var(--oo-s-3);align-items:center;margin-top:30px}
+/* a text link that reads as an action */
+.lnk{font:var(--oo-fw-medium) 12.5px var(--oo-font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--oo-ink);text-decoration:none;
+  border-bottom:1px solid var(--oo-line-strong);padding-bottom:2px;transition:color var(--oo-dur-2),border-color var(--oo-dur-2)}
+.lnk:hover{border-color:var(--oo-accent);color:var(--oo-accent)}
+
+/* ---- the reading pages' hero and sections (index and india set their own, larger rhythm) */
+.page-hero{padding:clamp(56px,9vw,110px) 0 clamp(40px,6vw,80px);
+  background:radial-gradient(900px 420px at 80% 0%,rgba(125,255,166,.07),transparent),radial-gradient(700px 400px at 0% 100%,rgba(95,211,255,.06),transparent)}
+.page-hero p.sub{font:var(--oo-fw-medium) 14px/1.5 var(--oo-font-mono);letter-spacing:var(--oo-track-label);text-transform:uppercase;color:var(--oo-accent);margin:18px 0 26px}
+.page-hero .lede{color:var(--oo-ink);margin:0 0 14px}
+.page-hero .lede+.lede{color:var(--oo-ink-dim)}
+.doc section{padding:var(--oo-section) 0;border-top:1px solid var(--oo-line)}
+.doc section>.wrap>.eyebrow{margin-bottom:var(--oo-s-4)}
+.doc section h2{margin-bottom:28px}
+.note{color:var(--oo-ink-dim);max-width:var(--oo-measure)}
+/* long pages: sections far below the fold skip rendering until they come near (the browser keeps their last size) */
+.cv{content-visibility:auto;contain-intrinsic-size:auto 900px}
+@media print{.cv{content-visibility:visible}}
+.toc{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--oo-line);border:1px solid var(--oo-line);margin-top:34px}
+.toc a{display:flex;align-items:center;min-height:48px;background:var(--oo-bg);padding:14px 18px;text-decoration:none;
+  font:var(--oo-fw-medium) 12.5px/1.4 var(--oo-font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--oo-ink-dim);
+  transition:color var(--oo-dur-2),background-color var(--oo-dur-2)}
+.toc a:hover{color:var(--oo-accent);background:var(--oo-surface)}
+@media (max-width:860px){.toc{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:480px){.toc{grid-template-columns:1fr}}
+
+/* ---- footer */
+footer{border-top:1px solid var(--oo-line);padding:40px 0 60px;font-size:14px;color:var(--oo-ink-faint)}
+footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px}
+footer p{margin:0 0 8px}
+footer a{color:var(--oo-ink-dim)}
+footer a:hover{color:var(--oo-ink)}
+@media (max-width:760px){footer .wrap{grid-template-columns:1fr}}
+
+/* ---- motion: reveal on scroll (.rv, the page script adds .in), and the hero's entrance, which plays from the first paint
+   without waiting for a script. With scripting off or reduced motion, everything is simply there. */
+@keyframes oo-rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@media (scripting:enabled) and (prefers-reduced-motion:no-preference){
+  .rv:not(.in):not(.hero *){opacity:0;transform:translateY(22px)}
+  .rv{transition:opacity var(--oo-dur-5) var(--oo-ease-out),transform var(--oo-dur-5) var(--oo-ease-out)}
+  .hero .rv{animation:oo-rise var(--oo-dur-5) var(--oo-ease-out) both}
+  .hero .wrap>.rv:nth-child(2){animation-delay:60ms} .hero .wrap>.rv:nth-child(3){animation-delay:120ms}
+  .hero .wrap>.rv:nth-child(4){animation-delay:180ms} .hero .wrap>.rv:nth-child(5){animation-delay:240ms}
+  .hero .wrap>.rv:nth-child(n+6){animation-delay:300ms}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .btn:hover,.btn:active{transform:none}
+}

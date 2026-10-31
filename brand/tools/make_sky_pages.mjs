@@ -281,25 +281,33 @@ ${body}
 `;
 }
 
-export const CSS = `/* Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE). The city sky pages (brand/tools/make_sky_pages.mjs). */
-:root{color-scheme:dark}
-body{margin:0;background:#05070a;color:#d8dee6;font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Noto Sans Devanagari",sans-serif}
+export const CSS = `/* Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE). The city sky pages (brand/tools/make_sky_pages.mjs).
+   441 small pages, so no web fonts and no shared files: system fonts, and the colours and radii of the site's tokens
+   (src/app/shell.css, docs/DESIGN.md) written out. */
+:root{color-scheme:dark;--bg:#04060a;--surface:#080c12;--line:#182230;--line-strong:#26343f;--ink:#e6edf3;--dim:#8b9bab;--faint:#738599;--accent:#7dffa6;--link:#7fd0ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Noto Sans Devanagari",sans-serif;-webkit-text-size-adjust:100%}
 header,main,footer{max-width:760px;margin:0 auto;padding:0 16px}
-header{padding-top:14px;font-size:14px}
-a{color:#7fd1ff}
-h1{font-size:26px;line-height:1.25;margin:18px 0 4px}
-h2{font-size:19px;margin:28px 0 8px}
-.where,.stamp,.note{color:#9aa6b2;font-size:14px;margin:4px 0}
-dl{margin:12px 0;display:grid;grid-template-columns:minmax(90px,max-content) 1fr;gap:8px 16px}
+header{padding-top:14px;font-size:14px;color:var(--faint);border-bottom:1px solid var(--line);padding-bottom:12px}
+header a{color:var(--ink);font-weight:600;text-decoration:none} header a:hover{color:var(--accent)}
+a{color:var(--link);text-underline-offset:.18em}
+a:focus-visible,input:focus-visible,iframe:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1{font-size:28px;line-height:1.2;letter-spacing:-.01em;margin:22px 0 6px;text-wrap:balance}
+h2{font-size:13px;line-height:1.3;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:32px 0 10px}
+.where,.stamp,.note{color:var(--dim);font-size:14px;margin:4px 0}
+dl{margin:12px 0;display:grid;grid-template-columns:minmax(90px,max-content) 1fr;gap:10px 18px;padding:16px 18px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
 dt{font-weight:600;color:#fff}
 dd{margin:0}
 dd ul,dd ol{margin:0;padding-left:20px}
-iframe{display:block;width:100%;height:820px;border:1px solid #1f2a36;border-radius:10px;background:#04060a;margin-top:8px}
+iframe{display:block;width:100%;height:820px;border:1px solid var(--line-strong);border-radius:12px;background:var(--bg);margin-top:8px}
 .links{padding-left:20px}
-footer{color:#8994a0;font-size:13px;padding-bottom:32px;margin-top:32px}
+.links li{margin:4px 0}
+footer{color:var(--faint);font-size:13px;padding-bottom:32px;margin-top:32px;border-top:1px solid var(--line);padding-top:16px}
+footer a{color:var(--dim)}
 #cities ul{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px 18px}
-.find input{font:inherit;padding:6px 10px;border-radius:8px;border:1px solid #2b3846;background:#0b1118;color:inherit;width:min(100%,320px)}
-@media (max-width:520px){dl{grid-template-columns:1fr;gap:2px}dd{margin-bottom:10px}h1{font-size:22px}iframe{height:760px}}
+#cities a{display:inline-block;padding:4px 0}
+.find input{font:inherit;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:inherit;width:min(100%,320px)}
+@media (max-width:520px){dl{grid-template-columns:1fr;gap:2px}dd{margin-bottom:10px}h1{font-size:23px}iframe{height:760px}}
 `;
 
 /** sitemap-sky.xml: every page, the Hindi pairs with their hreflang links. */

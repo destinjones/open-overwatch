@@ -181,6 +181,8 @@ playBtn.addEventListener('click', () => {
   else if (pv.ended) show(auto ? 0 : cur, true);   // the round is over: again from the first clip (or the picked one)
   else { want = true; pv.play().catch(() => {}); }
 });
+// the phone sits below the fold: its first poster loads as it comes within 800px, not with the page
+new IntersectionObserver(([e], o) => { if (e.isIntersecting) { o.disconnect(); if (!pv.getAttribute('poster')) pv.poster = SITE + 'brand/india/clips/' + tabs[0].dataset.clip + '.jpg'; } }, { rootMargin: '800px 0px' }).observe(pv);
 for (const ev of ['play', 'pause', 'ended']) pv.addEventListener(ev, sync);
 pv.addEventListener('timeupdate', () => { if (pv.duration) tabs[cur].querySelector('.bar i').style.width = (pv.currentTime / pv.duration * 100) + '%'; });
 pv.addEventListener('ended', () => { if (auto && cur < tabs.length - 1) show(cur + 1, true); else { want = false; sync(); } });

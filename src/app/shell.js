@@ -22,14 +22,19 @@ export function pageOf(pathname) {
 const PAGE = pageOf(location.pathname);
 document.documentElement.dataset.ooPage = PAGE;
 
-const css = document.createElement('link');
-css.rel = 'stylesheet'; css.href = new URL('shell.css', import.meta.url).href;
-document.head.appendChild(css);
+// the content pages link shell.css in <head> (its design tokens are needed at first paint); the views get it from here
+if (!document.querySelector('link[rel=stylesheet][href$="app/shell.css"]')) {
+  const css = document.createElement('link');
+  css.rel = 'stylesheet'; css.href = new URL('shell.css', import.meta.url).href;
+  document.head.appendChild(css);
+}
 
 const OOApp = window.OOApp = { page: PAGE, announce, pwa: Pwa };
 
 initA11y(PAGE);
 initPwa(PAGE);
+// the content pages' nav (site.css .site-nav): the solid bar and the shared phone menu
+if (document.querySelector('.site-nav')) import('./site.js').then(m => m.initSite());
 if (PAGE === 'globe' || PAGE === 'map') {
   // the hints and the long press are only for the two maps; loaded after the page so they never delay it
   const later = () => import('./gestures.js').then(m => { OOApp.hints = m.showHints; m.initGestures(PAGE); });

@@ -1,15 +1,67 @@
-/* Shared by every page (src/app/shell.js adds it): screen-reader-only text, the skip link, keyboard focus rings, the
-   top bar (offline / new version), the first-run touch hints, the long-press spot popup, and reduced motion. */
+/* Shared by every page (src/app/shell.js adds it; the content pages also link it in <head> so the tokens are there at
+   first paint): the design tokens, screen-reader-only text, the skip link, keyboard focus rings, the top bar (offline / new
+   version), the first-run touch hints, the long-press spot popup, and reduced motion. docs/DESIGN.md explains the tokens. */
+
+/* ---- design tokens. Everything is --oo-* so nothing here collides with a view's own variables. Dark only: the product is
+   a night-sky console (color-scheme:dark everywhere; teach/ has a print sheet, black on white). */
+:root{
+  /* colour roles */
+  --oo-bg:#04060a; --oo-surface:#080c12; --oo-surface-2:#0e141c; --oo-surface-hover:#070b11;
+  --oo-glass:rgba(8,12,18,.94); --oo-glass-soft:rgba(8,12,18,.7); --oo-scrim:rgba(4,6,10,.86);
+  --oo-line:#182230; --oo-line-strong:#26343f; --oo-line-glass:rgba(230,237,243,.14);
+  --oo-ink:#e6edf3; --oo-ink-2:#c3cfdb; --oo-ink-dim:#8b9bab; --oo-ink-faint:#738599;   /* AA on --oo-bg: 16.6, 12, 7.1, 5.4 */
+  --oo-accent:#7dffa6; --oo-accent-hover:#a6ffc2; --oo-on-accent:#04060a;
+  --oo-accent-soft:rgba(125,255,166,.14); --oo-accent-line:rgba(125,255,166,.35); --oo-accent-glow:rgba(125,255,166,.32);
+  --oo-warn:#ffb44d; --oo-danger:#ff4d5e; --oo-info:#5fd3ff; --oo-note:#fff2a8;
+  /* layer colours: the same thing is the same colour on every page and in every view */
+  --oo-civ:#5fd3ff; --oo-mil:#ffb44d; --oo-emg:#ff4d5e; --oo-sat:#d9ccff; --oo-ship:#62e0c8; --oo-qk:#ff7b4f; --oo-evt:#ffd45c;
+  --oo-cam:#ff6fb5; --oo-lch:#ff9f5c; --oo-saffron:#ff9f3f; --oo-sky:#7fd0ff;
+
+  /* type: three faces (brand/fonts/fonts.css, with size-matched local fallbacks so the swap does not reflow) */
+  --oo-font-display:"Big Shoulders Display","Big Shoulders Fallback","Arial Narrow",sans-serif;
+  --oo-font-body:"Barlow","Barlow Fallback",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --oo-font-mono:"IBM Plex Mono","Plex Mono Fallback",ui-monospace,Menlo,Consolas,monospace;
+  --oo-font-deva:"Noto Sans Devanagari","Nirmala UI","Mangal",system-ui,sans-serif;
+  /* scale: labels are mono caps (11-13), reading text Barlow (15-21), headings Big Shoulders caps (22 up) */
+  --oo-fs-2xs:11px; --oo-fs-xs:12px; --oo-fs-sm:13px; --oo-fs-md:15px; --oo-fs-base:17px; --oo-fs-lede:clamp(18px,1.7vw,21px);
+  --oo-fs-h4:22px; --oo-fs-h3:clamp(24px,2.6vw,30px); --oo-fs-h2:clamp(36px,5vw,64px); --oo-fs-h2-xl:clamp(44px,6.2vw,86px);
+  --oo-fs-h1:clamp(50px,8.4vw,116px); --oo-fs-hero:clamp(52px,7.4vw,124px);
+  --oo-lh-tight:.94; --oo-lh-snug:1.25; --oo-lh-body:1.6;
+  --oo-fw-regular:400; --oo-fw-medium:500; --oo-fw-semibold:600; --oo-fw-bold:700; --oo-fw-black:900;
+  --oo-track-caps:.12em; --oo-track-label:.16em; --oo-track-eyebrow:.22em;
+
+  /* space: a 4 px grid */
+  --oo-s-1:4px; --oo-s-2:8px; --oo-s-3:12px; --oo-s-4:16px; --oo-s-5:20px; --oo-s-6:24px; --oo-s-7:32px; --oo-s-8:40px;
+  --oo-s-9:56px; --oo-s-10:80px;
+  --oo-gutter:clamp(16px,4vw,56px); --oo-max:1240px; --oo-max-doc:1100px; --oo-measure:46em;
+  --oo-section:clamp(56px,8vw,104px); --oo-section-xl:clamp(80px,11vw,144px);
+  --oo-nav-h:64px; --oo-tap:44px;
+
+  /* shape: the site's buttons and panels are square with one cut corner (--oo-cut); radii are for floating UI */
+  --oo-cut:10px; --oo-r-xs:5px; --oo-r-sm:8px; --oo-r-md:12px; --oo-r-lg:16px; --oo-r-pill:999px;
+  /* elevation */
+  --oo-shadow-1:0 6px 24px rgba(0,0,0,.45); --oo-shadow-2:0 12px 36px rgba(0,0,0,.55); --oo-shadow-3:0 40px 90px rgba(0,0,0,.7);
+  --oo-blur:blur(12px);
+
+  /* motion: a press, a hover, a panel, a sheet, a reveal; only transform and opacity animate (globe.html --t-fast, --t and
+     --t-slow are steps 2 to 4) */
+  --oo-dur-1:120ms; --oo-dur-2:160ms; --oo-dur-3:280ms; --oo-dur-4:420ms; --oo-dur-5:640ms;
+  --oo-ease-out:cubic-bezier(.2,.8,.2,1); --oo-ease-in-out:cubic-bezier(.65,0,.35,1); --oo-ease-std:cubic-bezier(.2,0,0,1);
+
+  --oo-focus:var(--oo-accent);
+  --oo-z-nav:50; --oo-z-overlay:100000;
+}
+@media (prefers-reduced-motion:reduce){:root{--oo-dur-1:0ms; --oo-dur-2:0ms; --oo-dur-3:0ms; --oo-dur-4:0ms; --oo-dur-5:0ms}}
 
 .oo-sr{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
 
 /* skip link: off screen until a keyboard lands on it */
-.oo-skip{position:fixed;left:12px;top:-60px;z-index:100000;padding:10px 14px;border-radius:8px;background:#7dffa6;color:#04060a;
-  font:600 13px/1 "IBM Plex Mono",ui-monospace,Consolas,monospace;text-decoration:none;box-shadow:0 6px 24px rgba(0,0,0,.5)}
+.oo-skip{position:fixed;left:12px;top:-60px;z-index:var(--oo-z-overlay);padding:10px 14px;border-radius:var(--oo-r-sm);background:var(--oo-accent);color:var(--oo-on-accent);
+  font:600 var(--oo-fs-sm)/1 var(--oo-font-mono);text-decoration:none;box-shadow:var(--oo-shadow-1)}
 .oo-skip:focus{top:calc(10px + env(safe-area-inset-top,0px))}
 
 /* focus rings: keyboard only (:focus-visible), the same green on every page, visible on glass and on the canvas */
-:focus-visible{outline:2px solid #7dffa6!important;outline-offset:2px!important}
+:focus-visible{outline:2px solid var(--oo-focus)!important;outline-offset:2px!important}
 html.oo-kbd :focus-visible{box-shadow:0 0 0 4px rgba(4,6,10,.75)}
 #globe:focus-visible,#map:focus-visible,#c:focus-visible{outline-offset:-4px!important}
 
@@ -17,46 +69,46 @@ html.oo-kbd :focus-visible{box-shadow:0 0 0 4px rgba(4,6,10,.75)}
 /* left and right both set with an auto margin centre it at its own width; left:50% would squeeze it to half the screen */
 .oo-bar{position:fixed;left:10px;right:10px;margin:0 auto;width:fit-content;top:calc(10px + env(safe-area-inset-top,0px));z-index:100001;
   display:flex;align-items:center;gap:8px;max-width:560px;padding:8px 8px 8px 14px;border-radius:12px;
-  background:rgba(8,12,18,.94);border:1px solid rgba(230,237,243,.14);box-shadow:0 10px 32px rgba(0,0,0,.5);color:#e6edf3;
-  font:500 13px/1.35 "Barlow",system-ui,sans-serif;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+  background:var(--oo-glass);border:1px solid var(--oo-line-glass);box-shadow:var(--oo-shadow-2);color:var(--oo-ink);
+  font:500 13px/1.35 var(--oo-font-body);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .oo-bar[hidden]{display:none}
-.oo-bar-offline{border-color:rgba(255,180,77,.55)} .oo-bar-offline::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:#ffb44d}
-.oo-bar-online::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:#7dffa6}
+.oo-bar-offline{border-color:rgba(255,180,77,.55)} .oo-bar-offline::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--oo-warn)}
+.oo-bar-online::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--oo-accent)}
 .oo-bar-update{border-color:rgba(125,255,166,.45)}
 .oo-bar-t{flex:1;min-width:0}
-.oo-bar-b{flex:none;min-height:34px;padding:0 12px;border-radius:9px;border:1px solid rgba(230,237,243,.18);background:transparent;color:#e6edf3;
-  font:600 12px/1 "IBM Plex Mono",ui-monospace,Consolas,monospace;letter-spacing:.06em;cursor:pointer}
-.oo-bar-b.main{background:#7dffa6;border-color:#7dffa6;color:#04060a}
-.oo-bar-b:hover{border-color:#7dffa6}
+.oo-bar-b{flex:none;min-height:34px;padding:0 12px;border-radius:9px;border:1px solid rgba(230,237,243,.18);background:transparent;color:var(--oo-ink);
+  font:600 12px/1 var(--oo-font-mono);letter-spacing:.06em;cursor:pointer}
+.oo-bar-b.main{background:var(--oo-accent);border-color:var(--oo-accent);color:var(--oo-on-accent)}
+.oo-bar-b:hover{border-color:var(--oo-accent)}
 .oo-install[hidden]{display:none!important}
 
 /* "What's new": once after an update (src/app/pwa.js); a corner card, never a blocking dialog */
 .oo-new{position:fixed;left:10px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:100001;width:min(360px,calc(100% - 20px));box-sizing:border-box;
-  padding:14px 14px 12px;border-radius:14px;background:rgba(8,12,18,.94);border:1px solid rgba(125,255,166,.35);box-shadow:0 12px 36px rgba(0,0,0,.55);
-  color:#e6edf3;font:14px/1.4 "Barlow",system-ui,sans-serif;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
-.oo-new h2{margin:0 28px 2px 0;color:#7dffa6;font:600 12px/1.2 "IBM Plex Mono",ui-monospace,Consolas,monospace;letter-spacing:.08em;text-transform:uppercase}
-.oo-new-t{margin:0 28px 8px 0;font:800 19px/1.1 "Big Shoulders Display","Arial Narrow",sans-serif;letter-spacing:.03em}
+  padding:14px 14px 12px;border-radius:14px;background:var(--oo-glass);border:1px solid rgba(125,255,166,.35);box-shadow:var(--oo-shadow-2);
+  color:var(--oo-ink);font:14px/1.4 var(--oo-font-body);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.oo-new h2{margin:0 28px 2px 0;color:var(--oo-accent);font:600 12px/1.2 var(--oo-font-mono);letter-spacing:.08em;text-transform:uppercase}
+.oo-new-t{margin:0 28px 8px 0;font:800 19px/1.1 var(--oo-font-display);letter-spacing:.03em}
 .oo-new ul{margin:0 0 10px;padding-left:18px;display:grid;gap:4px}
 .oo-new-row{display:flex;gap:8px;flex-wrap:wrap}
 .oo-new-row .oo-bar-b{display:inline-flex;align-items:center;text-decoration:none}
-.oo-new-x{position:absolute;top:8px;right:8px;width:32px;height:32px;border:0;border-radius:8px;background:transparent;color:#8b9bab;font-size:15px;cursor:pointer}
-.oo-new-x:hover{color:#e6edf3}
+.oo-new-x{position:absolute;top:8px;right:8px;width:32px;height:32px;border:0;border-radius:8px;background:transparent;color:var(--oo-ink-dim);font-size:15px;cursor:pointer}
+.oo-new-x:hover{color:var(--oo-ink)}
 
 /* first-run touch hints */
 #ooHints{position:fixed;inset:0;z-index:100002;display:flex;align-items:flex-end;justify-content:center;padding:16px 12px calc(16px + env(safe-area-inset-bottom,0px));
   background:rgba(2,4,8,.55);opacity:0;transition:opacity .22s}
 #ooHints.in{opacity:1} #ooHints.out{opacity:0}
 .oo-hints-card{width:min(420px,100%);padding:18px 18px 14px;border-radius:16px;background:rgba(8,12,18,.96);border:1px solid rgba(125,255,166,.22);
-  box-shadow:0 16px 48px rgba(0,0,0,.55);color:#e6edf3;font:15px/1.4 "Barlow",system-ui,sans-serif;transform:translateY(16px);transition:transform .25s cubic-bezier(.2,.8,.2,1)}
+  box-shadow:0 16px 48px rgba(0,0,0,.55);color:var(--oo-ink);font:15px/1.4 var(--oo-font-body);transform:translateY(16px);transition:transform .25s cubic-bezier(.2,.8,.2,1)}
 #ooHints.in .oo-hints-card{transform:none}
-.oo-hints-card h2{margin:0 0 10px;font:900 22px/1.05 "Big Shoulders Display","Arial Narrow",sans-serif;letter-spacing:.05em;text-transform:uppercase}
+.oo-hints-card h2{margin:0 0 10px;font:900 22px/1.05 var(--oo-font-display);letter-spacing:.05em;text-transform:uppercase}
 .oo-hints-card ul{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:8px}
 .oo-hints-card li{display:flex;align-items:center;gap:12px}
-.oo-hints-card li b{color:#7dffa6;font-weight:600}
-.oo-hints-card svg{flex:none;width:44px;height:44px;fill:none;stroke:#8b9bab;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.oo-hints-card svg .f{fill:#7dffa6;stroke:none;opacity:.9}
-.oo-hints-card svg .ring{stroke:#7dffa6;opacity:.5}
-.oo-hints-ok{width:100%;min-height:46px;border:0;border-radius:11px;background:#7dffa6;color:#04060a;font:700 14px/1 "IBM Plex Mono",ui-monospace,Consolas,monospace;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.oo-hints-card li b{color:var(--oo-accent);font-weight:600}
+.oo-hints-card svg{flex:none;width:44px;height:44px;fill:none;stroke:var(--oo-ink-dim);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.oo-hints-card svg .f{fill:var(--oo-accent);stroke:none;opacity:.9}
+.oo-hints-card svg .ring{stroke:var(--oo-accent);opacity:.5}
+.oo-hints-ok{width:100%;min-height:46px;border:0;border-radius:11px;background:var(--oo-accent);color:var(--oo-on-accent);font:700 14px/1 var(--oo-font-mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
 @keyframes oo-drag{0%,20%{transform:none}60%,100%{transform:translateX(12px)}}
 @keyframes oo-pa{0%,20%{transform:none}60%,100%{transform:translate(-5px,5px)}}
 @keyframes oo-pb{0%,20%{transform:none}60%,100%{transform:translate(5px,-5px)}}
@@ -71,9 +123,9 @@ html.oo-kbd :focus-visible{box-shadow:0 0 0 4px rgba(4,6,10,.75)}
 .oo-hints-card .f-tap{animation:oo-tap 1.2s ease-in-out infinite}
 
 /* long press on the 2D map */
-.oo-spot b{display:block;margin-bottom:6px;font:600 11px/1 "IBM Plex Mono",ui-monospace,Consolas,monospace;letter-spacing:.14em;text-transform:uppercase;color:#7dffa6}
+.oo-spot b{display:block;margin-bottom:6px;font:600 11px/1 var(--oo-font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--oo-accent)}
 .oo-spot dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:0 0 10px;font-size:12px}
-.oo-spot dt{color:#8b9bab} .oo-spot dd{margin:0;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+.oo-spot dt{color:var(--oo-ink-dim)} .oo-spot dd{margin:0;font-family:var(--oo-font-mono)}
 .oo-spot-acts{display:flex;flex-wrap:wrap;gap:6px}
 .oo-spot-acts .btn{min-height:34px}
 
