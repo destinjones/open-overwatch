@@ -103,3 +103,28 @@ test('the canvas and its panels keep to the frame budget (engine.js, detail.js, 
   assert.match(util, /requestIdleCallback\(go, \{ timeout: 1500 \}\)/, 'log rows are built in idle batches');
   assert.match(util, /export \{ hexA \} from '\.\/frame\.js'/);
 });
+
+test('feed refreshes diff instead of rebuilding, and nothing encodes or parses in one long task', () => {
+  const feeds = read('src/map/feeds.js'), sats = read('src/map/satellites.js'), engine = read('src/map/engine.js');
+  assert.doesNotMatch(feeds, /gNws\.clearLayers\(\)/, 'NWS keeps the polygons of alerts that did not change');
+  assert.match(feeds, /if \(!e \|\| e\.sent !== p\.sent \|\| !gNws\.hasLayer\(e\.g\)\)/);
+  assert.match(feeds, /for \(const \[id, e\] of nwsPolys\) if \(!seen\.has\(id\)\) \{ gNws\.removeLayer\(e\.g\)/, 'and drops the expired ones');
+  assert.doesNotMatch(feeds, /toDataURL\(/, 'the aurora image is encoded with toBlob, off the main thread');
+  assert.match(feeds, /URL\.revokeObjectURL\(old\)/, 'and the last one is let go');
+  assert.match(sats, /await sleep\(0\);[^\n]*\n\s*try \{ const txt = await this\.loadGroup\(g\)/, 'a task per satellite group');
+  assert.match(engine, /now - gc\.t < 2000/, 'ship cluster bubbles are binned at most every 2 s');
+});
+
+test('the map page: transform/opacity motion on the shared tokens, reduced motion honoured, finger-sized controls', () => {
+  const page = read('open-overwatch.html'), view = read('src/map/mapview.js');
+  assert.match(page, /--ease:var\(--oo-ease-out,/, 'the shared token when it is defined');
+  assert.match(page, /@keyframes sheetin\{from\{opacity:\.4;transform:translateY\(24px\)\}\}/);
+  for (const k of [...page.matchAll(/@keyframes (\w+)\{([^}]*\{[^}]*\})*\}/g)]) assert.doesNotMatch(k[0], /\b(top|left|height|width|margin|padding)\s*:/, `${k[1]} animates layout`);
+  assert.doesNotMatch(page.slice(0, page.indexOf('</style>')), /#rail,#panel\{width:var\(--rail-w\)[^}]*backdrop-filter/, 'no blur on the desktop rails');
+  assert.match(page, /@media \(prefers-reduced-motion:reduce\)\{[^\n]*\n\s*#rail,#panel,\.tab\.on/, 'sheets, tabs and cards do not animate');
+  assert.match(view, /REDUCED\.matches \? this\.setView\(c, z, \{ animate: false \}\)/, 'and the map jumps instead of flying');
+  assert.match(page, /\.layer,\.group > summary,details\.setup > summary\{min-height:var\(--tap\)\}/);
+  assert.match(page, /#mobilebar button\{[^}]*min-height:52px/);
+  assert.match(page, /\.boot\{[^}]*min-height:154px\}/, 'the boot card has room for its seven lines from the start');
+  assert.match(page, /\.layer \.st\{[^}]*min-width:44px/, 'a count arriving does not shift the row');
+});

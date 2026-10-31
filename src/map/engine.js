@@ -147,7 +147,10 @@ export const Glyphs = L.Layer.extend({
         }
       } else {
         // the bubble sits on the source's busiest 5° cell: the mean of a worldwide feed can land on empty ocean or land
-        const groups = {}; for (const s of Dyn.ships.values()) { if (!shipOn(s)) continue; const g = groups[s.src] || (groups[s.src] = { n: 0, cells: new Map() }); g.n++; const k = Math.floor(s.lat / 5) * 1000 + Math.floor(s.lon / 5); const c = g.cells.get(k) || { n: 0, lat: 0, lon: 0 }; c.n++; c.lat += s.lat; c.lon += s.lon; g.cells.set(k, c); }
+        // binned at most every 2 s (a worldwide AIS feed is tens of thousands of ships; the bubbles barely move between reports)
+        const gk = Dyn.ships.size + '|' + Layers.on('ships_fi') + Layers.on('ships_ws'), gc = this._shipGroups;
+        const groups = gc && gc.key === gk && now - gc.t < 2000 ? gc.groups : {};
+        if (groups !== gc?.groups) { for (const s of Dyn.ships.values()) { if (!shipOn(s)) continue; const g = groups[s.src] || (groups[s.src] = { n: 0, cells: new Map() }); g.n++; const k = Math.floor(s.lat / 5) * 1000 + Math.floor(s.lon / 5); const c = g.cells.get(k) || { n: 0, lat: 0, lon: 0 }; c.n++; c.lat += s.lat; c.lon += s.lon; g.cells.set(k, c); } this._shipGroups = { key: gk, t: now, groups }; }
         for (const [src, g] of Object.entries(groups)) { let c = null; for (const x of g.cells.values()) if (!c || x.n > c.n) c = x; const lat = c.lat / c.n, lon = c.lon / c.n; for (let pi = 0, pn = toPt(lat, lon); pi < pn; pi++) { const p = P[pi]; ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, Math.PI * 2); ctx.fillStyle = hexA(C.ship, .25); ctx.fill(); ctx.strokeStyle = C.ship; ctx.lineWidth = 1.5; ctx.stroke(); label(p.x, p.y, `${fmt.n(g.n)} ships · zoom in`, hexA(C.ship, .95)); hits.push({ x: p.x, y: p.y, r: 10, kind: 'cluster', obj: { lat, lon, z: 6, text: `${g.n} vessels from ${src}` }, tip: `${g.n} vessels · click to zoom` }); } }
       }
     }
