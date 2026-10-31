@@ -310,8 +310,8 @@ export const UI = {
 function setText(el, t) { if (el && el.textContent !== t) el.textContent = t; }
 
 /* ============================================================ feed scheduler */
+export let drawQueued = false;   // before the canvas is made: adding it to the map already asks for a draw
 export const glyphs = new Glyphs().addTo(map);
-export let drawQueued = false;
 export function requestDraw() { if (drawQueued) return; drawQueued = true; requestAnimationFrame(() => { drawQueued = false; glyphs.draw(); }); }
 setInterval(() => { if (!document.hidden && (Dyn.air.size || Dyn.sats.length || Dyn.ships.size || Movers.shown())) requestDraw(); }, 500);
 export const Feeds = { list: [], paused: false };
