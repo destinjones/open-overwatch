@@ -9,6 +9,7 @@ import { drawnWords, findAlignment as searchAlignment, alignmentCaption } from '
 import { surfaceMaterial, PHONE } from './util.js';
 import { byKey, layer } from './world.js';
 import { GALAXIES } from './cosmic.js';
+import { FLIGHT } from '../core/motion.js';
 
 // every asteroid in the two packed files (small_bodies.json files: 300,000 + 1,269,434); phones and the Low quality
 // level draw only the first, brightest 300,000, and the captions say so (layer('asteroids').n is what is drawn; before
@@ -66,7 +67,7 @@ export function createStory({ scene, clock, nav, caption, onTourChange }) {
   const tour = { on: false, i: 0, timer: 0 };
   function step() {
     if (!tour.on) return; if (tour.i >= TOUR.length) { stopTour(); return; }
-    const [k, d, t, p, ms] = TOUR[tour.i]; nav.focusOn(byKey[k] || byKey.sun, d, 3.2, false); caption(t, typeof p === 'function' ? p() : p, '', ms + 2500, true);
+    const [k, d, t, p, ms] = TOUR[tour.i]; nav.focusOn(byKey[k] || byKey.sun, d, FLIGHT.tour, false); caption(t, typeof p === 'function' ? p() : p, '', ms + 2500, true);
     tour.timer = setTimeout(() => { tour.i++; step(); }, ms + 3200);
   }
   function startTour() { stopPulse(); tour.on = true; tour.i = 0; clock.goLive(); onTourChange(true); step(); }
@@ -81,7 +82,7 @@ export function createStory({ scene, clock, nav, caption, onTourChange }) {
   shell.visible = false; scene.add(shell);
   function startPulse() {
     stopTour(); Object.assign(pulse, { on: true, t0: performance.now(), zoomed: false }); pulse.passed.clear(); shell.visible = true;
-    nav.focusOn(byKey.sun, 3.2, 2.5, false);
+    nav.focusOn(byKey.sun, 3.2, FLIGHT.rung, false);
     caption('Light from the Sun', 'Sped up 60 times: real light takes 8 min 20 s to reach Earth and over 4 hours to reach Neptune.', '', 6000, true);
   }
   function stopPulse() { pulse.on = false; shell.visible = false; }
@@ -105,7 +106,7 @@ export function createStory({ scene, clock, nav, caption, onTourChange }) {
     const r = searchAlignment(clock.jd), [title, text] = alignmentCaption(r);
     if (r.beyond) { caption(title, text, '', 9000, true); return; }
     clock.setJd(r.jd); clock.setRate(0);
-    nav.focusOn(byKey.sun, 70, 2.5, false);
+    nav.focusOn(byKey.sun, 70, FLIGHT.rung, false);
     caption(title, text, 'Press ▶ to start the clock again, or NOW to come back to today.', 14000, true);
   }
 

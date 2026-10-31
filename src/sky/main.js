@@ -52,6 +52,7 @@ async function nextEclipse(lat, lon) {
   const list = (await fetchAsset('data/eclipses.json', 'json')).eclipses, here = observer(lat, lon).pos, now = Date.now();
   const fix = (M, r) => { const [x, y, z] = M.map(m => m[0] * r[0] + m[1] * r[1] + m[2] * r[2]); return { x, y, z }; };
   for (const e of list.filter(e => msFromJd(e.jd0 + e.sun.length / 1440) > now)) {
+    await new Promise(r => setTimeout(r, 0));   // a breath between eclipses: each is hundreds of minutes of Earth rotation, and the card is drawing meanwhile
     let best = { covered: 0 };
     for (let m = 0; m < e.sun.length; m++) { const M = icrfToFixed(e.jd0 + m / 1440), w = seenFrom(fix(M, e.sun[m]), fix(M, e.moon[m]), here); if (w.sunUp && w.covered > best.covered) best = { ...w, m }; }
     if (best.covered > 0.005) return { e, ...best, at: msFromJd(e.jd0 + best.m / 1440) };

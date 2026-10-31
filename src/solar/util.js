@@ -33,11 +33,26 @@ export function surfaceMaterial({ uniforms, frag, ...opts }) {
 }
 
 const loader = new THREE.TextureLoader();
+// Maps decode off the main thread where the browser can: an <img> is decoded inside the frame that first draws it (a
+// 4k JPEG, ~60-120 ms), createImageBitmap decodes in the background, so that frame only copies pixels to the GPU.
+// Safari (its flipY option has been unreliable) and old Firefox keep the <img> path, as three.js's GLTFLoader does.
+const UA = typeof navigator === 'object' ? navigator.userAgent : '', FF = /Firefox\/(\d+)/.exec(UA);
+const BITMAPS = typeof createImageBitmap === 'function' && !(/^((?!chrome|android).)*safari/i.test(UA)) && !(FF && +FF[1] < 98);
+const bitmapLoaders = {};
+const bitmapLoader = srgb => bitmapLoaders[srgb] || (bitmapLoaders[srgb] = new THREE.ImageBitmapLoader().setOptions({ imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: srgb ? 'default' : 'none' }));
+function loadOne(url, srgb, ok, fail) {
+  if (!BITMAPS) { loader.load(url, ok, undefined, fail); return; }
+  bitmapLoader(srgb).load(url, bmp => {
+    const t = new THREE.Texture(bmp); t.flipY = false; t.needsUpdate = true;   // flipped already, in the decode
+    t.addEventListener('dispose', () => bmp.close?.());   // its decoded pixels go with it, not at the next garbage collection
+    ok(t);
+  }, undefined, fail);
+}
 /** Load a texture from the page's folder, else from the published site; resolves null if both fail. */
 export function loadTexture(path, { srgb = true } = {}) {
   return new Promise(resolve => {
     const done = t => { if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; resolve(t); };
-    loader.load(path, done, undefined, () => loader.load(SITE + path, done, undefined, () => resolve(null)));
+    loadOne(path, srgb, done, () => loadOne(SITE + path, srgb, done, () => resolve(null)));
   });
 }
 // Everything starts on the 2k maps; the 4k ones (45 MB of GPU memory each with mipmaps) load only for what you fly
@@ -53,6 +68,18 @@ export const Sharpen = {
   add(when, path, apply, opts) { if (!PHONE) this.items.push({ when, path, apply, opts }); },
   /** Same, on every device: textures that load only once they are about to be seen (phones were downloading 9 MB up front). */
   need(when, path, apply, opts) { this.items.push({ when, path, apply, opts }); },
+  /**
+   * A sharp map while near(), given back for the duller one once away() (desktop only): apply(texture, isSharp) puts
+   * either in place (swapTexture frees the other). Flying past every planet and moon kept every 4k and 2k map, several
+   * hundred MB of GPU memory, for the rest of a visit; away() should sit well below near(), so the swap is not undone at once.
+   */
+  cycle(near, away, sharp, dull, apply, opts) {
+    if (PHONE) return;
+    const arm = () => this.items.push({ when: near, path: sharp, opts, apply: t => {
+      apply(t, true); this.items.push({ when: away, path: dull, opts, apply: t2 => { apply(t2, false); arm(); } });
+    } });
+    arm();
+  },
   /** On-screen radius of a body in CSS pixels. */
   px(b) { const c = this.camera; return b.radius / Math.max(c.position.distanceTo(b.pos), 1e-12) * innerHeight / (2 * Math.tan(c.fov * Math.PI / 360)); },
   tick() {

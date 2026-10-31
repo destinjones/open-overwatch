@@ -218,6 +218,10 @@ function intro(msg = '') {
   c.querySelector('#tnGreen').onclick = () => show({ lat: 51.48, lon: 0, demo: true });
 }
 
+// Skeletons (tonight.html styles .tn-skel; the inline heights hold the place on any page): a section whose feed is still
+// on its way keeps its room, so the sections under it don't jump down when it lands
+const skelLine = (style = '') => `<p class="tn-p tn-skel" aria-hidden="true" style="min-height:1.5em;${style}">&nbsp;</p>`;
+const skelRows = (n = 1, list = true) => { const rows = '<div class="tn-row tn-skel" aria-hidden="true" style="min-height:2.6em"></div>'.repeat(n); return list ? `<div class="tn-list" aria-hidden="true">${rows}</div>` : rows; };
 const passRow = (p, i) => `<div class="tn-row"><span>${esc(describePass(p.name, p, { time }))}${S.hours && samePlace(S.hoursLoc, S.passLoc) && cloudAt(S.hours, p.rise) != null ? ` <b class="${cloudAt(S.hours, p.rise) < 45 ? 'ok' : 'cl'}">· ${esc(skyWord(cloudAt(S.hours, p.rise)))}</b>` : ''}</span><span class="tn-b"><button class="chipbtn" data-rem="${i}" title="A notification 10 minutes before, while this page is open">Remind me</button><button class="chipbtn" data-cal="${i}" title="A calendar event with a reminder: works with the site closed">Calendar</button></span></div>`;
 
 // the ten or so feeds land within a second or two of each other: one redraw 80 ms after the last arrival, not one each
@@ -253,22 +257,22 @@ function draw(initial) {
   const where = demo ? 'Greenwich, London (example)' : `${name ? esc(name) : shared ? 'The sky here' : 'Your sky'} · ${lat.toFixed(2)}, ${lon.toFixed(2)} · ${shared ? (embed ? 'Open Overwatch' : 'from a link, not saved') : 'saved on this device'}`;
   const c = card(`<div class="k" style="--c:#7dffa6">${where}</div><h2>${name && !demo ? `Tonight over ${esc(name)}` : 'Tonight above you'}</h2>
     <p class="tn-head">${head}</p>
-    ${S.iss ? `<p class="tn-p" style="margin-top:6px">${esc(S.iss)}${S.crew ? ` ${esc(S.crew)} <a href="#" id="tnCrew">Who?</a>` : ''}</p>` : ''}
+    ${S.iss ? `<p class="tn-p" style="margin-top:6px">${esc(S.iss)}${S.crew ? ` ${esc(S.crew)} <a href="#" id="tnCrew">Who?</a>` : ''}</p>` : S.computing && !S.satErr ? skelLine('margin-top:6px') : ''}
     <h3>Clouds tonight</h3><p class="tn-p">${cl ? esc(cl.text) + (cl.next ? ' ' + esc(cl.next) : '') : S.cloudErr ? esc(S.cloudErr) : S.hours ? 'No dark sky to forecast.' : 'Checking the cloud forecast…'} <small>Forecast: Open-Meteo.com (CC BY 4.0)</small></p>
     ${yourSkyHtml(S.dark, q, S.darkErr)}
     <h3>Satellites you can see${S.computing ? ' <small>· still searching…</small>' : ''}</h3>
-    <div class="tn-list">${list.filter(p => p.visible).map(p => passRow(p, S.passes.indexOf(p))).join('') || (S.satErr ? `<p class="note warn">${esc(S.satErr)} <button class="chipbtn" id="tnRetry">Try again</button></p>` : S.computing ? '' : '<p class="note">None in sunlight against a dark sky in the next 24 hours. Passes in daylight happen, but you can\'t see them.</p>')}</div>
+    <div class="tn-list">${list.filter(p => p.visible).map(p => passRow(p, S.passes.indexOf(p))).join('') || (S.satErr ? `<p class="note warn">${esc(S.satErr)} <button class="chipbtn" id="tnRetry">Try again</button></p>` : S.computing ? skelRows(2, false) : '<p class="note">None in sunlight against a dark sky in the next 24 hours. Passes in daylight happen, but you can\'t see them.</p>')}</div>
     <h3>Planets</h3><div class="tn-list">${planets.map(p => `<div class="tn-row${p.up ? '' : ' dim'}"><span>${esc(p.text)}</span></div>`).join('')}</div>
     ${deepSkyHtml(S.ds && S.ds.list, { gear, sqm: S.dark && S.dark.sky ? q.sqm : null, err: S.catErr || S.darkErr, loading: !(S.cat && S.dark), more: S.dsMore, canFind: !!D.lookUp })}
     ${showers.length ? `<h3>Meteor showers</h3><div class="tn-list">${showers.map((m, i) => `<div class="tn-row"><span>${esc(m.text)}</span>${m.radiantAlt >= 10 && m.nights >= 1 ? `<span class="tn-b"><button class="chipbtn" data-met="${i}" title="A calendar event for the best time on the peak night">Calendar</button></span>` : ''}</div>`).join('')}</div>` : ''}
-    ${S.launches.length ? `<h3>Rocket launches</h3><div class="tn-list">${S.launches.map((x, i) => `<div class="tn-row"><span>${esc(x.text)}</span><span class="tn-b"><button class="chipbtn" data-lch="${i}">Details</button></span></div>`).join('')}</div>` : ''}
+    ${S.launches.length ? `<h3>Rocket launches</h3><div class="tn-list">${S.launches.map((x, i) => `<div class="tn-row"><span>${esc(x.text)}</span><span class="tn-b"><button class="chipbtn" data-lch="${i}">Details</button></span></div>`).join('')}</div>` : S.launchesWait ? `<h3>Rocket launches <small>· checking…</small></h3>${skelRows(1)}` : ''}
     <h3>Sun</h3><p class="tn-p">${esc(sm.sunText)}</p>
     <h3>Moon</h3><p class="tn-p">${esc(moon.name)} · ${Math.round(moon.lit * 100)}% lit · ${esc(sm.moonText)}${sky > 0 ? ' · it is daytime here now' : ''}<br><small>${esc(sm.full)}</small></p>
     <h3>Aurora</h3><p class="tn-p">${S.aurora ? esc(S.aurora.text) + (S.aurora.err ? '' : ` <small>(NOAA OVATION: ${S.aurora.overhead}% overhead)</small>`) : 'Checking NOAA\'s aurora forecast…'}</p>
     ${embed || shared ? '' : `<div class="acts"><button class="chipbtn" id="tnAur">${watching ? 'Stop aurora alerts' : 'Alert me if aurora gets likely'}</button></div>`}
     ${sunTonightHtml(S.sun, S.sunErr)}
     ${soon.length ? `<h3>Coming up in the sky</h3><div class="tn-list">${soon.map(t => `<div class="tn-row"><span>${esc(t)}</span></div>`).join('')}</div>` : ''}
-    ${S.ecl ? `<h3>Next solar eclipse you can see</h3><div class="tn-list"><div class="tn-row"><span>${esc(new Date(S.ecl.at).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}, ${esc(new Date(S.ecl.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}: ${S.ecl.kind === 'total' ? '<b class="ok">TOTAL</b> from here' : S.ecl.kind === 'annular' ? 'a ring of fire from here' : `the Moon covers ${Math.round(S.ecl.covered * 100)}% of the Sun from here`}${S.ecl.e.type === 'total' && S.ecl.kind !== 'total' ? ' (totality elsewhere)' : ''}. Never look at the Sun without eclipse glasses.</span>${D.watchEclipse ? '<span class="tn-b"><button class="chipbtn" id="tnEcl">Watch the shadow</button></span>' : ''}</div></div>` : S.ecl === false ? '<h3>Solar eclipses</h3><p class="tn-p">None visible from here in 2027–2030.</p>' : ''}
+    ${S.ecl ? `<h3>Next solar eclipse you can see</h3><div class="tn-list"><div class="tn-row"><span>${esc(new Date(S.ecl.at).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}, ${esc(new Date(S.ecl.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}: ${S.ecl.kind === 'total' ? '<b class="ok">TOTAL</b> from here' : S.ecl.kind === 'annular' ? 'a ring of fire from here' : `the Moon covers ${Math.round(S.ecl.covered * 100)}% of the Sun from here`}${S.ecl.e.type === 'total' && S.ecl.kind !== 'total' ? ' (totality elsewhere)' : ''}. Never look at the Sun without eclipse glasses.</span>${D.watchEclipse ? '<span class="tn-b"><button class="chipbtn" id="tnEcl">Watch the shadow</button></span>' : ''}</div></div>` : S.ecl === false ? '<h3>Solar eclipses</h3><p class="tn-p">None visible from here in 2027–2030.</p>' : S.ecl === null && D.nextEclipse ? `<h3>Next solar eclipse you can see <small>· working it out…</small></h3>${skelRows(1)}` : ''}
     ${S.far.length ? `<h3>Farthest from home</h3><div class="tn-list">${S.far.map(f => `<div class="tn-row"><span>${esc(f.text)}</span></div>`).join('')}</div>` : ''}
     ${embed ? '' : `<div class="acts">${D.lookUp ? '<button class="chipbtn" id="tnLook" style="color:#7dffa6">Look up</button>' : ''}<button class="chipbtn" id="tnShare">Share tonight</button>${demo || shared ? '<button class="chipbtn" id="tnLoc">Use my location</button>' : `<button class="chipbtn" id="tnForget">${name ? 'Forget this place' : 'Forget my location'}</button>`}<button class="chipbtn" id="tnOther">Another place</button></div>`}
     <p class="note">Times are yours (${esc(Intl.DateTimeFormat().resolvedOptions().timeZone || 'local')}). "Calendar" adds an event that reminds you 10 minutes before, even with this site closed. "Remind me" and aurora alerts work while this page is open in a tab.</p>`, { reuse: true });
@@ -311,14 +315,15 @@ async function show(loc) {
   S.crew = '';
   Crew.load().then(() => { if (run === S.run) { S.crew = Crew.sentence(); render(); } }, () => {});
   S.ecl = null;
-  (D.nextEclipse ? D.nextEclipse(loc.lat, loc.lon) : Promise.resolve(null)).then(x => { if (run === S.run) { S.ecl = x || false; render(); } }, e => console.warn('eclipse', e));
+  (D.nextEclipse ? D.nextEclipse(loc.lat, loc.lon) : Promise.resolve(null)).then(x => { if (run === S.run) { S.ecl = x || false; render(); } }, e => { console.warn('eclipse', e); if (run === S.run) { S.ecl = undefined; render(); } });   // undefined: it failed, so no section
   S.iss = ''; S.launches = []; S.far = []; S.hours = null; S.cloudErr = '';
   S.dark = null; S.darkErr = false; S.ds = null;
   DarkSky.at(loc.lat, loc.lon).then(d => { if (run !== S.run) return; S.dark = d; render(); if (d.more) d.more.then(() => { if (run === S.run) render(); }); }, e => { console.warn('light pollution', e); if (run === S.run) { S.darkErr = true; render(); } });
   if (!S.cat) DarkSky.deepsky().then(c => { S.cat = c; if (run === S.run) render(); }, e => { console.warn('deep sky', e); if (run === S.run) { S.catErr = true; render(); } });
   forecast(loc.lat, loc.lon).then(h => { if (run === S.run) { S.hours = h; S.hoursLoc = loc; render(); } }, e => { console.warn('clouds', e); if (run === S.run) { S.cloudErr = 'The cloud forecast is unreachable right now.'; render(); } });
   farthest(Date.now()).then(x => { if (run === S.run) { S.far = x; render(); } }, e => console.warn('farthest', e));
-  launchesNear(loc).then(x => { if (run === S.run) { S.launches = x; render(); } }, () => {});
+  S.launchesWait = true;
+  launchesNear(loc).then(x => { if (run === S.run) { S.launches = x; S.launchesWait = false; render(); } }, () => { if (run === S.run) { S.launchesWait = false; render(); } });
   SunNow.load().then(x => { if (run === S.run) { S.sun = x; render(); } }, () => { if (run === S.run) { S.sunErr = true; render(); } });   // the solar wind, flares and SWPC's warnings (globe/sunnow.js)
   D.auroraGrid().then(g => { if (run === S.run) { S.aurora = auroraAt(g.coordinates, loc.lat, loc.lon); render(); } }, () => { if (run === S.run) { S.aurora = { level: 0, overhead: 0, err: true, text: 'NOAA\'s aurora forecast is unreachable right now.' }; render(); } });
   const ok = await satsReady(); if (run !== S.run) return;   // a newer show() (another place) took over while satellites loaded
@@ -329,8 +334,8 @@ async function show(loc) {
   }
   issNow().then(t => { if (run === S.run) { S.iss = t; render(); } }, () => {});
   const add = (s, name, short, ps) => { for (const p of ps) S.passes.push({ ...p, id: s.id, name, short }); };
-  for (const [id, name, short] of MAIN) { const s = D.sats.byId.get(id); if (s) add(s, name, short, passesOf(s, obs, t0, t1)); }
-  if (run !== S.run) return; render(); await breathe();
+  for (const [id, name, short] of MAIN) { const s = D.sats.byId.get(id); if (s) add(s, name, short, passesOf(s, obs, t0, t1)); await breathe(); if (run !== S.run) return; }   // a breath after each: a day of SGP4 apiece
+  render(); await breathe();
   for (const t of starlinkTrains(D.sats.list.filter(s => s.layer === 'starlink')).slice(0, 3)) {
     const s = D.sats.byId.get(t.sat.id) || t.sat; add(s, `Starlink train (launched ${t.launch}, ${t.count} satellites in a line)`, 'Starlink train', passesOf(s, obs, t0, t1)); await breathe(); if (run !== S.run) return;
   }

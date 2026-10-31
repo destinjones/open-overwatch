@@ -12,6 +12,7 @@ import { TRACKS, trackOrbit } from '../core/whereis.js';
 import { trackPosition } from '../core/craft.js';
 import { formatUtc } from '../core/time.js';
 import { LOGDEPTH_V, LOGDEPTH_F, PHONE, rebasedLine, refill, rebase } from './util.js';
+import { chunkRanges } from '../core/motion.js';
 import { addBody, removeBody, byKey, bodies, layer, layerOn, onLayers } from './world.js';
 
 const CLASS_STYLE = [ // colour, per-point brightness (the main belt is 1.47M points: keep each faint), default on
@@ -56,6 +57,7 @@ const FRAG = LOGDEPTH_F + `uniform float uFade; varying vec3 vC;
     #include <colorspace_fragment>
   }`;
 
+const UPLOAD_CHUNK = 131072;   // points per GPU upload (2 MB): one chunk a frame
 const LEAVE_EARTH = 1.5;   // AU from the Sun: the camera is on its way out, so the big asteroid file is worth fetching
 
 export function createSmallBodies({ scene, renderer, focus: focusOf = () => null }) {
@@ -73,14 +75,27 @@ export function createSmallBodies({ scene, renderer, focus: focusOf = () => null
   };
   const material = new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
 
+  // A file's points go to the GPU in chunks, one chunk per rendered frame (frame() below): the 1.27M of the big file
+  // were 34 MB in a single frame, the longest freeze of a flight out from Earth. Each chunk is views into the one buffer
+  // (nothing copied); its stand-in position is 1 byte a point, not 12 (the shader never reads it: it only sizes the draw
+  // call), and its bounding sphere is fixed, or three.js walks every point to compute one on the first draw.
+  const uploads = [];
   function pointsFor(buffer) {
-    const v = viewSmallBodies(buffer), g = new THREE.BufferGeometry(), u16 = arr => new THREE.BufferAttribute(arr, 1, true);
-    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(v.N * 3), 3)); // unused: sizes the draw call
-    g.setAttribute('a', new THREE.BufferAttribute(v.a, 1));
-    g.setAttribute('e', u16(v.e)); g.setAttribute('inc', u16(v.i)); g.setAttribute('node', u16(v.node)); g.setAttribute('peri', u16(v.peri)); g.setAttribute('m0', u16(v.M0));
-    g.setAttribute('cls', new THREE.BufferAttribute(v.cls, 1));
-    const p = new THREE.Points(g, material); p.frustumCulled = false; scene.add(p);
-    return { points: p, view: v };
+    const v = viewSmallBodies(buffer), group = new THREE.Group(), u16 = arr => new THREE.BufferAttribute(arr, 1, true);
+    const chunk = ([i0, i1]) => () => {
+      const g = new THREE.BufferGeometry(), sub = arr => arr.subarray(i0, i1);
+      g.setAttribute('position', new THREE.BufferAttribute(new Uint8Array(i1 - i0), 1));
+      g.setAttribute('a', new THREE.BufferAttribute(sub(v.a), 1));
+      g.setAttribute('e', u16(sub(v.e))); g.setAttribute('inc', u16(sub(v.i))); g.setAttribute('node', u16(sub(v.node))); g.setAttribute('peri', u16(sub(v.peri))); g.setAttribute('m0', u16(sub(v.M0)));
+      g.setAttribute('cls', new THREE.BufferAttribute(sub(v.cls), 1));
+      g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
+      const p = new THREE.Points(g, material); p.frustumCulled = false; group.add(p);
+    };
+    const parts = chunkRanges(v.N, UPLOAD_CHUNK).map(chunk);
+    parts.shift()?.();   // the first now: the layer is never empty once its file is in
+    for (const f of parts) uploads.push({ group, f });
+    scene.add(group);
+    return { points: group, view: v };
   }
   const elementsOf = (file, idx) => { const f = S.files[file === 'b' ? 1 : 0]; return f ? decodeElements(f.view, idx, S.epoch) : null; };
   const count = () => S.files.reduce((n, f) => n + (f ? f.view.N : 0), 0);
@@ -143,7 +158,7 @@ export function createSmallBodies({ scene, renderer, focus: focusOf = () => null
       if (file === 'b' && S.full) { S.pendingNamed = { n, focus: focusOf() }; S.defer = false; loadAll(); }
       return null;
     }
-    for (const old of bodies.filter(x => x.transient)) { removeBody(old); scene.remove(old.group); }
+    for (const old of bodies.filter(x => x.transient && x.key.startsWith('ast:'))) { removeBody(old); scene.remove(old.group); }   // the last picked asteroid (not a comet or the planets of the system you are in)
     const group = new THREE.Group(); scene.add(group);
     const kind = cls === 0 ? 'main-belt asteroid' : (CLASSES[cls] || 'asteroid').replace(/s$/, '').replace(/ & beyond$/, ' object').toLowerCase();
     const b = addBody({ key, name: label, kind, color: '#e6d6b8', radius: (diam || 1) / 2 * KM_AU, pos: positionAt(el, uniforms.uDays.value + S.epoch, new THREE.Vector3()), group, el, small: true, transient: true, layer: 'asteroids',
@@ -204,7 +219,9 @@ export function createSmallBodies({ scene, renderer, focus: focusOf = () => null
       // faded out = not drawn: from far out the asteroids land on a few pixels and additive blending serialises them
       // (42 ms a frame from light-years away, 24 ms at 2,000 AU). The faint 1.27M go first: beyond 250 AU they add nothing.
       const drawn = uniforms.uFade.value > 0.002 && layerOn('asteroids');
-      S.files.forEach((f, i) => { if (f) f.points.visible = drawn && (i === 0 || (S.full && camSun < 250)); });
+      for (let i = 0; i < S.files.length; i++) { const f = S.files[i]; if (f) f.points.visible = drawn && (i === 0 || (S.full && camSun < 250)); }
+      // the next chunk waiting for the GPU, if its file is being drawn (a hidden one waits: it would all go up in the frame it reappears)
+      for (let i = 0; i < uploads.length; i++) if (uploads[i].group.visible) { uploads.splice(i, 1)[0].f(); break; }
       for (const b of bodies) if (b.orbit && b.layer === 'dwarfs') { b.orbit.material.opacity = b.orbit.userData.opacity * (1 - fade(2000, 3e4, camSun)); if (b.orbit.visible) rebase(b.orbit, b.pos, camera); }
       const pb = byKey[picked.userData.body]; if (pb && picked.visible) rebase(picked, pb.pos, camera);
     },

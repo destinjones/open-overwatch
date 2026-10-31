@@ -1386,6 +1386,27 @@ is coming.
   ignored), and since a module-graph error does not say which import failed, it names cdn.jsdelivr.net as the likely
   blocker.
 
+## Solar System and Tonight: smoothness pass (core/motion.js, solar/*, tonight.html) — 2026-10-31
+
+Found by reading the code (no browser runs on the owner's PC); the GitHub perf run is what measures them.
+- **Flights:** every camera move eases with `core/motion.js` `ease` and the `FLIGHT` durations, the hand-over roll
+  included. Directions turn with `slerpDir`: a lerp of nearly opposite directions (or of an upside-down globe camera's
+  "up" toward ecliptic north) passes through zero and flips the view in one frame. `nav.frame` reuses its vectors.
+- **Labels (ui.js):** an element only once a body is first labelled, transform and display written only when they
+  change, the crowding check over a reused array; the ladder's highlight only when the band changes.
+- **Asteroids (smallbodies.js):** a file's points go to the GPU 131,072 at a time, one chunk per rendered frame
+  (`uploads`), with a 1-byte stand-in position and a fixed bounding sphere. The big file was 34 MB in one frame, plus a
+  1.27M-point bounding-sphere pass on its first draw.
+- **Textures (util.js):** JPEGs decode with `createImageBitmap` off the main thread (not Safari or Firefox < 98, as
+  three.js's GLTFLoader decides); such a texture has `flipY` false, so a canvas made from it (moons.js `darkenLeading`)
+  copies that. `Sharpen.cycle` gives a 4k (planets, the Moon, Earth's night and clouds) or 2k (moons) map back for the
+  duller one once the body is under 2% of the window height.
+- **Loading bar (#prog):** `createProgress` creeps while files are in flight and fills as each lands: never back, never a jump.
+- **Credits:** on desktops they sat under the ladder bar's right end; now two lines above it that open in full.
+- **Tonight:** sections still loading (the ISS line, satellites, launches, the next eclipse) hold their place with
+  `.tn-skel` rows (styled in tonight.html; the inline heights keep the room on the globe too); a breath between the
+  three main satellites' SGP4 and between eclipses.
+
 ## EMSC: a second earthquake catalogue (core/quakes.js; globe/quakes.js, map/feeds.js, mcp/hazards.mjs) — 2026-10-17
 - EMSC's FDSN service (www.seismicportal.eu, keyless, CORS *, credit "EMSC") is asked beside USGS on the globe, the 2D
   map and the MCP `earthquakes` tool; never waited for (the USGS list draws first and is stamped again when EMSC answers).

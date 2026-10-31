@@ -95,6 +95,20 @@ globe, solar, core.
 
 Tested against JPL Horizons: planets within arcminutes, the Moon within about 0.3°.
 
+### `motion.js`
+
+Motion and loading helpers for the Solar System view: one easing curve and one set of durations for every camera
+flight (focus, ladder, tour, the hand-over from the globe), distance blended on a log scale, a view direction that
+turns along the great circle (opposite directions included, so a flight never flips in one frame), chunk ranges for
+spreading a big GPU upload over frames, and a loading meter for files that don't report bytes. Used by solar.
+
+- `FLIGHT`: seconds per kind of camera move.
+- `ease`: cubic ease in and out on [0, 1].
+- `logLerp`: distance blended on a log scale.
+- `slerpDir`: a unit vector turned toward another along the great circle, written into an out object.
+- `chunkRanges`: [start, end) pieces of at most a given size.
+- `createProgress`: a meter that creeps while files are in flight and never moves backwards.
+
 ### `moons.js`
 
 The 20 major moons from Mars to Pluto: planet-centred orbits fitted to JPL Horizons over 2026 (`data/solar/moons.json`,

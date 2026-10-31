@@ -18,6 +18,7 @@ import { relativeTime } from '../core/craft.js';
 import { R_SUN, R_MOON, cones, outline } from '../core/eclipse.js';
 import { createEphemeris, findEclipses, findOccultations, eventTitle, earthShadow, R_EARTH, DANJON, OCCULT_STARS, planetGeocentric } from '../core/syzygy.js';
 import { addBody, byKey, layerOn, onLayers } from './world.js';
+import { FLIGHT } from '../core/motion.js';
 
 const UMBRA = 0xff6a3d, PENUMBRA = 0x9fb4c8, MOONSHADOW = 0x6fb7ff, OCC = 0xfff1a8;
 const WINDOW = { solar: 0.18, lunar: 0.3, occultation: 0.12 };   // days either side of greatest when the diagram shows
@@ -124,7 +125,7 @@ export function createEclipses({ scene, nav, clock, story }) {
     const dir = e.type === 'occultation' ? side.clone().multiplyScalar(-1).addScaledVector(up, 0.3).normalize()
       : su.clone().multiplyScalar(e.type === 'solar' ? 1 : 1).addScaledVector(side, 0.45).addScaledVector(up, 0.25).normalize();
     const d = e.type === 'solar' ? 0.00032 : e.type === 'lunar' ? 0.00026 : 0.0042;   // 48,000 km; 39,000 km; 630,000 km
-    nav.focusOn(e.body, d, 2.4, true, dir);
+    nav.focusOn(e.body, d, FLIGHT.rung, true, dir);
   }
 
   /** The next events after jd (and the latest one before it), for the list. */

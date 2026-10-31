@@ -11,6 +11,7 @@ import { surfaceMaterial, loadTexture, planetTexture, sharpTexture, swapTexture,
 
 const HAS_4K = new Set(['earth', 'venus', 'mars', 'jupiter', 'saturn', 'moon']);
 const SHARP = 0.22;   // a body gets its 4k map once its radius covers this share of the window height
+const DULL = 0.02;    // and gives it back for the 2k one below this (util.js Sharpen.cycle)
 /** The first (2k) texture, unless a sharper one already arrived (it replaces a flat stand-in). */
 const firstTexture = (u, t) => { if (!t) return; if (u.value && !u.value.userData.flat) t.dispose(); else swapTexture(u, t); };
 import { addBody, byKey, ORIGIN, layerOn, onLayers } from './world.js';
@@ -116,7 +117,7 @@ export function createPlanets({ scene, sunView, renderer }) {
           ['Year', period(periodDays(el.a))], ['Radius', Math.round(radiusKm).toLocaleString('en-US') + ' km'], ['Orbit tilt', (el.i / DEG).toFixed(2) + '°']];
       } });
     if (key !== 'earth') Sharpen.need(() => Sharpen.px(b) > 0.5, planetTexture(key), firstMap);
-    if (HAS_4K.has(key)) Sharpen.add(() => Sharpen.px(b) > innerHeight * SHARP, sharpTexture(key), t => swapTexture(mesh.material.uniforms.map, t));
+    if (HAS_4K.has(key)) Sharpen.cycle(() => Sharpen.px(b) > innerHeight * SHARP, () => Sharpen.px(b) < innerHeight * DULL, sharpTexture(key), planetTexture(key), t => swapTexture(mesh.material.uniforms.map, t));
     if (key === 'earth') addEarthExtras(b, sunView, R);
     if (key === 'saturn') addRings(b, sunView, R, ringTex);
   }
@@ -132,7 +133,7 @@ export function createPlanets({ scene, sunView, renderer }) {
       update(jd) { if (!b.geoSource?.(jd, geo)) moonGeocentric(jd, geo); b.pos.copy(byKey.earth.pos).add(geo); group.position.copy(b.pos); orient('moon', jd, spin.quaternion); },
       posAt(jd, out) { const g = b.geoSource?.(jd, new THREE.Vector3()) || moonGeocentric(jd, {}); earthPosition(jd, out); out.x += g.x; out.y += g.y; out.z += g.z; return out; },
       info: () => [['From Earth', Math.round(geo.length() / KM_AU).toLocaleString('en-US') + ' km'], ['Light from Earth', lightTime(geo.length())], ['Radius', '1,737 km']] });
-    Sharpen.add(() => Sharpen.px(b) > innerHeight * SHARP, sharpTexture('moon'), t => swapTexture(mesh.material.uniforms.map, t));
+    Sharpen.cycle(() => Sharpen.px(b) > innerHeight * SHARP, () => Sharpen.px(b) < innerHeight * DULL, sharpTexture('moon'), planetTexture('moon'), t => swapTexture(mesh.material.uniforms.map, t));
   }
 
   // ---- orbits, each drawn relative to its planet and refilled from the elements at the time it is refilled: they
@@ -169,15 +170,15 @@ export function createPlanets({ scene, sunView, renderer }) {
     frame({ camera, camSun, fade }) {
       sunStar.scale.setScalar(0.035 + 0.02 * (1 - fade(50, 5e4, camSun)));
       sunStar.material.opacity = Math.max(0.15, 1 - fade(30, 3000, camSun, 'ly'));
-      orbits.children.forEach(c => { c.material.opacity = 0.42 * (1 - fade(2000, 3e4, camSun)); });
+      const orbitK = 0.42 * (1 - fade(2000, 3e4, camSun)); for (const c of orbits.children) c.material.opacity = orbitK;   // (no closures per frame)
       if (orbits.visible) for (const k of PLANET_KEYS) rebase(orbitOf[k], byKey[k].pos, camera);
       const sizes = dots.geometry.attributes.size, P = dots.geometry.attributes.position, pxPerRad = innerHeight / (2 * Math.tan(camera.fov * DEG / 2));
-      dotKeys.forEach((k, i) => {
-        const b = byKey[k]; P.setXYZ(i, b.pos.x, b.pos.y, b.pos.z);
+      const dotPx = 7 * renderer.getPixelRatio(), moonFar = camera.position.distanceTo(byKey.earth.pos) > 0.3;
+      for (let i = 0; i < dotKeys.length; i++) {
+        const k = dotKeys[i], b = byKey[k]; P.setXYZ(i, b.pos.x, b.pos.y, b.pos.z);
         const px = b.radius / Math.max(camera.position.distanceTo(b.pos), 1e-12) * pxPerRad;
-        const show = px < 3 && camSun < 3000 && !(k === 'moon' && camera.position.distanceTo(byKey.earth.pos) > 0.3);
-        sizes.setX(i, show ? 7 * renderer.getPixelRatio() : 0);
-      });
+        sizes.setX(i, px < 3 && camSun < 3000 && !(k === 'moon' && moonFar) ? dotPx : 0);
+      }
       sizes.needsUpdate = true; P.needsUpdate = true;
       const sat = byKey.saturn, m = sat.mesh.material.uniforms;      // ring geometry for both shadow directions, in view space
       ringN.set(0, 1, 0).applyQuaternion(sat.spin.quaternion).transformDirection(camera.matrixWorldInverse);
@@ -201,8 +202,9 @@ function addEarthExtras(b, sunView, R) {
   }));
   clouds.scale.setScalar(R); clouds.visible = false; b.spin.add(clouds); b.clouds = clouds;
   loadTexture(planetTexture('earth_clouds'), { srgb: false }).then(t => { firstTexture(clouds.material.uniforms.map, t); clouds.visible = !!clouds.material.uniforms.map.value; });
-  Sharpen.add(() => Sharpen.px(b) > innerHeight * SHARP, sharpTexture('earth_night'), t => { swapTexture(m.night, t); m.hasNight.value = 1; });
-  Sharpen.add(() => Sharpen.px(b) > innerHeight * SHARP, sharpTexture('earth_clouds'), t => { swapTexture(clouds.material.uniforms.map, t); clouds.visible = true; }, { srgb: false });
+  const near = () => Sharpen.px(b) > innerHeight * SHARP, away = () => Sharpen.px(b) < innerHeight * DULL;
+  Sharpen.cycle(near, away, sharpTexture('earth_night'), planetTexture('earth_night'), t => { swapTexture(m.night, t); m.hasNight.value = 1; });
+  Sharpen.cycle(near, away, sharpTexture('earth_clouds'), planetTexture('earth_clouds'), t => { swapTexture(clouds.material.uniforms.map, t); clouds.visible = true; }, { srgb: false });
 }
 
 function addRings(b, sunView, R, ringTex) {
