@@ -50,10 +50,12 @@ const PAGES = {
   },
   map: {
     url: 'open-overwatch.html',
-    ready: () => (!!document.querySelector('#enterSilent')) && performance.now(),
+    // window.OW is the map's own "INIT done" (src/map/main.js, its last line; src/map/util.js). #enterSilent is in the
+    // static HTML, long before main.js listens to it: a click then does nothing and the splash never leaves.
+    ready: () => (!!(window.OW && OW.Layers && OW.Layers.defs.length > 10)) && performance.now(),
     enter: async x => {
       await x.page.locator('#enterSilent').click();
-      await x.page.waitForFunction(() => { const s = document.querySelector('#splash'); return window.OW && OW.Layers && OW.Layers.defs.length > 10 && (!s || s.classList.contains('out') || getComputedStyle(s).display === 'none'); }, null, { timeout: 120000, polling: 100 });
+      await x.page.waitForFunction(() => { const s = document.querySelector('#splash'); return !s || s.hidden; }, null, { timeout: 30000, polling: 100 });   // the 650 ms fade (Splash.close)
       if (await x.page.locator('#welcome').isVisible()) await x.click('#wSkip');
     },
     center: '#map',

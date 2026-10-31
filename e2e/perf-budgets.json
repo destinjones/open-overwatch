@@ -3,15 +3,60 @@
   "enforce": false,
   "default": {
     "desktop": {
-      "readyMs": 4000, "fcpMs": 2000, "bootTbtMs": 600, "bootRequests": 120, "bootMB": 4,
-      "worstP95Ms": 50, "framesOver100": 10, "longestTaskMs": 250, "interactionTbtMs": 1500, "cls": 0.1,
-      "idleHeapGrowthMB": 3, "loopHeapGrowthMB": 8, "loopNodesGrowth": 2000
+      "readyMs": 4000,
+      "fcpMs": 2000,
+      "bootTbtMs": 600,
+      "bootRequests": 120,
+      "bootMB": 4,
+      "worstP95Ms": 50,
+      "framesOver100": 10,
+      "longestTaskMs": 250,
+      "interactionTbtMs": 1500,
+      "cls": 0.1,
+      "idleHeapGrowthMB": 3,
+      "loopHeapGrowthMB": 8,
+      "loopNodesGrowth": 2000
     },
     "phone": {
-      "readyMs": 8000, "fcpMs": 3500, "bootTbtMs": 2000, "bootRequests": 120, "bootMB": 4,
-      "worstP95Ms": 100, "framesOver100": 25, "longestTaskMs": 600, "interactionTbtMs": 5000, "cls": 0.1,
-      "idleHeapGrowthMB": 3, "loopHeapGrowthMB": 8, "loopNodesGrowth": 2000
+      "readyMs": 8000,
+      "fcpMs": 3500,
+      "bootTbtMs": 2000,
+      "bootRequests": 120,
+      "bootMB": 4,
+      "worstP95Ms": 100,
+      "framesOver100": 25,
+      "longestTaskMs": 600,
+      "interactionTbtMs": 5000,
+      "cls": 0.1,
+      "idleHeapGrowthMB": 3,
+      "loopHeapGrowthMB": 8,
+      "loopNodesGrowth": 2000
     }
   },
-  "pages": {}
+  "pages": {
+    "globe": {
+      "desktop": {
+        "readyMs": 12000,
+        "bootTbtMs": 6000,
+        "bootRequests": 330,
+        "bootMB": 27
+      },
+      "phone": {
+        "readyMs": 8000,
+        "bootRequests": 290,
+        "bootMB": 12
+      }
+    },
+    "solar": {
+      "desktop": {
+        "bootRequests": 90,
+        "bootMB": 10
+      },
+      "phone": {
+        "bootRequests": 90,
+        "bootMB": 9
+      }
+    }
+  },
+  "_pages": "Page overrides are for what a page must load (Cesium alone is 5.9 MB, the Solar System's data 4 MB), set just above the 2026-10-31 baseline; the frame and long-task budgets stay at their goals and warn until the polish lands."
 }

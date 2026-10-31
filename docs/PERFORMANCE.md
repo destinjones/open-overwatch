@@ -13,6 +13,62 @@ step-down is for. *Still* samples 8 s with the camera at rest; *moving* samples 
 - Solar System: Earth out past the asteroid belt;
 - 2D map: continuous panning.
 
+## The performance run on GitHub (`e2e/perf.spec.mjs`)
+
+Every page on a desktop (1366×820) and a Pixel-class phone (Pixel 7 screen, touch, CPU slowed 4× through the DevTools
+protocol), in headless Chromium on GitHub's runners, never on this PC. `.github/workflows/perf.yml` runs it on a push
+to `ci-e2e` (or `perf-baseline`) and by hand (Actions → Performance → Run workflow, optionally a page list and shorter
+leak checks). One job per page and profile; a report job merges them.
+- **Per page:** boot (first contentful and largest paint, the page's own ready signal, blocking time, requests and
+  bytes until ready); a 12 s settle window with no input; each scripted interaction as its own window (frame times
+  from `requestAnimationFrame`: p50/p95/p99 and frames over 33 and 100 ms; long tasks; the long-animation-frame
+  script that ran, as file:line; layout shift); JS heap, DOM nodes and listeners after garbage collection, before and
+  after 2 minutes idle and 2 minutes of a loop of the same interactions; then a fresh page with the CPU profiler on,
+  naming the hottest functions of each window (kept apart so the profiler's cost is not in the numbers).
+- **Data:** the browser tests' stubbed feeds (`e2e/support/net.mjs`), plus a full-size synthetic satellite catalogue
+  (~15,700 Starlink, active and debris element sets, `e2e/support/perfprobe.mjs`): the test fixture's 4 stations
+  would make the satellite layers cost nothing.
+- **Output:** the `perf-report` artifact (`perf-summary.md`, also on the run's page, and `perf-report.json`), and
+  per page `perf-part-<page>-<profile>`. `node e2e/perf-report.mjs <dir>` rebuilds the report from downloaded parts.
+- **Budgets:** `e2e/perf-budgets.json`, per profile with page overrides. Warn only (`"enforce": false`) until the owner
+  turns enforcement on; then a run over budget fails the job.
+
+**How software WebGL skews it.** The runners have no GPU, so WebGL runs on SwiftShader, on the same 2–4 CPU cores as
+the page's scripts. Every GPU-bound frame (the globe's tiles, clouds and halo; the Solar System's point clouds; a
+2.6× phone screen) is many times slower than on a real phone's GPU, `readPixels` (picking) and shader compiles
+(`getProgramParameter`) are far slower, and texture uploads (`texSubImage2D`) cost CPU time. The 4× slowdown applies to
+scripts, not to SwiftShader's threads, so the phone profile is not a slower desktop: the desktop globe and Solar
+System, drawing more pixels at a higher quality level, come out *slower* than the phone. Read the frame numbers of the
+globe and the Solar System as "how much work a frame is" and compare runs with each other, not with a phone. Long
+tasks with their scripts, blocking time, layout shift, requests and bytes, and leaks are CPU-side and carry over.
+
+### Baseline 2026-10-31
+
+Run 41245643205, `ci-e2e` = rebuild 8e42427 with the five polish branches merged. The 2D map did not run (the harness
+clicked "Enter silent" before the map's script listened to it; fixed since). Findings and culprits: `docs/perf-findings.md`.
+
+| Page · profile | Ready | FCP | Boot TBT | Boot req · MB | Worst p95 / p99 frame | Frames > 100 ms | Longest task | Interaction TBT | CLS | Heap growth idle / loop |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Landing · desktop | 0.2 s | 0.0 s | 0 ms | 27 · 0.9 | 250 / 983 ms | 71 | 2,686 ms | 6,065 ms | 0 | 0.4 / 0.4 MB |
+| Landing · phone | 0.6 s | 0.4 s | 150 ms | 22 · 0.3 | 633 / 1,317 ms | 52 | 565 ms | 1,419 ms | 0 | 0.3 / 0.6 MB |
+| 2D map · both | not measured | | | | | | | | | |
+| Globe · desktop | 10.2 s | 0.2 s | 7,821 ms | 305 · 25.0 | 3,117 / 3,117 ms | 121 | 27,009 ms | 52,677 ms | 0.045 | 0.0 / 0.1 MB |
+| Globe · phone | 4.8 s | 0.2 s | 2,686 ms | 262 · 10.7 | 1,000 / 1,550 ms | 384 | 955 ms | 12,460 ms | 0.006 | 0.7 / 0.4 MB |
+| Solar System · desktop | 2.0 s | 0.2 s | 543 ms | 74 · 9.3 | 1,233 / 1,800 ms | 369 | 1,222 ms | 3,268 ms | 0.06 | 0.1 / 0.5 MB |
+| Solar System · phone | 2.2 s | 0.3 s | 1,084 ms | 73 · 8.1 | 483 / 1,200 ms | 434 | 540 ms | 2,227 ms | 0.012 | 0.2 / 0.3 MB |
+| Tonight · desktop | 0.3 s | 0.1 s | 0 ms | 67 · 0.6 | 17 / 33 ms | 0 | 69 ms | 19 ms | 0.122 | 0 / 0 MB |
+| Tonight · phone | 0.5 s | 0.2 s | 0 ms | 67 · 0.6 | 50 / 267 ms | 6 | 432 ms | 692 ms | 0 | 0 / 0 MB |
+| Guide · desktop | 0.3 s | 0.0 s | 30 ms | 16 · 0.4 | 17 / 17 ms | 2 | 0 ms | 0 ms | 0 | 0 / 0 MB |
+| Guide · phone | 0.8 s | 0.6 s | 406 ms | 15 · 0.3 | 17 / 67 ms | 1 | 87 ms | 135 ms | 0 | 0 / 0 MB |
+| India · desktop | 0.3 s | 0.0 s | 11 ms | 40 · 0.6 | 17 / 17 ms | 3 | 505 ms | 455 ms | 0 | 0 / 0.1 MB |
+| India · phone | 0.6 s | 0.4 s | 140 ms | 40 · 0.5 | 17 / 17 ms | 1 | 0 ms | 0 ms | 0 | 0 / 0 MB |
+
+*Worst p95 / p99* is the worst interaction window's; *Interaction TBT* adds the blocking time (long-task time over
+50 ms) of every window. FCP of 0.0 s: under 50 ms (the local server and stubbed network). Leaks: none found; no page
+grew more than 0.7 MB of heap or 10 DOM nodes over 2 minutes idle or 2 minutes of its loop (the globe's node and
+listener counts went down). The globe's desktop numbers after "Zoom in" are a stopped renderer, not smooth frames
+(finding 1), and its hand-off to the Solar System did not happen.
+
 ## Before and after (2026-10-02)
 
 | Page · profile | Moving fps before | Worst frame before | Moving fps after | Worst frame after |
