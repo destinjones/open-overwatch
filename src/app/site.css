@@ -137,7 +137,8 @@ kbd{display:inline-block;min-width:1.7em;text-align:center;padding:1px 6px;borde
 .doc section>.wrap>.eyebrow{margin-bottom:var(--oo-s-4)}
 .doc section h2{margin-bottom:28px}
 .note{color:var(--oo-ink-dim);max-width:var(--oo-measure)}
-/* long pages: sections far below the fold skip rendering until they come near (the browser keeps their last size) */
+/* .cv: a block far below the fold that skips rendering until it comes near. Never on a section an in-page link
+   targets (or anything above one): the jump lands on placeholder sizes, then the real ones push the target away. */
 .cv{content-visibility:auto;contain-intrinsic-size:auto 900px}
 @media print{.cv{content-visibility:visible}}
 .toc{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--oo-line);border:1px solid var(--oo-line);margin-top:34px}

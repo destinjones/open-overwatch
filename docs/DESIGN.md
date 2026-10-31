@@ -118,8 +118,9 @@ transition on the page.
   scripting on and motion allowed (`@media (scripting:enabled) and (prefers-reduced-motion:no-preference)`): without a
   script the content is simply there. Inside `.hero`, `.rv` plays a CSS entrance from the first paint, staggered 60 ms,
   so the headline never waits for a script (and the LCP is not held back).
-- **Long pages** `.cv` (or the ids in index.html): `content-visibility:auto` with a remembered size, for sections far
-  below the fold. Off in print.
+- **Far-off blocks** `.cv`: `content-visibility:auto` with a remembered size. Never on a section an in-page link
+  targets, or on anything above one: the jump lands on placeholder sizes and the real ones then push the target out of
+  view (the guide's contents links did exactly that in the e2e suite). So the guide, teach/ and the home page don't use it.
 - `[hidden]` always hides, even on a `.btn`.
 
 ## Icons
