@@ -72,6 +72,8 @@ html.oo-kbd :focus-visible{box-shadow:0 0 0 4px rgba(4,6,10,.75)}
   background:var(--oo-glass);border:1px solid var(--oo-line-glass);box-shadow:var(--oo-shadow-2);color:var(--oo-ink);
   font:500 13px/1.35 var(--oo-font-body);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .oo-bar[hidden]{display:none}
+/* on the content pages it sits under the nav bar, never over the bar's buttons (India's language button, the menu) */
+html:has(.site-nav) .oo-bar{top:calc(var(--oo-nav-h) + 8px + env(safe-area-inset-top,0px))}
 .oo-bar-offline{border-color:rgba(255,180,77,.55)} .oo-bar-offline::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--oo-warn)}
 .oo-bar-online::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--oo-accent)}
 .oo-bar-update{border-color:rgba(125,255,166,.45)}

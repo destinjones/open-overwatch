@@ -118,7 +118,12 @@ const loadSatJs = () => window.satellite ? Promise.resolve(window.satellite) : n
   const s = document.createElement('script'); s.src = SATJS.src; s.integrity = SATJS.integrity; s.crossOrigin = 'anonymous';
   s.onload = () => window.satellite ? ok(window.satellite) : no(new Error('satellite.js')); s.onerror = () => no(new Error('satellite.js')); document.head.append(s);
 });
+/** A pause between slices of work: the browser paints and handles input in between. */
+const breathe = () => new Promise(r => { const s = /** @type {any} */ (globalThis).scheduler; if (s && s.yield) s.yield().then(r); else setTimeout(r, 0); });
+let passesStarted = false;
 async function passes() {
+  if (passesStarted) return;
+  passesStarted = true;
   const msg = $('#passMsg');
   try {
     const [sl, txt] = await Promise.all([loadSatJs(), fetch(SITE + 'data/tle/stations.txt').then(r => r.ok ? r.text() : Promise.reject(new Error('no copy')))]);
@@ -126,22 +131,28 @@ async function passes() {
     if (!tle) throw new Error('no ISS');
     const pos = ecfAt(sl, sl.twoline2satrec(tle.l1, tle.l2)), now = Date.now();
     const at = ms => both(ms, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
-    const rows = CITIES.map(([en, hi, lat, lon]) => {
+    // one city per task (a week of passes for six cities was one 500 ms task): the page stays responsive meanwhile
+    const rows = [];
+    for (const [en, hi, lat, lon] of CITIES) { await breathe(); rows.push(cityRow(en, hi, lat, lon)); }
+    function cityRow(en, hi, lat, lon) {
       const { next, visible } = cityPasses(pos, lat, lon, now), p = visible || next;
       if (!p) return `<tr><td>${T(en, hi)}</td><td colspan="2">${T('no pass above 10° this week', 'इस हफ़्ते 10° से ऊपर कोई पास नहीं')}</td></tr>`;
       const mins = Math.max(1, Math.round((p.set - p.rise) / 60e3));
       const path = T(`${dir8(p.azRise, 'en')} → ${dir8(p.azSet, 'en')}`, `${dir8(p.azRise, 'hi')} → ${dir8(p.azSet, 'hi')}`);
       const badge = p.visible ? `<span class="vis yes">${T('visible', 'दिखेगा')}</span>` : `<span class="vis">${T('not visible', 'नहीं दिखेगा')}</span>`;
       return `<tr><td>${T(en, hi)}</td><td>${at(p.rise)}<small>${T(`${mins} min · up to ${Math.round(p.maxEl)}°`, `${mins} मिनट · ${Math.round(p.maxEl)}° तक ऊँचा`)}</small>${badge}</td><td>${path}</td></tr>`;
-    });
+    }
     $('#passBox').innerHTML = `<table class="passes"><thead><tr><th>${T('City', 'शहर')}</th><th>${T('Next pass (IST)', 'अगला पास (IST)')}</th><th>${T('From → to', 'कहाँ से → कहाँ')}</th></tr></thead><tbody>${rows.join('')}</tbody></table>
       <p class="fine">${rows.some(r => r.includes('class="vis"')) ? T('Not visible: that pass is in daylight or in Earth\'s shadow, and no visible one comes in the next 7 days. ', 'नहीं दिखेगा: वह पास दिन में या पृथ्वी की छाया में है, और अगले 7 दिनों में कोई दिखने वाला पास नहीं है। ') : ''}${T('Orbit data: CelesTrak, copied by the site every 6 hours. Times can shift by a minute or two as the orbit is updated.', 'कक्षा डेटा: CelesTrak, साइट हर 6 घंटे में कॉपी करती है। कक्षा अपडेट होने पर समय एक-दो मिनट खिसक सकता है।')}</p>`;
   } catch (e) {
     msg.innerHTML = T('The pass times load on the website (they need its copy of the orbit data). Tonight above you works them out for wherever you are.', 'पास का समय वेबसाइट पर दिखता है (उसे साइट की कक्षा डेटा कॉपी चाहिए)। Tonight above you आपकी जगह के लिए समय निकालता है।');
   }
 }
-const passIo = new IntersectionObserver(([e]) => { if (e.isIntersecting) { passIo.disconnect(); passes(); } }, { rootMargin: '600px 0px' });
+// the table starts at the first idle moment after load, or as it comes within 1200 px if someone scrolls there first
+const passIo = new IntersectionObserver(([e]) => { if (e.isIntersecting) { passIo.disconnect(); passes(); } }, { rootMargin: '1200px 0px' });
 passIo.observe($('#passBox'));
+{ const idle = () => ('requestIdleCallback' in window ? requestIdleCallback(() => passes(), { timeout: 5000 }) : setTimeout(passes, 2000));
+  if (document.readyState === 'complete') idle(); else addEventListener('load', idle, { once: true }); }
 
 // ---- phone demo: the tabs play the India clips one after another, once round (a picked tab plays its clip once), and
 // #phonePlay pauses and plays them (WCAG 2.2.2). On a phone, or on a slow or Save-Data connection, nothing downloads

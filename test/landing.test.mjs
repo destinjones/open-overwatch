@@ -85,7 +85,7 @@ test('no hand-kept numbers that age: the release count comes from versions.json,
   assert.doesNotMatch(read('about.html'), /<b>[\d,]+<\/b><span>automated tests/, 'about.html: the test count changes every week');
 });
 
-test('model-viewer loads only as the fleet comes near, pinned and hashed, and never on Save-Data by itself', () => {
+test('model-viewer loads at an idle moment after load, pinned and hashed, never on Save-Data by itself; models only on a tap', () => {
   const html = read('index.html');
   assert.doesNotMatch(head(html), /<script[^>]*model-viewer/, 'no 3D library in the head');
   const tpl = html.match(/<template id="mvLib">([\s\S]*?)<\/template>/);
@@ -98,7 +98,12 @@ test('model-viewer loads only as the fleet comes near, pinned and hashed, and ne
   assert.match(js, /\$\('#mvLib'\)\.content\.querySelector\('script'\)/);
   assert.match(js, /s\.integrity = t\.getAttribute\('integrity'\)/);
   assert.match(js, /s\.crossOrigin = 'anonymous'/);
-  assert.match(js, /if \(conn && conn\.saveData\)[^\n]*\n?\s*else \{ const mvIo = new IntersectionObserver\([^\n]*rootMargin: '600px 0px'[^\n]*\$\('#fleet'\)/);
+  assert.match(js, /if \(slowNet\)[^\n]*\nelse whenIdle\(loadMv\);/, 'the library at an idle moment, not on a slow or Save-Data connection');
+  assert.match(js, /requestIdleCallback\(fn, \{ timeout: 4000 \}\)/);
+  assert.doesNotMatch(html, /<model-viewer\b[^>]*\ssrc=/, 'no model in the markup: it waits for a tap');
+  assert.match(html, /<button class="mv-poster" id="mvPoster" type="button">/);
+  assert.match(js, /if \(live\) mv\.src = glb\(k\);/);
+  assert.match(js, /mv\.toggleAttribute\('auto-rotate', e\.isIntersecting\)/, 'no spinning off screen');
 });
 
 test('the phone demos wait for a tap on phones and slow or Save-Data connections', () => {

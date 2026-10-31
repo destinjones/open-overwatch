@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-Gvjq94+GN3xmW+naiKD2oTDdRiax34mLadYF5wr9Qro='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-WzAq3RLNQ2Y7M+CxskrdV03Oyq/KThjuY13m3306xyo='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#04060a">
 <title>Open Overwatch · the whole planet, live</title>
@@ -219,6 +219,11 @@ section{padding:clamp(80px,12vw,150px) 0}
 .fleet{background:radial-gradient(ellipse at 50% 40%,#0b1320 0%,var(--bg) 65%);border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden}
 .viewer{position:relative;height:clamp(380px,62vh,640px);margin:0 calc(var(--gut) * -1)}
 model-viewer{width:100%;height:100%;--poster-color:transparent;--progress-bar-color:var(--accent)}
+.mv-poster{all:unset;box-sizing:border-box;position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:14px;cursor:pointer;z-index:1}
+.mv-poster img{width:min(240px,52vw);height:auto;aspect-ratio:1;filter:drop-shadow(0 24px 40px rgba(0,0,0,.6));transition:transform var(--oo-dur-4) var(--oo-ease-out)}
+.mv-poster span{font:600 var(--oo-fs-xs)/1 var(--mono);letter-spacing:var(--oo-track-caps);text-transform:uppercase;color:var(--sat);padding:12px 16px;border:1px solid rgba(217,204,255,.4);background:rgba(4,6,10,.6)}
+.mv-poster:hover img{transform:translateY(-6px) scale(1.03)}
+.mv-poster:focus-visible span{outline:2px solid var(--accent);outline-offset:2px}
 .viewer .ring{position:absolute;left:50%;top:50%;width:min(760px,90vw);aspect-ratio:1;translate:-50% -50%;border-radius:50%;
   border:1px solid rgba(217,204,255,.14);pointer-events:none}
 .viewer .ring::after{content:"";position:absolute;inset:12%;border-radius:50%;border:1px dashed rgba(217,204,255,.1)}
@@ -539,13 +544,15 @@ code{font:14px var(--mono);background:var(--panel-2);border:1px solid var(--line
     </div>
     <div class="viewer rv">
       <div class="ring"></div>
-      <model-viewer id="mv" src="brand/models/iss.glb" alt="3D model of the International Space Station" camera-controls auto-rotate
+      <model-viewer id="mv" alt="3D model of the International Space Station" camera-controls auto-rotate
         auto-rotate-delay="0" rotation-per-second="14deg" interaction-prompt="none" shadow-intensity="0" exposure="1.15"
         environment-image="neutral" camera-orbit="35deg 72deg auto" loading="lazy" disable-pan><div slot="progress-bar"></div></model-viewer>
+      <!-- the poster: no model downloads (1-2 MB each) and nothing is set up on the GPU until the visitor asks for one -->
+      <button class="mv-poster" id="mvPoster" type="button"><img src="brand/lander/icons/satellite-320.webp" width="320" height="320" loading="lazy" alt=""><span id="mvPosterT">Show the ISS in 3D</span></button>
       <span class="hint">drag · zoom · release</span>
     </div>
-    <!-- model-viewer (a 3D library with its own copy of three.js) waits here, inert, until this section comes near; the
-         script at the end copies the pinned, hashed tag into the page then (brand/tools/sri.mjs checks it like any other) -->
+    <!-- model-viewer (a 3D library with its own copy of three.js) waits here, inert; the script at the end copies the
+         pinned, hashed tag into the page at the first idle moment after load (brand/tools/sri.mjs checks it like any other) -->
     <template id="mvLib"><script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@4.0.0/dist/model-viewer.min.js" integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw" crossorigin="anonymous"></script></template>
     <div class="picker" id="picker"></div>
     <div class="spec" id="spec"></div>
@@ -832,16 +839,22 @@ const FLEET = [
   ['smallsat', 'Smallsat', 'CubeSat-class', 'tiny', 'LEO'],
   ['rocketbody', 'Rocket body', 'Spent upper stage', 'debris', 'all over'],
 ];
-const mv = $('#mv'), picker = $('#picker'), spec = $('#spec');
+const mv = $('#mv'), picker = $('#picker'), spec = $('#spec'), poster = $('#mvPoster');
+// live: a model loads only once the visitor asks (a tap on the poster or on a spacecraft); until then the poster shows
+let live = false, cur = 'iss';
+const glb = k => 'brand/models/' + k + '.glb';
 function pick(k) {
   const f = FLEET.find(x => x[0] === k);
-  mv.src = 'brand/models/' + f[0] + '.glb';
+  cur = k;
+  if (live) mv.src = glb(k);
+  else $('#mvPosterT').textContent = 'Show the ' + f[1] + ' in 3D';
   mv.alt = '3D model: ' + f[2];
   spec.innerHTML = '<span><b>' + f[1] + '</b> · ' + f[2] + '</span><span>size <b>' + f[3] + '</b></span><span>orbit <b>' + f[4] + '</b></span>';
   picker.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === k));
 }
-// model-viewer itself loads as the fleet comes within 600px, from the hashed tag in <template id="mvLib">; on Save-Data
-// it waits for a tap on the picker
+// model-viewer itself loads at the first idle moment after the page has loaded (its module takes a second or two to
+// evaluate: better then than while someone scrolls to it), from the hashed tag in <template id="mvLib">; on Save-Data or
+// a slow connection it waits for a tap
 let mvLoaded = false;
 function loadMv() {
   if (mvLoaded) return;
@@ -850,10 +863,21 @@ function loadMv() {
   s.type = 'module'; s.crossOrigin = 'anonymous'; s.integrity = t.getAttribute('integrity'); s.src = t.getAttribute('src');
   document.head.append(s);
 }
-if (conn && conn.saveData) $('.viewer .hint').textContent = 'tap a spacecraft to load it in 3D';
-else { const mvIo = new IntersectionObserver(([e]) => { if (e.isIntersecting) { mvIo.disconnect(); loadMv(); } }, { rootMargin: '600px 0px' }); mvIo.observe($('#fleet')); }
-FLEET.forEach(f => { const b = document.createElement('button'); b.dataset.k = f[0]; b.textContent = f[1]; b.onclick = () => { loadMv(); pick(f[0]); }; picker.append(b); });
+const whenIdle = fn => { const go = () => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 4000 }) : setTimeout(fn, 1500)); if (document.readyState === 'complete') go(); else addEventListener('load', go, { once: true }); };
+if (slowNet) $('.viewer .hint').textContent = 'tap a spacecraft to load it in 3D';
+else whenIdle(loadMv);
+function engage() { if (live) return; live = true; loadMv(); poster.hidden = true; pick(cur); }
+poster.addEventListener('click', engage);
+FLEET.forEach(f => { const b = document.createElement('button'); b.dataset.k = f[0]; b.textContent = f[1]; b.onclick = () => { engage(); pick(f[0]); }; picker.append(b); });
 pick('iss');
+// once a model is up, the next one in the list is fetched at an idle moment, so a switch only parses (not downloads);
+// auto-rotate stops while the viewer is off screen
+mv.addEventListener('load', () => {
+  if (slowNet) return;
+  const next = FLEET[(FLEET.findIndex(x => x[0] === cur) + 1) % FLEET.length][0];
+  whenIdle(() => fetch(glb(next), { priority: 'low' }).catch(() => {}));
+});
+new IntersectionObserver(([e]) => mv.toggleAttribute('auto-rotate', e.isIntersecting)).observe(mv);
 // leaving while a model still downloads aborts its fetch: not an error worth logging
 let leaving = false; addEventListener('pagehide', () => { leaving = true; });
 addEventListener('unhandledrejection', e => { if (leaving && /Failed to fetch|aborted/i.test(String(e.reason && e.reason.message || e.reason))) e.preventDefault(); });

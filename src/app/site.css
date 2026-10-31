@@ -137,9 +137,13 @@ kbd{display:inline-block;min-width:1.7em;text-align:center;padding:1px 6px;borde
 .doc section>.wrap>.eyebrow{margin-bottom:var(--oo-s-4)}
 .doc section h2{margin-bottom:28px}
 .note{color:var(--oo-ink-dim);max-width:var(--oo-measure)}
-/* .cv: a block far below the fold that skips rendering until it comes near. Never on a section an in-page link
-   targets (or anything above one): the jump lands on placeholder sizes, then the real ones push the target away. */
-.cv{content-visibility:auto;contain-intrinsic-size:auto 900px}
+/* .cv: a section far below the fold that skips style and layout until it comes near (the guide: 400 ms less blocking
+   on a phone). An in-page jump would land on the placeholder sizes and the real ones would push the target away, so
+   src/app/site.js adds .cv-off to <html> before any jump (a link, an address with #, back and forward): everything is
+   laid out for real, then the browser scrolls. :has(:target) does the same without waiting for the script: the target
+   is set before the browser measures where to scroll. */
+.cv{content-visibility:auto;contain-intrinsic-size:auto 1000px}
+.cv-off .cv,html:has(:target) .cv{content-visibility:visible}
 @media print{.cv{content-visibility:visible}}
 .toc{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--oo-line);border:1px solid var(--oo-line);margin-top:34px}
 .toc a{display:flex;align-items:center;min-height:48px;background:var(--oo-bg);padding:14px 18px;text-decoration:none;
