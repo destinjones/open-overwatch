@@ -196,6 +196,6 @@ test('docs: long code in the guide can wrap on a phone (a link or an embed snipp
   const body = guide.slice(guide.indexOf('<body')).replace(/<td[\s\S]*?<\/td>/g, '');
   const long = [...body.matchAll(/<code>([\s\S]*?)<\/code>/g)].map(m => m[1].replace(/&amp;/g, '&').replace(/&lt;|&gt;/g, '<'))
     .flatMap(t => t.split(/\s+/)).filter(run => run.split(/(?<=-)/).some(s => s.length > 40));
-  if (long.length) assert.match(guide, /p code,li code\{overflow-wrap:anywhere\}/, `guide.html has unbreakable code: ${long[0]}`);
+  if (long.length) assert.match(guide.includes('src/app/site.css') ? read('src/app/site.css') : guide, /p code,li code\{overflow-wrap:anywhere\}/, `guide.html has unbreakable code: ${long[0]}`);
   for (const m of body.matchAll(/<table/g)) assert.match(body.slice(m.index - 40, m.index), /class="tbl"[^>]*>\s*$/, 'guide.html: every table sits in its .tbl scroll box');
 });

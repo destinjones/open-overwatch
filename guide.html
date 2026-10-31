@@ -34,79 +34,47 @@
  {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Open Overwatch","item":"https://destinjones.github.io/open-overwatch/"},{"@type":"ListItem","position":2,"name":"User guide","item":"https://destinjones.github.io/open-overwatch/guide.html"}]}
 ]}
 </script>
+<link rel="preload" href="brand/fonts/big-shoulders-display-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="brand/fonts/barlow-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="brand/fonts/fonts.css">
+<link rel="stylesheet" href="src/app/shell.css">
+<link rel="stylesheet" href="src/app/site.css">
 <style>
-:root{
-  --bg:#04060a; --panel:#080c12; --panel-2:#0e141c; --line:#182230; --line-strong:#26343f;
-  --ink:#e6edf3; --ink-dim:#8b9bab; --ink-faint:#738599; --accent:#7dffa6; --accent-dim:rgba(125,255,166,.14);
-  --civ:#5fd3ff; --mil:#ffb44d; --sat:#d9ccff; --evt:#ffd45c;
-  --display:"Big Shoulders Display","Arial Narrow",sans-serif; --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
-  --gut:clamp(16px,4vw,56px); --max:1100px; color-scheme:dark;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 var(--body);-webkit-font-smoothing:antialiased;overflow-x:hidden}
-a{color:inherit} img{display:block;max-width:100%}
-.skip{position:absolute;left:-999px;top:8px;background:var(--accent);color:#04060a;padding:8px 12px;z-index:200;border-radius:6px} .skip:focus{left:8px}
-.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gut)}
-.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:10px}
-.eyebrow::before{content:"";width:22px;height:1px;background:currentColor}
-h1,h2,h3{font-family:var(--display);font-weight:900;text-transform:uppercase;letter-spacing:.01em;line-height:.95;margin:0}
-h1{font-size:clamp(54px,9vw,120px)} h2{font-size:clamp(34px,5vw,60px)} h3{font-size:24px}
-nav{position:sticky;top:0;z-index:50;background:rgba(4,6,10,.84);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
-nav .wrap{display:flex;align-items:center;gap:24px;height:64px;max-width:none}
-.brand{display:flex;align-items:center;gap:12px;text-decoration:none;font:900 21px/1 var(--display);letter-spacing:.08em;text-transform:uppercase}
-.brand img{width:32px;height:32px}
-nav .links{display:flex;gap:24px;margin-left:auto;font:500 13px var(--mono);letter-spacing:.12em;text-transform:uppercase;flex-wrap:wrap;justify-content:flex-end}
-nav .links a{text-decoration:none;color:var(--ink-dim)} nav .links a:hover,nav .links a[aria-current]{color:var(--ink)} nav .links a[aria-current]{border-bottom:1px solid var(--accent)}
-.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border:1px solid var(--line-strong);background:rgba(8,12,18,.7);color:var(--ink);text-decoration:none;font:600 13px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;transition:background .2s,transform .2s}
-.btn:hover{background:var(--panel-2);transform:translateY(-1px)} .btn.primary{background:var(--accent);color:#04060a;border-color:var(--accent);box-shadow:0 0 36px rgba(125,255,166,.3)} .btn.primary:hover{background:#a6ffc2}
-.hero{padding:clamp(56px,9vw,110px) 0 clamp(40px,6vw,80px);background:radial-gradient(900px 420px at 80% 0%,rgba(125,255,166,.07),transparent),radial-gradient(700px 400px at 0% 100%,rgba(95,211,255,.06),transparent)}
-.hero p.sub{font:500 14px/1.5 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:18px 0 26px}
-.hero .lede{font-size:clamp(18px,2.1vw,22px);color:var(--ink);max-width:40em}
-.hero .lede+.lede{color:var(--ink-dim);margin-top:14px}
-.cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
-section{padding:clamp(54px,8vw,100px) 0;border-top:1px solid var(--line)}
-section>.wrap>.eyebrow{margin-bottom:16px} section h2{margin-bottom:28px}
-section h3{margin:38px 0 12px;color:var(--accent);font-size:26px}
-section p,section li{color:var(--ink-dim);max-width:48em} section p b,section li b{color:var(--ink);font-weight:600}
+/* guide.html's own parts; the nav, buttons, type, sections, contents grid and footer are src/app/site.css */
+.page-hero .lede{max-width:40em}
+section h3{margin:38px 0 12px;color:var(--oo-accent);font-size:var(--oo-fs-h3)}
+section p,section li{color:var(--oo-ink-dim);max-width:48em} section p b,section li b{color:var(--oo-ink);font-weight:var(--oo-fw-semibold)}
 section ul,section ol{padding-left:1.2em} section li{margin:4px 0}
-code,kbd{font:500 .86em var(--mono);color:var(--ink)} p code,li code{overflow-wrap:anywhere}
-kbd{display:inline-block;min-width:1.7em;text-align:center;padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:5px;background:var(--panel)}
-.toc{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:34px}
-.toc a{background:var(--bg);padding:14px 18px;text-decoration:none;font:500 12.5px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim)} .toc a:hover{color:var(--accent);background:var(--panel)}
-.tbl{overflow-x:auto;border:1px solid var(--line);margin:18px 0 8px}
-table{border-collapse:collapse;width:100%;font-size:15px}
-th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
-th{font:500 11px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);background:var(--panel)}
-td{color:var(--ink-dim)} td:first-child{color:var(--ink);white-space:nowrap} td code{white-space:nowrap}
-tr.grp td{font:500 11px/1.3 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent);background:rgba(125,255,166,.03)}
+.tbl{overflow-x:auto;border:1px solid var(--oo-line);margin:18px 0 8px}
+table{border-collapse:collapse;width:100%;font-size:var(--oo-fs-md)}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--oo-line)}
+th{font:var(--oo-fw-medium) var(--oo-fs-2xs)/1.3 var(--oo-font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--oo-ink-faint);background:var(--oo-surface)}
+td{color:var(--oo-ink-dim)} td:first-child{color:var(--oo-ink);white-space:nowrap} td code{white-space:nowrap}
+tr.grp td{font:var(--oo-fw-medium) var(--oo-fs-2xs)/1.3 var(--oo-font-mono);letter-spacing:var(--oo-track-label);text-transform:uppercase;color:var(--oo-accent);background:rgba(125,255,166,.03)}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;vertical-align:1px}
 .cols{display:grid;grid-template-columns:repeat(2,1fr);gap:28px 44px}
 .say{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;padding:0;list-style:none}
-.say li{margin:0;padding:6px 11px;border:1px solid var(--line-strong);background:var(--panel);font:500 13px/1.3 var(--mono);color:var(--ink)}
-.tip{border-left:2px solid var(--accent);padding:4px 0 4px 16px;margin:18px 0}
-.warn{border-left:2px solid var(--mil);padding:4px 0 4px 16px;margin:18px 0}
-figure.shot{margin:22px 0;border:1px solid var(--line-strong);max-width:860px} figure.shot img{width:100%;height:auto}
-figure.shot figcaption{font:500 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);padding:10px 12px;border-top:1px solid var(--line)}
-footer{border-top:1px solid var(--line);padding:40px 0 60px;font-size:14px;color:var(--ink-faint)}
-footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margin:0 0 8px} footer a{color:var(--ink-dim)}
-@media (max-width:860px){.toc{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr}footer .wrap{grid-template-columns:1fr}nav .links a:nth-child(-n+2){display:none}}
-@media (max-width:480px){.brand{font-size:16px}.brand img{width:26px;height:26px}nav .links{gap:14px;font-size:11.5px}nav .links a:nth-child(3){display:none}.toc{grid-template-columns:1fr}td:first-child{white-space:normal}}
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn{transition:none}}
+.say li{margin:0;padding:6px 11px;border:1px solid var(--oo-line-strong);background:var(--oo-surface);font:var(--oo-fw-medium) var(--oo-fs-sm)/1.3 var(--oo-font-mono);color:var(--oo-ink)}
+.tip{border-left:2px solid var(--oo-accent);padding:4px 0 4px 16px;margin:18px 0}
+.warn{border-left:2px solid var(--oo-warn);padding:4px 0 4px 16px;margin:18px 0}
+figure.shot{margin:22px 0;border:1px solid var(--oo-line-strong);max-width:860px;background:var(--oo-surface)} figure.shot img{width:100%;height:auto;aspect-ratio:16/10;object-fit:cover}
+figure.shot figcaption{font:var(--oo-fw-medium) var(--oo-fs-2xs)/1.4 var(--oo-font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--oo-ink-faint);padding:10px 12px;border-top:1px solid var(--oo-line)}
+@media (max-width:860px){.cols{grid-template-columns:1fr}}
+@media (max-width:480px){td:first-child{white-space:normal}}
 </style>
 </head>
-<body>
+<body class="doc">
 <a class="skip" href="#main">Skip to content</a>
-<nav aria-label="Main">
+<nav class="site-nav" data-menu="shared" aria-label="Main">
   <div class="wrap">
-    <a class="brand" href="index.html"><img src="brand/emblem/emblem-256.png" alt="">Open Overwatch</a>
-    <div class="links"><a href="index.html#features">Features</a><a href="index.html#get">Download</a><a href="about.html">About</a><a href="guide.html" aria-current="page">Guide</a><a href="https://github.com/destinjones/open-overwatch">GitHub</a></div>
+    <a class="brand" href="index.html"><img src="brand/emblem/emblem-96.webp" width="32" height="32" alt="">Open Overwatch</a>
+    <div class="links" id="navLinks"><a href="index.html#features">Features</a><a href="guide.html" aria-current="page">Guide</a><a href="index.html#launch">Versions</a><a href="index.html#get">Download</a><a href="about.html">About</a><a href="https://github.com/destinjones/open-overwatch">GitHub</a></div>
+    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="navLinks" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="m1" d="M4 7h16"/><path class="m2" d="M4 12h16"/><path class="m3" d="M4 17h16"/></svg></button>
   </div>
 </nav>
 
 <main id="main">
-<header class="hero">
+<header class="hero page-hero">
   <div class="wrap">
     <div class="eyebrow">User guide</div>
     <h1>How it works</h1>
@@ -175,7 +143,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="band" aria-labelledby="band-h">
+<section id="band" class="cv" aria-labelledby="band-h">
   <div class="wrap">
     <div class="eyebrow">The band along the bottom</div>
     <h2 id="band-h">Places, panels and tools</h2>
@@ -211,7 +179,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="layers" aria-labelledby="layers-h">
+<section id="layers" class="cv" aria-labelledby="layers-h">
   <div class="wrap">
     <div class="eyebrow">Layers panel</div>
     <h2 id="layers-h">Globe layers</h2>
@@ -272,7 +240,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="cards" aria-labelledby="cards-h">
+<section id="cards" class="cv" aria-labelledby="cards-h">
   <div class="wrap">
     <div class="eyebrow">Click anything</div>
     <h2 id="cards-h">Cards, following and the cockpit</h2>
@@ -307,7 +275,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="aviation" aria-labelledby="aviation-h">
+<section id="aviation" class="cv" aria-labelledby="aviation-h">
   <div class="wrap">
     <div class="eyebrow">Aviation</div>
     <h2 id="aviation-h">Planes and airports</h2>
@@ -334,7 +302,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="now" aria-labelledby="now-h">
+<section id="now" class="cv" aria-labelledby="now-h">
   <div class="wrap">
     <div class="eyebrow">The dashboard</div>
     <h2 id="now-h">Earth now</h2>
@@ -356,7 +324,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="reentry" aria-labelledby="reentry-h">
+<section id="reentry" class="cv" aria-labelledby="reentry-h">
   <div class="wrap">
     <div class="eyebrow">Re-entries</div>
     <h2 id="reentry-h">Falling soon</h2>
@@ -393,7 +361,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="sky" aria-labelledby="sky-h">
+<section id="sky" class="cv" aria-labelledby="sky-h">
   <div class="wrap">
     <div class="eyebrow">Stargazing</div>
     <h2 id="sky-h">Tonight and look up</h2>
@@ -431,7 +399,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="weather" aria-labelledby="weather-h">
+<section id="weather" class="cv" aria-labelledby="weather-h">
   <div class="wrap">
     <div class="eyebrow">Weather mode</div>
     <h2 id="weather-h">The weather timeline</h2>
@@ -455,7 +423,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="history" aria-labelledby="history-h">
+<section id="history" class="cv" aria-labelledby="history-h">
   <div class="wrap">
     <div class="eyebrow">Time travel</div>
     <h2 id="history-h">Time travel</h2>
@@ -473,7 +441,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="measure" aria-labelledby="measure-h">
+<section id="measure" class="cv" aria-labelledby="measure-h">
   <div class="wrap">
     <div class="eyebrow">Measure</div>
     <h2 id="measure-h">Draw and measure</h2>
@@ -490,7 +458,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="ops" aria-labelledby="ops-h">
+<section id="ops" class="cv" aria-labelledby="ops-h">
   <div class="wrap">
     <div class="eyebrow">The Ops rail</div>
     <h2 id="ops-h">Ops looks</h2>
@@ -516,7 +484,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="voice" aria-labelledby="voice-h">
+<section id="voice" class="cv" aria-labelledby="voice-h">
   <div class="wrap">
     <div class="eyebrow">Talk to it</div>
     <h2 id="voice-h">Voice commands</h2>
@@ -559,7 +527,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="keys" aria-labelledby="keys-h">
+<section id="keys" class="cv" aria-labelledby="keys-h">
   <div class="wrap">
     <div class="eyebrow">Keyboard</div>
     <h2 id="keys-h">Keyboard shortcuts</h2>
@@ -614,7 +582,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="share" aria-labelledby="share-h">
+<section id="share" class="cv" aria-labelledby="share-h">
   <div class="wrap">
     <div class="eyebrow">Pass it on</div>
     <h2 id="share-h">Share, embed and pictures</h2>
@@ -633,7 +601,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="map2d" aria-labelledby="map2d-h">
+<section id="map2d" class="cv" aria-labelledby="map2d-h">
   <div class="wrap">
     <div class="eyebrow">The classic view</div>
     <h2 id="map2d-h">The 2D map</h2>
@@ -701,7 +669,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="solar" aria-labelledby="solar-h">
+<section id="solar" class="cv" aria-labelledby="solar-h">
   <div class="wrap">
     <div class="eyebrow">Past the Moon</div>
     <h2 id="solar-h">The Solar System view</h2>
@@ -732,7 +700,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="teach" aria-labelledby="teach-h">
+<section id="teach" class="cv" aria-labelledby="teach-h">
   <div class="wrap">
     <div class="eyebrow">In the classroom</div>
     <h2 id="teach-h">For teachers</h2>
@@ -741,7 +709,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="download" aria-labelledby="download-h">
+<section id="download" class="cv" aria-labelledby="download-h">
   <div class="wrap">
     <div class="eyebrow">On your machine</div>
     <h2 id="download-h">The download version</h2>
@@ -755,7 +723,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="app" aria-labelledby="app-h">
+<section id="app" class="cv" aria-labelledby="app-h">
   <div class="wrap">
     <div class="eyebrow">On your phone or desktop</div>
     <h2 id="app-h">App, offline and accessibility</h2>
@@ -771,7 +739,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="claude" aria-labelledby="claude-h">
+<section id="claude" class="cv" aria-labelledby="claude-h">
   <div class="wrap">
     <div class="eyebrow">MCP</div>
     <h2 id="claude-h">Ask Claude about the Earth</h2>
@@ -787,7 +755,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="privacy" aria-labelledby="privacy-h">
+<section id="privacy" class="cv" aria-labelledby="privacy-h">
   <div class="wrap">
     <div class="eyebrow">Your data</div>
     <h2 id="privacy-h">Privacy</h2>
@@ -807,7 +775,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
   </div>
 </section>
 
-<section id="limits" aria-labelledby="limits-h">
+<section id="limits" class="cv" aria-labelledby="limits-h">
   <div class="wrap">
     <div class="eyebrow">Read this</div>
     <h2 id="limits-h">Limits</h2>
@@ -830,7 +798,7 @@ footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px} footer p{margi
 <footer>
   <div class="wrap">
     <div>
-      <p><a class="brand" href="index.html" style="font-size:18px;color:var(--ink)"><img src="brand/emblem/emblem-256.png" alt="" style="width:26px;height:26px">Open Overwatch</a></p>
+      <p><a class="brand sm" href="index.html"><img src="brand/emblem/emblem-96.webp" width="26" height="26" alt="">Open Overwatch</a></p>
       <p>A free, open source project by <a href="about.html">Destin Jones</a>. A hobby project built on public data, for awareness and curiosity, not for navigation, safety or operational decisions. No accounts, no ads, no tracking.</p>
     </div>
     <div>

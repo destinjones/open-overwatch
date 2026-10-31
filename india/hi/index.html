@@ -43,25 +43,18 @@
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebPage","@id":"https://destinjones.github.io/open-overwatch/india/hi/","url":"https://destinjones.github.io/open-overwatch/india/hi/","name":"भारत, अंतरिक्ष से लाइव · Open Overwatch","inLanguage":"hi-IN","isPartOf":{"@id":"https://destinjones.github.io/open-overwatch/#site"},"translationOfWork":{"@id":"https://destinjones.github.io/open-overwatch/india/"},"description":"इसरो के लॉन्च, भारत के उपग्रह, भारतीय शहरों के ऊपर ISS के पास, चक्रवात, हिमालय के भूकंप और हवा की गुणवत्ता, एक मुफ़्त लाइव 3D पृथ्वी पर।"}
 </script>
+<link rel="preload" href="../../brand/fonts/noto-sans-devanagari-var-devanagari.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../../brand/fonts/barlow-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../../brand/fonts/fonts.css">
+<link rel="stylesheet" href="../../src/app/shell.css">
+<link rel="stylesheet" href="../../src/app/site.css">
 <style>
 :root{
-  --bg:#04060a; --panel:#080c12; --panel-2:#0e141c; --line:#182230; --line-strong:#26343f;
-  --ink:#e6edf3; --ink-dim:#8b9bab; --ink-faint:#738599;
-  --accent:#7dffa6; --saffron:#ff9f3f; --sat:#d9ccff; --qk:#ff7b4f; --evt:#ffd45c; --sky:#7fd0ff; --air:#ffe066; --lch:#ff9f5c;
-  --display:"Big Shoulders Display","Arial Narrow",sans-serif;
-  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  /* india/'s own colours; everything else is the shared tokens (src/app/shell.css) through src/app/site.css */
+  --saffron:var(--oo-saffron); --sky:var(--oo-sky); --air:#ffe066;
   --deva:"Noto Sans Devanagari","Nirmala UI","Mangal",system-ui,sans-serif;
-  --gut:clamp(16px,4vw,56px); --max:1240px;
-  color-scheme:dark;
+  --max:var(--oo-max);
 }
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 var(--body);-webkit-font-smoothing:antialiased;overflow-x:hidden}
-a{color:inherit}
-img,video{display:block;max-width:100%}
-.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gut)}
 
 /* ---- the two languages: both are in the page, one is shown */
 :root[data-lang=en] [lang=hi]:not(.keep),:root[data-lang=hi] [lang=en]:not(.keep){display:none !important}
@@ -72,48 +65,30 @@ img,video{display:block;max-width:100%}
 :root[data-lang=hi] h2{font-size:clamp(34px,4.6vw,64px)}
 :root[data-lang=hi] h3{font-size:24px}
 
-.eyebrow{font:500 12px/1.3 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--saffron);display:flex;align-items:center;gap:10px}
-.eyebrow::before{content:"";width:22px;height:1px;background:currentColor;flex:none}
+.eyebrow{color:var(--saffron)}
 :root[data-lang=hi] .eyebrow{font-size:15px;letter-spacing:0}
 :root[data-lang=hi] nav .links{font-size:15px}
-h1,h2,h3{font-family:var(--display);font-weight:900;text-transform:uppercase;letter-spacing:.01em;line-height:.95;margin:0}
 h2{font-size:clamp(44px,6vw,80px)}
-h3{font-size:28px;font-weight:700;letter-spacing:.03em}
-.lede{color:var(--ink-dim);font-size:clamp(17px,1.5vw,20px);max-width:640px}
+h3{font-size:28px}
+.lede{max-width:640px}
 
-/* ---- nav */
-nav{position:fixed;inset:0 0 auto;z-index:50;transition:background .3s,border-color .3s;border-bottom:1px solid transparent}
-nav.solid{background:rgba(4,6,10,.86);backdrop-filter:blur(12px);border-color:var(--line)}
-nav .wrap{display:flex;align-items:center;gap:22px;height:64px;max-width:none}
-.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:900 20px/1 var(--display);letter-spacing:.08em;text-transform:uppercase}
+/* ---- nav (src/app/site.css .site-nav.over); the brand carries an India tag, the bar the language button and the CTA */
+.brand{gap:10px;font-size:20px}
 .brand img{width:30px;height:30px}
 .brand small{font:500 11px var(--mono);letter-spacing:.16em;color:var(--saffron);border:1px solid rgba(255,159,63,.45);padding:3px 6px}
-nav .links{display:flex;gap:22px;margin-left:auto;font:500 13px var(--mono);letter-spacing:.1em;text-transform:uppercase}
-nav .links a{text-decoration:none;color:var(--ink-dim)}
-nav .links a:hover{color:var(--ink)}
+.site-nav .links{gap:22px;letter-spacing:.1em}
+.site-nav .wrap{gap:22px}
 nav .tools{display:flex;gap:10px;align-items:center}
-.menu-btn{display:none;align-items:center;justify-content:center;width:42px;height:42px;padding:0;border:1px solid var(--line-strong);background:rgba(8,12,18,.7);color:var(--ink);cursor:pointer}
-.menu-btn svg{width:20px;height:20px}
-.menu-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (max-width:1020px){
-  nav .links{display:none} nav .tools{margin-left:auto} .menu-btn{display:inline-flex}
+  nav .links{display:none} nav .tools{margin-left:auto} .menu-btn{display:inline-flex;margin-left:0}
   /* the menu: the same section links, stacked under the bar */
   nav.open .links{display:flex;flex-direction:column;gap:0;position:absolute;top:100%;left:0;right:0;margin:0;padding:6px var(--gut) 14px;
-    background:rgba(4,6,10,.97);border-bottom:1px solid var(--line)}
-  nav.open .links a{padding:13px 0;border-bottom:1px solid var(--line)} nav.open .links a:last-child{border-bottom:0}
+    background:rgba(4,6,10,.97);border-bottom:1px solid var(--line);font-size:14px}
+  nav.open .links a{padding:8px 0;border-bottom:1px solid var(--line)} nav.open .links a:last-child{border-bottom:0} nav.open .links a::after{display:none}
 }
 @media (max-width:520px){.brand .full{display:none} nav .wrap{gap:10px} nav .go{display:none}}
 
-/* ---- buttons */
-.btn{display:inline-flex;align-items:center;gap:10px;padding:15px 22px;border:1px solid var(--line-strong);background:rgba(8,12,18,.7);
-  color:var(--ink);text-decoration:none;font:600 14px/1.1 var(--mono);letter-spacing:.1em;text-transform:uppercase;cursor:pointer;
-  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);transition:background .2s,color .2s,transform .2s}
-.btn:hover{background:var(--panel-2);transform:translateY(-1px)}
-.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.btn.primary{background:var(--accent);color:#04060a;border-color:var(--accent);box-shadow:0 0 40px rgba(125,255,166,.3)}
-.btn.primary:hover{background:#a6ffc2}
-.btn.small{padding:10px 14px;font-size:12px}
-.btn svg{width:16px;height:16px;flex:none}
+/* ---- buttons: src/app/site.css; Devanagari wants a size up */
 :root[data-lang=hi] .btn{font-size:15px}
 :root[data-lang=hi] .btn.small{font-size:14px}
 .lang-btn{font-family:var(--mono)}
@@ -145,7 +120,7 @@ nav .tools{display:flex;gap:10px;align-items:center}
 .feed .row{padding:11px 14px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:86px 1fr;gap:4px 10px}
 .feed .row:last-child{border:0} .feed .row[hidden]{display:none}
 .feed .k{color:var(--ink-faint);letter-spacing:.1em;font-size:11px;padding-top:2px}
-.feed .v{color:var(--ink);text-decoration:none}
+.feed .v{color:var(--ink);text-decoration:none;min-height:37px}
 .feed .v small{display:block;color:var(--ink-dim);font-size:11.5px}
 .feed .sat{color:var(--sat)} .feed .qk{color:var(--qk)} .feed .lch{color:var(--lch)}
 @media (max-width:1100px){.feed{position:static;width:auto;margin-top:30px;max-width:460px}}
@@ -199,9 +174,9 @@ section{padding:clamp(70px,10vw,130px) 0}
 .phone video{width:100%;height:100%;object-fit:cover}
 .phone .notch{position:absolute;top:22px;left:50%;translate:-50% 0;width:92px;height:26px;border-radius:20px;background:#000;z-index:2}
 .tabs{display:grid;gap:2px;margin-top:30px}
-.tab{all:unset;box-sizing:border-box;cursor:pointer;display:flex;gap:16px;padding:15px 18px;border-left:2px solid var(--line);transition:border-color .2s,background .2s}
+.tab{all:unset;box-sizing:border-box;cursor:pointer;display:flex;gap:16px;padding:15px 18px;border-left:2px solid var(--line);transition:border-color var(--oo-dur-2),background-color var(--oo-dur-2)}
 .tab:hover{background:#070b11}
-.tab:focus-visible{outline:1px solid var(--c)}
+.tab:focus-visible{outline-color:var(--c)!important;outline-offset:-2px!important}
 .tab[aria-selected=true]{border-color:var(--c);background:linear-gradient(90deg,rgba(255,255,255,.035),transparent)}
 .tab .n{font:500 12px var(--mono);color:var(--ink-faint);padding-top:6px;width:24px;flex:none}
 .tab .tx{display:grid;gap:4px;flex:1}
@@ -226,20 +201,15 @@ section{padding:clamp(70px,10vw,130px) 0}
 
 /* ---- final */
 .final{text-align:center;border-top:1px solid var(--line);background:radial-gradient(ellipse at 50% 0%,#0f1622 0%,var(--bg) 62%)}
-.final img.emblem{width:110px;margin:0 auto 24px;filter:drop-shadow(0 0 40px rgba(125,255,166,.35))}
+.final img.emblem{width:110px;height:110px;margin:0 auto 24px;filter:drop-shadow(0 0 40px rgba(125,255,166,.35))}
 .final h2{margin:14px 0 22px}
 .final .cta{justify-content:center}
 .final .lede{margin:0 auto 30px}
 .share-note{font:12.5px var(--mono);color:var(--ink-faint);margin-top:14px;min-height:1.5em}
-footer{border-top:1px solid var(--line);padding:40px 0 60px;font-size:14px;color:var(--ink-faint)}
-footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px}
 footer p{margin:0 0 10px}
-footer a{color:var(--ink-dim)}
-@media (max-width:760px){footer .wrap{grid-template-columns:1fr}}
 
-.rv{opacity:0;transform:translateY(22px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}
-.rv.in{opacity:1;transform:none}
-@media (prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none}.dot{animation:none}html{scroll-behavior:auto}}
+/* reveal: src/app/site.css (.rv); the live dot stops for reduced motion */
+@media (prefers-reduced-motion:reduce){.dot{animation:none}}
 
 /* the phone demo's play/pause button: phones and slow or Save-Data connections start the clips with a tap on the big one
    (india.js shows it); once a clip is up it sits small in the corner and pauses or plays (WCAG 2.2.2) */
@@ -251,7 +221,6 @@ footer a{color:var(--ink-dim)}
 .phone .play.on .i-pause{display:block;margin-left:0}
 .phone .play.corner{inset:auto 18px 18px auto;width:44px;height:44px;box-shadow:none}
 .phone .play.corner svg{width:18px;height:18px}
-.phone .play:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* phones: no backdrop blurs (solid panels instead) and a steady live dot, they cost frames on low-end Android */
 @media (max-width:760px){
   nav.solid,.feed{backdrop-filter:none}
@@ -263,9 +232,9 @@ footer a{color:var(--ink-dim)}
 </head>
 <body>
 
-<nav id="nav">
+<nav class="site-nav over" id="nav">
   <div class="wrap">
-    <a class="brand" href="#top"><img src="../../brand/emblem/emblem-256.png" alt=""><span class="full">Open Overwatch</span><small>India</small></a>
+    <a class="brand" href="#top"><img src="../../brand/emblem/emblem-96.webp" width="30" height="30" alt=""><span class="full">Open Overwatch</span><small>India</small></a>
     <div class="links" id="navLinks">
       <a href="#launches"><span lang="en">Launches</span><span lang="hi">लॉन्च</span></a>
       <a href="#satellites"><span lang="en">Satellites</span><span lang="hi">उपग्रह</span></a>
@@ -279,7 +248,7 @@ footer a{color:var(--ink-dim)}
         <span lang="hi" class="keep to-hi">हिन्दी</span><span lang="en" class="keep to-en">English</span>
       </button>
       <a class="btn small primary go" href="../../globe.html#c=79,21,22000000,0,-90&amp;a=stations,visual,geo,launches,quakes,storms"><span lang="en">Open the globe</span><span lang="hi">ग्लोब खोलें</span></a>
-      <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="navLinks" aria-label="मेन्यू"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="navLinks" aria-label="मेन्यू"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="m1" d="M4 7h16"/><path class="m2" d="M4 12h16"/><path class="m3" d="M4 17h16"/></svg></button>
     </div>
   </div>
 </nav>
@@ -290,7 +259,7 @@ footer a{color:var(--ink-dim)}
     <picture>
       <source media="(max-width:760px)" srcset="../../brand/india/hero-tall.webp" type="image/webp">
       <source srcset="../../brand/india/hero-wide.webp" type="image/webp">
-      <img src="../../brand/india/hero-wide.jpg" alt="3D ग्लोब पर रात का भारत: जगमगाते शहर, और पृथ्वी के किनारे पर भोर" data-alt-hi="3D ग्लोब पर रात का भारत: जगमगाते शहर, और पृथ्वी के किनारे पर भोर" data-alt-en="India at night from orbit on the 3D globe, its cities lit up, dawn at the edge of the Earth">
+      <img src="../../brand/india/hero-wide.jpg" width="1920" height="1080" fetchpriority="high" alt="3D ग्लोब पर रात का भारत: जगमगाते शहर, और पृथ्वी के किनारे पर भोर" data-alt-hi="3D ग्लोब पर रात का भारत: जगमगाते शहर, और पृथ्वी के किनारे पर भोर" data-alt-en="India at night from orbit on the 3D globe, its cities lit up, dawn at the edge of the Earth">
     </picture>
   </div>
   <div class="wrap">
@@ -452,7 +421,7 @@ footer a{color:var(--ink-dim)}
       <p class="clipnote rv"><span lang="en">Recorded from the website on a phone-sized screen, not mocked up.</span><span lang="hi">वेबसाइट से फ़ोन जितनी स्क्रीन पर रिकॉर्ड किया गया, कोई नकली डेमो नहीं।</span></p>
     </div>
     <div class="phone rv"><div class="notch"></div><div class="screen" id="clipPanel" role="tabpanel">
-      <video id="phoneVid" muted playsinline preload="none" poster="../../brand/india/clips/india_sats.jpg" aria-label="भारत के ऊपर ग्लोब की एक रिकॉर्डिंग"></video>
+      <video id="phoneVid" muted playsinline preload="none" aria-label="भारत के ऊपर ग्लोब की एक रिकॉर्डिंग"></video>
       <button class="play" id="phonePlay" type="button" aria-label="रिकॉर्डिंग चलाएँ" hidden><svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg><svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z"/></svg></button>
     </div></div>
   </div>
@@ -473,7 +442,7 @@ footer a{color:var(--ink-dim)}
 
 <section class="final" id="get">
   <div class="wrap">
-    <img class="emblem rv" src="../../brand/emblem/emblem-512.png" alt="">
+    <img class="emblem rv" src="../../brand/emblem/emblem-240.webp" width="110" height="110" loading="lazy" alt="">
     <div class="eyebrow rv" style="justify-content:center"><span lang="en">Free, for everyone</span><span lang="hi">मुफ़्त, सबके लिए</span></div>
     <h2 class="rv"><span lang="en">Look up, India.</span><span lang="hi">ऊपर देखो, भारत।</span></h2>
     <p class="lede rv"><span lang="en">No account, no ads inside, no tracking. A hobby project on open data, with its code open for anyone to read.</span><span lang="hi">न अकाउंट, न अंदर विज्ञापन, न ट्रैकिंग। खुले डेटा पर बना एक शौकिया प्रोजेक्ट, जिसका कोड कोई भी पढ़ सकता है।</span></p>
@@ -491,7 +460,7 @@ footer a{color:var(--ink-dim)}
 <footer>
   <div class="wrap">
     <div>
-      <p><a class="brand" href="../../" style="font-size:18px;color:var(--ink)"><img src="../../brand/emblem/emblem-256.png" alt="" style="width:26px;height:26px">Open Overwatch</a></p>
+      <p><a class="brand sm" href="../../"><img src="../../brand/emblem/emblem-96.webp" width="26" height="26" alt="">Open Overwatch</a></p>
       <p><span lang="en">A free, open source hobby project by <a href="../../about.html">Destin Jones</a>, built on public data. Not affiliated with ISRO, IMD, CPCB, NASA, NOAA, USGS or any government. For curiosity, not for navigation, safety or decisions that matter.</span><span lang="hi"><a href="../../about.html">डेस्टिन जोन्स</a> का मुफ़्त, ओपन सोर्स, शौकिया प्रोजेक्ट, सार्वजनिक डेटा पर बना। इसरो, IMD, CPCB, NASA, NOAA, USGS या किसी सरकार से इसका कोई संबंध नहीं। जिज्ञासा के लिए है, नेविगेशन, सुरक्षा या ज़रूरी फ़ैसलों के लिए नहीं।</span></p>
       <p><a href="../../"><span lang="en">The main site</span><span lang="hi">मुख्य साइट</span></a> · <a href="../../guide.html"><span lang="en">User guide</span><span lang="hi">यूज़र गाइड (अंग्रेज़ी)</span></a> · <a href="../../about.html"><span lang="en">About</span><span lang="hi">परिचय</span></a> · <a href="https://github.com/destinjones/open-overwatch">GitHub</a> · <a href="../../index.html#legal"><span lang="en">Notices</span><span lang="hi">सूचनाएँ</span></a></p>
     </div>

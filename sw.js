@@ -44,7 +44,7 @@ const ONE_VERSION = BUILD !== 'dev';   // a published build: pages and code come
 
 // the pages and the small files that make the app open offline; the modules each page imports are found by crawling
 const PAGES = ['index.html', 'globe.html', 'open-overwatch.html', 'solar.html', 'tonight.html', 'about.html', 'guide.html', 'india/', 'india/hi/', 'teach/'];   // india/ and india/hi/: the India page in English and Hindi, as its ad links name them; teach/: for teachers (a classroom offline). Not sky/: ~530 pages rebuilt every 6 h ('page-live' in classify())
-const CORE = ['./', 'offline.html', 'manifest.webmanifest', 'brand/emblem/favicon.svg', 'brand/emblem/emblem-256.png',
+const CORE = ['./', 'offline.html', 'manifest.webmanifest', 'brand/emblem/favicon.svg', 'brand/emblem/emblem-96.webp', 'brand/emblem/emblem-256.png',
   'brand/emblem/emblem-512.png', 'brand/emblem/apple-touch-icon.png'];
 const MAX_PRECACHE = 450;      // files; the whole of src/ is about 200
 

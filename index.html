@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-4AFjCr+sXJjw4sKu4QSuvHVLi0R1y5y3+oNLuKGrMxY='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-Gvjq94+GN3xmW+naiKD2oTDdRiax34mLadYF5wr9Qro='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#04060a">
 <title>Open Overwatch · the whole planet, live</title>
@@ -35,63 +35,29 @@
  {"@type":"Person","@id":"https://destinjones.github.io/open-overwatch/about.html#destin","name":"Destin Jones","url":"https://destinjones.github.io/open-overwatch/about.html","sameAs":["https://github.com/destinjones","https://destinjones.github.io/godot-open-rts/about.html","https://destinjones.github.io/carfinder/about.html"]}
 ]}
 </script>
+<link rel="preload" href="brand/fonts/big-shoulders-display-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="brand/fonts/barlow-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="brand/fonts/fonts.css">
+<link rel="stylesheet" href="src/app/shell.css">
+<link rel="stylesheet" href="src/app/site.css">
 <style>
-:root{
-  --bg:#04060a; --panel:#080c12; --panel-2:#0e141c; --line:#182230; --line-strong:#26343f;
-  --ink:#e6edf3; --ink-dim:#8b9bab; --ink-faint:#738599;
-  --accent:#7dffa6; --accent-dim:rgba(125,255,166,.14);
-  --civ:#5fd3ff; --mil:#ffb44d; --emg:#ff4d5e; --sat:#d9ccff; --ship:#62e0c8; --qk:#ff7b4f; --evt:#ffd45c; --cam:#ff6fb5;
-  --display:"Big Shoulders Display","Arial Narrow",sans-serif;
-  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
-  --gut:clamp(16px,4vw,56px); --max:1240px;
-  color-scheme:dark;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 var(--body);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+:root{--max:var(--oo-max)}
+/* index.html's own parts; the base, nav, buttons, type, reveal and footer are src/app/site.css (tokens: src/app/shell.css) */
 body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:100;opacity:.05;mix-blend-mode:overlay;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
-a{color:inherit}
-img,video{display:block;max-width:100%}
-.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gut)}
-.mono{font-family:var(--mono)}
-.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:10px}
-.eyebrow::before{content:"";width:22px;height:1px;background:currentColor}
-h1,h2,h3{font-family:var(--display);font-weight:900;text-transform:uppercase;letter-spacing:.01em;line-height:.92;margin:0}
-h2{font-size:clamp(44px,6.4vw,86px)}
-h3{font-size:30px;font-weight:700;letter-spacing:.03em}
-.lede{color:var(--ink-dim);font-size:clamp(17px,1.5vw,20px);max-width:620px}
+h1,h2,h3{line-height:.92}
+h2{font-size:var(--oo-fs-h2-xl)}
+h3{font-size:30px}
+.lede{max-width:620px}
 
-/* ---- nav */
-nav{position:fixed;inset:0 0 auto;z-index:50;transition:background .3s,border-color .3s;border-bottom:1px solid transparent}
-nav.solid{background:rgba(4,6,10,.82);backdrop-filter:blur(12px);border-color:var(--line)}
-nav .wrap{display:flex;align-items:center;gap:28px;height:68px;max-width:none}
-.brand{display:flex;align-items:center;gap:12px;text-decoration:none;font:900 22px/1 var(--display);letter-spacing:.08em;text-transform:uppercase}
-.brand img{width:34px;height:34px}
-nav .links{display:flex;gap:26px;margin-left:auto;font:500 13px var(--mono);letter-spacing:.12em;text-transform:uppercase}
-nav .links a{text-decoration:none;color:var(--ink-dim)}
-nav .links a:hover{color:var(--ink)}
-.menu-btn{display:none;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:1px solid var(--line-strong);background:rgba(8,12,18,.7);color:var(--ink);cursor:pointer}
-.menu-btn svg{width:20px;height:20px}
+/* ---- nav (src/app/site.css .site-nav.over): the bar carries the CTA; under 860px the links fold behind #menuBtn */
 @media (max-width:860px){
-  nav .links{display:none} nav .btn{margin-left:auto} .menu-btn{display:inline-flex} nav .wrap{gap:12px}
+  nav .links{display:none} nav .btn{margin-left:auto} .menu-btn{display:inline-flex;margin-left:0} .site-nav .wrap{gap:12px}
   /* the menu: the same links, stacked under the bar */
   nav.open .links{display:flex;flex-direction:column;gap:0;position:absolute;top:100%;left:0;right:0;margin:0;padding:6px var(--gut) 14px;
-    background:rgba(4,6,10,.97);border-bottom:1px solid var(--line)}
-  nav.open .links a{padding:13px 0;border-bottom:1px solid var(--line)} nav.open .links a:last-child{border-bottom:0}
+    background:rgba(4,6,10,.97);border-bottom:1px solid var(--line);font-size:14px}
+  nav.open .links a{padding:8px 0;border-bottom:1px solid var(--line)} nav.open .links a:last-child{border-bottom:0} nav.open .links a::after{display:none}
 }
-
-/* ---- buttons */
-.btn{display:inline-flex;align-items:center;gap:10px;padding:15px 24px;border:1px solid var(--line-strong);background:rgba(8,12,18,.7);
-  color:var(--ink);text-decoration:none;font:600 14px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;cursor:pointer;
-  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);transition:background .2s,color .2s,transform .2s}
-.btn:hover{background:var(--panel-2);transform:translateY(-1px)}
-.btn.primary{background:var(--accent);color:#04060a;border-color:var(--accent);box-shadow:0 0 40px rgba(125,255,166,.35)}
-.btn.primary:hover{background:#a6ffc2}
-.btn.small{padding:11px 16px;font-size:12px}
-.btn svg{width:16px;height:16px}
 
 /* ---- hero */
 .hero{position:relative;min-height:100svh;display:flex;align-items:flex-end;overflow:hidden;isolation:isolate}
@@ -132,7 +98,7 @@ nav .links a:hover{color:var(--ink)}
 .feed .row{padding:11px 14px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:78px 1fr;gap:4px 10px}
 .feed .row:last-child{border:0} .feed .row[hidden]{display:none}
 .feed .k{color:var(--ink-faint);letter-spacing:.1em;font-size:11px;padding-top:2px}
-.feed .v{color:var(--ink)}
+.feed .v{color:var(--ink);min-height:37px}
 .feed .v small{display:block;color:var(--ink-dim);font-size:11.5px}
 .feed .sat{color:var(--sat)} .feed .qk{color:var(--qk)}
 @media (max-width:1100px){.feed{position:static;width:auto;margin-top:34px;max-width:440px}}
@@ -147,7 +113,7 @@ nav .links a:hover{color:var(--ink)}
   .brand{font-size:17px;gap:9px}
   .brand img{width:28px;height:28px}
 }
-@media (max-width:400px){nav .wrap{gap:8px} nav .btn.small{padding:11px 12px;letter-spacing:.06em} .menu-btn{width:40px;height:40px}}
+@media (max-width:400px){.site-nav .wrap{gap:8px} nav .btn.small{padding:10px 12px;letter-spacing:.06em}}
 @media (max-width:380px){.brand{font-size:15px;gap:7px;letter-spacing:.05em} .brand img{width:24px;height:24px}}   /* 360px phones: the bar fits */
 
 /* ---- proof: the real sweep */
@@ -155,7 +121,7 @@ nav .links a:hover{color:var(--ink)}
 .stats{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .stat{padding:30px 18px 32px;border-left:1px solid var(--line)}
 .stat:first-child{border-left:0;padding-left:0}
-.stat b{display:block;font:900 clamp(40px,4.6vw,64px)/1 var(--display);letter-spacing:.02em}
+.stat b{display:block;font:900 clamp(40px,4.6vw,64px)/1 var(--display);letter-spacing:.02em;font-variant-numeric:tabular-nums}
 .stat span{display:block;margin-top:8px;font:12px/1.4 var(--mono);color:var(--ink);letter-spacing:.12em;text-transform:uppercase}
 .stat em{display:block;margin-top:6px;font-style:normal;font-size:15px;line-height:1.4;color:var(--ink-dim)}
 @media (max-width:860px){.stats{grid-template-columns:repeat(2,1fr)} .stat{border-left:0;padding-left:0;border-top:1px solid var(--line)} .stat:nth-child(-n+2){border-top:0}}
@@ -212,11 +178,11 @@ section{padding:clamp(80px,12vw,150px) 0}
 
 /* features */
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
-.card{background:var(--bg);padding:26px 28px 32px;position:relative;overflow:hidden;transition:background .3s}
-.card::before{content:"";position:absolute;inset:auto -20% -60% -20%;height:80%;background:radial-gradient(closest-side,var(--c),transparent);opacity:0;transition:opacity .4s}
+.card{background:var(--bg);padding:26px 28px 32px;position:relative;overflow:hidden;transition:background-color var(--oo-dur-3) var(--oo-ease-std)}
+.card::before{content:"";position:absolute;inset:auto -20% -60% -20%;height:80%;background:radial-gradient(closest-side,var(--c),transparent);opacity:0;transition:opacity var(--oo-dur-4) var(--oo-ease-std)}
 .card:hover{background:#060a10}
 .card:hover::before{opacity:.13}
-.card img{width:min(220px,70%);aspect-ratio:1;object-fit:contain;margin:-6px auto 6px;filter:drop-shadow(0 20px 30px rgba(0,0,0,.6));transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.card img{width:min(220px,70%);aspect-ratio:1;object-fit:contain;margin:-6px auto 6px;filter:drop-shadow(0 20px 30px rgba(0,0,0,.6));transition:transform var(--oo-dur-4) var(--oo-ease-out)}
 .card:hover img{transform:translateY(-8px) scale(1.04)}
 .card h3{color:var(--c)}
 .card p{color:var(--ink-dim);margin:10px 0 0;font-size:16px}
@@ -235,9 +201,9 @@ section{padding:clamp(80px,12vw,150px) 0}
 .phone video,.phone img{width:100%;height:100%;object-fit:cover}
 .phone .notch{position:absolute;top:22px;left:50%;translate:-50% 0;width:92px;height:26px;border-radius:20px;background:#000;z-index:2}
 .tabs{display:grid;gap:2px;margin-top:34px}
-.tab{all:unset;box-sizing:border-box;cursor:pointer;display:flex;gap:16px;padding:16px 18px;border-left:2px solid var(--line);transition:border-color .2s,background .2s}
+.tab{all:unset;box-sizing:border-box;cursor:pointer;display:flex;gap:16px;padding:16px 18px;border-left:2px solid var(--line);transition:border-color var(--oo-dur-2),background-color var(--oo-dur-2)}
 .tab:hover{background:#070b11}
-.tab:focus-visible{outline:1px solid var(--c)}
+.tab:focus-visible{outline-color:var(--c)!important;outline-offset:-2px!important}
 .tab[aria-selected=true]{border-color:var(--c);background:linear-gradient(90deg,rgba(255,255,255,.035),transparent)}
 .tab .n{font:500 12px var(--mono);color:var(--ink-faint);padding-top:6px;width:24px;flex:none}
 .tab .tx{display:grid;gap:4px;flex:1}
@@ -257,7 +223,7 @@ model-viewer{width:100%;height:100%;--poster-color:transparent;--progress-bar-co
   border:1px solid rgba(217,204,255,.14);pointer-events:none}
 .viewer .ring::after{content:"";position:absolute;inset:12%;border-radius:50%;border:1px dashed rgba(217,204,255,.1)}
 .picker{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:10px}
-.picker button{all:unset;cursor:pointer;font:500 12.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;padding:10px 14px;border:1px solid var(--line-strong);color:var(--ink-dim)}
+.picker button{all:unset;cursor:pointer;font:500 12.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;padding:10px 14px;border:1px solid var(--line-strong);color:var(--ink-dim);transition:color var(--oo-dur-2),border-color var(--oo-dur-2),background-color var(--oo-dur-2)}
 .picker button:hover{color:var(--ink)}
 .picker button[aria-pressed=true]{border-color:var(--sat);color:var(--sat);background:rgba(217,204,255,.07)}
 .spec{display:flex;justify-content:center;gap:28px;flex-wrap:wrap;margin-top:22px;font:12.5px var(--mono);color:var(--ink-dim);letter-spacing:.06em}
@@ -269,12 +235,10 @@ model-viewer{width:100%;height:100%;--poster-color:transparent;--progress-bar-co
 .launch::before{content:"";position:absolute;inset:-1px;border-top:2px solid var(--accent);pointer-events:none}
 .launch .lab{display:block;font:500 11px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px}
 .launch select{width:100%;appearance:none;-webkit-appearance:none;background:var(--panel-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237dffa6' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center/18px;border:1px solid var(--line-strong);color:var(--ink);font:700 22px/1.2 var(--display);letter-spacing:.06em;text-transform:uppercase;padding:14px 46px 14px 16px;cursor:pointer}
-.launch select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .launch .vnotes{margin:16px 0 0;color:var(--ink-dim);font-size:15.5px;white-space:pre-line;min-height:3em}
 .launch .vnotes b{color:var(--ink);font-weight:600}
 .launch .lbtns{display:grid;gap:12px;align-content:start}
 .launch .lbtns .btn{justify-content:center}
-.launch .lbtns .btn[aria-disabled=true]{opacity:.35;pointer-events:none}
 .launch .lnote{margin:6px 0 0;font-size:14px;color:var(--ink-faint)}
 .launch .lnote a{color:var(--ink-dim)}
 @media (max-width:820px){.launch{grid-template-columns:1fr}}
@@ -325,7 +289,7 @@ code{font:14px var(--mono);background:var(--panel-2);border:1px solid var(--line
 .final img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 100%;z-index:-1;opacity:.85}
 .final::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,var(--bg) 0%,rgba(4,6,10,.2) 45%,rgba(4,6,10,.6) 100%);z-index:-1}
 .final{isolation:isolate}
-.final img.emblem{width:120px;margin-left:auto;margin-right:auto;margin-bottom:26px;filter:drop-shadow(0 0 40px rgba(125,255,166,.35))}
+.final img.emblem{width:120px;height:120px;margin-left:auto;margin-right:auto;margin-bottom:26px;filter:drop-shadow(0 0 40px rgba(125,255,166,.35))}
 .final .ways-h{font-size:clamp(40px,5.6vw,76px);margin:20px 0 44px}
 .ways{display:grid;grid-template-columns:1fr 1fr;gap:18px;text-align:left;max-width:1000px;margin:0 auto}
 .ways article{border:1px solid var(--line-strong);background:rgba(6,9,14,.82);backdrop-filter:blur(8px);padding:clamp(24px,3vw,34px);display:grid;gap:12px;align-content:start;position:relative}
@@ -338,16 +302,9 @@ code{font:14px var(--mono);background:var(--panel-2);border:1px solid var(--line
 .final .table{max-width:1000px;margin:18px auto 0;text-align:left;background:rgba(6,9,14,.82)}
 .final img.emblem{margin-top:clamp(80px,11vw,140px)}
 .final h2.eyes{font-size:clamp(64px,11vw,168px);text-shadow:0 0 60px rgba(125,255,166,.25)}
-footer{border-top:1px solid var(--line);padding:40px 0 60px;font-size:14px;color:var(--ink-faint)}
-footer .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px}
-footer p{margin:0 0 8px}
-footer a{color:var(--ink-dim)}
-@media (max-width:760px){footer .wrap{grid-template-columns:1fr}}
 
-/* reveal */
-.rv{opacity:0;transform:translateY(26px);transition:opacity .9s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1)}
-.rv.in{opacity:1;transform:none}
-@media (prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none}.scan,.dot{animation:none}html{scroll-behavior:auto}}
+/* reveal: src/app/site.css (.rv); the live dot and the scan line stop for reduced motion */
+@media (prefers-reduced-motion:reduce){.scan,.dot{animation:none}}
 
 .maker{margin-top:clamp(60px,9vw,100px);padding-top:clamp(40px,6vw,64px);border-top:1px solid var(--line);display:grid;grid-template-columns:auto minmax(0,1fr);gap:clamp(20px,4vw,48px);align-items:center}
 .maker img{width:clamp(110px,16vw,180px);height:auto;aspect-ratio:4/5;object-fit:cover;border:1px solid var(--line-strong)}
@@ -385,16 +342,18 @@ footer a{color:var(--ink-dim)}
   nav.solid{background:rgba(4,6,10,.96)}
   .feed,.ways article{background:rgba(6,9,14,.95)}
 }
+/* a long page: the sections far below the fold render as they come near (the browser keeps their last size) */
+#features,#fleet,#launch,#get{content-visibility:auto;contain-intrinsic-size:auto 1100px}
 </style>
 </head>
 <body>
 
-<nav id="nav">
+<nav class="site-nav over" id="nav" aria-label="Main">
   <div class="wrap">
-    <a class="brand" href="#top"><img src="brand/emblem/emblem-256.png" alt="">Open Overwatch</a>
+    <a class="brand" href="#top"><img src="brand/emblem/emblem-96.webp" width="32" height="32" alt="">Open Overwatch</a>
     <div class="links" id="navLinks"><a href="#proof">Proof</a><a href="#live">Live</a><a href="#why">Why</a><a href="#features">Layers</a><a href="#launch">Versions</a><a href="#get">Download</a><a href="about.html">About</a><a class="gh" href="https://github.com/destinjones/open-overwatch">GitHub</a></div>
     <a class="btn small primary" href="#launch">Launch map</a>
-    <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="navLinks" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="navLinks" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="m1" d="M4 7h16"/><path class="m2" d="M4 12h16"/><path class="m3" d="M4 17h16"/></svg></button>
   </div>
 </nav>
 
@@ -404,9 +363,9 @@ footer a{color:var(--ink-dim)}
     <picture>
       <source media="(max-width:760px)" srcset="brand/lander/hero-tall.webp" type="image/webp">
       <source srcset="brand/lander/hero-wide.webp" type="image/webp">
-      <img src="brand/lander/hero-wide.jpg" alt="The International Space Station over the night side of Earth, with live tracks arcing across the Atlantic">
+      <img src="brand/lander/hero-wide.jpg" width="2560" height="1440" fetchpriority="high" alt="The International Space Station over the night side of Earth, with live tracks arcing across the Atlantic">
     </picture>
-    <video id="heroVid" muted playsinline preload="none" poster="brand/lander/hero-poster.jpg" aria-hidden="true"></video>
+    <video id="heroVid" muted playsinline preload="none" aria-hidden="true"></video>
   </div>
   <div class="hud"><i></i><i></i><i></i><i></i></div>
   <div class="scan"></div>
@@ -468,7 +427,7 @@ footer a{color:var(--ink-dim)}
       <p class="clipnote rv">Recorded from the app, not mocked up. Same screen on your phone and your desktop.</p>
     </div>
     <div class="phone rv"><div class="notch"></div><div class="screen" id="phoneScreen" role="tabpanel" aria-label="The recording">
-      <video id="phoneVid" muted playsinline preload="none" poster="brand/lander/clips/space.jpg" aria-label="A recording of the app"></video>
+      <video id="phoneVid" muted playsinline preload="none" data-poster="brand/lander/clips/space.jpg" aria-label="A recording of the app"></video>
       <button class="play" id="phonePlay" type="button" aria-label="Play the recordings" hidden><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path class="i-play" d="M7 4.5v15l12.5-7.5z"/><path class="i-pause" d="M6.5 4.5h4v15h-4zm7 0h4v15h-4z"/></svg></button>
     </div></div>
   </div>
@@ -663,7 +622,7 @@ footer a{color:var(--ink-dim)}
       <div>Live aircraft &amp; military flights</div><div class="n">—</div><div class="y">●</div>
       <div>Hurricane cones, NYC cams, live cable routes</div><div class="y">●</div><div class="y">●</div>
     </div>
-    <img class="emblem rv" src="brand/emblem/emblem-512.png" alt="">
+    <img class="emblem rv" src="brand/emblem/emblem-240.webp" width="120" height="120" loading="lazy" alt="">
     <h2 class="rv eyes">Eyes on.</h2>
   </div>
 </section>
@@ -673,7 +632,7 @@ footer a{color:var(--ink-dim)}
 <footer>
   <div class="wrap">
     <div>
-      <p><a class="brand" href="#top" style="font-size:18px;color:var(--ink)"><img src="brand/emblem/emblem-256.png" alt="" style="width:26px;height:26px">Open Overwatch</a></p>
+      <p><a class="brand sm" href="#top"><img src="brand/emblem/emblem-96.webp" width="26" height="26" alt="">Open Overwatch</a></p>
       <p>A hobby project built on public data. For awareness and curiosity, not for navigation, safety or operational decisions.</p>
     </div>
     <div>
@@ -845,6 +804,8 @@ function show(i) {
   if (!reduce && !held) pv.play().catch(() => {});
   ui();
 }
+// the phone sits below the fold: its first poster loads as it comes within 800px, not with the page
+new IntersectionObserver(([e], o) => { if (e.isIntersecting) { o.disconnect(); if (!pv.getAttribute('poster')) pv.poster = pv.dataset.poster; } }, { rootMargin: '800px 0px' }).observe(pv);
 for (const ev of ['play', 'pause', 'ended']) pv.addEventListener(ev, ui);
 pv.addEventListener('timeupdate', () => { if (pv.duration) tabs[cur].querySelector('.bar i').style.width = (pv.currentTime / pv.duration * 100) + '%'; });
 pv.addEventListener('ended', () => { if (auto && cur + 1 < tabs.length) show(cur + 1); });   // one pass, then the last frame stays

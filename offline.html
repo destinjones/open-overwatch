@@ -12,16 +12,17 @@
 <link rel="icon" href="brand/emblem/favicon.svg">
 <style>
 /* The page the service worker (sw.js) shows when a page you ask for was never saved and there is no connection. */
-:root{--bg:#04060a;--ink:#e6edf3;--dim:#8b9bab;--accent:#7dffa6;--line:#26343f;color-scheme:dark}
+/* self-contained (no shared files load here); the values are the tokens in src/app/shell.css: --oo-bg, --oo-ink, --oo-ink-dim, --oo-accent, --oo-line-strong, --oo-surface, --oo-r-md */
+:root{--bg:#04060a;--ink:#e6edf3;--dim:#8b9bab;--accent:#7dffa6;--line:#26343f;--surface:#080c12;--r:12px;color-scheme:dark}
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:16px/1.5 "Barlow",system-ui,sans-serif}
 main{max-width:520px;margin:0 auto;padding:calc(48px + env(safe-area-inset-top,0px)) 20px 40px}
-img{width:72px;height:72px}
+img{display:block;width:72px;height:72px}
 h1{margin:14px 0 6px;font:900 34px/1.05 "Big Shoulders Display","Arial Narrow",sans-serif;letter-spacing:.04em;text-transform:uppercase}
 p{color:var(--dim);margin:0 0 18px}
 ul{list-style:none;margin:0 0 22px;padding:0;display:grid;gap:8px}
-li a,button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:48px;padding:10px 14px;border-radius:11px;border:1px solid var(--line);
-  background:#080c12;color:var(--ink);text-decoration:none;font:600 15px/1.2 "Barlow",system-ui,sans-serif;cursor:pointer}
+li a,button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:48px;padding:10px 14px;border-radius:var(--r);border:1px solid var(--line);
+  background:var(--surface);transition:border-color .2s cubic-bezier(.2,0,0,1);color:var(--ink);text-decoration:none;font:600 15px/1.2 "Barlow",system-ui,sans-serif;cursor:pointer}
 li a small{color:var(--dim);font-weight:400}
 li a:hover,button:hover{border-color:var(--accent)}
 button{justify-content:center;background:var(--accent);border-color:var(--accent);color:#04060a;font:700 14px/1 "IBM Plex Mono",ui-monospace,Consolas,monospace;letter-spacing:.08em;text-transform:uppercase}
@@ -31,7 +32,7 @@ button{justify-content:center;background:var(--accent);border-color:var(--accent
 </head>
 <body>
 <main>
-  <img src="brand/emblem/emblem-256.png" alt="">
+  <img src="brand/emblem/emblem-256.png" width="72" height="72" alt="">
   <h1>You are offline</h1>
   <p>This page was not saved on this device yet, and there is no connection to fetch it. These views were saved earlier and open without one (live feeds wait until you are back online):</p>
   <ul id="saved" aria-live="polite"><li><a href="index.html">Home <small>checking…</small></a></li></ul>

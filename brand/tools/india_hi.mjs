@@ -67,6 +67,8 @@ export function hindiPage(en, sha256) {
   // one folder deeper: the site's pages and files are ../../, india.js is ../
   h = h.replace(/ (href|src|srcset|poster)="\.\.\//g, ' $1="../../');
   once(' src="india.js"', ' src="../india.js"');
+  // the Hindi headline is set in Devanagari, so that is the face to fetch first (the English page preloads Big Shoulders)
+  once('<link rel="preload" href="../../brand/fonts/big-shoulders-display-var-latin.woff2"', '<link rel="preload" href="../../brand/fonts/noto-sans-devanagari-var-devanagari.woff2"');
   return withCspHashes(h, sha256);
 }
 
