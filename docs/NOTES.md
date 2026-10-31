@@ -1416,6 +1416,14 @@ Found by reading the code (no browser runs on the owner's PC); the GitHub perf r
 - **Tonight:** sections still loading (the ISS line, satellites, launches, the next eclipse) hold their place with
   `.tn-skel` rows (styled in tonight.html; the inline heights keep the room on the globe too); a breath between the
   three main satellites' SGP4 and between eclipses.
+- **After the 2026-10-31 perf run (docs/perf-findings.md #2, 10-16, 19):** the idle texture uploader takes only real
+  idle slices (no `timeout`, `deadline.timeRemaining()` against ~6 ms per million pixels), and counts clicks, keys and
+  form changes here or in the globe as activity for 2.5 s. Sharper maps wait until the view has been still for 300 ms
+  (`Sharpen.movedAt`), one per frame. Comet tails are reworked only when `clockDue` says so and otherwise ride along
+  with the nucleus; `rebase` allows four times the reach within 100 ms of a refill. Search runs 90 ms after typing
+  stops (Enter runs it at once), its indexes are built in an idle slice, and a flight's card is built a frame later.
+  Star ranking keeps one sorted list and runs only when star labels can show. Tonight: "Farthest from home" in
+  `core/farthest.worker.js`; tonight.html keeps the scrollbar gutter, holds the card's height and preloads its fonts.
 
 ## EMSC: a second earthquake catalogue (core/quakes.js; globe/quakes.js, map/feeds.js, mcp/hazards.mjs) — 2026-10-17
 - EMSC's FDSN service (www.seismicportal.eu, keyless, CORS *, credit "EMSC") is asked beside USGS on the globe, the 2D

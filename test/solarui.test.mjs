@@ -173,12 +173,13 @@ test('lists: an eclipse Jump on a phone closes the list too', () => {
 function search() {
   const dom = fakeDom(), flights = [];
   const nav = { focusOn: b => flights.push(b.key) };
-  createFind({ nav, story: { stopTour() {} }, small: { S: { named: [] } }, comets: { rows: [] }, exo: null, clock: { live: true, jd: JD, rate: 1 }, camera: {}, controls: {}, caption() {} });
+  const api = createFind({ nav, story: { stopTour() {} }, small: { S: { named: [] } }, comets: { rows: [] }, exo: null, clock: { live: true, jd: JD, rate: 1 }, camera: {}, controls: {}, caption() {} });
   const q = dom.el('#q'), hits = dom.el('#hits');
-  const type = v => { q.value = v; q.listeners.input(); };
+  const type = v => { q.value = v; q.listeners.input(); api.flush(); };   // as if the 90 ms pause after typing had passed
+  const typeFast = v => { q.value = v; q.listeners.input(); };
   const key = k => q.listeners.keydown({ key: k, preventDefault() {} });
   const focus = () => q.listeners.focus();
-  return { q, hits, type, key, focus, flights };
+  return { q, hits, type, typeFast, key, focus, flights };
 }
 test('search: Enter in a one-letter or emptied box does not fly to a stale, hidden result', () => {
   const s = search();
@@ -195,6 +196,17 @@ test('search: Enter in a one-letter or emptied box does not fly to a stale, hidd
   assert.equal(s.hits.style.display, 'block', 'that Enter shows the results again');
   s.key('Enter');
   assert.deepEqual(s.flights, ['mars', 'mars'], 'and the next Enter flies');
+});
+
+test('search: typing waits for a pause before searching, and Enter right after typing still flies', async () => {
+  const s = search();
+  s.typeFast('Ma'); s.typeFast('Mar'); s.typeFast('Mars');
+  assert.notEqual(s.hits.style.display, 'block', 'no search per keystroke');
+  s.key('Enter');
+  assert.deepEqual(s.flights, ['mars'], 'Enter runs the waiting search, then flies');
+  s.typeFast('Mars'); await new Promise(r => setTimeout(r, 150));
+  assert.equal(s.hits.style.display, 'block', 'the search runs after the pause');
+  s.typeFast('M'); assert.equal(s.hits.style.display, 'none', 'under two letters clears at once');
 });
 
 test('search: back in a box that still says "Mars" after a tap outside, the results show again and Enter flies', () => {

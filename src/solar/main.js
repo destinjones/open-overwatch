@@ -76,7 +76,8 @@ const exo = createExoplanets({ scene, camera, renderer });
 let find = null;   // find.js (search, share links), made after the UI
 // ---- navigation: focus a body and fly there (log-interpolated distance), then keep riding along with it. Every flight
 // eases with core/motion.js (the same curve as the hand-over from the globe) and reuses these vectors: no allocation per frame
-const _dir = new THREE.Vector3(), _ride = new THREE.Vector3();
+const _dir = new THREE.Vector3(), _ride = new THREE.Vector3(), _off = new THREE.Vector3(), _lastOff = new THREE.Vector3(), _lastQ = new THREE.Quaternion();
+let cardAsk = 0;
 const newFly = (d1, dur, dir = null) => {
   const f = nav.fly || { from: new THREE.Vector3(), dir0: new THREE.Vector3(), dir1: new THREE.Vector3() };
   f.from.copy(controls.target); f.d0 = Math.max(camera.position.distanceTo(controls.target), 1e-12); f.d1 = Math.max(d1, 1e-12);
@@ -86,7 +87,7 @@ const newFly = (d1, dur, dir = null) => {
 };
 const nav = {
   focus: byKey.earth, fly: null, free: false,   // free: the camera stays put and orbits the point it looks at, instead of riding along with the focused body
-  release() { if (this.free) return; this.free = true; this.fly = null; controls.minDistance = 1e-6; ui.showCard(null); this.focus?.onFocus?.(false); find?.syncHash(); },
+  release() { if (this.free) return; this.free = true; this.fly = null; controls.minDistance = 1e-6; cardAsk++; ui.showCard(null); this.focus?.onFocus?.(false); find?.syncHash(); },
   focusOn(b, dist = null, dur = FLIGHT.focus, card = true, dir = null) {   // dir: turn the view to look from there (unit vector, target -> camera)
     if (!b) return;
     this.free = false;
@@ -96,7 +97,9 @@ const nav = {
     this.fly = newFly(d1, dur, dir);
     if (this.focus !== b) { this.focus?.onFocus?.(false); b.onFocus?.(true); }
     this.focus = b; controls.minDistance = Math.max(b.radius * 1.15, 1e-7);
-    ui.showCard(card ? b : null);
+    // the card (its sky position, timeline, figures) is built in the next frame, not in the one the flight starts in
+    if (!card) { cardAsk++; ui.showCard(null); }
+    else { const n = ++cardAsk; requestAnimationFrame(() => { if (n === cardAsk && this.focus === b && !this.free) ui.showCard(b); }); }
     find?.syncHash();
   },
   flyDist(d, dur = 2) { this.fly = newFly(d, dur); },
@@ -155,6 +158,9 @@ function frame(t) {
   controls.update(); camera.updateMatrixWorld();
   view.camSun = camera.position.length(); view.camFocus = camera.position.distanceTo(controls.target); view.jd = clock.jd;
   sunView.set(0, 0, 0).applyMatrix4(camera.matrixWorldInverse);
+  _off.copy(camera.position).sub(controls.target);   // the view moving relative to what it looks at (a zoom, an orbit, a flight) holds sharper maps back
+  if (nav.fly || embed.api.active && !controls.enabled || _off.distanceToSquared(_lastOff) > 1e-6 * _off.lengthSq() || camera.quaternion.angleTo(_lastQ) > 1e-4) Sharpen.movedAt = t;
+  _lastOff.copy(_off); _lastQ.copy(camera.quaternion);
   Sharpen.tick();
   sky.frame(view); planets.frame(view); moons.frame(view); small.frame(view); craft.frame(view); comets.frame(view); eclipses.frame(view); deep.frame(view); web.frame(view); exo.frame(view); lightDelay.frame(view);
   story.updatePulse(); ui.frame(view);
@@ -189,7 +195,9 @@ const LOAD_LAYERS = ['moons', 'asteroids', 'craft', 'eclipses'];
 retryLoad = id => (id === 'eclipses' ? settle(eclipses.load(), 'eclipses') : id === 'craft' && !craft.craft.length ? settle(craft.load(), 'craft') : Promise.resolve());
 deep.onStars = () => { applyLayers(); ui.renderLayers(); };
 if (!PHONE) setTimeout(() => { deep.needStars(); web.load().catch(e => console.warn(e)).finally(() => applyLayers()); }, 6000);   // desktops: in the background
-document.querySelector('#q').addEventListener('focus', () => { deep.needStars(); if (!EMBED) small.defer(false); }, { once: true });   // searching for a star, or a named asteroid in the big file
+document.querySelector('#q').addEventListener('focus', () => { deep.needStars(); if (!EMBED) small.defer(false); find.prepare(); }, { once: true });
+// the search indexes (~35,000 names) built in an idle slice once the data is in, not on the first keystroke
+Promise.allSettled([smallLoad, exo.X.loading].filter(Boolean)).then(() => (window.requestIdleCallback || setTimeout)(() => find.prepare()));   // searching for a star, or a named asteroid in the big file
 loads.forEach((p, i) => settle(p, LOAD_LAYERS[i]));
 // ---- the loading bar (solar.html #prog): the boot loads, then the 19 MB asteroid file whenever it is fetched. The files
 // don't report bytes, so the bar creeps while they are in flight and fills as each lands (core/motion.js createProgress):
@@ -228,15 +236,22 @@ setInterval(() => { if (!EMBED && !nav.fly) find.syncHash(); }, 2000);   // time
       for (const t of [m.map, ...Object.values(m.uniforms || {}).map(u => u.value)]) if (t && t.isTexture && t.image && !done.has(t)) out.push(t); });
     return out;
   };
-  // "idle" between two frames of a pinch is not idle: an upload (up to ~0.4 s for a big map on a phone) waits until
-  // nobody has touched this page, or the globe around it, for 1.5 s
-  for (const ev of ['pointerdown', 'pointermove', 'wheel']) addEventListener(ev, () => { window.OO_inputAt = Date.now(); }, { passive: true, capture: true });
-  const touched = () => { let t = window.OO_inputAt || 0; try { if (EMBED && parent.OO_inputAt) t = Math.max(t, parent.OO_inputAt); } catch (e) { /* not same-origin */ } return Date.now() - t < 1500; };
-  const step = () => {
-    if (touched()) { setTimeout(() => idle(step), 700); return; }
-    const t = pending()[0]; if (t) { renderer.initTexture(t); done.add(t); idle(step); } else setTimeout(() => idle(step), 1500);
+  // "idle" between two frames of a pinch is not idle, nor the second after a click in the globe's panels (a layer
+  // switched on is seconds of work there): an upload waits until nobody has touched this page, or the globe around it,
+  // for 2.5 s, and until the browser offers an idle slice long enough for it (deadline.timeRemaining(), ~6 ms per million
+  // pixels once decoded off-thread). A slice forced by a timeout is never used: that is how uploads landed mid-interaction.
+  for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'click', 'input', 'change']) addEventListener(ev, () => { window.OO_inputAt = Date.now(); }, { passive: true, capture: true });
+  const touched = () => { let t = window.OO_inputAt || 0; try { if (EMBED && parent.OO_inputAt) t = Math.max(t, parent.OO_inputAt); } catch (e) { /* not same-origin */ } return Date.now() - t < 2500; };
+  const idleSlice = fn => (window.requestIdleCallback ? requestIdleCallback(fn) : setTimeout(() => fn({ didTimeout: false, timeRemaining: () => 50 }), 200));
+  const costMs = t => Math.min(45, 2 + (t.image.width || 0) * (t.image.height || 0) / 1e6 * 6);
+  const step = deadline => {
+    if (touched() || deadline.didTimeout || document.hidden) { setTimeout(() => idleSlice(step), 700); return; }
+    const t = pending()[0];
+    if (!t) { setTimeout(() => idleSlice(step), 1500); return; }
+    if (deadline.timeRemaining() < costMs(t)) { setTimeout(() => idleSlice(step), 300); return; }   // not enough room in this slice: a later, emptier one
+    renderer.initTexture(t); done.add(t); idleSlice(step);
   };
-  idle(step);
+  idleSlice(step);
   const warm = () => new Promise(res => idle(() => renderer.compileAsync(scene, camera).catch(e => console.warn('shader warm-up', e)).finally(res)));
   embed.api.warm = false;   // the globe waits for this before handing over
   warm().then(() => { embed.api.warm = true; }); Promise.allSettled(loads).then(warm);   // what exists now, then the rest once the data is in

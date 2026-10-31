@@ -16,6 +16,10 @@
 <link rel="icon" href="brand/emblem/favicon.svg">
 <link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="brand/emblem/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="brand/fonts/fonts.css">
+<!-- the fonts above the fold, early: a late swap moved the header's links (layout shift) -->
+<link rel="preload" href="brand/fonts/big-shoulders-display-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="brand/fonts/ibm-plex-mono-500-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="brand/fonts/barlow-500-latin.woff2" as="font" type="font/woff2" crossorigin>
 <style>
 /* Tonight above you, without the 3D globe: the same card as the globe's Tonight (src/globe/tonight.js), full page, fast on phones. */
 :root{
@@ -30,7 +34,11 @@ button{font:inherit;color:inherit;cursor:pointer}
 .glass{background:var(--glass);border:1px solid var(--edge-dim);border-radius:14px}
 header{max-width:720px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top,0px)) 16px 0;display:flex;align-items:center;gap:10px}
 header img{width:30px;height:30px} header b{font:900 18px/1 var(--display);letter-spacing:.08em;text-transform:uppercase} header nav{margin-left:auto;display:flex;gap:4px;flex-wrap:wrap}
-#card{max-width:720px;margin:12px auto 0;padding:18px 18px 22px;position:relative}
+/* layout shift (CLS 0.122 measured): the scrollbar that appears as the card grows slid the centred page sideways, and the
+   footer under a one-line "Loading…" card was pushed down. The gutter is kept, and the card holds a screen's height */
+html{scrollbar-gutter:stable}
+#card{max-width:720px;margin:12px auto 0;padding:18px 18px 22px;position:relative;min-height:min(calc(100vh - 150px),860px)}
+.embed #card{min-height:0}
 #card .x{display:none}
 #card .k{font:500 10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--c,var(--accent))}
 #card h2{margin:6px 0 10px;font:900 34px/1 var(--display);letter-spacing:.03em;text-transform:uppercase}

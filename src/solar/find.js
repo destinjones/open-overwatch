@@ -71,7 +71,15 @@ export function createFind({ nav, story, small, comets, exo, clock, camera, cont
     const q = $('#q').value.trim(); if (q.length < 2) { hits = []; sel = 0; $('#hits').style.display = 'none'; return false; }
     hits = find(q, 14); sel = 0; render(); return true;
   }
-  $('#q').addEventListener('input', runSearch);
+  // typing: one search 90 ms after the last key, not one per key (a search scans ~35,000 names, with spelling slack: up
+  // to ~370 ms per keystroke on a phone); a box under two letters clears at once, and Enter runs a waiting search first
+  let typing = 0;
+  const flush = () => { if (typing) { clearTimeout(typing); typing = 0; runSearch(); } };
+  $('#q').addEventListener('input', () => {
+    clearTimeout(typing); typing = 0;
+    if ($('#q').value.trim().length < 2) { runSearch(); return; }
+    typing = setTimeout(() => { typing = 0; runSearch(); }, 90);
+  });
   $('#q').addEventListener('focus', () => { if ($('#hits').style.display !== 'block') runSearch(); });   // back in a box that still says "Mars": the results again
   function pick(i) {
     const h = hits[i]; if (!h) return;
@@ -79,7 +87,7 @@ export function createFind({ nav, story, small, comets, exo, clock, camera, cont
     flyTo(resolve(h), h.dist); $('#hits').style.display = 'none'; $('#q').value = ''; $('#q').blur();
   }
   $('#q').addEventListener('keydown', e => {
-    if (e.key === 'Enter') { if ($('#hits').style.display === 'block') pick(sel); else runSearch(); }   // only a list that is showing; a hidden one is shown again first
+    if (e.key === 'Enter') { flush(); if ($('#hits').style.display === 'block') pick(sel); else runSearch(); }   // only a list that is showing; a hidden one is shown again first
     if (e.key === 'Escape') { $('#hits').style.display = 'none'; $('#q').blur(); }
     if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && hits.length) { sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + hits.length) % hits.length; document.querySelectorAll('#hits button').forEach((b, i) => b.classList.toggle('sel', i === sel)); e.preventDefault(); }
   });
@@ -116,6 +124,8 @@ export function createFind({ nav, story, small, comets, exo, clock, camera, cont
   }
   addEventListener('hashchange', () => applyHash(location.hash));
 
-  const api = { ready: false, find, resolve, flyTo, syncHash, copyLink, applyHash, viewLink };
+  /** Build the search indexes ahead of the first keystroke (main.js: in an idle slice once the data is in, and when the box gets focus). */
+  const prepare = () => { indexes(); };
+  const api = { ready: false, find, resolve, flyTo, syncHash, copyLink, applyHash, viewLink, prepare, flush };
   return api;
 }

@@ -6,6 +6,7 @@
 // and the 1.57M asteroids whose orbits are solved per point per frame in the vertex shader.
 import { PHONE } from './util.js';
 import { rendererName, isSoftwareRenderer } from '../core/gpu.js';
+import { autoLevel } from '../core/quality.js';
 
 export const LEVELS = {
   high: { name: 'High', pixelRatio: 1.5, allAsteroids: true },     // 2x on a Retina laptop was 4x the pixels for little gain
@@ -20,7 +21,7 @@ export function createQuality({ renderer, small, onAutoChange = () => {} }) {
   const Q = {
     LEVELS, chosen: read(), level: null, gpu: rendererName(renderer.getContext()),
     get software() { return isSoftwareRenderer(Q.gpu); },
-    get autoLevel() { return PHONE || Q.software ? 'low' : 'high'; },
+    get autoLevel() { return autoLevel(PHONE, Q.software); },   // the globe's rule (core/quality.js): phones and software WebGL start on Low
     apply(id) {
       Q.level = id; const q = LEVELS[id];
       renderer.setPixelRatio(Math.min(devicePixelRatio, q.pixelRatio)); renderer.setSize(innerWidth, innerHeight);

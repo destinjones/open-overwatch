@@ -63,9 +63,11 @@ export const sharpTexture = name => `brand/textures/planets/${name}.jpg`;
 /** Swap a texture uniform's value, freeing the old texture. */
 export function swapTexture(u, t) { const old = u.value; u.value = t; if (old && old !== t && old.dispose) old.dispose(); }
 /** Sharper textures on demand: add(when, path, apply) loads `path` the first frame `when()` is true (desktop only). */
+// The sharper maps (add, cycle) are applied only once the camera has been still for 300 ms (main.js sets movedAt), one
+// per frame: uploaded mid-zoom, their texSubImage2D was 60% of a desktop's "zoom back in". First maps (need) go at once.
 export const Sharpen = {
-  camera: null, items: [],
-  add(when, path, apply, opts) { if (!PHONE) this.items.push({ when, path, apply, opts }); },
+  camera: null, items: [], ready: [], movedAt: 0,
+  add(when, path, apply, opts) { if (!PHONE) this.items.push({ when, path, apply, opts, wait: true }); },
   /** Same, on every device: textures that load only once they are about to be seen (phones were downloading 9 MB up front). */
   need(when, path, apply, opts) { this.items.push({ when, path, apply, opts }); },
   /**
@@ -75,16 +77,22 @@ export const Sharpen = {
    */
   cycle(near, away, sharp, dull, apply, opts) {
     if (PHONE) return;
-    const arm = () => this.items.push({ when: near, path: sharp, opts, apply: t => {
-      apply(t, true); this.items.push({ when: away, path: dull, opts, apply: t2 => { apply(t2, false); arm(); } });
+    const arm = () => this.items.push({ when: near, path: sharp, opts, wait: true, apply: t => {
+      apply(t, true); this.items.push({ when: away, path: dull, opts, wait: true, apply: t2 => { apply(t2, false); arm(); } });
     } });
     arm();
   },
   /** On-screen radius of a body in CSS pixels. */
   px(b) { const c = this.camera; return b.radius / Math.max(c.position.distanceTo(b.pos), 1e-12) * innerHeight / (2 * Math.tan(c.fov * Math.PI / 360)); },
   tick() {
-    if (!this.camera || !this.items.length) return;
-    this.items = this.items.filter(it => { if (!it.when()) return true; loadTexture(it.path, it.opts).then(t => t && it.apply(t)); return false; });
+    if (!this.camera) return;
+    let n = 0;   // in place: no new array (or closure) per frame
+    for (const it of this.items) {
+      if (!it.when()) { this.items[n++] = it; continue; }
+      loadTexture(it.path, it.opts).then(t => { if (t) { if (it.wait) this.ready.push({ it, t }); else it.apply(t); } });
+    }
+    this.items.length = n;
+    if (this.ready.length && performance.now() - this.movedAt > 300) { const { it, t } = this.ready.shift(); it.apply(t); }
   },
 };
 
@@ -129,9 +137,12 @@ export function refill(line, fill) { line.userData.fill = fill; line.userData.ba
 /** Refill a rebasedLine around `to` (its body) once the body has moved `reach` camera distances from its origin, or its
  *  points changed. The float32 error near the body is then a few ulps of that distance: nothing on screen. */
 export function rebase(line, to, camera) {
-  const u = line.userData;
-  if (u.based && line.position.distanceTo(to) <= u.reach * camera.position.distanceTo(to)) return false;
+  const u = line.userData, moved = line.position.distanceTo(to), reach = u.reach * camera.position.distanceTo(to), now = performance.now();
+  if (u.based && moved <= reach) return false;
+  // a fast clock moves the body past `reach` every frame, and each refill is hundreds of Kepler (or hyperbolic) solutions:
+  // within 100 ms of the last refill, allow four times the reach (the chord then sags ~1 px, at a year a second)
+  if (u.based && now - (u.at || 0) < 100 && moved <= 4 * reach) return false;
   const a = line.geometry.attributes.position;
-  u.fill(a.array, to); a.needsUpdate = true; line.position.copy(to); line.geometry.computeBoundingSphere(); u.based = true;
+  u.fill(a.array, to); a.needsUpdate = true; line.position.copy(to); line.geometry.computeBoundingSphere(); u.based = true; u.at = now;
   return true;
 }

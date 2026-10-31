@@ -187,7 +187,7 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
   let taken = new Float64Array(256), nTaken = 0;   // screen spots already labelled this frame (x, y pairs)
   const crowded = (x, y) => { for (let i = 0; i < nTaken; i += 2) if (Math.abs(taken[i] - x) < 60 && Math.abs(taken[i + 1] - y) < 14) return true; return false; };
   function updateLabels(camSun, camFocus) {
-    if (performance.now() - lastRank > 400) { lastRank = performance.now(); deep.rankStars(camSun); }
+    if (camSun > 0.3 * LY_AU && performance.now() - lastRank > 400) { lastRank = performance.now(); deep.rankStars(camSun); }   // star labels show only out there
     nTaken = 0;
     for (const b of bodies) {
       let s = labelShown(b, camSun, camFocus) ? screenOf(b.pos, S2) : null;

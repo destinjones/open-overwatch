@@ -12,6 +12,7 @@ import { distance, period } from '../core/format.js';
 import { formatUtc } from '../core/time.js';
 import { relativeTime } from '../core/craft.js';
 import { LOGDEPTH_V, LOGDEPTH_F, glowTexture, rebasedLine, rebase } from './util.js';
+import { clockDue } from '../core/motion.js';
 import { addBody, removeBody, byKey, bodies, layerOn, onLayers } from './world.js';
 
 // designations (not names: dozens of comets are called "NEOWISE" or "ATLAS" after the surveys that found them)
@@ -29,8 +30,8 @@ const RIBBON_F = LOGDEPTH_F + `uniform vec3 uCol; uniform float uOp; varying flo
     #include <colorspace_fragment>
   }`;
 
-/** A camera-facing strip through a polyline, three vertices across (edge, centre, edge) so the edges fade out:
- *  width(k) is the half-width at point k, alpha(k) the brightness along its centre line. */
+/** A camera-facing strip through a polyline, three vertices across (edge, centre, edge) so the edges fade out: the
+ *  half-width at point k is w0 + w1 * f and the brightness along its centre line aK * (1 - f)^1.5, f = k / (n - 1). */
 function ribbon(n, color) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 9), 3));
@@ -42,15 +43,16 @@ function ribbon(n, color) {
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
   m.frustumCulled = false; m.visible = false;
   const t = new THREE.Vector3(), side = new THREE.Vector3(), toCam = new THREE.Vector3(), p = new THREE.Vector3();
-  m.userData.set = (pts, width, alpha, cam) => {
+  m.userData.set = (pts, w0, w1, aK, cam) => {
     const P = g.attributes.position, A = g.attributes.a;
     for (let k = 0; k < n; k++) {
       p.set(pts[k * 3], pts[k * 3 + 1], pts[k * 3 + 2]);
       const j0 = Math.max(0, k - 1), j1 = Math.min(n - 1, k + 1);
       t.set(pts[j1 * 3] - pts[j0 * 3], pts[j1 * 3 + 1] - pts[j0 * 3 + 1], pts[j1 * 3 + 2] - pts[j0 * 3 + 2]);
-      toCam.copy(cam).sub(p); side.crossVectors(t, toCam); const l = side.length(); if (l > 0) side.multiplyScalar(width(k) / l);
+      const f = k / (n - 1);
+      toCam.copy(cam).sub(p); side.crossVectors(t, toCam); const l = side.length(); if (l > 0) side.multiplyScalar((w0 + w1 * f) / l);
       P.setXYZ(k * 3, p.x + side.x, p.y + side.y, p.z + side.z); P.setXYZ(k * 3 + 1, p.x, p.y, p.z); P.setXYZ(k * 3 + 2, p.x - side.x, p.y - side.y, p.z - side.z);
-      A.setX(k * 3, 0); A.setX(k * 3 + 1, alpha(k)); A.setX(k * 3 + 2, 0);
+      A.setX(k * 3, 0); A.setX(k * 3 + 1, aK * (1 - f) ** 1.5); A.setX(k * 3 + 2, 0);
     }
     P.needsUpdate = A.needsUpdate = true;
   };
@@ -70,13 +72,14 @@ export function createComets({ scene, focus: focusOf = () => null }) {
     const coma = new THREE.Sprite(new THREE.SpriteMaterial({ map: COMA, color: 0xffffff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     coma.visible = false; scene.add(coma);
     const dust = ribbon(N_DUST, 0xfff0d2), ion = ribbon(N_ION, 0x6fb7ff); scene.add(dust, ion);
+    const tail = { last: null, dust: new Float64Array(N_DUST * 3), dustNow: new Float64Array(N_DUST * 3), ion: new Float64Array(N_ION * 3), dir: new THREE.Vector3(), ionLen: 0, tipD: 0, mag: null };
     let orbit;   // drawn relative to the comet (util.js rebasedLine), re-based in frame()
     // (an open arc is sampled in time, coarse by perihelion: refilled sooner, with a sample at the comet's now)
     if (c.e < 1) { const el = { a: c.q / (1 - c.e), e: c.e, i: c.i, node: c.node, peri: c.peri }; orbit = rebasedLine(1440, orbitMat(), (out, origin) => orbitPath(el, 1440, { origin, out, through: true })); }
     else orbit = rebasedLine(600, orbitMat(), (out, origin) => conicArc(c, c.tp - 20 * 365.25, c.tp + 20 * 365.25, 600, { origin, out, at: orbit.userData.jd }), { Line: THREE.Line, reach: 0.02 });
     orbit.userData.opacity = 0.3; orbit.visible = layerOn('comets'); scene.add(orbit);
     const P = cometPeriodYears(c), fact = COMET_FACTS[names.designation] || null;
-    const b = addBody({ key, name: names.display, kind: 'comet', color: '#bfe3ff', radius: 5 * KM_AU, pos: new THREE.Vector3(), group, c, coma, dust, ion, orbit, small: true, layer: 'comets', transient,
+    const b = addBody({ key, name: names.display, kind: 'comet', color: '#bfe3ff', radius: 5 * KM_AU, pos: new THREE.Vector3(), group, c, coma, dust, ion, orbit, small: true, layer: 'comets', transient, tail,
       aliases: names.aliases, weight: FAMOUS.some(f => row[0].startsWith(f)) ? 60 : 20, fact,
       posAt: (jd, out) => cometPosition(c, jd, out),
       // perihelion passages around now (two-body: within days to months for a century or two either side)
@@ -123,34 +126,44 @@ export function createComets({ scene, focus: focusOf = () => null }) {
 
   onLayers(() => { for (const b of list) b.orbit.visible = b.group.visible = layerOn('comets'); });
 
-  const cam = new THREE.Vector3(), dir = new THREE.Vector3();
+  const cam = new THREE.Vector3();
   return {
     init, cometBody, list,
     get rows() { return rows; },
     frame({ camera, camSun, fade, jd }) {
       const earthPos = byKey.earth?.pos, on = layerOn('comets'), far = 1 - fade(2000, 3e4, camSun); cam.copy(camera.position);
       const pxAngle = 2 * Math.tan(camera.fov * Math.PI / 360) / innerHeight;   // radians per CSS pixel
+      const now = performance.now();
       for (const b of list) {
         b.orbit.material.opacity = b.orbit.userData.opacity * far; if (b.orbit.visible) rebase(b.orbit, b.pos, camera);
         const r = b.pos.length(), act = activity(r), camD = cam.distanceTo(b.pos), show = on && act > 0.005 && camSun < 400 && jd != null;
+        b.coma.visible = b.dust.visible = b.ion.visible = show; if (!show) { b.tail.last = null; continue; }
+        // The tails' shapes (a syndyne of conic solutions, the ion direction) and the brightness are worked out again
+        // only when the clock has moved enough (core/motion.js clockDue): every frame, they were the top cost of a zoom on
+        // a phone. In between, the last shapes ride along with the nucleus.
+        const T = b.tail;
+        if (clockDue(T.last, jd, now)) {
+          const ion = ionTail(cometPosition(b.c, jd, pos), cometVelocity(b.c, jd, vel));
+          T.ionLen = ion.length; T.dir.set(ion.dir.x, ion.dir.y, ion.dir.z);
+          dustTail(b.c, jd, { days: dustDays(r), n: N_DUST, out: T.dust });
+          T.tipD = Math.hypot(T.dust[(N_DUST - 1) * 3] - T.dust[0], T.dust[(N_DUST - 1) * 3 + 1] - T.dust[1], T.dust[(N_DUST - 1) * 3 + 2] - T.dust[2]);
+          T.mag = cometMagnitude(b.c, r, b.pos.distanceTo(earthPos ?? b.pos));
+          T.last = T.last || {}; T.last.jd = jd; T.last.at = now;
+        }
         // brighter comets glow more (SBDB magnitudes: 0.85 at magnitude 4 or brighter down to 0.2 at 14); without
         // magnitude parameters the famous ones are drawn bright, others faint
-        const m = cometMagnitude(b.c, r, b.pos.distanceTo(earthPos ?? b.pos));
-        const glow = Math.max(b === focusOf() ? 0.8 : 0, m != null ? 0.2 + 0.65 * Math.min(1, Math.max(0, (14 - m) / 10)) : b.weight >= 60 ? 0.6 : 0.25);
-        b.coma.visible = b.dust.visible = b.ion.visible = show; if (!show) continue;
+        const m = T.mag, glow = Math.max(b === focusOf() ? 0.8 : 0, m != null ? 0.2 + 0.65 * Math.min(1, Math.max(0, (14 - m) / 10)) : b.weight >= 60 ? 0.6 : 0.25);
         // coma: real size ~10^5 km scaled by activity, but never under ~5 px, so a comet reads as a fuzzy star
         const s = Math.max(4e5 * KM_AU * act, camD * pxAngle * 5); b.coma.position.copy(b.pos); b.coma.scale.setScalar(s * 2); b.coma.material.opacity = 0.35 + 0.65 * act;
         // ion tail: straight, narrow, fading to its tip
-        const ion = ionTail(cometPosition(b.c, jd, pos), cometVelocity(b.c, jd, vel)), L = Math.max(ion.length, s * 6);
-        dir.set(ion.dir.x, ion.dir.y, ion.dir.z);
-        const ip = new Float32Array(N_ION * 3);
-        for (let k = 0; k < N_ION; k++) { const f = k / (N_ION - 1); ip[k * 3] = b.pos.x + dir.x * L * f; ip[k * 3 + 1] = b.pos.y + dir.y * L * f; ip[k * 3 + 2] = b.pos.z + dir.z * L * f; }
-        b.ion.userData.set(ip, k => (0.15 + 0.85 * k / (N_ION - 1)) * L * 0.025 + s * 0.15, k => (1 - k / (N_ION - 1)) ** 1.5 * 0.8, cam);
+        const L = Math.max(T.ionLen, s * 6), ip = T.ion, d = T.dir;
+        for (let k = 0; k < N_ION; k++) { const f = k / (N_ION - 1); ip[k * 3] = b.pos.x + d.x * L * f; ip[k * 3 + 1] = b.pos.y + d.y * L * f; ip[k * 3 + 2] = b.pos.z + d.z * L * f; }
+        b.ion.userData.set(ip, L * 0.025 * 0.15 + s * 0.15, L * 0.025 * 0.85, 0.8, cam);
         b.ion.material.uniforms.uOp.value = act * glow;
-        // dust tail: the syndyne, widening with age
-        const dp = dustTail(b.c, jd, { days: dustDays(r), n: N_DUST });
-        const tipD = Math.hypot(dp[(N_DUST - 1) * 3] - b.pos.x, dp[(N_DUST - 1) * 3 + 1] - b.pos.y, dp[(N_DUST - 1) * 3 + 2] - b.pos.z);
-        b.dust.userData.set(dp, k => s * 0.25 + tipD * 0.08 * (k / (N_DUST - 1)), k => (1 - k / (N_DUST - 1)) ** 1.5 * 0.45, cam);
+        // dust tail: the syndyne, widening with age, moved to where the nucleus is now
+        const dx = b.pos.x - T.dust[0], dy = b.pos.y - T.dust[1], dz = b.pos.z - T.dust[2], dp = T.dustNow;
+        for (let k = 0; k < N_DUST; k++) { dp[k * 3] = T.dust[k * 3] + dx; dp[k * 3 + 1] = T.dust[k * 3 + 1] + dy; dp[k * 3 + 2] = T.dust[k * 3 + 2] + dz; }
+        b.dust.userData.set(dp, s * 0.25, T.tipD * 0.08, 0.45, cam);
         b.dust.material.uniforms.uOp.value = act * glow;
       }
     },
