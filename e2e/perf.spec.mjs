@@ -34,12 +34,13 @@ function within(p, ms, what) {
 }
 
 // ---- the pages: where they start, their ready signal, the interactions and the leak loop ----
-// ready: a function run in the page until it returns a truthy value. enter: what a visitor does before the page is in
+// ready: a function run in the page until it returns a truthy value, its performance.now() once the page is ready
+// (a function, never a string: the pages' CSP has no 'unsafe-eval', so a string predicate fails on every poll). enter: what a visitor does before the page is in
 // use (the 2D map's splash). steps: [name, fn(ctx), { settle, timeout }]. loop: one round of the leak loop.
 const PAGES = {
   landing: {
     url: 'index.html',
-    ready: () => document.readyState === 'complete' && /quake/.test(document.querySelector('#qk')?.textContent || ''),
+    ready: () => (document.readyState === 'complete' && /quake/.test(document.querySelector('#qk')?.textContent || '')) && performance.now(),
     steps: [
       ['Scroll the landing page to the bottom and back', x => x.scrollPage(12000, true)],
       ['Fleet viewer: every model in turn', async x => { const n = await x.page.locator('#picker button').count(); for (let i = 0; i < n; i++) { await x.click(`#picker button >> nth=${i}`); await sleep(700); } }, { settle: 2000 }],
@@ -49,7 +50,7 @@ const PAGES = {
   },
   map: {
     url: 'open-overwatch.html',
-    ready: () => !!document.querySelector('#enterSilent'),
+    ready: () => (!!document.querySelector('#enterSilent')) && performance.now(),
     enter: async x => {
       await x.page.locator('#enterSilent').click();
       await x.page.waitForFunction(() => { const s = document.querySelector('#splash'); return window.OW && OW.Layers && OW.Layers.defs.length > 10 && (!s || s.classList.contains('out') || getComputedStyle(s).display === 'none'); }, null, { timeout: 120000, polling: 100 });
@@ -89,7 +90,7 @@ const PAGES = {
   },
   globe: {
     url: 'globe.html',
-    ready: () => !!(window.OO3D && OO3D.viewer && (!document.querySelector('#boot') || document.querySelector('#boot').classList.contains('out'))),
+    ready: () => (!!(window.OO3D && OO3D.viewer && (!document.querySelector('#boot') || document.querySelector('#boot').classList.contains('out')))) && performance.now(),
     readyTimeout: CI ? 300000 : 150000,
     steps: [
       ['Layers dock: open', x => x.click('#btnDock')],
@@ -112,16 +113,16 @@ const PAGES = {
       ['Zoom in (10 steps)', x => x.zoom(+1, 10), { settle: 3000 }],
       ['Zoom out (10 steps)', x => x.zoom(-1, 10), { settle: 3000 }],
       ['Pan the globe (3 drags)', x => x.pan(3), { settle: 3000 }],
-      ['Fly to a London street (3 s flight)', async x => { await x.page.evaluate(() => OO3D.viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(-0.1276, 51.5072, 900), orientation: { heading: 0, pitch: -0.45, roll: 0 }, duration: 3 })); await sleep(3500); }, { settle: 4000 }],
-      ['Fly back out to 20,000 km', async x => { await x.page.evaluate(() => OO3D.viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(10, 30, 2.0e7), duration: 3 })); await sleep(3500); }, { settle: 3000 }],
+      ['Fly to a London street (3 s flight)', async x => { await x.page.evaluate(() => void OO3D.viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(-0.1276, 51.5072, 900), orientation: { heading: 0, pitch: -0.45, roll: 0 }, duration: 3 })); await sleep(3500); }, { settle: 4000 }],
+      ['Fly back out to 20,000 km', async x => { await x.page.evaluate(() => void OO3D.viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(10, 30, 2.0e7), duration: 3 })); await sleep(3500); }, { settle: 3000 }],
       ['Hand-off: zoom out past the Moon into the Solar System', async x => {
-        await x.page.evaluate(() => OO3D.viewer.camera.setView({ destination: Cesium.Cartesian3.fromDegrees(20, 10, 4.0e8) }));
+        await x.page.evaluate(() => { OO3D.viewer.camera.setView({ destination: Cesium.Cartesian3.fromDegrees(20, 10, 4.0e8) }); });
         await x.page.waitForFunction(() => OO3D.space && OO3D.space.active, null, { timeout: CI ? 280000 : 150000, polling: 500 });
       }, { settle: 4000, timeout: 300000 }],
       ['Hand-back: the Solar System flies home to the globe', async x => {
         const solar = 'iframe[src="solar.html?embed=1"]';
         await x.page.waitForFunction(s => document.querySelector(s)?.contentWindow?.OOSS?.controls?.enabled, solar, { timeout: 60000, polling: 500 });
-        await x.page.evaluate(s => document.querySelector(s).contentWindow.OOSS.embed.goToEarth(), solar);
+        await x.page.evaluate(s => { document.querySelector(s).contentWindow.OOSS.embed.goToEarth(); }, solar);
         await x.page.waitForFunction(() => !OO3D.space.active, null, { timeout: 150000, polling: 500 });
       }, { settle: 4000, timeout: 200000 }],
     ],
@@ -133,7 +134,7 @@ const PAGES = {
   },
   solar: {
     url: 'solar.html',
-    ready: () => !!(window.OOSS && document.querySelector('#load')?.classList.contains('gone')),
+    ready: () => (!!(window.OOSS && document.querySelector('#load')?.classList.contains('gone'))) && performance.now(),
     readyTimeout: CI ? 240000 : 120000,
     steps: [
       ['Search: Mars, Enter, fly there', async x => {
@@ -159,7 +160,7 @@ const PAGES = {
   },
   tonight: {
     url: 'tonight.html',
-    ready: () => document.readyState === 'complete' && !!(document.querySelector('#tnGreen') || document.querySelector('#tnLoc')),
+    ready: () => (document.readyState === 'complete' && !!(document.querySelector('#tnGreen') || document.querySelector('#tnLoc'))) && performance.now(),
     steps: [
       ['Try Greenwich: the whole sky card', async x => { await x.click('#tnGreen'); await x.page.waitForFunction(() => document.querySelectorAll('#card .tn-row').length > 4, null, { timeout: 60000, polling: 100 }); }, { settle: 3000 }],
       ['Scroll the card to the bottom and back', x => x.scrollPage(8000, true)],
@@ -168,7 +169,7 @@ const PAGES = {
   },
   guide: {
     url: 'guide.html',
-    ready: () => document.readyState === 'complete' && document.querySelectorAll('.toc a').length >= 10,
+    ready: () => (document.readyState === 'complete' && document.querySelectorAll('.toc a').length >= 10) && performance.now(),
     steps: [
       ['Scroll the guide to the bottom and back', x => x.scrollPage(40000, true)],
       ['On-this-page links: four jumps', async x => { for (const i of [2, 6, 10, 14]) { await x.click(`.toc a >> nth=${i}`); await sleep(700); } }],
@@ -177,7 +178,7 @@ const PAGES = {
   },
   india: {
     url: 'india/',
-    ready: () => document.readyState === 'complete' && /IST/.test(document.querySelector('#ist')?.textContent || ''),
+    ready: () => (document.readyState === 'complete' && /IST/.test(document.querySelector('#ist')?.textContent || '')) && performance.now(),
     steps: [
       ['हिन्दी toggle and back', async x => { await x.click('#langBtn'); await sleep(1500); await x.click('#langBtn'); }],
       ['Clip tabs: each recording', async x => { const n = await x.page.locator('[role="tab"][data-clip]').count(); for (let i = 0; i < n; i++) { await x.click(`[role="tab"][data-clip] >> nth=${i}`); await sleep(800); } }],
@@ -247,7 +248,7 @@ async function boot(page, def, x) {
   page.on('requestfinished', r => sizes.push(r.sizes().then(s => ({ url: r.url(), type: r.resourceType(), bytes: s.responseBodySize + s.responseHeadersSize })).catch(() => ({ url: r.url(), type: r.resourceType(), bytes: 0 }))));
   await page.goto(def.url, { waitUntil: 'commit' });
   const origin = await page.evaluate(() => performance.timeOrigin);
-  const h = await page.waitForFunction(`(${def.ready})() && performance.now()`, null, { timeout: def.readyTimeout || (CI ? 120000 : 60000), polling: 100 });
+  const h = await page.waitForFunction(def.ready, null, { timeout: def.readyTimeout || (CI ? 120000 : 60000), polling: 100 });
   const firstReadyMs = Math.round(await h.jsonValue());
   if (def.enter) await within(def.enter(x), 150000, 'enter');
   const readyMs = def.enter ? Math.round(await pageNow(page) - origin) : firstReadyMs;
