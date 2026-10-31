@@ -108,6 +108,7 @@ spreading a big GPU upload over frames, and a loading meter for files that don't
 - `slerpDir`: a unit vector turned toward another along the great circle, written into an out object.
 - `chunkRanges`: [start, end) pieces of at most a given size.
 - `createProgress`: a meter that creeps while files are in flight and never moves backwards.
+- `clockDue`: whether clock-driven work (a comet's tails) is due again, by simulated and real time.
 
 ### `moons.js`
 
@@ -926,6 +927,20 @@ about 2.5 km of each other), each with size, power and last sighting. Used by mc
 - `fireTilesAround`, `clusterFires`, `fireWords`, `perimeterRows`. Both work across the antimeridian (`hazards.js`
   lonWrap and lonBoxes): a search round 180° takes tiles from both sides, a fire astride it stays one fire, and a
   fire's centre comes back in [-180, 180).
+
+### `farthest.js`
+
+"Farthest from home" on the Tonight card: the spacecraft farthest from Earth now, with their distance and how long a
+radio signal takes. Used by globe (tonight.js) through `farthest.worker.js`, or on the page if no worker can start.
+
+- `farthestCraft`: the farthest few from `spacecraft.json` at a time, farthest first, with the card's sentence.
+- `SILENT`: the year of last contact for craft that have fallen silent.
+
+### `farthest.worker.js`
+
+A module worker for the Tonight card: fetches and parses `data/solar/spacecraft.json` (1.9 MB, a 432 ms task on a
+phone's main thread) and answers with `farthestCraft`'s rows. Message in `{ id, now, base }`, out `{ id, rows }` or
+`{ id, error }`.
 
 ### `fires.worker.js`
 

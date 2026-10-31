@@ -112,6 +112,7 @@ test('comets: tails point away from the Sun, the dust tail curves behind, both s
   assert.ok(ion.length > 0.1 && ion.length <= 0.6);
   assert.ok(ionTail({ x: 4.5, y: 0, z: 0 }, { x: 0, y: 0.008, z: 0 }).length < ion.length / 10);
   const pts = dustTail(c, jd, { days: 30, n: 7 });
+  const into = new Float64Array(21); assert.equal(dustTail(c, jd, { days: 30, n: 7, out: into }), into, 'written into out'); assert.deepEqual([...into], pts);
   assert.equal(pts.length, 21);
   assert.ok(Math.hypot(pts[0] - p.x, pts[1] - p.y, pts[2] - p.z) < 1e-12, 'starts at the nucleus');
   const tip = { x: pts[18], y: pts[19], z: pts[20] };

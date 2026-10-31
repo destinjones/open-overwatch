@@ -5,7 +5,7 @@ import { LY_AU, PC_AU, radecToEcl, GALACTIC, SUN_TO_GALACTIC_CENTRE_LY } from '.
 import { fetchAsset } from '../core/assets.js';
 import { bigNumber } from '../core/format.js';
 import { LOGDEPTH_V, LOGDEPTH_F, PHONE, STAR_TEXTURE, surfaceMaterial, loadTexture, planetTexture, sharpTexture, Sharpen, toVector3 } from './util.js';
-import { addBody, bodies, ORIGIN, layer, layerOn, onLayers } from './world.js';
+import { addBody, ORIGIN, layer, layerOn, onLayers } from './world.js';
 
 export function createDeepSpace({ scene, camera, renderer }) {
   // ---- heliopause: where the solar wind meets interstellar space (~120 AU; squashed, it isn't really a sphere)
@@ -69,11 +69,13 @@ export function createDeepSpace({ scene, camera, renderer }) {
     starPoints.frustumCulled = false; starPoints.visible = layerOn('stars'); scene.add(starPoints);
     for (const [idx, name, ly, spectral] of meta.named || []) {
       const p = new THREE.Vector3(pos[idx * 3], pos[idx * 3 + 1], pos[idx * 3 + 2]);
-      addBody({ key: 'star:' + name, name, kind: 'star', color: '#fff3d6', radius: 0, pos: p, fixed: true, star: true, ly, absmag: absmag[idx], layer: 'stars',
-        info: () => [['Distance', ly.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' light-years'], ['= AU', bigNumber(ly * LY_AU) + ' AU'], ['Spectral type', spectral || '—'], ['Light left it', lightLeft(ly)], ['Our radio', radioReach(ly)]] });
+      named.push(addBody({ key: 'star:' + name, name, kind: 'star', color: '#fff3d6', radius: 0, pos: p, fixed: true, star: true, ly, absmag: absmag[idx], layer: 'stars',
+        info: () => [['Distance', ly.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' light-years'], ['= AU', bigNumber(ly * LY_AU) + ' AU'], ['Spectral type', spectral || '—'], ['Light left it', lightLeft(ly)], ['Our radio', radioReach(ly)]] }));
     }
     layer('stars').n = N;
   }
+  const named = [], rankedAt = new THREE.Vector3(Infinity, 0, 0), byMag = (a, b) => a.m - b.m;
+  let rankedN = 0;
   // ---- humanity's radio bubble: broadcasts since 1920 (KDKA) have travelled outward at the speed of light
   const RADIO_YEAR = 1920;
   const yearOf = jd => 2000 + (jd - 2451545.0) / 365.25;
@@ -138,11 +140,15 @@ export function createDeepSpace({ scene, camera, renderer }) {
   return {
     GC, needStars, set onStars(fn) { onStars = fn; },
     /** Which named stars get a label: the brightest ~28 as seen from the camera (+ the very nearest when close in). */
+    // one list, kept and sorted in place (no new arrays each time), and only when the camera has moved: ui.js asks every 400 ms
     rankStars(camSun) {
-      const list = bodies.filter(b => b.star); if (!list.length) return;
+      const list = named; if (!list.length) return;
+      if (rankedAt.distanceToSquared(camera.position) < 1e-6 * camera.position.lengthSq() && rankedN === list.length) return;
+      rankedAt.copy(camera.position); rankedN = list.length;
       for (const b of list) { b.m = b.absmag + 5 * (Math.log10(Math.max(camera.position.distanceTo(b.pos) / PC_AU, 1e-6)) - 1); b.vis = false; }
-      list.sort((a, b) => a.m - b.m).slice(0, PHONE ? 16 : 28).forEach(b => { b.vis = true; });
-      if (camSun < 80 * LY_AU) list.filter(b => b.ly < 12).forEach(b => { b.vis = true; });
+      list.sort(byMag);
+      for (let i = 0, top = Math.min(list.length, PHONE ? 16 : 28); i < top; i++) list[i].vis = true;
+      if (camSun < 80 * LY_AU) for (const b of list) if (b.ly < 12) b.vis = true;
     },
     frame({ camSun, fade, jd }) {
       if (camSun > 300 * LY_AU) milkyNeeded();

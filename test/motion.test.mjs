@@ -3,7 +3,7 @@
 // blend that must never flip the view, the upload chunks and the loading meter that never jumps. Run: node --test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FLIGHT, ease, logLerp, slerpDir, chunkRanges, createProgress } from '../src/core/motion.js';
+import { FLIGHT, ease, logLerp, slerpDir, chunkRanges, createProgress, clockDue } from '../src/core/motion.js';
 
 const len = v => Math.hypot(v.x, v.y, v.z), dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} vs ${b}`);
@@ -67,4 +67,16 @@ test('motion: the loading meter creeps, finishes, and never moves backwards or j
   // a task that ends without ever being started (failed before its fetch) still counts
   const Q = createProgress({ x: 1 }); Q.finish('x', 0); assert.equal(Q.complete, true); assert.equal(Q.target(0), 1);
   assert.equal(createProgress({}).complete, true);
+});
+
+test('motion: clockDue redraws a fast clock at most every ms, a slow one now and then, a stopped one never', () => {
+  assert.equal(clockDue(null, 0, 0), true, 'never done');
+  const last = { jd: 100, at: 1000 };
+  assert.equal(clockDue(last, 100, 99999), false, 'the clock stopped: nothing to redo');
+  assert.equal(clockDue(last, 106, 1050), false, 'a year a second, 50 ms later: not yet');
+  assert.equal(clockDue(last, 106, 1100), true, 'and at 100 ms');
+  assert.equal(clockDue(last, 99.4, 1200), true, 'backwards counts too');
+  assert.equal(clockDue(last, 100.001, 2000), false, 'real time: under a day');
+  assert.equal(clockDue(last, 100.001, 3000), true, 'but caught up after 2 s');
+  assert.equal(clockDue(last, 101, 1300, { days: 2, ms: 0, idleMs: 1e9 }), false);
 });

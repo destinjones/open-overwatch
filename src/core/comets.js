@@ -182,10 +182,11 @@ export function stateToConic(r, v, jd, mu = GM_SUN) {
 /**
  * Dust tail as a syndyne of n points from the nucleus back to grains `days` old: a grain released at jd - tau leaves
  * with the comet's position and velocity, then moves under gravity times (1 - beta) (radiation pressure is beta of
- * gravity, ~0.1-1 for micron grains). c: the comet's elements. Returns a flat array [x0, y0, z0, x1, ...].
+ * gravity, ~0.1-1 for micron grains). c: the comet's elements. Returns a flat array [x0, y0, z0, x1, ...], written
+ * into `out` when given (the view redraws tails often: no new array each time).
  */
-export function dustTail(c, jd, { beta = 0.6, days = 40, n = 24 } = {}) {
-  const pts = new Array(n * 3), r = {}, v = {}, p = {}, mu = muOf(c) * (1 - beta);
+export function dustTail(c, jd, { beta = 0.6, days = 40, n = 24, out = null } = {}) {
+  const pts = out || new Array(n * 3), r = {}, v = {}, p = {}, mu = muOf(c) * (1 - beta);
   for (let k = 0; k < n; k++) {
     const tau = days * k / (n - 1);
     if (k === 0) cometPosition(c, jd, p);

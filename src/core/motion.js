@@ -73,3 +73,14 @@ export function createProgress(tasks, { rate = 1.6, halfLife = 1200 } = {}) {
   };
   return P;
 }
+
+/**
+ * Whether work that depends on the simulation clock is due again: never done, or the clock has moved `days` since and
+ * `ms` of real time have passed (a fast clock is redrawn at most every `ms`), or it moved at all and `idleMs` have
+ * passed (a real-time clock still catches up now and then). last: { jd, at } of the last time it was done, or null.
+ */
+export function clockDue(last, jd, now, { days = 0.5, ms = 100, idleMs = 2000 } = {}) {
+  if (!last) return true;
+  const moved = Math.abs(jd - last.jd), waited = now - last.at;
+  return (moved >= days && waited >= ms) || (moved > 0 && waited >= idleMs);
+}

@@ -16,14 +16,13 @@ import { showersFor } from '../core/meteors.js';
 import { Crew } from './crew.js';
 import { oceanAt } from '../core/explain.js';
 import { haversine } from '../core/geo.js';
-import { planetsTonight, darkWindow, moonPhase, auroraAt, describePass, starlinkTrains, sunAlt, riseSet, nextFullMoon, craftAt, meetings } from '../core/sky.js';
+import { planetsTonight, darkWindow, moonPhase, auroraAt, describePass, starlinkTrains, sunAlt, riseSet, nextFullMoon, meetings } from '../core/sky.js';
 import { fetchAsset } from '../core/assets.js';
 import { SunNow, sunTonightHtml } from './sunnow.js';
 import { DarkSky, yourSkyHtml, deepSkyHtml, deepSkyFor } from './darksky.js';
 import { moonOver, tonightQuality } from '../core/darksky.js';
 import { hoursOf, cloudAt, night, sky as skyWord } from '../core/clouds.js';
-import { earthPosition } from '../core/planets.js';
-import { jdFromMs } from '../core/time.js';
+import { farthestCraft } from '../core/farthest.js';
 
 const HOUR = 3600e3, DAY = 24 * HOUR;
 const MAIN = [['25544', 'ISS (International Space Station)', 'ISS'], ['48274', "Tiangong (China's space station)", 'Tiangong'], ['20580', 'Hubble Space Telescope', 'Hubble']];
@@ -105,14 +104,18 @@ function sunMoon(lat, lon, now) {
   const fm = nextFullMoon(now);
   return { sunText, moonText, full: `Next full Moon: ${day(fm.at)}, ${new Date(fm.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · the ${fm.name}${fm.supermoon ? ' (a supermoon: ' + Math.round(fm.km).toLocaleString('en-US') + ' km away, extra big and bright)' : ''}` };
 }
-const SILENT = { 'Pioneer 10': 2003, 'Pioneer 11': 1995 };   // last contact
-/** The farthest things we built: distance from Earth now, and how long their radio signals take to arrive. */
-async function farthest(now) {
-  const all = await fetchAsset('data/solar/spacecraft.json', 'json'), jd = jdFromMs(now), E = earthPosition(jd), AU = 149597870.7;
-  return all.map(c => { const p = craftAt(c, jd); if (!p) return null; const au = Math.hypot(p.x - E.x, p.y - E.y, p.z - E.z), s = au * 499.004784;
-    const mm = Math.round(s / 60), h = Math.floor(mm / 60), m = mm % 60, km = au * AU;
-    return { name: c.name, au, text: `${c.name}: ${km > 1e9 ? (km / 1e9).toFixed(1) + ' billion' : Math.round(km / 1e6) + ' million'} km away (${au.toFixed(au < 10 ? 2 : 0)} AU). ${SILENT[c.name] ? `Silent since ${SILENT[c.name]}; a signal from there would take ${h ? h + ' h ' : ''}${m} min.` : `Its radio signal takes ${h ? h + ' h ' : ''}${m} min to reach us.`}` }; })
-    .filter(Boolean).sort((a, b) => b.au - a.au).slice(0, 4);
+/** The farthest things we built (core/farthest.js), worked out in a worker: parsing spacecraft.json here was a 432 ms task. */
+let farWorker = null;
+function farthest(now) {
+  const onPage = () => fetchAsset('data/solar/spacecraft.json', 'json').then(all => farthestCraft(all, now));
+  if (typeof Worker !== 'function') return onPage();
+  return new Promise(res => {
+    try { farWorker = farWorker || new Worker(new URL('../core/farthest.worker.js', import.meta.url), { type: 'module' }); }
+    catch (e) { res(onPage()); return; }
+    const id = Math.random(), w = farWorker, done = v => { w.removeEventListener('message', on); w.removeEventListener('error', fail); res(v); };
+    const on = e => { if (e.data.id === id) done(e.data.rows || onPage()); }, fail = () => { farWorker = null; done(onPage()); };
+    w.addEventListener('message', on); w.addEventListener('error', fail); w.postMessage({ id, now, base: location.href });
+  });
 }
 const bearing = (la1, lo1, la2, lo2) => { const r = Math.PI / 180, y = Math.sin((lo2 - lo1) * r) * Math.cos(la2 * r), x = Math.cos(la1 * r) * Math.sin(la2 * r) - Math.sin(la1 * r) * Math.cos(la2 * r) * Math.cos((lo2 - lo1) * r); return (Math.atan2(y, x) / r + 360) % 360; };
 
