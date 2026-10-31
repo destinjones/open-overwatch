@@ -64,6 +64,11 @@ nightLayer.dayAlpha = 0.0; nightLayer.nightAlpha = 1.0;
 // gamma is applied before brightness: x^2.5 pushes Black Marble's dim blue land to near-black, then x3.4 restores the
 // cities (the lit-globe shader keeps ~30% on the night side)
 Object.assign(nightLayer, { gamma: 0.4, brightness: 3.4, contrast: 1.0 });
+// The night side is shaded, never hidden: the day imagery stays under it at NIGHT_SHADE (on top of the lit-globe shader's
+// own 30%), and Black Marble's near-black pixels turn transparent so only the city lights are drawn over it. (Showing the
+// day imagery at full strength instead lets the ground atmosphere's exposure turn the night oceans bright blue.)
+export const NIGHT_SHADE = 0.35;
+nightLayer.colorToAlpha = C.Color.BLACK; nightLayer.colorToAlphaThreshold = 0.3;
 
 export const currentBase = () => baseId;
 export function setBase(id) {
@@ -231,10 +236,11 @@ export const Earth = {
     // a layer at alpha 0, or one fully under the opaque Blue Marble, still costs tile downloads, texture units and a
     // globe shader variant per combination (each new variant is a compile stall mid-flight): switch those off
     marbleLayer.show = marbleLayer.alpha > 0.001;
-    if (baseLayer) { baseLayer.nightAlpha = 1 - real; baseLayer.show = marbleLayer.alpha < 0.999; }   // close in, the map stays visible on the night side
+    const shade = 1 - real * (1 - NIGHT_SHADE);   // close in the night side is fully lit; from space it is shaded, not black
+    if (baseLayer) { baseLayer.nightAlpha = shade; baseLayer.show = marbleLayer.alpha < 0.999; }
     const limb = limbFade(this.q, h);   // a full-disc pass for a thin rim: none on 'low'; on 'balanced' it fades out below ~1,000 km
     limbShell.primitive.show = limb > 0; limbShell.material.uniforms.fade = limb;   // (look-up mode hides it)
-    marbleLayer.nightAlpha = 1 - real;
+    marbleLayer.nightAlpha = shade;
     nightLayer.show = L.night.on && real > 0.001; nightLayer.alpha = real;
     // the globe dims its night side to 0.3 only at full lighting (linear in height between the two lighting fade
     // distances); keep the city lights at the same apparent brightness while that dimming fades in
