@@ -1,0 +1,123 @@
+# The performance and smoothness run (e2e/perf.spec.mjs, e2e/perf.config.mjs): every page on a desktop and on a
+# Pixel-class phone with its CPU slowed 4×, measuring boot, frame times, long tasks with the script behind them, layout
+# shift, requests and bytes, and JS heap and DOM growth over 2 minutes idle and 2 minutes of interaction. One job per
+# page and profile, side by side (each measures alone on its runner), then a report job merges them into
+# perf-summary.md (also on the run's summary page) and perf-report.json, and checks e2e/perf-budgets.json: warnings
+# only until that file says "enforce": true.
+#
+# Software WebGL: GitHub's runners have no GPU, so WebGL runs on SwiftShader, on the CPU. That makes every GPU-bound
+# frame (the globe's tiles and clouds, the Solar System's point clouds, high device-pixel ratios) far slower than on a
+# real phone's GPU, and puts that drawing on the same 4 cores as the page's scripts. Read the frame numbers of the
+# globe and the Solar System as "how much work a frame is", not as a phone's frame rate; long tasks, blocking time,
+# layout shift, requests and leaks are CPU-side and carry over. The phone's 4× CPU slowdown applies to scripts, not to
+# SwiftShader's own threads. docs/PERFORMANCE.md has the details and the baseline.
+name: Performance
+on:
+  push:
+    branches: [ci-e2e, perf-baseline]
+  workflow_dispatch:
+    inputs:
+      pages:
+        description: 'Pages (comma-separated: landing,map,globe,solar,tonight,guide,india), empty for all'
+        required: false
+        default: ''
+      leak_seconds:
+        description: 'Seconds of each leak check (idle, then the loop)'
+        required: false
+        default: '120'
+permissions:
+  contents: read
+concurrency:
+  group: perf-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  measure:
+    name: ${{ matrix.page }} · ${{ matrix.profile }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        page: [landing, map, globe, solar, tonight, guide, india]
+        profile: [desktop, phone]
+    steps:
+      - name: This page in the run?
+        id: pick
+        run: |
+          P='${{ github.event.inputs.pages }}'
+          if [ -z "$P" ] || echo ",$P," | grep -q ",${{ matrix.page }},"; then echo "run=1" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.pick.outputs.run
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.pick.outputs.run
+        with:
+          node-version: 22
+      - name: Install Playwright (dev dependency) and satellite.js
+        if: steps.pick.outputs.run
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Keep the browser between runs
+        if: steps.pick.outputs.run
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Headless Chromium and the libraries it needs
+        if: steps.pick.outputs.run
+        run: npx playwright install --with-deps --only-shell chromium
+      - name: Keep the pinned libraries and fonts the pages load (e2e/.cache)
+        if: steps.pick.outputs.run
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: e2e/.cache
+          key: e2e-cdn-${{ hashFiles('*.html') }}
+          restore-keys: e2e-cdn-
+      - name: Measure ${{ matrix.page }} on the ${{ matrix.profile }} profile
+        if: steps.pick.outputs.run
+        env:
+          OO_PERF: '1'
+          OO_PERF_PAGES: ${{ matrix.page }}
+          OO_PERF_IDLE_S: ${{ github.event.inputs.leak_seconds || '120' }}
+          OO_PERF_LOOP_S: ${{ github.event.inputs.leak_seconds || '120' }}
+        run: npx playwright test -c e2e/perf.config.mjs --project=perf-${{ matrix.profile }}
+      - name: Keep this page's results
+        if: ${{ !cancelled() && steps.pick.outputs.run }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-part-${{ matrix.page }}-${{ matrix.profile }}
+          path: e2e/.results/perf/
+          retention-days: 14
+          if-no-files-found: ignore
+          include-hidden-files: true
+
+  report:
+    name: Report and budgets
+    needs: measure
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: perf-part-*
+          merge-multiple: true
+          path: e2e/.results/perf
+      - name: Merge, rank the worst offenders, check the budgets
+        run: |
+          set +e
+          node e2e/perf-report.mjs e2e/.results/perf; code=$?
+          cat e2e/.results/perf/perf-summary.md >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+      - name: Keep the report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-report
+          path: |
+            e2e/.results/perf/perf-report.json
+            e2e/.results/perf/perf-summary.md
+          retention-days: 30
+          include-hidden-files: true

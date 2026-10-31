@@ -1,0 +1,17 @@
+{
+  "_about": "Budgets for the performance run (e2e/perf.spec.mjs, checked by e2e/perf-report.mjs). A run whose number is above its budget is listed; with enforce true the job fails. Measured on GitHub's runners in software WebGL, so these are not phone or GPU figures: see docs/PERFORMANCE.md. Pages override the defaults per profile. Times in ms, sizes in MB.",
+  "enforce": false,
+  "default": {
+    "desktop": {
+      "readyMs": 4000, "fcpMs": 2000, "bootTbtMs": 600, "bootRequests": 120, "bootMB": 4,
+      "worstP95Ms": 50, "framesOver100": 10, "longestTaskMs": 250, "interactionTbtMs": 1500, "cls": 0.1,
+      "idleHeapGrowthMB": 3, "loopHeapGrowthMB": 8, "loopNodesGrowth": 2000
+    },
+    "phone": {
+      "readyMs": 8000, "fcpMs": 3500, "bootTbtMs": 2000, "bootRequests": 120, "bootMB": 4,
+      "worstP95Ms": 100, "framesOver100": 25, "longestTaskMs": 600, "interactionTbtMs": 5000, "cls": 0.1,
+      "idleHeapGrowthMB": 3, "loopHeapGrowthMB": 8, "loopNodesGrowth": 2000
+    }
+  },
+  "pages": {}
+}
