@@ -35,6 +35,8 @@ html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%} /* no page pin
   --ink:#e6edf3; --dim:#8b9bab; --faint:#738599; --accent:#7dffa6;
   --civ:#5fd3ff; --mil:#ffb44d; --emg:#ff4d5e; --sat:#d9ccff; --gnss:#ffd45c; --geo:#b48cff; --wx:#62e0c8; --qk:#ff7b4f;
   --display:"Big Shoulders Display","Arial Narrow",sans-serif; --body:"Barlow",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  /* motion: one easing out (panels arriving), one in-out (things that travel), three durations; shell.css stops them all under reduced motion */
+  --ease:cubic-bezier(.2,.8,.2,1); --ease-io:cubic-bezier(.65,0,.35,1); --t-fast:.16s; --t:.28s; --t-slow:.42s;
   color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -44,6 +46,8 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:14px/1
 .glass{background:var(--glass);border:1px solid var(--edge-dim);border-radius:14px;backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);box-shadow:0 10px 40px rgba(0,0,0,.35)}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 button{font:inherit;color:inherit;cursor:pointer}
+.tb,.go,.chipbtn,.links a,.ly,.m-tab,.m-item,.m-rate,#navpad button{transition:color var(--t-fast),background-color var(--t-fast),border-color var(--t-fast),transform var(--t-fast) var(--ease);-webkit-tap-highlight-color:transparent}
+.tb:active,.go:active,.chipbtn:active,.links a:active,.m-tab:active,.m-item:active,.m-rate:active,#navpad button:active{transform:scale(.96)} /* a press you can see, on the compositor */
 
 /* top bar */
 #top{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:14px;right:14px;display:flex;align-items:center;gap:12px;pointer-events:none;z-index:5}
@@ -79,18 +83,24 @@ body.no-air .stats .stat:nth-child(-n+2){display:none} /* the website has no air
 .note{font-size:11.5px;color:var(--faint);margin:8px 6px 2px;line-height:1.35}
 
 /* altitude band + presets */
-#band{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:6px;z-index:5}
+#band{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:6px;z-index:5;max-width:calc(100vw - 160px)} /* 80 px each side: the zoom pad and the credits keep their own room */
+#band .gos{display:flex;align-items:center;gap:6px;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;scroll-padding:0 28px;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 28px,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,transparent,#000 28px,#000 calc(100% - 28px),transparent)}
+#band .gos::-webkit-scrollbar{display:none}
+#band .gos.at-start{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)} /* the fade only where more is hidden (ui.js) */
+#band .gos.at-end{-webkit-mask-image:linear-gradient(90deg,transparent,#000 28px);mask-image:linear-gradient(90deg,transparent,#000 28px)}
+#band .gos.at-start.at-end{-webkit-mask-image:none;mask-image:none}
 .alt{padding:4px 14px 4px 10px;border-right:1px solid var(--edge-dim);margin-right:2px;min-width:170px}
 .alt b{display:block;font:900 20px/1 var(--display);letter-spacing:.12em;color:var(--accent);text-transform:uppercase}
 .alt span{font:500 11px/1.4 var(--mono);color:var(--dim)}
-.go{padding:10px 14px;border-radius:9px;border:1px solid transparent;background:none;font:600 12px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.go{flex:none;white-space:nowrap;padding:10px 14px;border-radius:9px;border:1px solid transparent;background:none;font:600 12px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
 .go:hover{color:var(--ink);border-color:var(--edge-dim);background:rgba(230,237,243,.04)}
 .go.on{color:var(--accent);border-color:var(--edge)}
 
 /* detail card */
-#card{position:fixed;right:14px;top:84px;width:320px;padding:16px 18px;z-index:4;transform:translateX(120%);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
-#card.show{transform:none}
-#card:not(.show){visibility:hidden;transition:transform .35s cubic-bezier(.2,.8,.2,1),visibility 0s .35s} /* a closed card leaves the tab order once it has slid out */
+#card{position:fixed;right:14px;top:84px;width:320px;padding:16px 18px;z-index:4;transform:translateX(calc(100% + 24px));opacity:0;transition:transform .35s var(--ease),opacity var(--t) var(--ease)}
+#card.show{transform:none;opacity:1}
+#card:not(.show){visibility:hidden;transition:transform .35s var(--ease),opacity var(--t) var(--ease),visibility 0s .35s} /* a closed card leaves the tab order once it has slid out */
 #card .k{font:500 10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--c,var(--accent))}
 #card h2{margin:6px 0 10px;font:900 30px/1 var(--display);letter-spacing:.03em;text-transform:uppercase}
 #card dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0}
@@ -137,35 +147,44 @@ body.lookup #top,body.lookup #band,body.lookup #dock,body.lookup #card,body.look
 .lc-cd{margin:2px 0 8px;font:700 26px/1.1 var(--mono);color:#ff9f5c;letter-spacing:.02em}
 .fl-form{display:flex;gap:6px;margin:6px 0} .fl-form input{flex:1;min-width:0;padding:9px 11px;border-radius:9px;border:1px solid var(--edge-dim);background:rgba(5,8,12,.6);color:var(--ink);font:600 15px/1 var(--mono);text-transform:uppercase}
 
-#hover{position:fixed;pointer-events:none;z-index:6;padding:5px 9px;border-radius:7px;font:500 11.5px/1.2 var(--mono);background:var(--glass-strong);border:1px solid var(--edge-dim);display:none;white-space:nowrap}
-#credits{position:fixed;right:12px;bottom:10px;max-width:46vw;z-index:3;font:400 10px/1.3 var(--body);color:var(--faint);text-align:right}
+/* a line that fills in a moment later (crew aboard, an airport's weather and board): it pulses where the words will be,
+   at the size they will have, so the card does not jump when they arrive */
+.skel{border-radius:6px;background:rgba(230,237,243,.06);color:transparent!important;animation:skel 1.3s ease-in-out infinite}
+.skel *{visibility:hidden}
+@keyframes skel{50%{opacity:.45}}
+#hover{position:fixed;left:0;top:0;will-change:transform;pointer-events:none;z-index:6;padding:5px 9px;border-radius:7px;font:500 11.5px/1.2 var(--mono);background:var(--glass-strong);border:1px solid var(--edge-dim);display:none;white-space:nowrap}
+#credits{position:fixed;left:12px;right:12px;bottom:8px;z-index:3;font:400 10px/1.3 var(--body);color:var(--faint);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* one line in the strip under the band */
 #credits a{color:var(--faint)}
-#toast{position:fixed;left:50%;top:124px;transform:translateX(-50%);padding:9px 14px;z-index:7;font:500 12px/1.2 var(--mono);opacity:0;transition:opacity .3s;pointer-events:none}
-#toast.show{opacity:1}
+#toast{position:fixed;left:50%;top:124px;transform:translate(-50%,-6px);padding:9px 14px;z-index:7;font:500 12px/1.2 var(--mono);opacity:0;transition:opacity var(--t) var(--ease),transform var(--t) var(--ease);pointer-events:none}
+#toast.show{opacity:1;transform:translate(-50%,0)}
 #boot{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:var(--bg);transition:opacity .8s}
 #boot.out{opacity:0;pointer-events:none}
 #boot div{font:500 12px/1.6 var(--mono);color:var(--dim);letter-spacing:.14em;text-transform:uppercase}
+#boot div::after{content:"";display:block;width:140px;height:2px;margin:14px auto 0;border-radius:2px;background:var(--accent);opacity:.7;transform-origin:left;animation:boot-run 1.6s var(--ease-io) infinite}
+@keyframes boot-run{0%{transform:scaleX(0)}55%{transform:scaleX(1);opacity:.7}100%{transform:scaleX(1);opacity:0}}
+#boot.fail div::after{display:none}
 #boot.fail div{max-width:min(440px,calc(100vw - 32px));text-align:center;text-transform:none;letter-spacing:.02em;font-size:13px;color:var(--ink)} #boot a{color:#7dffa6} /* the boot watchdog's message */
 @media (max-width:820px){
-  #dock{top:auto;bottom:86px;left:10px;right:10px;width:auto;max-height:34vh;display:none} #dock.open{display:block}
+  #dock{top:auto;bottom:86px;left:10px;right:10px;width:auto;max-height:34vh;opacity:0;transform:translateY(12px);visibility:hidden;pointer-events:none;transition:opacity var(--t-fast),transform var(--t) var(--ease),visibility 0s var(--t)}
+  #dock.open{opacity:1;transform:none;visibility:visible;pointer-events:auto;transition:opacity var(--t-fast),transform var(--t) var(--ease)} /* slides up instead of popping in */
   #top{gap:8px;left:10px;right:10px;top:calc(10px + env(safe-area-inset-top,0px))} /* an installed app draws under the status bar */ .brand{padding:7px} .brand b,.brand small{display:none} /* emblem only: the bar must fit 360 px */
   .timebar [data-rate="-3600"],.timebar [data-rate="600"],.timebar #tLive{display:none} .tnow{min-width:0} .tnow b{font-size:11.5px} .tnow span{display:none}
   .stats{padding:4px} .stats .stat:nth-child(n+3){display:none} .stat{min-width:52px;padding:4px 8px} .stat b{font-size:15px}
   body.no-air .stats .stat:nth-child(n+3){display:block} /* without aircraft, SAT and QK take their places */
   .links{padding:4px} .links a{display:none} /* keep the Layers button: it is the only way to open the dock on a phone */
   .alt b{font-size:16px;white-space:nowrap} .alt span{white-space:nowrap}
-  #band{left:10px;right:10px;transform:none;bottom:10px;overflow-x:auto} .alt{min-width:120px}
+  #band{left:10px;right:10px;transform:none;bottom:10px;max-width:none} .alt{min-width:120px}
   #card{left:10px;right:10px;width:auto;top:auto;bottom:100px;transform:translateY(160%);max-height:calc(100dvh - 190px);overflow:auto;overscroll-behavior:contain} #card.show{transform:none}
   #card h2{font-size:24px} .cjl{max-height:none}
-  #credits{left:12px;right:12px;bottom:86px;max-width:none;text-align:left;font-size:8.5px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #credits{left:12px;right:12px;bottom:86px;max-width:none;text-align:left;font-size:8.5px;opacity:.75}
   #toast{top:auto;bottom:104px;max-width:calc(100vw - 24px);white-space:normal;text-align:center}
   .tnow b{white-space:nowrap}
 }
 @media (max-width:480px){ .stats{display:none} .timebar{padding:4px 5px;gap:1px} .tb{min-width:26px;padding:0 5px} .timebar [data-rate="60"]{display:none} } /* the Layers button must stay on screen */
 /* fingers: tap targets of ~40 px (Apple and Google ask for 44/48; the header has to fit 360 px) */
 @media (pointer:coarse){
-  .tb{min-width:38px;height:38px} .chipbtn,.links a{min-height:40px} .go{min-height:44px;padding:10px 12px}
-  #card .x{font-size:24px;padding:8px 14px} .ly{min-height:40px} .cj{min-height:48px}
+  .tb{min-width:44px;height:44px} .chipbtn,.links a{min-height:44px} .go{min-height:44px;padding:10px 12px}
+  #card .x{font-size:24px;padding:8px 14px;min-width:44px;min-height:44px} .ly{min-height:44px} .cj{min-height:48px} #navpad button{width:44px;height:44px}
   #lookup select,#lookup .lu-when input{min-height:40px}   /* Look up's Find and Sky on: held up to the sky, one-handed */
 }
 /* phone control set (src/globe/mobile.js adds body.m and the dock only on phones; desktops never match any of this) */
@@ -210,7 +229,9 @@ body.m #wx{bottom:calc(86px + env(safe-area-inset-bottom,0px))}
 body.lookup #wx{display:none}
 body.lookup .m-dock,body.lookup .m-sheet,body.lookup .m-scrim{display:none!important}
 /* desktop navigation pad (src/globe/navpad.js; not built on phones, which have the dock) */
-#navpad{position:fixed;right:14px;bottom:48px;z-index:5;display:flex;flex-direction:column;gap:2px;padding:4px}
+#navpad{position:fixed;right:14px;bottom:96px;z-index:5;display:flex;flex-direction:column;gap:2px;padding:4px;max-height:calc(100dvh - 190px);overflow-y:auto;scrollbar-width:none;transition:transform var(--t) var(--ease)} /* above the band, never beside it */
+body.card-open #navpad{transform:translateX(-334px)} /* an open card takes the right edge: the pad moves to its left (ui.js syncCard) */
+body.card-open.tt-open #navpad{opacity:0;pointer-events:none} /* card and time travel both open: no room left for it (scroll and drag still zoom) */
 #navpad button{width:40px;height:40px;border-radius:9px;border:1px solid transparent;background:none;color:var(--ink);font:500 20px/1 var(--body);display:flex;align-items:center;justify-content:center;cursor:pointer}
 #navpad button:hover{border-color:var(--edge-dim);background:rgba(230,237,243,.05)} #navpad button:active{background:rgba(125,255,166,.1)}
 #navpad svg{width:22px;height:22px;transition:transform .15s} #navpad #npNorth.askew{border-color:var(--edge);box-shadow:0 0 12px rgba(125,255,166,.18)}
@@ -274,6 +295,7 @@ body.lookup #tt,body.embed #tt{display:none!important}
 <aside id="dock" class="glass" aria-label="Layers"></aside>
 <nav id="band" class="glass">
   <div class="alt"><b id="bandName">—</b><span id="bandAlt">—</span></div>
+  <div class="gos" id="bandGos">
   <button class="go" data-go="now" style="color:#ff7b4f" title="What is happening on Earth right now: quakes, storms, fires, launches, aurora, flybys, weather extremes  ( E )">Earth now</button>
   <button class="go" data-go="search" style="color:#7dffa6" title="Search satellites, countries, flights, volcanoes and views  ( / )">⌕ Search</button>
   <button class="go" data-go="ground">Street</button>
@@ -296,6 +318,7 @@ body.lookup #tt,body.embed #tt{display:none!important}
   <button class="go" data-go="history" style="color:#c9a0ff" title="Go back in time: the earthquakes, storms, natural events and satellites of any past moment">Time travel</button>
   <button class="go" data-go="eclipses" title="Solar eclipses 2027-2030: watch the Moon's shadow cross the Earth">Eclipses</button>
   <button class="go" data-go="space" style="color:var(--accent)" title="Keep zooming out: the planets, the stars, the galaxy">Solar system ↗</button>
+  </div>
 </nav>
 <section id="card" class="glass" role="region" aria-label="Details"></section>
 <div id="lookup"><!-- no live region here: the compass line and "Find" change every frame; #luInfo (what you tapped) speaks, Find through OOApp.announce -->

@@ -125,6 +125,8 @@ const ctx = canvas.getContext('2d');
 
 // ------------------------------------------------------------------------------------------------ detection scan
 const scratch = { d: new C.Cartesian3(), w: new C.Cartesian2() };
+const RIDE = { t: new C.JulianDate(), view: { destination: null, orientation: { direction: null, up: null } },
+  ...Object.fromEntries(['p', 'up', 'v', 'a', 'b', 'fwd', 'right', 'flat', 'dir', 'side', 'camUp', 'eye'].map(k => [k, new C.Cartesian3()])) };   // Ops.ride's scratch
 let picks = [];            // [{ o, kind, id, label, sub, pos: () => Cartesian3, seen }]
 const firstSeen = new Map();
 function kindOf(o) {
@@ -299,18 +301,22 @@ export const Ops = {
   ride(time) {
     if (!this.cockpit) return;
     if (!Follow.obj) { this.setCockpit(false); return; }
-    const p = Follow.getPos(time), p2 = Follow.getPos(C.JulianDate.addSeconds(time, 1, new C.JulianDate())); if (!p || !p2) return;
-    const up = C.Cartesian3.normalize(p, new C.Cartesian3()), v = C.Cartesian3.subtract(p2, p, new C.Cartesian3());
-    const fwd = C.Cartesian3.normalize(C.Cartesian3.subtract(v, C.Cartesian3.multiplyByScalar(up, C.Cartesian3.dot(v, up), new C.Cartesian3()), new C.Cartesian3()), new C.Cartesian3());
+    // every frame in the cockpit: scratch vectors (R), not ~20 new ones a frame; getPos may hand back its own scratch,
+    // so p is copied before the second call
+    const R = RIDE, p0 = Follow.getPos(time); if (!p0) return;
+    const p = C.Cartesian3.clone(p0, R.p), p2 = Follow.getPos(C.JulianDate.addSeconds(time, 1, R.t)); if (!p2) return;
+    const up = C.Cartesian3.normalize(p, R.up), v = C.Cartesian3.subtract(p2, p, R.v);
+    const fwd = C.Cartesian3.normalize(C.Cartesian3.subtract(v, C.Cartesian3.multiplyByScalar(up, C.Cartesian3.dot(v, up), R.a), R.fwd), R.fwd);
     if (!Number.isFinite(fwd.x)) return;
-    const right = C.Cartesian3.cross(fwd, up, new C.Cartesian3());
+    const right = C.Cartesian3.cross(fwd, up, R.right);
     const y = C.Math.toRadians(this.look.yaw), pt = C.Math.toRadians(this.look.pitch);
-    const flat = C.Cartesian3.add(C.Cartesian3.multiplyByScalar(fwd, Math.cos(y), new C.Cartesian3()), C.Cartesian3.multiplyByScalar(right, Math.sin(y), new C.Cartesian3()), new C.Cartesian3());
-    const dir = C.Cartesian3.normalize(C.Cartesian3.add(C.Cartesian3.multiplyByScalar(flat, Math.cos(pt), new C.Cartesian3()), C.Cartesian3.multiplyByScalar(up, Math.sin(pt), new C.Cartesian3()), new C.Cartesian3()), new C.Cartesian3());
-    const side = C.Cartesian3.normalize(C.Cartesian3.cross(dir, up, new C.Cartesian3()), new C.Cartesian3()), camUp = C.Cartesian3.cross(side, dir, new C.Cartesian3());
-    const eye = C.Cartesian3.add(p, C.Cartesian3.multiplyByScalar(up, Follow.obj.kind === 'air' ? 4 : 0, new C.Cartesian3()), new C.Cartesian3());
+    const flat = C.Cartesian3.add(C.Cartesian3.multiplyByScalar(fwd, Math.cos(y), R.a), C.Cartesian3.multiplyByScalar(right, Math.sin(y), R.b), R.flat);
+    const dir = C.Cartesian3.normalize(C.Cartesian3.add(C.Cartesian3.multiplyByScalar(flat, Math.cos(pt), R.a), C.Cartesian3.multiplyByScalar(up, Math.sin(pt), R.b), R.dir), R.dir);
+    const side = C.Cartesian3.normalize(C.Cartesian3.cross(dir, up, R.side), R.side), camUp = C.Cartesian3.cross(side, dir, R.camUp);
+    const eye = C.Cartesian3.add(p, C.Cartesian3.multiplyByScalar(up, Follow.obj.kind === 'air' ? 4 : 0, R.a), R.eye);
     camera.lookAtTransform(C.Matrix4.IDENTITY);
-    camera.setView({ destination: eye, orientation: { direction: dir, up: camUp } });
+    R.view.destination = eye; R.view.orientation.direction = dir; R.view.orientation.up = camUp;
+    camera.setView(R.view);
   },
 };
 

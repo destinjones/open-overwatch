@@ -8,6 +8,8 @@ import { scene } from './viewer.js';
 import { L, setCount } from './layers.js';
 import { state } from './state.js';
 import { fetchAsset } from '../core/assets.js';
+import { settled } from './state.js';
+import { sliced } from '../core/slices.js';
 
 const dots = scene.primitives.add(new C.PointPrimitiveCollection());
 let towers = null;   // ONE batched primitive for all the shafts: 1,000 PolylineCollection lines cost a tenth of every frame
@@ -24,18 +26,19 @@ export const groupOf = ind => GROUPS.find(g => g[2].test(ind || '')) || ['Other'
 export const Companies = {
   list: [], loading: null,
   load() {
-    if (!this.loading) this.loading = fetchAsset('data/companies.json', 'json').then(d => {
-      const ix = Object.fromEntries(d.cols.map((c, i) => [c, i])); this.credit = d.source; const shafts = [];
-      for (const r of d.rows) {
+    if (!this.loading) this.loading = settled.wait().then(() => fetchAsset('data/companies.json', 'json')).then(async d => {   // after the first picture, in slices
+      const ix = Object.fromEntries(d.cols.map((c, i) => [c, i])); this.credit = d.source; const shafts = [], ddc = new C.DistanceDisplayCondition(0, 4.0e7), paint = new Map();
+      await sliced(d.rows, r => {
         const o = { kind: 'company', name: r[ix.name], lat: r[ix.lat], lon: r[ix.lon], country: r[ix.country], industry: r[ix.industry], employees: r[ix.employees], founded: r[ix.founded], exchange: r[ix.exchange], wiki: r[ix.wiki] };
-        const [grp, hex] = groupOf(o.industry), col = C.Color.fromCssColorString(hex); o.group = grp; o.color = hex;
-        const h = 140000 * Math.sqrt(o.employees / 1e5), ddc = new C.DistanceDisplayCondition(0, 4.0e7);
+        const [grp, hex] = groupOf(o.industry); o.group = grp; o.color = hex;
+        if (!paint.has(hex)) { const c = C.Color.fromCssColorString(hex); paint.set(hex, [c, c.withAlpha(0.15), c.withAlpha(0.95), c.withAlpha(0.35)]); }
+        const [col, foot, top, rim] = paint.get(hex), h = 140000 * Math.sqrt(o.employees / 1e5);
         const p0 = C.Cartesian3.fromDegrees(o.lon, o.lat, 0), p1 = C.Cartesian3.fromDegrees(o.lon, o.lat, h);
-        shafts.push(new C.GeometryInstance({ geometry: new C.PolylineGeometry({ positions: [p0, p1], width: 3, vertexFormat: C.PolylineColorAppearance.VERTEX_FORMAT, colors: [col.withAlpha(0.15), col.withAlpha(0.95)], colorsPerVertex: true }),
+        shafts.push(new C.GeometryInstance({ geometry: new C.PolylineGeometry({ positions: [p0, p1], width: 3, vertexFormat: C.PolylineColorAppearance.VERTEX_FORMAT, colors: [foot, top], colorsPerVertex: true }),
           attributes: { distanceDisplayCondition: new C.DistanceDisplayConditionGeometryInstanceAttribute(0, 4.0e7) } }));
-        o.pt = dots.add({ position: p1, pixelSize: 7, color: col, outlineColor: col.withAlpha(0.35), outlineWidth: 5, distanceDisplayCondition: ddc, show: L.companies.on, id: o });
+        o.pt = dots.add({ position: p1, pixelSize: 7, color: col, outlineColor: rim, outlineWidth: 5, distanceDisplayCondition: ddc, show: L.companies.on, id: o });
         this.list.push(o);
-      }
+      });
       towers = scene.primitives.add(new C.Primitive({ geometryInstances: shafts, appearance: new C.PolylineColorAppearance({ translucent: true }), show: L.companies.on && !state.lookup }));
       setCount('companies', this.list.length);
     }).catch(e => { this.loading = null; console.warn('companies', e); });

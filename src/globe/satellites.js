@@ -13,6 +13,7 @@ import { chooseElements, nearestSnapshot, parseHistoryIndex, archiveMap, history
 import { Time } from './time.js';
 import { eciVelToEcf } from '../core/ecfvel.js';
 import { noradKeys } from '../core/viewlink.js';
+import { sliced } from '../core/slices.js';
 
 const satellite = window.satellite;
 const tles = createTleSource({ fetchText: (url, o) => getText(url, o), cache: bigStore, onSite: ON_SITE });
@@ -61,7 +62,8 @@ export const Sats = {
     const worker = async () => { for (let g; (g = queue.shift());) got.set(g, await tles.load(g).then(r => ({ r }), e => ({ e }))); };
     await Promise.all([worker(), worker(), worker(), worker()]);
     // parsing ~12,000 element sets and making their dots in one go froze a phone for ~1.5 s right after the globe
-    // appeared: yield to the browser between groups and every 1,500 dots
+    // appeared: yield to the browser between groups, and within one whenever a slice has run 8 ms (Starlink alone is
+    // ~10,000 sets; a fixed count of dots per slice was 40 ms on a slow phone and 3 ms on a desktop)
     const breathe = () => new Promise(r => setTimeout(r, 0));
     for (const l of LAYERS.filter(x => x.sat)) {
       let n = 0;
@@ -71,24 +73,26 @@ export const Sats = {
         if (e) { console.warn('satellites', g, e.message); failed.push(g); continue; }   // one group missing is no news
         this.sources[g] = { source: res.source, ageMs: res.ageMs };
         if (res.source === 'stale cache') console.warn(`${g}: using TLEs cached ${Math.round(res.ageMs / 3600e3)} h ago`);
-        for (const t of parseTle(res.txt)) {
-          if (seen.has(t.id)) continue; seen.add(t.id);
+        await sliced(parseTle(res.txt), t => {
+          if (seen.has(t.id)) return; seen.add(t.id);
           const s = { kind: 'sat', ...t, layer: l.id, group: g, idx: elements.length };
           s.today = { id: t.id, l1: t.l1, l2: t.l2, group: g, jd: tleEpochJd(t.l1), source: res.source };   // the time-travel archive swaps l1/l2; these stay
           stampTle(s, t.l1, res.source);   // provenance: the element set's epoch, CelesTrak or a copy
           elements.push([t.l1, t.l2]); this.list.push(s); for (const k of noradKeys(t.id)) this.byId.set(k, s); n++;   // '00005' and '5' (links, SOCRATES)
-        }
+        });
       }
       setCount(l.id, n);
     }
     if (!this.list.length && failed.length) toast('Satellites are unavailable right now; they are retried on the next visit', 5000);
-    for (const [k, s] of this.list.entries()) {
-      if (k % 1500 === 1499) await breathe();
-      const l = L[s.layer], col = C.Color.fromCssColorString(l.color).withAlpha(l.alpha ?? 1);
-      s.pt = satPts.add({ position: C.Cartesian3.ZERO, pixelSize: l.size, color: col, outlineWidth: 0, id: s, show: false, scaleByDistance: new C.NearFarScalar(5.0e5, 2.0, 1.5e8, 0.55),
+    // one colour per layer and one set of distance scalars for all (each dot copies them): parsing the layer's colour
+    // and making two scalars per dot was ~50,000 objects of garbage for nothing
+    const SCALE = new C.NearFarScalar(5.0e5, 2.0, 1.5e8, 0.55), FUR = new C.NearFarScalar(4.0e7, 1.0, 1.6e8, 0.0), paint = {};
+    for (const l of LAYERS) if (l.sat) paint[l.id] = C.Color.fromCssColorString(l.color).withAlpha(l.alpha ?? 1);
+    await sliced(this.list, s => {
+      s.pt = satPts.add({ position: C.Cartesian3.ZERO, pixelSize: L[s.layer].size, color: paint[s.layer], outlineWidth: 0, id: s, show: false, scaleByDistance: SCALE,
         // 10,000 Starlinks would cover the whole disc like fur from beyond the GEO belt (and are far too faint to see): fade them out
-        translucencyByDistance: s.layer === 'starlink' ? new C.NearFarScalar(4.0e7, 1.0, 1.6e8, 0.0) : undefined });
-    }
+        translucencyByDistance: s.layer === 'starlink' ? FUR : undefined });
+    });
     this.worker = new Worker(URL.createObjectURL(new Blob([WORKER_SRC], { type: 'text/javascript' })));
     this.worker.onmessage = e => { this.state = { t: e.data.t, buf: e.data.buf }; this.tickMs = e.data.ms; };
     this.worker.postMessage({ type: 'load', tles: elements });

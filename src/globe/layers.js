@@ -95,7 +95,17 @@ export function initDock({ bases, currentBase, onBase, quality, saver }) {
     if (e.target.closest('[data-saver]')) { saver.set(!saver.on()); render(); return; }
     if (e.target.closest('[data-nerd]')) { hooks.toggleNerd?.(); return; }
     if (!b) return;
-    const l = L[b.dataset.ly]; l.on = !l.on; store.set('ly.' + l.id, l.on); b.classList.toggle('off', !l.on); hooks.applyVisibility();
+    const l = L[b.dataset.ly]; l.on = !l.on; store.set('ly.' + l.id, l.on); b.classList.toggle('off', !l.on); later(l.id);
   });
+  // the switch answers at once; the globe follows after that frame is painted (a toggle that walked every satellite
+  // inside the click held the button's own repaint back), quick taps on several switches in one pass
+  const due = new Set();
+  function later(id) {
+    if (!due.size) requestAnimationFrame(() => setTimeout(() => {
+      const ids = [...due]; due.clear();
+      if (ids.length === 1) hooks.applyVisibility(ids[0]); else hooks.applyVisibility();
+    }, 0));
+    due.add(id);
+  }
   $('#btnDock').addEventListener('click', () => $('#dock').classList.toggle('open'));
 }

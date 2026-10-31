@@ -4,7 +4,7 @@
    keeps the user's orbit offset, so you can drag around it and zoom while it moves. (Cesium's trackedEntity lags one
    tick behind its target, ~115 m at orbital speed.) The start glides in from wherever the camera is. */
 import { C, $, toast } from './env.js';
-import { viewer, camera, ctrl } from './viewer.js';
+import { viewer, camera, ctrl, CALM } from './viewer.js';
 import { state, hooks } from './state.js';
 
 // Blender exports Y-up glTF and Cesium turns it back to Z-up, so Blender axes == model axes (+X nose/ram, +Z up/zenith);
@@ -21,12 +21,13 @@ export function release() {
 
 export const Follow = {
   obj: null, getPos: null, ent: null, minPx: 34, glide: null, _T: new C.Matrix4(),
+  _a: new C.Cartesian3(), _b: new C.Cartesian3(), _off: new C.Cartesian3(),   // track()'s scratch: it runs every frame while following
   start(obj, getPos, r, ent, minPx) {
     release();
     const p = getPos(viewer.clock.currentTime); if (!p) return;
     const T = C.Transforms.eastNorthUpToFixedFrame(p), inv = C.Matrix4.inverseTransformation(T, new C.Matrix4());
     const from = C.Matrix4.multiplyByPoint(inv, camera.positionWC, new C.Cartesian3());
-    this.glide = { from, to: new C.Cartesian3(-r, -r, r * 0.55), t0: performance.now(), dur: 2200 };
+    this.glide = { from, to: new C.Cartesian3(-r, -r, r * 0.55), t0: performance.now(), dur: CALM.matches ? 1 : 2200 };   // "Reduce motion": there at once
     this.home = this.glide.to;   // where the cockpit (ops.js) glides back out to
     Object.assign(this, { obj, getPos, ent, minPx });
     if (ent.model) ent.model.minimumPixelSize = 0;   // true size while you're next to it (markers have no model)
@@ -50,10 +51,10 @@ export const Follow = {
     if (this.glide) {
       const g = this.glide, k = Math.min(1, (performance.now() - g.t0) / g.dur), e = 1 - Math.pow(1 - k, 3);
       const d0 = Math.max(1, C.Cartesian3.magnitude(g.from)), d1 = C.Cartesian3.magnitude(g.to), d = Math.exp(Math.log(d0) + (Math.log(d1) - Math.log(d0)) * e);
-      const dir = C.Cartesian3.normalize(C.Cartesian3.lerp(C.Cartesian3.normalize(g.from, new C.Cartesian3()), C.Cartesian3.normalize(g.to, new C.Cartesian3()), e, new C.Cartesian3()), new C.Cartesian3());
-      offset = C.Cartesian3.multiplyByScalar(dir, d, new C.Cartesian3());
+      const dir = C.Cartesian3.normalize(C.Cartesian3.lerp(C.Cartesian3.normalize(g.from, this._a), C.Cartesian3.normalize(g.to, this._b), e, this._a), this._a);
+      offset = C.Cartesian3.multiplyByScalar(dir, d, this._off);
       if (k >= 1) this.glide = null;
-    } else offset = C.Cartesian3.clone(camera.position);   // camera.position is in the object's frame while following
+    } else offset = C.Cartesian3.clone(camera.position, this._off);   // camera.position is in the object's frame while following (lookAtTransform copies the offset)
     camera.lookAtTransform(T, offset);
   },
 };

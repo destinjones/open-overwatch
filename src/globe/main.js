@@ -3,7 +3,7 @@
 import { C, $, toast, PHONE, EMBED, ON_SITE } from './env.js';
 import { viewer, scene, globe, camera, satPts, airPts, airIcons, qkPts, camHeight } from './viewer.js';
 import { L, initDock } from './layers.js';
-import { hooks, state } from './state.js';
+import { hooks, state, settled } from './state.js';
 import { Earth, BASES, setBase, currentBase, sunlitView, marbleLayer, nightLayer, fxShell, cloudShell, limbShell, Fx, moonPosition } from './earth.js';
 import { Follow, MODEL_FIX, SOLAR_AXIS } from './follow.js';
 import { Sats, SatModels, SHADOW_FILL } from './satellites.js';
@@ -75,15 +75,17 @@ import './exportview.js';   // the dock's "Export what's in view" (provenance in
 
 // things on the ground: from look-up mode's eye height they become huge streaks across the sky, so they hide there
 const GROUND = ['airports', 'companies', 'volcanoes', 'lighthouses', 'launches', 'quakes', 'sun', 'buildings', 'cctv', 'alpr', 'milareas', 'storms', 'events', 'radio', 'cams', 'transit', 'traffic', 'fires', 'ships', 'bikes', 'buoys', 'dart', 'tides', 'airq'];
-function applyVisibility() {
+/** Show and hide everything by the layer switches and the modes. `only` (a layer id, from the dock) narrows the pass:
+ *  the ~18,000 satellite dots and the aircraft are walked only when one of their own layers changed. */
+function applyVisibility(only) {
   const held = state.lookup ? GROUND.map(id => [id, L[id].on]) : null;   // switch them off for this pass only (the dock keeps its state)
   if (held) for (const [id] of held) L[id].on = false;
-  try { applyAll(); } finally { if (held) for (const [id, on] of held) L[id].on = on; }
+  try { applyAll(typeof only === 'string' ? only : null); } finally { if (held) for (const [id, on] of held) L[id].on = on; }
 }
-function applyAll() {
-  for (const s of Sats.list) if (s.pt) s.pt.show = L[s.layer].on && !s.ent && !s.docked && !s.gone;
+function applyAll(only) {
+  if (!only || L[only]?.sat) for (const s of Sats.list) if (s.pt) s.pt.show = L[s.layer].on && !s.ent && !s.docked && !s.gone;
   airPts.show = airIcons.show = !state.weather; satPts.show = !state.weather;
-  for (const a of Air.map.values()) { const on = airShown(a); a.pt.show = on && !a.ent; a.icon.show = on && !a.ent; if (!on && a.ent) AirModels.drop(a); }
+  if (!only || only === 'air' || only === 'mil') for (const a of Air.map.values()) { const on = airShown(a); a.pt.show = on && !a.ent; a.icon.show = on && !a.ent; if (!on && a.ent) AirModels.drop(a); }
   qkPts.show = L.quakes.on; Lighthouses.apply(); Aurora.apply(); LightMap.apply(); Companies.apply(); Volcanoes.apply(); SunLine.apply(); Buildings.apply(); Launches.apply(); Reentry.apply(); Photoreal.apply(); Storms.apply(); Events.apply(); Surveil.apply(); Alpr.apply(); Military.apply(); Radio.apply(L.radio.on); Cams.apply(); Transit.apply(L.transit.on); Traffic.apply(L.traffic.on); Terrain.apply(L.terrain.on); Fires.apply(); Imagery.apply(); Measure.apply(); Directions.apply(); Ships.apply(L.ships.on); Bikes.apply(L.bikes.on); Airports.apply(); Buoys.apply(); Darts.apply(); Tides.apply(); SeaImagery.apply(); AirQuality.apply();
   Earth.apply(); updateBand(); updateStats();
 }
@@ -198,6 +200,9 @@ updateBand(); applyVisibility();
   }
   await until(10000, () => globe.tilesLoaded);
   $('#boot').classList.add('out'); setTimeout(() => $('#boot').remove(), 900);
+  // the layers that are on by default (lighthouses, airports, volcanoes, employers) start loading at the first idle
+  // moment after the globe shows, not inside the boot (state.js settled)
+  (window.requestIdleCallback || (f => setTimeout(f, 300)))(() => settled.open(), { timeout: 2500 });
   updateBand(); Share.booted = true;
   const linked = Director.restore() ? null : Share.restore().catch(e => console.warn('share link', e)); if (!EMBED) Tonight.peek().catch(e => console.warn('tonight', e));
   if (EMBED) $('#embedOut').href = Share.link();   // the way out keeps the view

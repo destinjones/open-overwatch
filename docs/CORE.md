@@ -29,7 +29,7 @@ is also used by its tests in `test/`.
 - [Things that move: aircraft, ships, transit, bikes, traffic](#things-that-move): `flight.js`, `ais.js`, `transit.js`, `transitfeeds.js`, `gtfsrt.js`, `bikes.js`, `cameras.js`, `cables.js`, `mvt.js`, `roadtiles.js`, `traffic.js`
 - [OpenStreetMap](#openstreetmap): `osmtiles.js`, `overpass.js`
 - [Links, words and the interface](#links-words-and-the-interface): `viewlink.js`, `solarlink.js`, `search.js`, `scene.js`, `cardowners.js`, `voicecmd.js`, `format.js`, `ics.js`, `radio.js`
-- [Network and devices](#network-and-devices): `assets.js`, `relay.js`, `airgrid.js`, `gpu.js`, `poll.js`, `quality.js`
+- [Network and devices](#network-and-devices): `assets.js`, `relay.js`, `airgrid.js`, `gpu.js`, `poll.js`, `quality.js`, `slices.js`
 - [The app shell](#the-app-shell): `pwa.js`, `whatsnew.js`, `spot.js`, `a11ycheck.js`, `sricheck.js`, `provenance.js`, `liveprov.js`, `export.js`
 
 ## Time, units and frames
@@ -1353,6 +1353,19 @@ Used by globe.
   next, never two at once. `keep()` lets it run while hidden (a watched landing, a followed plane); `permanent(e)`, by
   default an error marked notCarried, stops it for the visit and calls onStop. `setHidden(h)` pauses and resumes: on
   showing, each feed whose time came while hidden runs once, 1.5 s apart by default, in the order added.
+
+### `slices.js`
+
+Main-thread manners: long jobs cut into slices that leave room for frames, a latch that holds work back until a view has
+shown its first picture, and a debounce. DOM-free: the page passes its clock and how to yield. Used by globe.
+
+- `sliced`: runs `each(item, i)` over items, yielding (`defaultYield`: `scheduler.yield` where there is one, else a zero
+  timeout) whenever a slice has run `budget` ms (8 by default); `stop()` after a yield ends it early. Resolves with the
+  count run. The globe builds its default-on layers (lighthouses, airports, volcanoes, employers) and the ~18,000
+  satellite dots with it.
+- `latch`: `open()` once, `wait()` resolves after it (the globe's settled latch in src/globe/state.js: the first idle
+  moment after the boot screen).
+- `debounce`: `fn` once `ms` have passed with no newer call; `.flush()` and `.cancel()`.
 
 ### `quality.js`
 

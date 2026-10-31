@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Globe UI: stats, the altitude band and presets, hover tips, the details card, keyboard, and model lighting.
-import { C, $, esc, fmt } from './env.js';
+import { C, $, esc, fmt, setText } from './env.js';
 import { viewer, scene, camera, ctrl, airPts, airIcons, orbitLines, camHeight } from './viewer.js';
 import { L } from './layers.js';
 import { state, hooks } from './state.js';
@@ -19,8 +19,9 @@ import { cardOwners } from '../core/cardowners.js';
 // ---- stats + altitude band
 export function updateStats() {
   const { air, mil } = Air.counts(), heard = Air.answered;   // — until a feed has answered (on the website, none can: no 0 posing as data)
-  $('#sAir').textContent = heard.air ? fmt(air) : '—'; $('#sMil').textContent = heard.mil ? fmt(mil) : '—';
-  $('#sSat').textContent = fmt(Sats.list.filter(s => L[s.layer].on && !s.gone).length); $('#sQk').textContent = fmt(Quakes.list.length);
+  setText($('#sAir'), heard.air ? fmt(air) : '—'); setText($('#sMil'), heard.mil ? fmt(mil) : '—');
+  let sats = 0; for (const s of Sats.list) if (L[s.layer].on && !s.gone) sats++;   // counted, not filtered into an 18,000-long array
+  setText($('#sSat'), fmt(sats)); setText($('#sQk'), fmt(Quakes.list.length));
 }
 // ---- time bar
 const NARROW = matchMedia('(max-width: 480px)');
@@ -28,19 +29,20 @@ const RATE_TEXT = { '-3600': '1 h/s backwards', 0: 'paused', 1: 'live', 60: '1 m
 function syncTime() {
   const ms = Time.nowMs(), k = Time.live ? 1 : Time.rate;
   const iso = new Date(ms).toISOString();
-  $('#tNow').textContent = NARROW.matches ? iso.slice(5, 16).replace('T', ' ') + ' UTC' : iso.slice(0, 16).replace('T', ' ') + ' UTC';   // phones: MM-DD hh:mm UTC (no year, never no zone)
+  setText($('#tNow'), NARROW.matches ? iso.slice(5, 16).replace('T', ' ') + ' UTC' : iso.slice(0, 16).replace('T', ' ') + ' UTC');   // phones: MM-DD hh:mm UTC (no year, never no zone)
   const mode = Time.live ? 'live' : Time.offLive() ? (k === 1 ? 'real speed' : RATE_TEXT[k] || k + '×') + ' · not live' : RATE_TEXT[k] || k + '×';
-  $('#tMode').textContent = mode; $('#tMode').classList.toggle('off', Time.offLive());
-  document.querySelectorAll('#timebar [data-rate]').forEach(b => b.classList.toggle('on', +b.dataset.rate === (Time.live ? 1 : Time.rate)));
+  setText($('#tMode'), mode); $('#tMode').classList.toggle('off', Time.offLive());
+  for (const b of RATES) b.classList.toggle('on', +b.dataset.rate === (Time.live ? 1 : Time.rate));
 }
+const RATES = [...document.querySelectorAll('#timebar [data-rate]')];
 document.querySelectorAll('#timebar [data-rate]').forEach(b => { b.onclick = () => Time.setRate(+b.dataset.rate); });
 $('#tLive').onclick = () => Time.goLive();
 Time.onChange(syncTime); setInterval(syncTime, 500); syncTime();
 const BANDS = [[1.0e8, 'Cislunar'], [3.0e7, 'Deep space'], [8.0e6, 'High orbit'], [1.2e6, 'Low orbit'], [1.5e5, 'Airspace'], [8.0e3, 'Region'], [-Infinity, 'Street']];
 export function updateBand() {
   const h = camHeight(), name = (BANDS.find(([min]) => h >= min) || BANDS[BANDS.length - 1])[1];
-  $('#bandName').textContent = name;
-  $('#bandAlt').textContent = h > 1e6 ? fmt(h / 1000) + ' km above Earth' : h > 1e4 ? fmt(h / 1000) + ' km' : fmt(h) + ' m';
+  setText($('#bandName'), name);
+  setText($('#bandAlt'), h > 1e6 ? fmt(h / 1000) + ' km above Earth' : h > 1e4 ? fmt(h / 1000) + ' km' : fmt(h) + ' m');
   showPlaceNames(L.labels.on && h < 3.0e6);
   // Air.update writes only the plane collections that can draw from this height: one it skipped stays hidden (its
   // positions are old), and crossing into its band runs a pass now rather than at the next tick
@@ -68,6 +70,24 @@ $('#band').addEventListener('click', e => {
   const b = e.target.closest('[data-go]'); if (!b) return;
   document.querySelectorAll('.go').forEach(x => x.classList.toggle('on', x === b)); PRESETS[b.dataset.go]();
 });
+// the destinations scroll sideways where they don't fit (most laptop widths): a mouse wheel scrolls them, and the edge
+// fades show only on a side with more to see. Reads in the scroll event, class writes only on change.
+{
+  const gos = $('#bandGos');
+  if (gos) {
+    const edges = () => {
+      const max = gos.scrollWidth - gos.clientWidth;
+      gos.classList.toggle('at-start', gos.scrollLeft <= 1); gos.classList.toggle('at-end', gos.scrollLeft >= max - 1);
+    };
+    gos.addEventListener('scroll', edges, { passive: true });
+    gos.addEventListener('wheel', e => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || gos.scrollWidth <= gos.clientWidth) return;
+      gos.scrollLeft += e.deltaY; e.preventDefault();
+    }, { passive: false });
+    addEventListener('resize', edges, { passive: true }); requestAnimationFrame(edges);
+    if (document.fonts) document.fonts.ready.then(edges);   // the display font changes the strip's width
+  }
+}
 hooks.clearPresets = () => $('#band').querySelectorAll('.go').forEach(x => x.classList.remove('on'));
 
 // ---- picking: hover tip + details card
@@ -105,7 +125,8 @@ function hoverPick() {
   if (!hoverAt || touchInput || held || (camMoving && !Follow.obj && ctrl.enableInputs)) return;   // following and scripted cameras (tower, chase, fly-through) move every frame: still tip then
   const o = pickObj(hoverAt), t = $('#hover');
   if (!o) { hideTip(); return; }
-  t.textContent = tipFor(o); t.style.display = 'block'; t.style.left = (hoverAt.x + 14) + 'px'; t.style.top = (hoverAt.y + 12) + 'px'; scene.canvas.style.cursor = 'pointer';
+  // moved by transform (a compositor move), not left/top (a layout each time)
+  t.textContent = tipFor(o); t.style.transform = `translate3d(${Math.round(hoverAt.x + 14)}px,${Math.round(hoverAt.y + 12)}px,0)`; t.style.display = 'block'; scene.canvas.style.cursor = 'pointer';
 }
 handler.setInputAction(m => {
   if (touchInput) return;   // no hover tips from a finger: they stayed on screen after the touch
@@ -141,7 +162,7 @@ export function select(o) {
   if (o.kind !== 'country') Country.clear(); else Country.highlight(o);
   if (o.kind === 'sat') {
     const i = Sats.info(o), l = L[o.layer];
-    html = `<div class="k" style="--c:${l.color}">${esc(l.name)}</div><h2>${esc(o.name)}</h2><p class="note" style="margin:0 0 8px">${esc(explainSat(o, i))}</p>${o.id === '25544' || o.id === '48274' ? '<p class="note" id="crewLine" style="margin:0 0 8px;color:#7dffa6">Aboard now: …</p>' : ''}<dl>${row('NORAD', o.id)}${row('Altitude', fmt(i.alt) + ' km')}${row('Speed', fmt(i.speed) + ' km/h')}${row('Orbit period', i.period.toFixed(1) + ' min')}${row('Inclination', i.incl.toFixed(1) + '°')}${row('Over', i.lat.toFixed(2) + ', ' + i.lon.toFixed(2))}</dl>`;
+    html = `<div class="k" style="--c:${l.color}">${esc(l.name)}</div><h2>${esc(o.name)}</h2><p class="note" style="margin:0 0 8px">${esc(explainSat(o, i))}</p>${o.id === '25544' || o.id === '48274' ? '<p class="note skel" id="crewLine" style="margin:0 0 8px;color:#7dffa6">Aboard now: …</p>' : ''}<dl>${row('NORAD', o.id)}${row('Altitude', fmt(i.alt) + ' km')}${row('Speed', fmt(i.speed) + ' km/h')}${row('Orbit period', i.period.toFixed(1) + ' min')}${row('Inclination', i.incl.toFixed(1) + '°')}${row('Over', i.lat.toFixed(2) + ', ' + i.lon.toFixed(2))}</dl>`;
     Sats.orbit(o);
   } else if (o.kind === 'air') {
     html = `<div class="k" style="--c:${o.mil ? '#ffb44d' : '#5fd3ff'}">${o.mil ? 'Military aircraft' : 'Aircraft'} · ${esc(o.src)}</div><h2>${esc(o.flight || o.hex)}</h2><dl>${row('ICAO hex', o.hex)}${o.type ? row('Type', o.type) : ''}${o.reg ? row('Registration', o.reg) : ''}${o.country ? row('Country', o.country) : ''}${row('Altitude', o.ground ? 'on ground' : fmt((o.alt || 0) / 0.3048) + ' ft')}${row('Speed', o.gs != null ? fmt(o.gs / 0.514444) + ' kt' : '—')}${row('Track', o.track != null ? Math.round(o.track) + '°' : '—')}${row('Squawk', o.squawk || '—')}${row('Last fix', Math.round((Date.now() - o.ts) / 1000) + ' s ago')}</dl>`;
@@ -177,7 +198,7 @@ export function select(o) {
   if ($('#btnNearCam')) $('#btnNearCam').onclick = () => hooks.camHandoff(ll[0], ll[1]);
   if ($('#btnSee')) $('#btnSee').onclick = () => hooks.satPasses(o);
   if ($('#crewLine')) Crew.load().then(() => { const el = $('#crewLine'); if (!el || state.selected !== o) return; const n = Crew.aboard(o.id === '25544' ? 'ISS' : 'Tiangong').length;
-    el.innerHTML = `Aboard now: ${n} ${n === 1 ? 'person' : 'people'} · <a href="#" id="crewWho">who?</a>`; $('#crewWho').onclick = e => { e.preventDefault(); Crew.open(); }; }, () => { const el = $('#crewLine'); if (el) el.remove(); });
+    el.classList.remove('skel'); el.innerHTML = `Aboard now: ${n} ${n === 1 ? 'person' : 'people'} · <a href="#" id="crewWho">who?</a>`; $('#crewWho').onclick = e => { e.preventDefault(); Crew.open(); }; }, () => { const el = $('#crewLine'); if (el) el.remove(); });
   if (o.kind === 'country') Country.after(o);
   if (typeof o.afterCard === 'function') o.afterCard(card);
   if (o.kind === 'air') hooks.airCard?.(o, card);   // aircard.js: type, operator, route, photo, trail
@@ -208,6 +229,7 @@ function syncCard() {
     opener = null;
   }
   cardOpen = shown;
+  document.body.classList.toggle('card-open', shown);   // the zoom pad steps aside (globe.html)
   owners.check(shown, m => !!cardEl.querySelector(`[${m}]`));
 }
 new MutationObserver(syncCard).observe(cardEl, { attributes: true, attributeFilter: ['class'], childList: true });
@@ -232,10 +254,11 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (Follow
    satellites in Earth's shadow get an ambient term instead (satellites.js). */
 export const Lighting = {
   sun: scene.light, fill: new C.DirectionalLight({ direction: new C.Cartesian3(0, 0, -1), intensity: 2.2 }),
+  _up: new C.Cartesian3(), _fwd: new C.Cartesian3(),   // every frame below 22 km: scratch, not four new vectors a frame
   update() {
     if (camHeight() < 2.2e4) {
-      const up = C.Cartesian3.normalize(camera.positionWC, new C.Cartesian3());
-      const dir = C.Cartesian3.add(C.Cartesian3.negate(up, new C.Cartesian3()), C.Cartesian3.multiplyByScalar(camera.directionWC, 0.45, new C.Cartesian3()), new C.Cartesian3());
+      const up = C.Cartesian3.normalize(camera.positionWC, this._up);
+      const dir = C.Cartesian3.subtract(C.Cartesian3.multiplyByScalar(camera.directionWC, 0.45, this._fwd), up, this._fwd);
       C.Cartesian3.normalize(dir, this.fill.direction);
       if (scene.light !== this.fill) scene.light = this.fill;
     } else if (scene.light !== this.sun) scene.light = this.sun;

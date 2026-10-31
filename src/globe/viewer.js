@@ -16,7 +16,10 @@ export const scene = viewer.scene, globe = scene.globe, camera = viewer.camera, 
 // "Reduce motion" (a phone or OS setting): camera flights jump instead of swooping
 export const CALM = matchMedia('(prefers-reduced-motion: reduce)');
 {
-  const calm = o => CALM.matches ? { ...o, duration: 0 } : o, flyTo = camera.flyTo.bind(camera), flySphere = camera.flyToBoundingSphere.bind(camera);
+  // flights start and land gently (Cesium's default is linear in time: a jolt at take-off and a hard stop), unless the
+  // caller chose its own easing
+  const ease = o => o.easingFunction ? o : { ...o, easingFunction: C.EasingFunction.CUBIC_IN_OUT };
+  const calm = o => CALM.matches ? { ...o, duration: 0 } : ease(o), flyTo = camera.flyTo.bind(camera), flySphere = camera.flyToBoundingSphere.bind(camera);
   camera.flyTo = o => flyTo(calm(o));                                  // flyTo(options)
   camera.flyToBoundingSphere = (sphere, o = {}) => flySphere(sphere, calm(o));
 }
