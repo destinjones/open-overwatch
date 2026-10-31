@@ -1,10 +1,11 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // The canvas renderer for moving objects and point sets, the layer registry + panel, and the feed scheduler.
-import { $, C, FONT_MONO, Log, Store, debounce, esc, fmt, hexA, rad, toast } from './util.js';
+import { $, C, FONT_MONO, Log, Store, debounce, esc, fmt, hexA, late, rad, toast } from './util.js';
 import { map } from './mapview.js';
 import { shipAt, shipKind, SHIP_KINDS, underway } from '../core/ais.js';
 import { deadReckon } from '../core/geo.js';
 import { exportRow } from '../app/save.js';
+import { createPlacer, createWidths, dueFeeds, moveRedrawGap } from './frame.js';
 
 /* ============================================================ dynamic objects + static point sets, all drawn on one canvas */
 export const Dyn = { air: new Map(), sats: [], ships: new Map(), balloons: new Map() };
@@ -47,35 +48,39 @@ export const Glyphs = L.Layer.extend({
   onAdd(m) {
     this._map = m; const c = this._canvas = L.DomUtil.create('canvas', 'glyph-canvas leaflet-zoom-hide'); m.getPanes().overlayPane.appendChild(c);
     this._ctx = c.getContext('2d'); this._hits = [];
-    m.on('moveend zoomend resize viewreset', this._reset, this); this._reset(); return this;
+    m.on('moveend zoomend resize viewreset', this._reset, this); m.on('move', this._moving, this); this._reset(); return this;
   },
-  onRemove(m) { L.DomUtil.remove(this._canvas); m.off('moveend zoomend resize viewreset', this._reset, this); },
+  onRemove(m) { L.DomUtil.remove(this._canvas); m.off('moveend zoomend resize viewreset', this._reset, this); m.off('move', this._moving, this); },
+  // a drag, a fly-to or a pinch: keep the glyphs on the map every frame while a draw is cheap, less often as it grows
+  // (frame.js moveRedrawGap); a wheel zoom hides the canvas (leaflet-zoom-hide) and redraws once at its end
+  _moving() { const gap = moveRedrawGap(this.drawMs); if (!gap) { requestDraw(); return; } if (this._moveT) return; this._moveT = setTimeout(() => { this._moveT = 0; requestDraw(); }, gap); },
   _reset() {
     const m = this._map, size = m.getSize(), dpr = Math.min(2, window.devicePixelRatio || 1), c = this._canvas;
     if (c.width !== size.x * dpr || c.height !== size.y * dpr) { c.width = size.x * dpr; c.height = size.y * dpr; c.style.width = size.x + 'px'; c.style.height = size.y + 'px'; } // reallocate only on a real size change
-    c.style.display = ''; this._dpr = dpr; this.draw();
+    c.style.display = ''; this._dpr = dpr; requestDraw();   // moveend + zoomend + viewreset arrive together: one draw, in the next frame
   },
   // the cursor inside a glyph beats being near one; among glyphs it is inside, the closest centre wins (ties go to the
   // top-most, which is scanned first); otherwise the nearest edge within 14 px
   hitTest(pt) { let best = null, bs = Infinity; const h = this._hits; for (let i = h.length - 1; i >= 0; i--) { const x = h[i]; const d = Math.hypot(x.x - pt.x, x.y - pt.y); if (d >= x.r + 14) continue; const s = d <= x.r ? d : 1e4 + d - x.r; if (s < bs) { bs = s; best = x; } } return best; },
   draw() {
-    const m = this._map; if (!m || !this._canvas) return;
-    L.DomUtil.setPosition(this._canvas, m.containerPointToLayerPoint([0, 0])); // the pane moves during a drag; we paint in container coords
+    const m = this._map; if (!m || !this._canvas) return; const t0 = performance.now();
+    const tl = m.containerPointToLayerPoint([0, 0]); L.DomUtil.setPosition(this._canvas, tl); // the pane moves during a drag; we paint in container coords
     const ctx = this._ctx, dpr = this._dpr || 1, size = m.getSize(), z = m.getZoom(), now = Date.now();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, size.x, size.y);
     const hits = this._hits = [];
-    const b = m.getBounds(), west = b.getWest(), east = b.getEast(), cx = size.x / 2, cy = size.y / 2;
-    const toPt = (lat, lon) => { // container points for lon and its wrapped copies that are on screen
-      const out = []; for (const dl of [0, -360, 360]) { const L2 = lon + dl; if (L2 < west - 2 || L2 > east + 2) continue; const p = m.latLngToContainerPoint([lat, L2]); if (p.x > -30 && p.x < size.x + 30 && p.y > -30 && p.y < size.y + 30) out.push(p); } return out;
-    };
+    const cx = size.x / 2, cy = size.y / 2, org = m.getPixelOrigin();
+    // container points of every on-screen world copy, by the Mercator formula (frame.js) rather than a LatLng and three
+    // Points per object per copy: thousands of satellites, fires and aircraft are placed each frame
+    const toPt = this._place || (this._place = createPlacer()), P = toPt.pts; toPt.frame(m.options.crs.scale(z), org.x + tl.x, org.y + tl.y, size.x, size.y);
     ctx.lineJoin = 'round'; ctx.font = `11px ${FONT_MONO}`; ctx.textBaseline = 'middle';
-    const label = (x, y, text, color) => { ctx.fillStyle = 'rgba(4,7,10,.72)'; const w = ctx.measureText(text).width; ctx.fillRect(x + 8, y - 7, w + 6, 14); ctx.fillStyle = color; ctx.fillText(text, x + 11, y); };
+    const tw = this._tw || (this._tw = createWidths(t => ctx.measureText(t).width));
+    const label = (x, y, text, color) => { ctx.fillStyle = 'rgba(4,7,10,.72)'; const w = tw(text); ctx.fillRect(x + 8, y - 7, w + 6, 14); ctx.fillStyle = color; ctx.fillText(text, x + 11, y); };
     const ring = (x, y, r) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.strokeStyle = C.accent; ctx.lineWidth = 1.5; ctx.stroke(); };
     // ---- static point sets (drawn first, under the moving things)
     for (const id of Points.order) {
       const s = Points.sets[id]; if (!s.items.length || !Layers.on(s.layerId) || z < s.minZoom) continue;
       for (const it of s.items) {
-        for (const p of toPt(it.lat, it.lon)) {
+        for (let pi = 0, pn = toPt(it.lat, it.lon); pi < pn; pi++) { const p = P[pi];
           const sel = !it.noSel && ((Sel.obj != null && Sel.obj === it.obj) || (Sel.id != null && it.kind === Sel.kind && it.obj != null && (it.obj.id ?? it.obj.hex) === Sel.id)); // by id too: feeds rebuild their objects each poll; noSel: part of something else (a runway end)
           const r = typeof it.r === 'function' ? it.r(z) : it.r;
           ctx.globalAlpha = it.alpha ?? .85;
@@ -96,12 +101,12 @@ export const Glyphs = L.Layer.extend({
       const ms = Movers.sets[id]; if (!ms.items.size || !Layers.on(ms.layerId) || z < ms.minZoom) continue;
       for (const o of ms.items.values()) {
         if (ms.at(o, now, at) === false) continue;
-        for (const p of toPt(at.lat, at.lon)) {
+        for (let pi = 0, pn = toPt(at.lat, at.lon); pi < pn; pi++) { const p = P[pi];
           const sel = Sel.kind === ms.kind && Sel.id === o.id;
           ms.glyph(ctx, p.x, p.y, o, z, sel, at.hdg);
           if (sel) ring(p.x, p.y, 10);
           const lb = ms.label && ms.label(o, z, sel); if (lb) label(p.x, p.y, lb, sel ? C.accent : 'rgba(230,240,248,.9)');
-          hits.push({ x: p.x, y: p.y, r: 5, kind: ms.kind, obj: o, tip: ms.tip(o) });
+          hits.push({ x: p.x, y: p.y, r: 5, kind: ms.kind, obj: o, tip: ms.tip });   // tips are built on hover (detail.js Hover), not for every glyph every frame
         }
       }
     }
@@ -110,14 +115,14 @@ export const Glyphs = L.Layer.extend({
       const showNames = Dyn.sats.length <= 80 || z >= 5;
       for (const s of Dyn.sats) {
         if (s.lat == null) continue;
-        for (const p of toPt(s.lat, s.lon)) {
+        for (let pi = 0, pn = toPt(s.lat, s.lon); pi < pn; pi++) { const p = P[pi];
           const sel = Sel.kind === 'sat' && Sel.id === s.id;
           const col = s.dim ? hexA(C.sat, .55) : C.sat; const r = s.dim ? 2 : 3;
           ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(p.x, p.y - r - 1); ctx.lineTo(p.x + r + 1, p.y); ctx.lineTo(p.x, p.y + r + 1); ctx.lineTo(p.x - r - 1, p.y); ctx.closePath(); ctx.fill();
           if (!s.dim) { ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(p.x - r - 4, p.y); ctx.lineTo(p.x + r + 4, p.y); ctx.stroke(); }
           if (sel) ring(p.x, p.y, 9);
           if ((showNames && !s.dim) || sel || s.star) label(p.x, p.y, s.name, sel ? C.accent : hexA(C.sat, .9));
-          hits.push({ x: p.x, y: p.y, r: 4, kind: 'sat', obj: s, tip: `${s.name} · ${s.alt ? fmt.n(s.alt) + ' km' : ''}` });
+          hits.push({ x: p.x, y: p.y, r: 4, kind: 'sat', obj: s, tip: satTip });
         }
       }
     }
@@ -130,31 +135,31 @@ export const Glyphs = L.Layer.extend({
           if (!shipOn(s)) continue;
           const at = shipAt(s, (now - s.ts) / 1000, shipPos);   // along its course between reports (core/ais.js, as on the globe)
           const col = s.type != null ? SHIP_KINDS[shipKind(s.type)][1] : C.ship;
-          for (const p of toPt(at.lat, at.lon)) {
+          for (let pi = 0, pn = toPt(at.lat, at.lon); pi < pn; pi++) { const p = P[pi];
             const sel = Sel.kind === 'ship' && Sel.id === s.id;
             const hd = (s.heading != null && s.heading < 360) ? s.heading : (at.cog ?? s.cog ?? 0);
             if (s.sog != null && !underway(s)) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.x, p.y, 2.8, 0, Math.PI * 2); ctx.fill(); }
-            else { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(rad(hd)); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(3.5, -1); ctx.lineTo(3.5, 5); ctx.lineTo(-3.5, 5); ctx.lineTo(-3.5, -1); ctx.closePath(); ctx.fill(); ctx.restore(); }
+            else { ctx.fillStyle = col; fillAt(ctx, HULL(), p.x, p.y, rad(hd), dpr); }
             if (sel) ring(p.x, p.y, 10);
             if (z >= 9 || sel) label(p.x, p.y, s.name || String(s.id), sel ? C.accent : hexA(C.ship, .9));
-            hits.push({ x: p.x, y: p.y, r: 5, kind: 'ship', obj: s, tip: `${s.name || 'MMSI ' + s.id}${s.sog != null ? ' · ' + s.sog + ' kt' : ''}` });
+            hits.push({ x: p.x, y: p.y, r: 5, kind: 'ship', obj: s, tip: shipTip });
           }
         }
       } else {
         // the bubble sits on the source's busiest 5° cell: the mean of a worldwide feed can land on empty ocean or land
         const groups = {}; for (const s of Dyn.ships.values()) { if (!shipOn(s)) continue; const g = groups[s.src] || (groups[s.src] = { n: 0, cells: new Map() }); g.n++; const k = Math.floor(s.lat / 5) * 1000 + Math.floor(s.lon / 5); const c = g.cells.get(k) || { n: 0, lat: 0, lon: 0 }; c.n++; c.lat += s.lat; c.lon += s.lon; g.cells.set(k, c); }
-        for (const [src, g] of Object.entries(groups)) { let c = null; for (const x of g.cells.values()) if (!c || x.n > c.n) c = x; const lat = c.lat / c.n, lon = c.lon / c.n; for (const p of toPt(lat, lon)) { ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, Math.PI * 2); ctx.fillStyle = hexA(C.ship, .25); ctx.fill(); ctx.strokeStyle = C.ship; ctx.lineWidth = 1.5; ctx.stroke(); label(p.x, p.y, `${fmt.n(g.n)} ships · zoom in`, hexA(C.ship, .95)); hits.push({ x: p.x, y: p.y, r: 10, kind: 'cluster', obj: { lat, lon, z: 6, text: `${g.n} vessels from ${src}` }, tip: `${g.n} vessels · click to zoom` }); } }
+        for (const [src, g] of Object.entries(groups)) { let c = null; for (const x of g.cells.values()) if (!c || x.n > c.n) c = x; const lat = c.lat / c.n, lon = c.lon / c.n; for (let pi = 0, pn = toPt(lat, lon); pi < pn; pi++) { const p = P[pi]; ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, Math.PI * 2); ctx.fillStyle = hexA(C.ship, .25); ctx.fill(); ctx.strokeStyle = C.ship; ctx.lineWidth = 1.5; ctx.stroke(); label(p.x, p.y, `${fmt.n(g.n)} ships · zoom in`, hexA(C.ship, .95)); hits.push({ x: p.x, y: p.y, r: 10, kind: 'cluster', obj: { lat, lon, z: 6, text: `${g.n} vessels from ${src}` }, tip: `${g.n} vessels · click to zoom` }); } }
       }
     }
     // ---- balloons
     if (Dyn.balloons.size && z >= 4 && Layers.on('balloons')) {
       for (const s of Dyn.balloons.values()) {
-        for (const p of toPt(s.lat, s.lon)) {
+        for (let pi = 0, pn = toPt(s.lat, s.lon); pi < pn; pi++) { const p = P[pi];
           const sel = Sel.kind === 'balloon' && Sel.id === s.id;
           ctx.fillStyle = C.bal; ctx.beginPath(); ctx.arc(p.x, p.y - 3, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = C.bal; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y + 5); ctx.stroke();
           if (sel) ring(p.x, p.y, 10);
           if (z >= 6 || sel) label(p.x, p.y, `${s.id} ${fmt.n(s.alt)} m`, sel ? C.accent : hexA(C.bal, .9));
-          hits.push({ x: p.x, y: p.y, r: 5, kind: 'balloon', obj: s, tip: `Radiosonde ${s.id} · ${fmt.n(s.alt)} m` });
+          hits.push({ x: p.x, y: p.y, r: 5, kind: 'balloon', obj: s, tip: balTip });
         }
       }
     }
@@ -169,31 +174,49 @@ export const Glyphs = L.Layer.extend({
       for (const a of Dyn.air.values()) {
         if (a.lat == null || !airOn(a)) continue;
         const [lat, lon] = airAt(a, now);
-        for (const p of toPt(lat, lon)) {
+        for (let pi = 0, pn = toPt(lat, lon); pi < pn; pi++) { const p = P[pi];
           const sel = Sel.kind === 'air' && Sel.id === a.hex;
           const col = a.emerg ? C.emg : a.mil ? C.mil : a.lowNic ? '#ff9ad5' : C.civ;
           if (a.ground) { ctx.fillStyle = hexA(col, .6); ctx.fillRect(p.x - 2, p.y - 2, 4, 4); }
           else if (z < 5 && !a.mil && !a.emerg && !sel) { ctx.fillStyle = hexA(col, .8); ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }
-          else drawPlane(ctx, p.x, p.y, a.track ?? 0, col, a.mil ? size0 + 1 : size0, sel || a.emerg);
+          else drawPlane(ctx, p.x, p.y, a.track ?? 0, col, a.mil ? size0 + 1 : size0, sel || a.emerg, dpr);
           if (a.emerg) { ctx.strokeStyle = hexA(C.emg, .35 + .35 * Math.abs(Math.sin(now / 300))); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, 14, 0, Math.PI * 2); ctx.stroke(); }
           if (sel) ring(p.x, p.y, 13);
-          const alt = a.ground ? 'GND' : (a.alt != null ? 'FL' + String(Math.round(a.alt / 100)).padStart(3, '0') : '');
-          const text = `${a.flight || a.r || a.hex} ${alt}`.trim();
-          if (sel || a.emerg) label(p.x, p.y, text, sel ? C.accent : hexA(col, .95));
-          else if (labelsOn && (z >= 9 || (a.mil && z >= 5))) cands.push({ x: p.x, y: p.y, text, col: hexA(col, .95), pri: a.mil ? 0 : 1, d: Math.hypot(p.x - cx, p.y - cy) });
-          hits.push({ x: p.x, y: p.y, r: size0, kind: 'air', obj: a, tip: `${text} · ${a.t || a.desc || ''}${a.mil ? ' · military' : ''}` });
+          if (sel || a.emerg) label(p.x, p.y, airText(a), sel ? C.accent : hexA(col, .95));
+          else if (labelsOn && (z >= 9 || (a.mil && z >= 5))) cands.push({ x: p.x, y: p.y, text: airText(a), col: hexA(col, .95), pri: a.mil ? 0 : 1, d: Math.hypot(p.x - cx, p.y - cy) });
+          hits.push({ x: p.x, y: p.y, r: size0, kind: 'air', obj: a, tip: airTip });
         }
       }
-      if (cands.length) { cands.sort((p, q) => p.pri - q.pri || p.d - q.d); const budget = z >= 11 ? 400 : z >= 9 ? 160 : 90; for (const c of cands.slice(0, budget)) label(c.x, c.y, c.text, c.col); }
+      if (cands.length) { cands.sort((p, q) => p.pri - q.pri || p.d - q.d); const budget = z >= 11 ? 400 : z >= 9 ? 160 : 90; for (let i = 0; i < cands.length && i < budget; i++) label(cands[i].x, cands[i].y, cands[i].text, cands[i].col); }
     }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.drawMs = performance.now() - t0;   // how dear a frame is: the move redraw cadence follows it (_moving)
   }
 });
-export function drawPlane(ctx, x, y, track, color, s, emph) {
-  ctx.save(); ctx.translate(x, y); ctx.rotate(rad(track)); ctx.beginPath();
-  ctx.moveTo(0, -s); ctx.lineTo(s * .22, -s * .35); ctx.lineTo(s, s * .12); ctx.lineTo(s, s * .32); ctx.lineTo(s * .2, s * .08); ctx.lineTo(s * .2, s * .58);
-  ctx.lineTo(s * .48, s * .8); ctx.lineTo(s * .48, s * .95); ctx.lineTo(0, s * .78); ctx.lineTo(-s * .48, s * .95); ctx.lineTo(-s * .48, s * .8); ctx.lineTo(-s * .2, s * .58);
-  ctx.lineTo(-s * .2, s * .08); ctx.lineTo(-s, s * .32); ctx.lineTo(-s, s * .12); ctx.lineTo(-s * .22, -s * .35); ctx.closePath();
-  ctx.fillStyle = color; ctx.fill(); if (emph) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke(); } ctx.restore();
+/* ---- what a glyph says on hover, built when it is hovered */
+const airText = a => `${a.flight || a.r || a.hex} ${a.ground ? 'GND' : (a.alt != null ? 'FL' + String(Math.round(a.alt / 100)).padStart(3, '0') : '')}`.trim();
+const airTip = a => `${airText(a)} · ${a.t || a.desc || ''}${a.mil ? ' · military' : ''}`;
+const satTip = s => `${s.name} · ${s.alt ? fmt.n(s.alt) + ' km' : ''}`;
+const shipTip = s => `${s.name || 'MMSI ' + s.id}${s.sog != null ? ' · ' + s.sog + ' kt' : ''}`;
+const balTip = s => `Radiosonde ${s.id} · ${fmt.n(s.alt)} m`;
+/** A glyph's tip text: a string, or a function of its object (the canvas stores functions so a frame builds no strings). */
+export const tipOf = h => typeof h.tip === 'function' ? h.tip(h.obj) : (h.tip || '');
+/* ---- glyph shapes, built once (Path2D) and filled rotated in one setTransform instead of save/translate/rotate/restore */
+const paths = new Map();
+function HULL() { let p = paths.get('hull'); if (!p) { p = new Path2D(); p.moveTo(0, -5); p.lineTo(3.5, -1); p.lineTo(3.5, 5); p.lineTo(-3.5, 5); p.lineTo(-3.5, -1); p.closePath(); paths.set('hull', p); } return p; }
+function planePath(s) {
+  const k = 'plane' + s; let p = paths.get(k); if (p) return p; p = new Path2D();
+  p.moveTo(0, -s); p.lineTo(s * .22, -s * .35); p.lineTo(s, s * .12); p.lineTo(s, s * .32); p.lineTo(s * .2, s * .08); p.lineTo(s * .2, s * .58);
+  p.lineTo(s * .48, s * .8); p.lineTo(s * .48, s * .95); p.lineTo(0, s * .78); p.lineTo(-s * .48, s * .95); p.lineTo(-s * .48, s * .8); p.lineTo(-s * .2, s * .58);
+  p.lineTo(-s * .2, s * .08); p.lineTo(-s, s * .32); p.lineTo(-s, s * .12); p.lineTo(-s * .22, -s * .35); p.closePath(); paths.set(k, p); return p;
+}
+/** Fill path at (x, y) turned by `r` radians, under a canvas scaled by dpr; leaves the transform at the plain dpr scale. */
+function fillAt(ctx, path, x, y, r, dpr, stroke) {
+  const c = Math.cos(r) * dpr, s = Math.sin(r) * dpr; ctx.setTransform(c, s, -s, c, x * dpr, y * dpr); ctx.fill(path); if (stroke) ctx.stroke(path); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+export function drawPlane(ctx, x, y, track, color, s, emph, dpr = 1) {   // dpr: the scale the canvas paints at (Glyphs.draw)
+  ctx.fillStyle = color; if (emph) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; }
+  fillAt(ctx, planePath(s), x, y, rad(track), dpr, emph);
 }
 
 /* ============================================================ layer registry + UI */
@@ -214,7 +237,7 @@ export const Layers = {
     if (on && d.guard && !this.acked(d)) {   // not before the warning has been read; presets and saved states never skip it
       UI.refreshLayer(d); if (!opts.silent) UI.guard(d).then(ok => { if (ok) { this.ack(d); this.set(id, true); } else UI.refreshLayer(d); }); return;
     }
-    d.on = on; this.state[id] = on; Store.set('layers', this.state); if (on) { d.enable && d.enable(); if (d.feed) { d.feed.nextAt = 0; d.feed.fails = 0; d.feed.notCarried = false; } } else { d.disable && d.disable(); if (d.points) Points.clear(d.points); if (d.feed) { d.feed.status = 'idle'; d.feed.count = 0; } } UI.refreshLayer(d); glyphs.draw(); },
+    d.on = on; this.state[id] = on; Store.set('layers', this.state); if (on) { d.enable && d.enable(); if (d.feed) { d.feed.nextAt = 0; d.feed.fails = 0; d.feed.notCarried = false; } } else { d.disable && d.disable(); if (d.points) Points.clear(d.points); if (d.feed) { d.feed.status = 'idle'; d.feed.count = 0; } } UI.refreshLayer(d); requestDraw(); },
   apply(onIds) { for (const d of this.defs) this.set(d.id, onIds.includes(d.id), { silent: true }); },
 };
 export const UI = {
@@ -252,18 +275,26 @@ export const UI = {
     for (const d of Layers.defs) this.refreshLayer(d);
     this.refreshGroups();
   },
-  refreshGroups() { for (const g of this.groups) { const el = $(`.gcount[data-g="${g}"]`); if (el) { const defs = Layers.defs.filter(d => d.group === g); el.textContent = `${defs.filter(d => d.on).length}/${defs.length}`; } } },
+  // the group counts, once a frame however many layers changed (a boot, a preset, a burst of feed results)
+  refreshGroups() { if (this._grpQ) return; this._grpQ = requestAnimationFrame(() => { this._grpQ = 0; for (const g of this.groups) { const el = $(`.gcount[data-g="${g}"]`); if (el) { const defs = Layers.defs.filter(d => d.group === g); setText(el, `${defs.filter(d => d.on).length}/${defs.length}`); } } }); },
+  /** A layer's row nodes, found once (each feed run refreshes its row twice; a lookup by attribute each time adds up). */
+  rowOf(d) {
+    const c = d._row; if (c && c.row.isConnected) return c;
+    const row = $(`.layer[data-id="${d.id}"]`); if (!row) return null;
+    return (d._row = { row, input: row.querySelector('input'), dot: row.querySelector('.dot'), cnt: row.querySelector('.cnt'), desc: row.querySelector('.desc'), sub: $(`.subrow[data-sub="${d.id}"]`), exp: $(`.export-row[data-exp="${d.id}"]`) });
+  },
   refreshLayer(d) {
-    const row = $(`.layer[data-id="${d.id}"]`); if (!row) return;
-    const f = d.feed; const st = f ? (d.on ? f.status : 'idle') : (d.on ? 'ok' : 'idle');
-    row.querySelector('input').checked = !!d.on;
-    row.querySelector('.dot').className = 'dot ' + st;
-    row.querySelector('.cnt').textContent = (d.on && f && f.count) ? fmt.n(f.count) : '';
-    row.classList.toggle('err', !!(d.on && f && f.status === 'error'));
-    const desc = row.querySelector('.desc'); desc.textContent = (d.on && f && f.status === 'error') ? ('✕ ' + f.err) : (d.desc || '');
-    row.title = (f && f.lastOk) ? `Last update ${fmt.ago(f.lastOk)} ago` : '';
-    const sub = $(`.subrow[data-sub="${d.id}"]`); if (sub) sub.style.display = d.on ? '' : 'none';
-    const exp = $(`.export-row[data-exp="${d.id}"]`); if (exp) exp.style.display = d.on ? '' : 'none';
+    const r = this.rowOf(d); if (!r) return;
+    const f = d.feed; const st = f ? (d.on ? f.status : 'idle') : (d.on ? 'ok' : 'idle'), err = !!(d.on && f && f.status === 'error');
+    if (r.input.checked !== !!d.on) r.input.checked = !!d.on;   // only what changed is written: an unchanged write still dirties style and layout
+    const dc = 'dot ' + st; if (r.dot.className !== dc) r.dot.className = dc;
+    setText(r.cnt, (d.on && f && f.count) ? fmt.n(f.count) : '');
+    r.row.classList.toggle('err', err);
+    setText(r.desc, err ? ('✕ ' + f.err) : (d.desc || ''));
+    const title = (f && f.lastOk) ? `Last update ${fmt.ago(f.lastOk)} ago` : ''; if (r.row.title !== title) r.row.title = title;
+    const disp = d.on ? '' : 'none';
+    if (r.sub && r.sub.style.display !== disp) r.sub.style.display = disp;
+    if (r.exp && r.exp.style.display !== disp) r.exp.style.display = disp;
     this.refreshGroups();
   },
   pills(container, items, getOn, setOn) {
@@ -271,6 +302,9 @@ export const UI = {
     for (const it of items) { const b = document.createElement('button'); b.type = 'button'; b.className = 'pill' + (getOn(it.id) ? ' on' : ''); b.textContent = it.name; b.title = it.title || ''; b.addEventListener('click', () => { setOn(it.id, !b.classList.contains('on')); b.classList.toggle('on'); }); container.appendChild(b); }
   },
 };
+
+/** Set an element's text only when it differs. */
+function setText(el, t) { if (el && el.textContent !== t) el.textContent = t; }
 
 /* ============================================================ feed scheduler */
 export const glyphs = new Glyphs().addTo(map);
@@ -303,9 +337,13 @@ export async function runFeed(f, force = false) {
   }
   finally { f.running = false; if (d.on) UI.refreshLayer(d); requestDraw(); }
 }
-setInterval(() => { // hidden tab: keep polling at a third of the cadence so alerts still arrive; visible tab: full cadence
-  if (Feeds.paused) return; const now = Date.now(), hidden = document.hidden;
-  for (const f of Feeds.list) if (f.layer.on && !f.running && now >= f.nextAt + (hidden ? 2 * (f.status === 'error' ? f.retry : f.interval) * 1000 : 0)) runFeed(f);
+/** Feeds that keep asking while the tab is hidden (at a third of their cadence), so an emergency squawk, a big quake or a
+ *  tornado warning still sounds; every other feed rests until the page shows again, like the globe's (core/poll.js). */
+export const KEEP_HIDDEN = new Set(['air_emg', 'quakes', 'nws']);
+const keepHidden = f => KEEP_HIDDEN.has(f.id) || (f.id === 'air_local' && !!late.Air?.following);
+setInterval(() => { // at most three starts a tick: the boot, and a return to the tab after a rest, arrive spread over a few seconds instead of one burst of fetches and parses
+  if (Feeds.paused) return;
+  for (const f of dueFeeds(Feeds.list, Date.now(), { hidden: document.hidden, keep: keepHidden, max: 3 })) runFeed(f);
 }, 1000);
 map.on('moveend', debounce(() => { for (const f of Feeds.list) if (f.viewDependent && f.layer.on && !f.notCarried) f.nextAt = Math.min(f.nextAt, Date.now() + 1500); }, 600));
 $('#btnPause').addEventListener('click', () => { Feeds.paused = !Feeds.paused; $('#btnPause').textContent = Feeds.paused ? 'Resume' : 'Pause'; $('#btnPause').classList.toggle('primary', Feeds.paused); Log.warn(Feeds.paused ? 'All feeds paused' : 'Feeds resumed'); });

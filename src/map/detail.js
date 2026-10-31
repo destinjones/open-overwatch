@@ -2,7 +2,7 @@
 // Selection, the details panel, tracks, hover tips, tabs and mobile sheets.
 import { $, $$, C, debounce, esc, fmt, isHttp, late, Log, PHONE, Sound, throttle } from './util.js';
 import { map } from './mapview.js';
-import { Dyn, Movers, Sel, glyphs, requestDraw } from './engine.js';
+import { Dyn, Movers, Sel, glyphs, requestDraw, tipOf } from './engine.js';
 import { provBlock } from '../core/liveprov.js';
 
 /* ============================================================ selection + detail panel */
@@ -67,21 +67,28 @@ export const Tracks = { group: L.layerGroup().addTo(map), clear() { this.group.c
 
 /* ---- hover tooltip + click hit testing on the canvas */
 export const Hover = {
-  el: null, last: null,
+  el: null, last: null, key: null, w: 0, h: 0, box: null,
+  // the map's offset in #stage and the stage's size, read once and again only after a resize: reading them on every
+  // move, right after writing the tip, forced a layout per mouse move
+  geom() { if (!this.box) { const stage = $('#stage').getBoundingClientRect(), rect = $('#map').getBoundingClientRect(); this.box = { x: rect.left - stage.left, y: rect.top - stage.top, w: stage.width, h: stage.height }; } return this.box; },
+  hide() { if (!this.last) return; this.el.style.display = 'none'; $('#map').classList.remove('hit'); this.last = null; this.key = null; },
   move(e) {
-    const h = glyphs.hitTest(e.containerPoint); const mapEl = $('#map');
-    if (!h) { if (this.last) { this.el.style.display = 'none'; mapEl.classList.remove('hit'); this.last = null; } return; }
-    this.last = h; mapEl.classList.add('hit');
+    const h = glyphs.hitTest(e.containerPoint);
+    if (!h) { this.hide(); return; }
+    if (!this.last) $('#map').classList.add('hit');
+    this.last = h;
     const kindName = { air: 'Aircraft', sat: 'Satellite', ship: 'Vessel', balloon: 'Balloon', cam: 'Camera', quake: 'Quake', event: 'Event', gdacs: 'Alert', news: 'News', storm: 'Storm', fire: 'Fire', landing: 'Landing station', osm: 'OSM', cluster: 'Ships', bike: 'Bike share', transit: 'Transit', hotspot: 'Fire', fireperim: 'Wildfire', shape: 'Drawing', airport: 'Airport' }[h.kind] || h.kind;
-    this.el.innerHTML = `<span class="k">${esc(kindName)}</span>${esc(h.tip || '')}`; this.el.style.display = 'block';
-    const stage = $('#stage').getBoundingClientRect(), rect = mapEl.getBoundingClientRect(); let x = rect.left - stage.left + e.containerPoint.x + 14, y = rect.top - stage.top + e.containerPoint.y + 14;
-    if (x + this.el.offsetWidth > stage.width - 8) x = rect.left - stage.left + e.containerPoint.x - this.el.offsetWidth - 10; if (y + this.el.offsetHeight > stage.height - 8) y -= this.el.offsetHeight + 24;
-    this.el.style.left = x + 'px'; this.el.style.top = y + 'px';
+    const html = `<span class="k">${esc(kindName)}</span>${esc(tipOf(h))}`;
+    if (html !== this.key) { this.key = html; this.el.innerHTML = html; this.el.style.display = 'block'; this.w = this.el.offsetWidth; this.h = this.el.offsetHeight; }   // measured only when the text changes
+    const g = this.geom(); let x = g.x + e.containerPoint.x + 14, y = g.y + e.containerPoint.y + 14;
+    if (x + this.w > g.w - 8) x = g.x + e.containerPoint.x - this.w - 10; if (y + this.h > g.h - 8) y -= this.h + 24;
+    this.el.style.transform = `translate3d(${Math.round(x)}px,${Math.round(y)}px,0)`;   // a compositor move, no layout
   },
 };
+map.on('resize', () => { Hover.box = null; }); addEventListener('resize', () => { Hover.box = null; });
 map.on('mousemove', throttle(e => { Hover.move(e); const h = $('#hudPos'); if (h) h.textContent = `${fmt.ll(e.latlng.lat, ((e.latlng.lng + 540) % 360) - 180)} · Z${map.getZoom().toFixed(1)}`; }, 40));
 map.on('zoomend', () => { const h = $('#hudPos'); if (h) h.textContent = `${fmt.ll(map.getCenter().lat, ((map.getCenter().lng + 540) % 360) - 180)} · Z${map.getZoom().toFixed(1)}`; });
-map.on('mouseout', () => { if (Hover.el) { Hover.el.style.display = 'none'; $('#map').classList.remove('hit'); Hover.last = null; } });
+map.on('mouseout', () => { if (Hover.el) Hover.hide(); });
 map.on('click', e => {
   if (late.Measure && late.Measure.armed) return;   // the measure tool takes the clicks
   const h = glyphs.hitTest(e.containerPoint);   // a tap on an aircraft, quake... opens its card, even while a place is wanted
@@ -92,7 +99,7 @@ map.on('click', e => {
 });
 
 /* ============================================================ tabs + sheets */
-export function showTab(id) { $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === id)); $$('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + id)); if (id === 'log') { Log.unread = 0; $('#logCount').textContent = ''; } if (id === 'brief' && window.OW) late.Brief.render(); } // Brief is a const (never a window property); window.OW = INIT done
+export function showTab(id) { $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === id)); $$('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + id)); if (id === 'log') { Log.unread = 0; $('#logCount').textContent = ''; Log.flush(); } if (id === 'brief' && window.OW) late.Brief.render(); } // Brief is a const (never a window property); window.OW = INIT done
 $$('.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 export function openSheet(which) {
   const was = $('#panel').classList.contains('hidden');
@@ -105,6 +112,6 @@ export function applyLayoutMode() { if (PHONE.matches) { openSheet('none'); } el
 // the window (in-app browsers), must not close the sheet in use, and a rail hidden with L stays hidden
 try { PHONE.addEventListener('change', applyLayoutMode); } catch (e) { PHONE.addListener(applyLayoutMode); }
 try { new ResizeObserver(debounce(() => { map.invalidateSize(); requestDraw(); }, 100)).observe($('#map')); } catch (e) { } // embedded panes can size the map after load
-setInterval(() => { const el = $('#map'); const sz = map._size; if (!sz || el.clientWidth !== sz.x || el.clientHeight !== sz.y) { map.invalidateSize({ pan: false }); requestDraw(); } }, 1500); // belt and braces for webviews that skip resize events
-$('#btnLogClear').addEventListener('click', () => { Log.el.innerHTML = ''; });
+setInterval(() => { if (document.hidden) return; const el = $('#map'); const sz = map._size; if (!sz || el.clientWidth !== sz.x || el.clientHeight !== sz.y) { map.invalidateSize({ pan: false }); requestDraw(); } }, 1500); // belt and braces for webviews that skip resize events
+$('#btnLogClear').addEventListener('click', () => Log.clear());
 $('#btnSound').addEventListener('click', () => Sound.toggle());

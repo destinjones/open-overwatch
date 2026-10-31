@@ -262,7 +262,7 @@ feed(lyAurora, { interval: 900, fetch: async () => {   // the grid and its colou
   if (auroraOverlay) map.removeLayer(auroraOverlay); auroraOverlay = L.imageOverlay(url, [[-MERCATOR_MAX_LAT, -180], [MERCATOR_MAX_LAT, 180]], { opacity: .8, interactive: false, className: 'aurora-ov' }); if (lyAurora.on) auroraOverlay.addTo(map);
   lyAurora.feed.count = o.cells20; lyAurora.desc = `Forecast for ${o.at} · ${o.cells20} cells ≥ 20 %`;
 } });
-export const Space = { kp: null, kpTime: null, kpKind: null };
+export const Space = { kp: null, kpTime: null, kpKind: null, kpAt: 0 };
 /** Kp now, as the globe's Earth-now card has it: the forecast product's latest observed or estimated 3-hour block
  *  (core/earthnow.js kpSummary), or, if that can't be read, the last completed block of the observed list. */
 export async function kpNow() {
@@ -272,13 +272,14 @@ export async function kpNow() {
   return { kp: last.kp, t: String(last.t).replace(' ', 'T').slice(0, 19), kind: 'observed' };
 }
 export async function fetchKp() {
+  Space.kpAt = Date.now();
   try {
     const now = await kpNow(), kp = now.kp; Space.kp = kp; Space.kpTime = now.t; Space.kpKind = now.kind; $('#chipKp b').textContent = kp.toFixed(1); $('#chipKp').classList.toggle('hot', kp >= 5);
     $('#chipKp').title = `Planetary K-index ${+kp.toFixed(2)}${now.kind === 'estimated' ? ' (estimated: the 3-hour block in progress)' : ''} for the block from ${now.t.replace('T', ' ').slice(0, 16)} UTC (NOAA SWPC)` + (kp >= 5 ? ' · geomagnetic storm' : '');
     if (kp >= 6 && !window._kpWarned) { window._kpWarned = true; Log.warn(`Geomagnetic storm: Kp ${kp}`); } else if (kp < 5) window._kpWarned = false; // re-arm for the next storm
   } catch (e) { $('#chipKp b').textContent = '—'; $('#chipKp').title = 'Kp unavailable: ' + e.message; }
 }
-fetchKp(); setInterval(() => { if (!Feeds.paused) fetchKp(); }, 600000);
+fetchKp(); setInterval(() => { if (!Feeds.paused && !document.hidden) fetchKp(); }, 600000); document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - (Space.kpAt || 0) > 600000) fetchKp(); });   // a hidden tab rests; back after the interval: once
 
 /* ---------- Precipitation radar (RainViewer) + IR satellite (NASA GIBS geostationary band 13; RainViewer dropped its IR product) */
 export const lyRadar = Layers.add({ id: 'radar', group: 'Weather & space weather', name: 'Precipitation radar', desc: 'RainViewer · latest composite radar', color: '#4fa3ff', default: false });
