@@ -29,9 +29,13 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
   }
 
   // ---- time
+  const rateBtns = [...document.querySelectorAll('#time [data-rate]')];
+  let syncedRate = NaN;
   function syncRate() {
+    if (clock.rate === syncedRate) return;   // called five times a second by frame(): nothing to write unless it changed
+    syncedRate = clock.rate;
     const k = Object.keys(RATES).find(x => RATES[x] === clock.rate);
-    document.querySelectorAll('#time [data-rate]').forEach(b => b.classList.toggle('on', b.dataset.rate === k));
+    rateBtns.forEach(b => b.classList.toggle('on', b.dataset.rate === k));
     $('#tRate').textContent = k !== undefined ? RATE_TEXT[k] : Math.round(clock.rate * 86400).toLocaleString('en-US') + '× speed';   // a rate set by the globe
   }
   document.querySelectorAll('#time [data-rate]').forEach(b => { b.onclick = () => { clock.setRate(RATES[b.dataset.rate]); syncRate(); }; });
@@ -222,13 +226,13 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
   // ---- per frame: date, scale readout, band caption, ladder highlight, labels
   // the header's bottom edge (the "Riding with" pill sits under it), measured when it changes size, not every frame:
   // reading it right after a text write forced a layout per frame
-  let lastDate = 0, band = -1, started = false, topBottom = 0, lastDist = '', litBand = null, followOn = null;
+  let lastDate = 0, shownDate = '', band = -1, started = false, topBottom = 0, lastDist = '', litBand = null, followOn = null;
   const rungEls = [...document.querySelectorAll('.rung')], followEl = $('#follow');
   const measureTop = () => { topBottom = $('#top').getBoundingClientRect().bottom; };
   measureTop(); addEventListener('resize', measureTop);
   if (window.ResizeObserver) new ResizeObserver(measureTop).observe($('#top'));   // it wraps to more rows as its text changes
   function frame({ camSun, camFocus }) {
-    if (performance.now() - lastDate > 200) { lastDate = performance.now(); $('#tDate').textContent = headerDate(clock.jd, PHONE); syncRate(); }
+    if (performance.now() - lastDate > 200) { lastDate = performance.now(); const d = headerDate(clock.jd, PHONE); if (d !== shownDate) { shownDate = d; $('#tDate').textContent = d; } syncRate(); }
     const dist = 'View ' + viewWidth(2 * camFocus * Math.tan(camera.fov * Math.PI / 360) * camera.aspect) + ' wide';
     if (dist !== lastDist) { lastDist = dist; $('#sDist').textContent = dist; }
     const f = nav.focus || byKey.sun, close = camFocus < 0.05 && f.key !== 'earth' && f.key !== 'moon';   // close in, name the body instead

@@ -272,7 +272,7 @@ test('header clock: a phone keeps "UTC" (dropping the year while it is this year
   assert.equal(headerDate(2461331.5, true, 2026), '10-18 00:00 UTC');
   assert.equal(headerDate(2461331.5, false, 2026), '2026-10-18 00:00 UTC');
   assert.equal(headerDate(2451545.0, true, 2026), '2000-01-01 12:00 UTC', 'another year keeps its year');
-  assert.match(src, /\$\('#tDate'\)\.textContent = headerDate\(clock\.jd, PHONE\)/);
+  assert.match(src, /const d = headerDate\(clock\.jd, PHONE\); if \(d !== shownDate\) \{ shownDate = d; \$\('#tDate'\)\.textContent = d; \}/, 'written when it changes');
 });
 
 // ---------------------------------------------------------------- the page
