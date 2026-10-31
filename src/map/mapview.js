@@ -7,6 +7,11 @@ export const savedView = (v => v && [v.lat, v.lon, v.z].every(Number.isFinite) &
 export const map = L.map('map', { zoomControl: true, worldCopyJump: true, preferCanvas: true, minZoom: 2, maxZoom: 19, zoomSnap: 0.5, wheelPxPerZoomLevel: 90 })
   .setView([savedView.lat, savedView.lon], savedView.z);
 L.control.scale({ imperial: true, metric: true, position: 'bottomleft' }).addTo(map);
+// reduced motion: the map jumps where it would fly or glide (Center, search, the Brief, Follow, Follow ISS all come through here)
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)');
+map.flyTo = function (c, z, o) { return REDUCED.matches ? this.setView(c, z, { animate: false }) : L.Map.prototype.flyTo.call(this, c, z, o); };
+map.panTo = function (c, o) { return L.Map.prototype.panTo.call(this, c, REDUCED.matches ? { ...o, animate: false } : o); };
+map.panBy = function (off, o) { return L.Map.prototype.panBy.call(this, off, REDUCED.matches ? { ...o, animate: false } : o); };
 map.on('moveend', debounce(() => { const c = map.getCenter(); Store.set('view', { lat: c.lat, lon: c.lng, z: map.getZoom() }); }, 400));
 export const vecRenderer = L.canvas({ padding: 0.3 });
 

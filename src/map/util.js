@@ -49,7 +49,7 @@ export function cssVar(n) { return getComputedStyle(document.documentElement).ge
 export const C = {};
 ['civ', 'mil', 'emg', 'sat', 'ship', 'bal', 'cam', 'qk', 'evt', 'news', 'infra', 'cable', 'alert', 'accent', 'ink', 'ink-dim', 'ink-faint', 'warn'].forEach(k => C[k.replace('-', '_')] = cssVar('--' + k));
 export const FONT_MONO = cssVar('--font-mono');
-export function hexA(hex, a) { const h = hex.replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; }
+export { hexA } from './frame.js';   // cached: the canvas asks for the same colours thousands of times a frame
 export function safeHost(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
 export function isHttp(u) { return /^https?:\/\//i.test(String(u || '')); }
 export function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -86,18 +86,28 @@ export const Sound = {
   },
 };
 export const Log = {
-  el: null, unread: 0, max: 400,
+  el: null, unread: 0, max: 400, pending: [],
+  // with the Log tab closed, rows are collected and built in one batch when the browser is idle (or the tab opens:
+  // showTab → flush), so a burst of feed lines is one DOM write, off the frame; rows off screen skip layout (content-visibility)
   add(kind, msg, opts = {}) {
     const t = Date.now();
     if (kind === 'alert') { toast(msg, 'alert'); Sound.ping('alert'); }
     if (!this.el) return;
+    const open = $('#tab-log').classList.contains('on');
+    if (open && !this.pending.length) { this.el.prepend(this.row({ kind, msg, opts, t })); this.trim(); }
+    else { this.pending.push({ kind, msg, opts, t }); if (this.pending.length > this.max) this.pending.splice(0, this.pending.length - this.max); if (open) this.flush(); else this.later(); }
+    if (!open) { this.unread++; $('#logCount').textContent = this.unread; }
+  },
+  row({ kind, msg, opts, t }) {
     const d = document.createElement('div'); d.className = 'row ' + kind;
     d.innerHTML = `<span class="t">${fmt.hms(t)}</span><span class="m">${opts.html ? msg : esc(msg)}</span>`;
     if (opts.onclick) { const m = d.querySelector('.m'); m.style.cursor = 'pointer'; m.addEventListener('click', opts.onclick); }
-    this.el.prepend(d);
-    while (this.el.children.length > this.max) this.el.lastChild.remove();
-    if (!$('#tab-log').classList.contains('on')) { this.unread++; $('#logCount').textContent = this.unread; }
+    return d;
   },
+  later() { if (this.idle) return; const go = () => { this.idle = 0; this.flush(); }; this.idle = typeof requestIdleCallback === 'function' ? requestIdleCallback(go, { timeout: 1500 }) : setTimeout(go, 500); },
+  flush() { if (!this.el || !this.pending.length) return; const f = document.createDocumentFragment(); for (let i = this.pending.length - 1; i >= 0; i--) f.appendChild(this.row(this.pending[i])); this.pending.length = 0; this.el.prepend(f); this.trim(); },
+  trim() { while (this.el.children.length > this.max) this.el.lastChild.remove(); },
+  clear() { this.pending.length = 0; if (this.el) this.el.textContent = ''; },
   info(m, o) { this.add('ok', m, o); }, warn(m, o) { this.add('warn', m, o); }, error(m, o) { this.add('error', m, o); }, alert(m, o) { this.add('alert', m, o); },
 };
 
@@ -171,5 +181,5 @@ export const Net = {
 };
 
 /* ============================================================ clock */
-export function tickClock() { const d = new Date(); $('#clockUtc').textContent = d.toISOString().substr(11, 8); $('#clockLocal').textContent = d.toLocaleTimeString([], { hour12: false }); }
-setInterval(tickClock, 1000); tickClock();
+export function tickClock() { if (document.hidden) return; const d = new Date(); $('#clockUtc').textContent = d.toISOString().substr(11, 8); $('#clockLocal').textContent = d.toLocaleTimeString([], { hour12: false }); }
+setInterval(tickClock, 1000); tickClock(); document.addEventListener('visibilitychange', tickClock);

@@ -4,7 +4,7 @@ import { num, idArg } from '../core/format.js';
 import { createTleSource, stampTle } from '../core/tle.js';
 import { ecfAt, nextPass } from '../core/passes.js';
 import { observer, sunEcef } from '../core/observer.js';
-import { $, C, deg, fmt, haversine, late, Log, Net, rad, Store } from './util.js';
+import { $, C, deg, fmt, haversine, late, Log, Net, rad, sleep, Store } from './util.js';
 import { vecRenderer } from './mapview.js';
 import { sunAlt as sunElevation } from '../core/sky.js';
 import { Dyn, Exports, Layers, Sel, UI, feed, requestDraw } from './engine.js';
@@ -76,6 +76,7 @@ export const Sats = {
       const objs = new Map(); const groups = this.groupsOn(); const failed = [], quiet = [];
       for (const g of groups) {
         const gd = this.GROUPS.find(x => x.id === g) || {};
+        await sleep(0);   // a task per group: Starlink's thousands of element sets parse without the other groups in the same frame
         try { const txt = await this.loadGroup(g); for (const t of this.parse(txt, g)) { const ex = objs.get(t.id); if (ex) { ex.groups.push(g); if (!gd.heavy) ex.dim = false; continue; } objs.set(t.id, stampTle({ ...t, groups: [g], dim: !!gd.heavy, star: this.STARS.includes(t.name), lat: null, lon: null }, t.l1, this.srcOf?.[g])); } }
         catch (e) { (e.calm ? quiet : failed).push(`${gd.name || g}: ${e.message}`); }
       }

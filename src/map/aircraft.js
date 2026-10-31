@@ -286,3 +286,4 @@ export const Photos = {
 // the export buttons (engine.js Exports): each air layer saves the aircraft it draws
 for (const [id, tag] of Object.entries({ air_local: 'local', air_mil: 'mil', air_emg: 'sqk', air_opensky: 'opensky' }))
   Exports[id] = () => [...Dyn.air.values()].filter(a => a.lat != null && (a.tags?.has(tag) || (id === 'air_emg' && a.emerg)));
+late.Air = Air;   // engine.js: a followed aircraft keeps its feed running in a hidden tab

@@ -127,11 +127,21 @@ engine (Glyphs canvas renderer, Points, Layers registry + panel, feed scheduler)
 tabs/sheets) · aircraft · satellites (TLEs via src/core/tle.js) · feeds (all point/vector layers) · presets (views,
 legend, Locate, Fun/ISS follow) · brief (Brief, Welcome) · audio · setup (Setup tab, Probe, search) · cities (bike share, live
 transit) · hazards (fire hot spots, US perimeters) · measure (draw and measure) · share (links, hand-off to the globe) · weather (forecast
-model layers, the timeline bar) · aviation (aircraft card extras, airports, boards, runways) · main (INIT, OW).
+model layers, the timeline bar) · aviation (aircraft card extras, airports, boards, runways) · frame (pure: the glyph
+canvas's Mercator placement, colour and label-width caches, dueFeeds, moveRedrawGap; test/mapframe.test.mjs) · main (INIT, OW).
 Modules import only from earlier ones; the five names used before they are defined (Sats, cableHit, Probe, Brief, Keys)
 are read through `late.X`. OW_VERSION is a classic-script const in src/map/version.js (Publish Update.bat edits that line).
-A hidden tab slows feeds by design (engine.js: each waits two extra intervals, so it runs at a third of its cadence; alerts
-still arrive): drive them with OW.Sats.reload() or `runFeed` when testing in a background pane.
+A hidden tab rests its feeds (engine.js KEEP_HIDDEN, frame.js dueFeeds): only emergency squawks, quakes and NWS warnings
+keep asking, at a third of their cadence, plus the local sweep while an aircraft is followed; the rest run when the page
+shows again, at most three starts a second (a boot is spread the same way). Drive them with OW.Sats.reload() or `runFeed`
+when testing in a background pane.
+Frame budget (2026-10-31): Glyphs.draw places objects with frame.js createPlacer (no LatLng/Point per object per world
+copy), fills rotated planes and hulls as cached Path2D under one setTransform, measures label text once, and stores tips
+as functions built on hover (engine.js tipOf). moveend/zoomend/viewreset share one rAF draw (requestDraw); during a drag or
+fly-to the canvas redraws every frame while a draw costs under 4 ms, then at moveRedrawGap(drawMs). Layer rows are cached
+and written only when a value changes; group counts once a frame. The hover tip moves by transform and is measured only
+when its text changes. Log rows are built in idle batches (content-visibility skips the offscreen ones). Feeds diff where
+they redraw vectors (NWS keeps unchanged polygons) and never encode on the main thread (aurora: toBlob).
 
 ## 2D map: adding a layer (the contract the code enforces)
 1. `Layers.add({id, group, name, desc, color, default, points})` before INIT. `group` must be one of `UI.groups`

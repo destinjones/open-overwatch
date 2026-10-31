@@ -186,6 +186,7 @@ const NWS_ZONE = /^https:\/\/api\.weather\.gov\/zones\/[a-z]+\/[A-Z]{2}[CZ]\d{3}
 const nwsZones = new Map();     // zone URL -> { t, g (its polygon geometry or null) }, a day; at most 80 kept
 const nwsOpened = new Set();    // alert ids whose zones were drawn: drawn again after each refresh while the alert lasts
 const nwsZoneLayers = new Map(); // alert id -> its zones' layer group (inside gNws)
+const nwsPolys = new Map();      // alert id -> { sent, g }: a refresh keeps the polygons of alerts that did not change (no rebuild of every shape every 5 min)
 const nwsZoneUrls = p => (Array.isArray(p.affectedZones) ? p.affectedZones : []).filter(u => typeof u === 'string' && NWS_ZONE.test(u));
 async function nwsZone(url) {
   const c = nwsZones.get(url); if (c && Date.now() - c.t < NWS_ZONE_TTL) return c.g;
@@ -239,14 +240,22 @@ ${Detail.kv([['Areas', p.areaDesc], ['Sender', p.senderName], ['Onset', p.onset 
 <p style="font-size:12.5px;line-height:1.45;white-space:pre-wrap;color:var(--ink-dim);max-height:40vh;overflow:auto">${esc((p.description || '').slice(0, 2500))}</p>
 <hr class="sep">${Detail.links([{ text: 'Alert on weather.gov', url: p['@id'] || 'https://www.weather.gov/alerts' }])}</div>`;
 feed(lyNws, { interval: 300, fetch: async () => {
-  const d = await Net.json('https://api.weather.gov/alerts/active?status=actual&message_type=alert,update&severity=Extreme,Severe', { timeout: 60000 }); gNws.clearLayers(); nwsZoneLayers.clear(); let n = 0, drawn = 0; World.nws = [];
+  const d = await Net.json('https://api.weather.gov/alerts/active?status=actual&message_type=alert,update&severity=Extreme,Severe', { timeout: 60000 }); let n = 0, drawn = 0; World.nws = []; const seen = new Set();
   for (const f of d.features || []) {
     const p = stamp(f.properties || {}, 'alerts', [rep('nws', { dataAt: (f.properties || {}).sent })]); n++; World.nws.push(p); p.zoneOnly = !f.geometry;
     if (!f.geometry) { if (nwsOpened.has(p.id)) { p.zoneNote = 'drawn from its forecast zones'; drawNwsZones(p); } continue; }
     const isTor = NWS_MAJOR.test(p.event || ''), col = nwsColor(p.event);
-    const g = L.geoJSON(f.geometry, { bubblingMouseEvents: false, style: { color: col, weight: isTor ? 2 : 1.2, fillColor: col, fillOpacity: isTor ? .25 : .12, renderer: vecRenderer } }); g.on('click', () => Detail.show('nws', p, p.id)); gNws.addLayer(g); drawn++;
+    let e = nwsPolys.get(p.id); seen.add(p.id);
+    if (!e || e.sent !== p.sent || !gNws.hasLayer(e.g)) {   // new, updated, or wiped by a switch-off: (re)build just this one
+      if (e) gNws.removeLayer(e.g);
+      e = { sent: p.sent, g: L.geoJSON(f.geometry, { bubblingMouseEvents: false, style: { color: col, weight: isTor ? 2 : 1.2, fillColor: col, fillOpacity: isTor ? .25 : .12, renderer: vecRenderer } }) };
+      gNws.addLayer(e.g); nwsPolys.set(p.id, e);
+    }
+    const g = e.g; g.off('click'); g.on('click', () => Detail.show('nws', p, p.id)); drawn++;   // the card shows this refresh's record
     if (isTor && !lyNws.seen?.has(p.id)) { (lyNws.seen ||= new Set()).add(p.id); if (/tornado warning/i.test(p.event) && Date.now() - (Date.parse(p.sent) || 0) < 900e3) Log.alert(`${p.event}: ${p.areaDesc}`, { onclick: () => { const c = g.getBounds().getCenter(); flyTo(c.lat, c.lng, 8); Detail.show('nws', p, p.id); } }); }
   }
+  for (const [id, e] of nwsPolys) if (!seen.has(id)) { gNws.removeLayer(e.g); nwsPolys.delete(id); }   // expired or cancelled
+  for (const [id, grp] of nwsZoneLayers) if (!World.nws.some(p => p.id === id && p.zoneOnly)) { gNws.removeLayer(grp); nwsZoneLayers.delete(id); }
   for (const id of nwsOpened) if (!World.nws.some(p => p.id === id)) nwsOpened.delete(id);   // expired or cancelled
   lyNws.feed.count = n; lyNws.desc = `${n} active Extreme/Severe alerts · ${drawn} with polygons${n - drawn ? ` · ${n - drawn} by zone, listed below` : ''}`; nwsList.render();
 } });
@@ -258,11 +267,13 @@ lyAurora.enable = () => { if (auroraOverlay) auroraOverlay.addTo(map); }; lyAuro
 feed(lyAurora, { interval: 900, fetch: async () => {   // the grid and its colours are the globe's (core/aurora.js)
   const o = parseOvation(await Net.json(OVATION_URL, { timeout: 60000 })); Aurora.grid = o.grid;
   const W = 1440, H = 720, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d'), img = ctx.createImageData(W, H);
-  img.data.set(paintMercator(o.grid, W, H)); ctx.putImageData(img, 0, 0); const url = cv.toDataURL();
-  if (auroraOverlay) map.removeLayer(auroraOverlay); auroraOverlay = L.imageOverlay(url, [[-MERCATOR_MAX_LAT, -180], [MERCATOR_MAX_LAT, 180]], { opacity: .8, interactive: false, className: 'aurora-ov' }); if (lyAurora.on) auroraOverlay.addTo(map);
+  img.data.set(paintMercator(o.grid, W, H)); ctx.putImageData(img, 0, 0);
+  // toBlob encodes off the main thread (toDataURL froze the page for the PNG encode of a 1440 × 720 image)
+  const url = await new Promise((ok, no) => cv.toBlob(b => b ? ok(URL.createObjectURL(b)) : no(new Error('could not paint the aurora')), 'image/png'));
+  if (auroraOverlay) { map.removeLayer(auroraOverlay); const old = auroraOverlay._url; if (/^blob:/.test(old || '')) setTimeout(() => URL.revokeObjectURL(old), 5000); } auroraOverlay = L.imageOverlay(url, [[-MERCATOR_MAX_LAT, -180], [MERCATOR_MAX_LAT, 180]], { opacity: .8, interactive: false, className: 'aurora-ov' }); if (lyAurora.on) auroraOverlay.addTo(map);
   lyAurora.feed.count = o.cells20; lyAurora.desc = `Forecast for ${o.at} · ${o.cells20} cells ≥ 20 %`;
 } });
-export const Space = { kp: null, kpTime: null, kpKind: null };
+export const Space = { kp: null, kpTime: null, kpKind: null, kpAt: 0 };
 /** Kp now, as the globe's Earth-now card has it: the forecast product's latest observed or estimated 3-hour block
  *  (core/earthnow.js kpSummary), or, if that can't be read, the last completed block of the observed list. */
 export async function kpNow() {
@@ -272,13 +283,14 @@ export async function kpNow() {
   return { kp: last.kp, t: String(last.t).replace(' ', 'T').slice(0, 19), kind: 'observed' };
 }
 export async function fetchKp() {
+  Space.kpAt = Date.now();
   try {
     const now = await kpNow(), kp = now.kp; Space.kp = kp; Space.kpTime = now.t; Space.kpKind = now.kind; $('#chipKp b').textContent = kp.toFixed(1); $('#chipKp').classList.toggle('hot', kp >= 5);
     $('#chipKp').title = `Planetary K-index ${+kp.toFixed(2)}${now.kind === 'estimated' ? ' (estimated: the 3-hour block in progress)' : ''} for the block from ${now.t.replace('T', ' ').slice(0, 16)} UTC (NOAA SWPC)` + (kp >= 5 ? ' · geomagnetic storm' : '');
     if (kp >= 6 && !window._kpWarned) { window._kpWarned = true; Log.warn(`Geomagnetic storm: Kp ${kp}`); } else if (kp < 5) window._kpWarned = false; // re-arm for the next storm
   } catch (e) { $('#chipKp b').textContent = '—'; $('#chipKp').title = 'Kp unavailable: ' + e.message; }
 }
-fetchKp(); setInterval(() => { if (!Feeds.paused) fetchKp(); }, 600000);
+fetchKp(); setInterval(() => { if (!Feeds.paused && !document.hidden) fetchKp(); }, 600000); document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - (Space.kpAt || 0) > 600000) fetchKp(); });   // a hidden tab rests; back after the interval: once
 
 /* ---------- Precipitation radar (RainViewer) + IR satellite (NASA GIBS geostationary band 13; RainViewer dropped its IR product) */
 export const lyRadar = Layers.add({ id: 'radar', group: 'Weather & space weather', name: 'Precipitation radar', desc: 'RainViewer · latest composite radar', color: '#4fa3ff', default: false });
