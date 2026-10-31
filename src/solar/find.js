@@ -7,6 +7,7 @@ import { buildIndex, search, mergeResults } from '../core/search.js';
 import { cometNames } from '../core/comets.js';
 import { encodeSolarView, decodeSolarView } from '../core/solarlink.js';
 import { bodies, byKey } from './world.js';
+import { FLIGHT } from '../core/motion.js';
 
 const $ = s => document.querySelector(s);
 const SKIP = new Set(['light delay', 'radio bubble']);
@@ -110,7 +111,7 @@ export function createFind({ nav, story, small, comets, exo, clock, camera, cont
     let b = v.focus ? byKey[v.focus] : null;
     if (!b && v.focus) { const name = v.focus.replace(/^[a-z]+:/, ''); b = (find(name, 1)[0] && resolve(find(name, 1)[0])) || null; }   // a comet or asteroid not made yet
     if (!b && v.query) { const h = find(v.query, 1)[0]; if (h) b = resolve(h); }
-    if (b) { nav.focusOn(b, v.dist ?? undefined, 2.4); lastHash = ''; }
+    if (b) { nav.focusOn(b, v.dist ?? undefined, FLIGHT.rung); lastHash = ''; }
     return !!b;
   }
   addEventListener('hashchange', () => applyHash(location.hash));

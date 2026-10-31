@@ -65,11 +65,15 @@ export function createCosmicWeb({ scene, renderer }) {
     C.count = N;
 
     // cluster labels on the median position of the catalogue galaxies within 5 deg and ±40% of the rough distance
+    // (each galaxy's distance worked out once, not once per cluster: 9 x 43,480 square roots on a phone was a hitch)
+    const dist = new Float32Array(N);
+    for (let k = 0; k < N; k++) dist[k] = Math.sqrt(pos[3 * k] ** 2 + pos[3 * k + 1] ** 2 + pos[3 * k + 2] ** 2);
     for (const [name, ra, dec, dMpc, fact] of CLUSTERS) {
-      const dir = radecToEcl(ra, dec, new THREE.Vector3()), cos5 = Math.cos(5 * Math.PI / 180), xs = [], ys = [], zs = [];
+      const dir = radecToEcl(ra, dec, new THREE.Vector3()), cos5 = Math.cos(5 * Math.PI / 180), xs = [], ys = [], zs = [], lo = dMpc * 0.6 * MPC_AU, hi = dMpc * 1.4 * MPC_AU;
       for (let k = 0; k < N; k++) {
-        const x = pos[3 * k], y = pos[3 * k + 1], z = pos[3 * k + 2], r = Math.hypot(x, y, z), d = r / MPC_AU;
-        if (d < dMpc * 0.6 || d > dMpc * 1.4 || (x * dir.x + y * dir.y + z * dir.z) / r < cos5) continue;
+        const r = dist[k]; if (r < lo || r > hi) continue;
+        const x = pos[3 * k], y = pos[3 * k + 1], z = pos[3 * k + 2];
+        if ((x * dir.x + y * dir.y + z * dir.z) / r < cos5) continue;
         xs.push(x); ys.push(y); zs.push(z);
       }
       const med = a => a.sort((p, q) => p - q)[a.length >> 1];

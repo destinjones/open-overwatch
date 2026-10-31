@@ -72,7 +72,8 @@ function darkenLeading(tex) {
   const grd = g.createLinearGradient(0, 0, c.width, 0);
   [[0, 1], [0.1, 0.35], [0.25, 0.18], [0.4, 0.35], [0.5, 1], [1, 1]].forEach(([o, v]) => grd.addColorStop(o, `rgb(${v * 255},${v * 240},${v * 225})`));
   g.fillStyle = grd; g.fillRect(0, 0, c.width, c.height);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+  // flipY as the source's: a map decoded as an ImageBitmap (util.js loadTexture) is upside down already, and must not be flipped again
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.flipY = tex.flipY; tex.dispose(); return t;
 }
 const span = p => p < 2 ? (p * 24).toFixed(1) + ' hours' : p.toFixed(1) + ' days';
 
@@ -122,7 +123,7 @@ export function createMoons({ scene, sunView, renderer }) {
             ['Radius', m.radius_km.toLocaleString('en-US') + ' km'], ['From Earth', distance(b.pos.distanceTo(byKey.earth.pos))]] });
         if (real) {   // 1k once you are near the planet, 2k close up (desktops)
           Sharpen.need(() => byKey[b.parent] && Sharpen.camera.position.distanceTo(byKey[b.parent].pos) < b.near, map.file_1k, t => useMap(t, false));
-          Sharpen.add(() => Sharpen.px(b) > innerHeight * 0.18, map.file, t => useMap(t, true));
+          Sharpen.cycle(() => Sharpen.px(b) > innerHeight * 0.18, () => Sharpen.px(b) < innerHeight * 0.015, map.file, map.file_1k, (t, is2k) => { if (!is2k) sharp = false; useMap(t, is2k); });   // the 1k again once well away
         }
         list.push(b);
       }
@@ -147,13 +148,14 @@ export function createMoons({ scene, sunView, renderer }) {
     frame({ camera }) {
       if (!list.length) return;
       const sizes = dots.geometry.attributes.size, pos = dots.geometry.attributes.position, pxPerRad = innerHeight / (2 * Math.tan(camera.fov * DEG / 2));
-      list.forEach((b, i) => {
-        const P = byKey[b.parent], dP = P ? camera.position.distanceTo(P.pos) : Infinity, near = dP < b.near;
+      const dotPx = 5 * renderer.getPixelRatio();
+      for (let i = 0; i < list.length; i++) {   // (no closure per frame)
+        const b = list[i], P = byKey[b.parent], dP = P ? camera.position.distanceTo(P.pos) : Infinity, near = dP < b.near;
         b.path.visible = b.mesh.visible = near; b.path.material.opacity = 0.45 * Math.min(1, 3 - 3 * dP / b.near);   // fades out on the way out
         pos.setXYZ(i, b.pos.x, b.pos.y, b.pos.z);
         const px = b.radius / Math.max(camera.position.distanceTo(b.pos), 1e-12) * pxPerRad;
-        sizes.setX(i, near && px < 3 ? 5 * renderer.getPixelRatio() : 0);
-      });
+        sizes.setX(i, near && px < 3 ? dotPx : 0);
+      }
       sizes.needsUpdate = true; pos.needsUpdate = true;
     },
   };

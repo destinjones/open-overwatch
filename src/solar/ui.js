@@ -11,6 +11,7 @@ import { zoneCounts, zoneWords } from '../core/habitable.js';
 import { PHONE, Sharpen } from './util.js';
 import { bodies, byKey, layers, layer, layerOn, applyLayers, bodyVisible } from './world.js';
 import { BANDS, RUNGS, RUNG_SHORT } from './story.js';
+import { FLIGHT } from '../core/motion.js';
 
 const $ = s => document.querySelector(s);
 const RATES = { '-6': -365.25, '-4': -1, '0': 0, '1': REAL_TIME, '4': 1, '5': 30.44, '6': 365.25 };
@@ -28,9 +29,13 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
   }
 
   // ---- time
+  const rateBtns = [...document.querySelectorAll('#time [data-rate]')];
+  let syncedRate = NaN;
   function syncRate() {
+    if (clock.rate === syncedRate) return;   // called five times a second by frame(): nothing to write unless it changed
+    syncedRate = clock.rate;
     const k = Object.keys(RATES).find(x => RATES[x] === clock.rate);
-    document.querySelectorAll('#time [data-rate]').forEach(b => b.classList.toggle('on', b.dataset.rate === k));
+    rateBtns.forEach(b => b.classList.toggle('on', b.dataset.rate === k));
     $('#tRate').textContent = k !== undefined ? RATE_TEXT[k] : Math.round(clock.rate * 86400).toLocaleString('en-US') + '× speed';   // a rate set by the globe
   }
   document.querySelectorAll('#time [data-rate]').forEach(b => { b.onclick = () => { clock.setRate(RATES[b.dataset.rate]); syncRate(); }; });
@@ -86,8 +91,11 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
   $('#menuBtn').onclick = () => { if ($('#dock').classList.toggle('open')) showCredits(false); };   // the sheet would cover the menu
   if (credits && creditsBtn) {
     creditsBtn.onclick = () => showCredits(!credits.classList.contains('open'));
-    $('#creditsX').onclick = () => { showCredits(false); $('#menuBtn').focus(); };   // the X goes away: focus to the menu, not <body>
-    credits.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); showCredits(false); $('#menuBtn').focus(); } });
+    // the X goes away: focus to the menu button (phones), or on a desktop, where that is hidden, the Credits button; not <body>
+    const focusBack = () => { const m = $('#menuBtn'); (m.offsetParent ? m : creditsBtn).focus(); };
+    $('#creditsX').onclick = () => { showCredits(false); focusBack(); };
+    credits.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); showCredits(false); focusBack(); } });
+    credits.addEventListener('click', e => { if (!credits.classList.contains('open') && !e.target.closest('a')) showCredits(true); });   // desktop: the two-line note opens in full
   }
 
   // ---- buttons
@@ -96,11 +104,11 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
   $('#bPulse').onclick = () => story.startPulse();
   $('#bAlign').onclick = () => { story.findAlignment(); syncRate(); };
   $('#rungs').innerHTML = RUNGS.map(([label], i) => `<button class="rung" data-i="${i}">${RUNG_SHORT[label] || label}</button>`).join('');
-  document.querySelectorAll('.rung').forEach(b => { b.onclick = () => { story.stopTour(); const [, k, d] = RUNGS[+b.dataset.i]; nav.focusOn(byKey[k] || byKey.sun, d, k === 'gc' ? 3 : 2.4, false); }; });
+  document.querySelectorAll('.rung').forEach(b => { b.onclick = () => { story.stopTour(); const [, k, d] = RUNGS[+b.dataset.i]; nav.focusOn(byKey[k] || byKey.sun, d, k === 'gc' ? FLIGHT.far : FLIGHT.rung, false); }; });
 
   // ---- details card: the static part (title, fact, timeline, buttons) is drawn once per body; the numbers every second
   $('#cap').addEventListener('click', () => $('#cap').classList.add('hide'));
-  let figures = null, figuresAsked = false, onShare = () => {};
+  let figures = null, figuresAsked = false, onShare = () => {}, cardRows = '';
   const needFigures = () => { if (figuresAsked) return; figuresAsked = true; fetchAsset('data/constellations.json', 'json').then(d => { figures = d.figures; }, () => {}); };
   /** "In Earth's sky" rows for a Solar System body: when to look and among which stars. */
   function skyRows(b) {
@@ -123,16 +131,20 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
   function showCard(b) {
     if (b && PHONE) $('#cap').classList.add('hide');
     if (!b) { $('#card').style.display = 'none'; delete $('#card').dataset.key; return; }
-    if ($('#card').dataset.key === b.key && $('#card').style.display !== 'none') { $('#cardDl').innerHTML = rowsHtml(b); markTimeline(); return; }
+    // the live numbers each second: rewritten only when they changed (a rewrite relays the card out)
+    if ($('#card').dataset.key === b.key && $('#card').style.display !== 'none') { const html = rowsHtml(b); if (html !== cardRows) { cardRows = html; $('#cardDl').innerHTML = html; } markTimeline(); return; }
     if (innerWidth <= 900) {   // phones: the list, Under the hood and the credits sheet sit where the card opens, and over it: a new card closes them
       if ($('#list') && $('#list').style.display !== 'none') $('#listX').click();
       if ($('#nerd') && !$('#nerd').hidden) $('#nerd .x').click();
       if (credits?.classList.contains('open')) showCredits(false);
     }
-    $('#cardB').innerHTML = `<div class="k">${esc(b.kind)}</div><h2>${esc(b.fullName || b.name)}</h2><dl id="cardDl">${rowsHtml(b)}</dl>${b.fact ? `<p>${esc(b.fact)}</p>` : ''}
+    cardRows = rowsHtml(b);
+    $('#cardB').innerHTML = `<div class="k">${esc(b.kind)}</div><h2>${esc(b.fullName || b.name)}</h2><dl id="cardDl">${cardRows}</dl>${b.fact ? `<p>${esc(b.fact)}</p>` : ''}
       ${timelineHtml(b)}
       <div class="row">${b.key === 'earth' ? '<a class="btn" href="globe.html">Land on Earth: 3D globe</a>' : ''}<button class="btn" data-share>Share this view</button></div>`;
-    $('#card').style.display = 'block'; $('#card').dataset.key = b.key; markTimeline();
+    const card = $('#card'), opening = card.style.display === 'none' || !card.style.display;
+    card.style.display = 'block'; card.dataset.key = b.key; markTimeline();
+    card.classList.remove('in'); if (opening) { void card.offsetWidth; card.classList.add('in'); }   // a fresh card fades in (solar.html; none with reduced motion)
     document.querySelectorAll('#cardB .tl li').forEach(li => { li.querySelector('button').onclick = () => { story.stopTour(); clock.setJd(+li.dataset.jd); clock.setRate(0); syncRate(); markTimeline(); }; });
     $('#cardB [data-share]').onclick = () => onShare();
   }
@@ -144,15 +156,20 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
     if (k && byKey[k] && $('#card').style.display !== 'none' && (!sel || sel.isCollapsed)) showCard(byKey[k]);
   }, 1000);
 
-  // ---- labels
-  const labelsEl = $('#labels'), els = new Map(), v = new THREE.Vector3();
-  const screenOf = p => { v.copy(p).project(camera); return v.z > 1 || v.z < -1 ? null : [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; };
+  // ---- labels: an element only once a body is first labelled (most of the ~300 bodies never are), and style writes only
+  // when something changed: a write per label per frame, shown or not, was most of this view's main-thread time
+  const labelsEl = $('#labels'), els = new Map(), v = new THREE.Vector3(), S2 = [0, 0];
+  /** Screen position of p in CSS pixels, written into out [x, y] (null behind the camera). */
+  const screenOf = (p, out = [0, 0]) => { v.copy(p).project(camera); if (v.z > 1 || v.z < -1) return null; out[0] = (v.x + 1) / 2 * innerWidth; out[1] = (1 - v.y) / 2 * innerHeight; return out; };
+  /** A body's label: { el, t (the transform last written), on (shown) }. */
   function labelFor(b) {
-    let el = els.get(b.key); if (el) return el;
-    el = document.createElement('div'); el.className = 'lbl' + (b.big ? ' big' : ''); el.textContent = b.name; el.style.setProperty('--lc', b.color);
-    el.onclick = e => { e.stopPropagation(); story.stopTour(); nav.focusOn(b); }; labelsEl.appendChild(el); els.set(b.key, el); return el;
+    let L = els.get(b.key); if (L) return L;
+    const el = document.createElement('div'); el.className = 'lbl' + (b.big ? ' big' : ''); el.textContent = b.name; el.style.setProperty('--lc', b.color); el.style.display = 'none';
+    el.onclick = e => { e.stopPropagation(); story.stopTour(); nav.focusOn(b); }; labelsEl.appendChild(el);
+    L = { el, t: '', on: false }; els.set(b.key, L); return L;
   }
-  let lastRank = 0;
+  const hide = L => { if (L.on) { L.on = false; L.el.style.display = 'none'; } };
+  let lastRank = 0, lastSweep = 0;
   function labelShown(b, camSun, camFocus) {
     if (!layerOn('labels') || !bodyVisible(b) || b.launched === false || b.event) return false;   // an eclipse or occultation sits on the Earth or Moon, which have labels
     if (b.star) return camSun > 0.3 * LY_AU && b.vis;                              // the brightest few, once out among them
@@ -167,17 +184,23 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
     if (b.kind === 'planet') return camSun < 3000;
     return camSun < 600 && (b === nav.focus || camera.position.distanceTo(b.pos) < Math.max(10 * camFocus, 3));  // close in: none from far behind
   }
+  let taken = new Float64Array(256), nTaken = 0;   // screen spots already labelled this frame (x, y pairs)
+  const crowded = (x, y) => { for (let i = 0; i < nTaken; i += 2) if (Math.abs(taken[i] - x) < 60 && Math.abs(taken[i + 1] - y) < 14) return true; return false; };
   function updateLabels(camSun, camFocus) {
     if (performance.now() - lastRank > 400) { lastRank = performance.now(); deep.rankStars(camSun); }
-    const taken = [];
+    nTaken = 0;
     for (const b of bodies) {
-      const el = labelFor(b); if (el.textContent !== b.name) el.textContent = b.name;   // a few names change (the light-delay ghost)
-      let s = labelShown(b, camSun, camFocus) ? screenOf(b.pos) : null;
-      if (s && b !== nav.focus && taken.some(t => Math.abs(t[0] - s[0]) < 60 && Math.abs(t[1] - s[1]) < 14)) s = null;
-      if (!s || s[0] < -50 || s[1] < -20 || s[0] > innerWidth + 50 || s[1] > innerHeight + 20) { if (el.style.display !== 'none') el.style.display = 'none'; continue; }
-      taken.push(s); el.style.display = ''; el.style.transform = `translate(${(s[0] + 9).toFixed(1)}px, ${(s[1] - 7).toFixed(1)}px)`;
+      let s = labelShown(b, camSun, camFocus) ? screenOf(b.pos, S2) : null;
+      if (s && b !== nav.focus && crowded(s[0], s[1])) s = null;
+      if (!s || s[0] < -50 || s[1] < -20 || s[0] > innerWidth + 50 || s[1] > innerHeight + 20) { const L = els.get(b.key); if (L) hide(L); continue; }
+      const L = labelFor(b); if (L.el.textContent !== b.name) L.el.textContent = b.name;   // a few names change (the light-delay ghost)
+      if (nTaken + 2 > taken.length) { const t = new Float64Array(taken.length * 2); t.set(taken); taken = t; }
+      taken[nTaken++] = s[0]; taken[nTaken++] = s[1];
+      const t = `translate(${(s[0] + 9).toFixed(1)}px, ${(s[1] - 7).toFixed(1)}px)`;
+      if (L.t !== t) { L.t = t; L.el.style.transform = t; }
+      if (!L.on) { L.on = true; L.el.style.display = ''; }
     }
-    for (const [key, el] of els) if (!byKey[key]) { el.remove(); els.delete(key); }         // a replaced picked asteroid
+    if (performance.now() - lastSweep > 250) { lastSweep = performance.now(); for (const [key, L] of els) if (!byKey[key]) { L.el.remove(); els.delete(key); } }   // a replaced picked asteroid, an exoplanet system left
   }
 
   // ---- picking
@@ -190,7 +213,7 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
     for (const b of bodies) {
       // a hidden label still picks a body whose globe covers a pixel (every planet has a mesh from the start, so not
       // the planets far out: from light-years away a click near the Sun picks the Sun)
-      if (!bodyVisible(b) || (els.get(b.key)?.style.display === 'none' && !(b.mesh && b.mesh.visible && Sharpen.px(b) > 1))) continue;
+      if (!bodyVisible(b) || (!els.get(b.key)?.on && !(b.mesh && b.mesh.visible && Sharpen.px(b) > 1))) continue;
       const s = screenOf(b.pos); if (!s) continue;
       const d = Math.hypot(s[0] - e.clientX, s[1] - e.clientY); if (d < bd) { bd = d; best = b; }
     }
@@ -203,12 +226,13 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
   // ---- per frame: date, scale readout, band caption, ladder highlight, labels
   // the header's bottom edge (the "Riding with" pill sits under it), measured when it changes size, not every frame:
   // reading it right after a text write forced a layout per frame
-  let lastDate = 0, band = -1, started = false, topBottom = 0, lastDist = '';
+  let lastDate = 0, shownDate = '', band = -1, started = false, topBottom = 0, lastDist = '', litBand = null, followOn = null;
+  const rungEls = [...document.querySelectorAll('.rung')], followEl = $('#follow');
   const measureTop = () => { topBottom = $('#top').getBoundingClientRect().bottom; };
   measureTop(); addEventListener('resize', measureTop);
   if (window.ResizeObserver) new ResizeObserver(measureTop).observe($('#top'));   // it wraps to more rows as its text changes
   function frame({ camSun, camFocus }) {
-    if (performance.now() - lastDate > 200) { lastDate = performance.now(); $('#tDate').textContent = headerDate(clock.jd, PHONE); syncRate(); }
+    if (performance.now() - lastDate > 200) { lastDate = performance.now(); const d = headerDate(clock.jd, PHONE); if (d !== shownDate) { shownDate = d; $('#tDate').textContent = d; } syncRate(); }
     const dist = 'View ' + viewWidth(2 * camFocus * Math.tan(camera.fov * Math.PI / 360) * camera.aspect) + ' wide';
     if (dist !== lastDist) { lastDist = dist; $('#sDist').textContent = dist; }
     const f = nav.focus || byKey.sun, close = camFocus < 0.05 && f.key !== 'earth' && f.key !== 'moon';   // close in, name the body instead
@@ -225,10 +249,11 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
         if (started && !story.tour.on && !story.pulse.on) caption(nm + ': another solar system', `${n} known planet${n > 1 ? 's' : ''}${zw}, ${Math.round(s.ly)} light-years from us.${z.habitable || z.optimistic ? ' The green bands are its habitable zones (the fainter one is the optimistic zone).' : ''} They move with the clock; speed it up to watch them orbit.`, 'From the NASA Exoplanet Archive.');
       } else { const B = BANDS[bi]; $('#sName').textContent = B[1]; if (started && !story.tour.on && !story.pulse.on) caption(B[2], B[3], B[4]); }
     }
-    document.querySelectorAll('.rung').forEach((r, i) => r.classList.toggle('on', bi === -3 ? RUNGS[i][0] === 'Other worlds' : bi >= 0 && RUNGS[i][0] === BANDS[bi][1]));
-    const fc = $('#follow'), name = (nav.focus || byKey.sun).name, show = !nav.free && !!nav.focus && !(document.body.classList.contains('embedded') && nav.focus.key === 'earth');
-    fc.style.display = show ? '' : 'none'; if (show) fc.style.top = Math.round(topBottom + 8) + 'px';   // under the header, which wraps to rows on a phone
-    if (show && fc.dataset.n !== name) { fc.dataset.n = name; $('#followN').textContent = name; }
+    if (bi !== litBand) { litBand = bi; rungEls.forEach((r, i) => r.classList.toggle('on', bi === -3 ? RUNGS[i][0] === 'Other worlds' : bi >= 0 && RUNGS[i][0] === BANDS[bi][1])); }
+    const name = (nav.focus || byKey.sun).name, show = !nav.free && !!nav.focus && !(document.body.classList.contains('embedded') && nav.focus.key === 'earth'), top = show ? Math.round(topBottom + 8) + 'px' : '';
+    if (show !== followOn) { followOn = show; followEl.style.display = show ? '' : 'none'; }
+    if (show && followEl.style.top !== top) followEl.style.top = top;   // under the header, which wraps to rows on a phone
+    if (show && followEl.dataset.n !== name) { followEl.dataset.n = name; $('#followN').textContent = name; }
     updateLabels(camSun, camFocus);
   }
 

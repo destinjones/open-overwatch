@@ -7,6 +7,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { LY_AU } from '../core/units.js';
 import { SimClock, jdFromMs } from '../core/time.js';
 import { smoothLog, Sharpen, PHONE, CALM } from './util.js';
+import { FLIGHT, ease, logLerp, slerpDir, createProgress } from '../core/motion.js';
 import { bodies, byKey, defineLayer, applyLayers, layer } from './world.js';
 import { createSky } from './sky.js';
 import { createPlanets } from './planets.js';
@@ -73,34 +74,42 @@ const web = createCosmicWeb({ scene, renderer });
 const exo = createExoplanets({ scene, camera, renderer });
 
 let find = null;   // find.js (search, share links), made after the UI
-// ---- navigation: focus a body and fly there (log-interpolated distance), then keep riding along with it
+// ---- navigation: focus a body and fly there (log-interpolated distance), then keep riding along with it. Every flight
+// eases with core/motion.js (the same curve as the hand-over from the globe) and reuses these vectors: no allocation per frame
+const _dir = new THREE.Vector3(), _ride = new THREE.Vector3();
+const newFly = (d1, dur, dir = null) => {
+  const f = nav.fly || { from: new THREE.Vector3(), dir0: new THREE.Vector3(), dir1: new THREE.Vector3() };
+  f.from.copy(controls.target); f.d0 = Math.max(camera.position.distanceTo(controls.target), 1e-12); f.d1 = Math.max(d1, 1e-12);
+  f.t0 = performance.now(); f.dur = (CALM.matches ? Math.min(dur, FLIGHT.calm) : dur) * 1000;   // reduced motion: a jump (still a fly, so whatever waits for its end works as before)
+  f.turn = !!dir; if (dir) { f.dir0.copy(camera.position).sub(controls.target).normalize(); f.dir1.copy(dir).normalize(); }
+  return f;
+};
 const nav = {
   focus: byKey.earth, fly: null, free: false,   // free: the camera stays put and orbits the point it looks at, instead of riding along with the focused body
   release() { if (this.free) return; this.free = true; this.fly = null; controls.minDistance = 1e-6; ui.showCard(null); this.focus?.onFocus?.(false); find?.syncHash(); },
-  focusOn(b, dist = null, dur = 2.2, card = true, dir = null) {   // dir: turn the view to look from there (unit vector, target -> camera)
+  focusOn(b, dist = null, dur = FLIGHT.focus, card = true, dir = null) {   // dir: turn the view to look from there (unit vector, target -> camera)
     if (!b) return;
-    if (CALM.matches) dur = Math.min(dur, 0.05);   // reduced motion: a jump (still a fly, so whatever waits for its end works as before)
     this.free = false;
     const sys = b.exo && exo.X.systems.find(s => s.host === b.host);
     const d1 = dist ?? (b.exo ? (sys ? exo.viewDistance(sys) : 0.25) : Math.max(b.radius * 4, b.kind === 'planet' ? b.radius * 3.2 : b.parent ? b.radius * 5 : 0.002));
     if (b.exo) exo.load().catch(() => {});
-    this.fly = { from: controls.target.clone(), d0: camera.position.distanceTo(controls.target), d1, t0: performance.now(), dur: dur * 1000,
-      dir0: dir && camera.position.clone().sub(controls.target).normalize(), dir1: dir && dir.clone().normalize() };
+    this.fly = newFly(d1, dur, dir);
     if (this.focus !== b) { this.focus?.onFocus?.(false); b.onFocus?.(true); }
     this.focus = b; controls.minDistance = Math.max(b.radius * 1.15, 1e-7);
     ui.showCard(card ? b : null);
     find?.syncHash();
   },
-  flyDist(d, dur = 2) { if (CALM.matches) dur = Math.min(dur, 0.05); this.fly = { from: controls.target.clone(), d0: camera.position.distanceTo(controls.target), d1: d, t0: performance.now(), dur: dur * 1000 }; },
+  flyDist(d, dur = 2) { this.fly = newFly(d, dur); },
   frame() {
-    const p = this.focus.pos;
-    if (this.free && !this.fly) return;
-    if (this.fly) {
-      const s = Math.min(1, (performance.now() - this.fly.t0) / this.fly.dur), e = s < 0.5 ? 4 * s * s * s : 1 - Math.pow(-2 * s + 2, 3) / 2;
-      const dir = this.fly.dir1 ? this.fly.dir0.clone().lerp(this.fly.dir1, e).normalize() : camera.position.clone().sub(controls.target).normalize(), target = this.fly.from.clone().lerp(p, e);
-      controls.target.copy(target); camera.position.copy(target).addScaledVector(dir, Math.exp(Math.log(this.fly.d0) + (Math.log(this.fly.d1) - Math.log(this.fly.d0)) * e));
+    const p = this.focus.pos, f = this.fly;
+    if (this.free && !f) return;
+    if (f) {
+      const s = Math.min(1, (performance.now() - f.t0) / f.dur), e = ease(s);
+      if (f.turn) slerpDir(f.dir0, f.dir1, e, _dir); else _dir.copy(camera.position).sub(controls.target).normalize();
+      controls.target.copy(f.from).lerp(p, e);
+      camera.position.copy(controls.target).addScaledVector(_dir, logLerp(f.d0, f.d1, e));
       if (s >= 1) this.fly = null;
-    } else if (!this.free) { camera.position.add(p.clone().sub(controls.target)); controls.target.copy(p); }
+    } else if (!this.free) { camera.position.add(_ride.copy(p).sub(controls.target)); controls.target.copy(p); }
   },
 };
 renderer.domElement.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && (e.button === 2 || e.ctrlKey || e.shiftKey || e.metaKey)) nav.release(); }, true);   // panning leaves the body behind
@@ -140,7 +149,7 @@ const embed = createEmbed({ camera, controls, nav, clock, loop, update });
 if (EMBED) { small.defer(true); const enter = embed.api.enterFromGlobe; embed.api.enterFromGlobe = s => { small.defer(false); return enter(s); }; }
 function frame(t) {
   if (!loop.running) return;
-  const dt = Math.min((t - lastT) / 1000, 0.1); lastT = t; quality.tick(t); nerd.tick(t);
+  const dt = Math.min((t - lastT) / 1000, 0.1); lastT = t; quality.tick(t); nerd.tick(t); tickBar(t);
   update(clock.tick(Math.max(dt, 0)));
   if (!embed.frame(view)) nav.frame();
   controls.update(); camera.updateMatrixWorld();
@@ -167,7 +176,7 @@ if (EMBED) {   // inside the globe: no splash, no opening flight; render one fra
   loop.resume();
   setTimeout(() => {
     document.querySelector('#load').classList.add('gone'); ui.start();
-    nav.focusOn(first, first.key === 'earth' ? 0.0012 : 3, 3, !PHONE);   // phones: no card over the view at start
+    nav.focusOn(first, first.key === 'earth' ? 0.0012 : 3, FLIGHT.far, !PHONE);   // phones: no card over the view at start
     ui.caption('The Solar System, right now', 'Every planet, moon, asteroid and spacecraft is where it really is at this moment. Scroll out, or pick a step below.', 'Tip: try the guided tour in the left panel.', 9000);
   }, 700);
 }
@@ -182,6 +191,25 @@ deep.onStars = () => { applyLayers(); ui.renderLayers(); };
 if (!PHONE) setTimeout(() => { deep.needStars(); web.load().catch(e => console.warn(e)).finally(() => applyLayers()); }, 6000);   // desktops: in the background
 document.querySelector('#q').addEventListener('focus', () => { deep.needStars(); if (!EMBED) small.defer(false); }, { once: true });   // searching for a star, or a named asteroid in the big file
 loads.forEach((p, i) => settle(p, LOAD_LAYERS[i]));
+// ---- the loading bar (solar.html #prog): the boot loads, then the 19 MB asteroid file whenever it is fetched. The files
+// don't report bytes, so the bar creeps while they are in flight and fills as each lands (core/motion.js createProgress):
+// it never jumps or goes back, and it moves on the compositor only (a transform)
+const bar = { el: document.querySelector('#prog'), meter: null, shown: -1, big: false, doneBig: null };
+const track = (weights, promises) => {
+  const m = createProgress(weights), now = performance.now();
+  for (const [id, p] of Object.entries(promises)) { m.start(id, now); p.finally(() => m.finish(id, performance.now())).catch(() => {}); }
+  bar.meter = m; bar.shown = -1; bar.el?.classList.remove('done');
+};
+track({ moons: 0.1, asteroids: 5.8, craft: 1.9, eclipses: 0.2 }, Object.fromEntries(LOAD_LAYERS.map((id, i) => [id, loads[i]])));   // roughly MB
+function tickBar(t) {
+  if (!bar.el) return;
+  if (small.S.loadingAll && !bar.big) { bar.big = true; let done; track({ b: 19 }, { b: new Promise(r => { done = r; }) }); bar.doneBig = done; }
+  if (bar.big && !small.S.loadingAll) { bar.big = false; bar.doneBig?.(); }
+  const m = bar.meter; if (!m) return;
+  const v = m.value(t);
+  if (Math.abs(v - bar.shown) > 0.002 || (v >= 1 && bar.shown < 1)) { bar.shown = v; bar.el.firstElementChild.style.transform = `scaleX(${v.toFixed(3)})`; }
+  if (v >= 1 && m.complete) { bar.meter = null; bar.el.classList.add('done'); }
+}
 // a shared link (solar.html#f=craft:Juno&t=...): applied once the bodies it may name exist
 const linked = !EMBED && !!location.hash && location.hash.length > 3;
 if (!linked) find.ready = true;

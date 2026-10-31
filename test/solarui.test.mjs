@@ -272,7 +272,7 @@ test('header clock: a phone keeps "UTC" (dropping the year while it is this year
   assert.equal(headerDate(2461331.5, true, 2026), '10-18 00:00 UTC');
   assert.equal(headerDate(2461331.5, false, 2026), '2026-10-18 00:00 UTC');
   assert.equal(headerDate(2451545.0, true, 2026), '2000-01-01 12:00 UTC', 'another year keeps its year');
-  assert.match(src, /\$\('#tDate'\)\.textContent = headerDate\(clock\.jd, PHONE\)/);
+  assert.match(src, /const d = headerDate\(clock\.jd, PHONE\); if \(d !== shownDate\) \{ shownDate = d; \$\('#tDate'\)\.textContent = d; \}/, 'written when it changes');
 });
 
 // ---------------------------------------------------------------- the page
@@ -298,7 +298,8 @@ test('solar.html: the credits stay reachable on a phone (a menu button opens the
   for (const who of ['Solar System Scope', 'HYG', 'Phobos: ESA/DLR/FU Berlin']) assert.ok(html.slice(html.indexOf('<div id="credits"')).includes(who), who);
   const ui = read('src/solar/ui.js');
   assert.match(ui, /creditsBtn\.onclick = \(\) => showCredits/);
-  assert.match(ui, /\$\('#creditsX'\)\.onclick = \(\) => \{ showCredits\(false\); \$\('#menuBtn'\)\.focus\(\); \}/, 'the X hands the focus to the menu button');
+  assert.match(ui, /\$\('#creditsX'\)\.onclick = \(\) => \{ showCredits\(false\); focusBack\(\); \}/, 'the X hands the focus back');
+  assert.match(ui, /const focusBack = \(\) => \{ const m = \$\('#menuBtn'\); \(m\.offsetParent \? m : creditsBtn\)\.focus\(\); \}/, 'to the menu button, or the Credits button where the menu button is hidden');
   assert.match(ui, /\$\('#menuBtn'\)\.onclick = \(\) => \{ if \(\$\('#dock'\)\.classList\.toggle\('open'\)\) showCredits\(false\); \}/, 'opening the menu closes the sheet');
   const card = ui.slice(ui.indexOf('function showCard'), ui.indexOf("$('#cardB').innerHTML"));
   assert.match(card, /if \(innerWidth <= 900\) \{[^}]*showCredits\(false\)/, 'a new card on a phone closes the sheet too');

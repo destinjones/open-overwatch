@@ -83,7 +83,7 @@ a{color:var(--accent)}
 .rung:hover{color:var(--ink);background:rgba(230,237,243,.06)}
 .rung.on{color:var(--accent)}
 
-#cap{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);max-width:min(760px,calc(100% - 28px));padding:12px 18px;z-index:5;text-align:center;transition:opacity .5s}
+#cap{position:fixed;left:50%;bottom:104px;transform:translateX(-50%);max-width:min(760px,calc(100% - 28px));padding:12px 18px;z-index:5;text-align:center;transition:opacity .5s}
 #cap b{display:block;font:900 20px/1.15 var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--warm);margin-bottom:3px}
 #cap p{margin:0;color:var(--ink);font-size:14.5px}
 #cap small{display:block;margin-top:5px;color:var(--dim);font:500 11px/1.4 var(--mono)}
@@ -123,10 +123,23 @@ a{color:var(--accent)}
 #load b{display:block;font:900 30px/1 var(--display);letter-spacing:.14em;text-transform:uppercase}
 #load span{font:500 12px/1.6 var(--mono);color:var(--dim)}
 #load div{max-width:min(520px,calc(100% - 32px))} #load.fail span{color:#ffd0d0} #load p{margin:12px 0 0;font:500 12px/1.6 var(--mono)} #load p a{margin:0 4px}
+#prog{position:fixed;left:0;right:0;top:0;height:2px;z-index:21;pointer-events:none;transition:opacity .6s .3s}   /* src/solar/main.js tickBar: only ever forward */
+#prog i{display:block;height:100%;background:linear-gradient(90deg,rgba(125,255,166,.25),var(--accent));transform:scaleX(0);transform-origin:0 50%;box-shadow:0 0 8px rgba(125,255,166,.6)}
+#prog.done{opacity:0} .embedded #prog{display:none}   /* inside the globe: the globe says what is loading */
+#card.in{animation:cardIn .2s cubic-bezier(.2,.7,.3,1)} @keyframes cardIn{from{opacity:0;transform:translateY(6px)}}
+button:focus-visible,a:focus-visible,input:focus-visible,.lbl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#search input:focus-visible{outline-offset:0}
+@media (min-width:901px) and (max-width:1499px){ #cap{max-width:min(760px,calc(100% - 660px))} }   /* between the layer panel and the card, never under either */
+@media (prefers-reduced-motion: reduce){ *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0s!important} }
 #err{position:fixed;left:50%;top:40%;transform:translateX(-50%);z-index:30;padding:16px 20px;display:none;max-width:520px;color:#ffd0d0}
-#credits{position:fixed;right:14px;bottom:16px;z-index:4;font:500 9.5px/1.3 var(--mono);color:var(--faint);max-width:330px;text-align:right}
+/* desktop: two lines above the ladder bar (the whole text, ~10 lines, sat under the bar's right end at 1366 and 1920 px
+   wide); a click there, or the menu's Credits button, opens all of it. Phones: the button opens them as a sheet */
+#credits{position:fixed;right:14px;bottom:72px;z-index:4;font:500 9.5px/1.35 var(--mono);color:var(--faint);max-width:340px;text-align:right;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;cursor:pointer}
 #credits a{color:var(--faint)}
-#credits .x,.btn.show-s{display:none}   /* phones: a Credits button in the menu opens them as a sheet */
+#credits .x{display:none}
+#credits.open{display:block;-webkit-line-clamp:unset;line-clamp:none;cursor:auto;max-height:calc(100% - 200px);overflow:auto;padding:12px 44px 12px 14px;z-index:9;text-align:left;font-size:11px;line-height:1.5;color:var(--dim);background:var(--glass-strong);border:1px solid var(--edge-dim);border-radius:14px}
+#credits.open a{color:var(--accent)}
+#credits.open .x{display:block;position:absolute;right:6px;top:6px;width:32px;height:32px;border-radius:8px;color:var(--dim);font-size:15px}
 #menuBtn{display:none}
 #nerd{position:fixed;right:14px;top:90px;width:360px;background:rgba(5,8,12,.94);max-height:calc(100% - 200px);overflow:auto;padding:14px 16px;z-index:6;font:500 12px/1.5 var(--mono)}
 #nerd .k{font:600 10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--warm)} #nerd h3{margin:12px 0 4px;font:700 13px/1 var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
@@ -145,7 +158,9 @@ a{color:var(--accent)}
 #list .fly:focus-visible,#list .go:focus-visible,#lys .ly:focus-visible,#credits .x:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (max-width: 900px){ #list{left:10px;right:10px;width:auto;top:auto;bottom:86px;max-height:60vh} }
 /* fingers: ~40 px tap targets */
-@media (pointer:coarse){ .tb{min-width:36px;height:36px} .rung{padding:13px 12px} .ly,.ly.sub{min-height:40px} #cardX{padding:10px 14px;font-size:20px} #menuBtn{min-width:40px;min-height:40px} }
+/* fingers: 44 px tap targets (WCAG 2.5.5) */
+@media (pointer:coarse){ .tb{min-width:44px;height:44px} .rung{min-height:44px;padding:13px 12px} .ly,.ly.sub,.btn,#hits button{min-height:44px} .links a,#follow{min-height:44px}
+  #card .x,#list .x,#nerd .x,#credits.open .x{min-width:44px;min-height:44px} #cardX{padding:10px 14px;font-size:20px} #menuBtn{min-width:44px;min-height:44px} #search input{min-height:44px} .tl li button{min-height:44px} }
 
 @media (max-width: 900px){
   #dock{display:none;top:auto;bottom:86px;left:10px;right:10px;width:auto;max-height:55vh;z-index:7}
@@ -163,7 +178,7 @@ a{color:var(--accent)}
   #credits .x{display:block;position:absolute;right:6px;top:6px;width:36px;height:36px;border-radius:8px;color:var(--dim);font-size:16px}
   .btn.show-s{display:flex}
   #time .date{min-width:0;padding:2px 4px} #time .date b{font-size:12px;white-space:nowrap} #time .date span{display:none}
-  #time [data-rate="-6"],#time [data-rate="-4"],#time [data-rate="5"]{display:none} .tb{min-width:28px;padding:0 6px}
+  #time [data-rate="-6"],#time [data-rate="-4"],#time [data-rate="5"]{display:none} .tb{min-width:36px;padding:0 6px}   /* 36 x 44 with the gaps: six fit beside the date at 390 px */
   .brand small{display:none} .brand b{font-size:17px}
   .links a.hide-s{display:none}
 }
@@ -231,6 +246,7 @@ a{color:var(--accent)}
   NASA/JHUAPL/SwRI/LPI, P. Schenk (LPI), P. Stooke; Phobos: ESA/DLR/FU Berlin (CC BY-SA 3.0 IGO) · galaxies: 2MASS Redshift Survey (Huchra et al. 2012) · exoplanets: NASA Exoplanet Archive</div>
 <div id="load"><div><b>Solar System</b><span id="loadMsg">loading the planets…</span></div></div>
 <div id="err" class="glass"></div>
+<div id="prog" aria-hidden="true"><i></i></div>
 
 <script>/* Boot watchdog: if three.js (from cdn.jsdelivr.net, checked against its hash) or one of the view's own modules fails
    to load, main.js never runs and the splash would say "loading the planets…" forever. Say what happened instead, with

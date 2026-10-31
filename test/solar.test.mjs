@@ -475,9 +475,12 @@ test('exoplanets: every labelled famous system is in the catalogue (Kepler-90 is
 test('solar view: reduced motion turns camera flights and the globe hand-over roll into jumps', () => {
   assert.match(src('src/solar/util.js'), /export const CALM = matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
   const main = src('src/solar/main.js');
+  // every flight is made by newFly, which shortens it to a jump (core/motion.js FLIGHT.calm)
+  const make = main.slice(main.indexOf('const newFly = '), main.indexOf('const nav = {'));
+  assert.match(make, /CALM\.matches \? Math\.min\(dur, FLIGHT\.calm\)/);
   for (const fn of ['focusOn', 'flyDist']) {
-    const at = main.indexOf(`  ${fn}(`), body = main.slice(at, main.indexOf('this.fly = {', at));
-    assert.ok(at > 0, fn); assert.match(body, /CALM\.matches/, fn);
+    const at = main.indexOf(`  ${fn}(`), body = main.slice(at, main.indexOf('},', at));
+    assert.ok(at > 0, fn); assert.match(body, /this\.fly = newFly\(/, fn);
   }
   assert.match(src('src/solar/embed.js'), /dur: CALM\.matches \?/);
 });
