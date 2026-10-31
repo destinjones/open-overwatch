@@ -159,7 +159,7 @@ function geo(e) {
   return (e.G = { gv, P, U, Rt, until: guess ? t + 800 + Math.random() * 1200 : Infinity });   // staggered: not every edge in one frame
 }
 
-const pos = new C.Cartesian3(), axis = new C.Cartesian3();
+const pos = new C.Cartesian3(), axis = new C.Cartesian3(), FADE = new C.Color(1, 1, 1, 0);
 function draw(dt) {
   const cam = camera.positionWC, N2 = NEAR * NEAR, F2 = FAR * FAR, now = sim.clock, k8 = Math.min(1, dt / 8);
   for (const c of sim.cars) {
@@ -178,7 +178,7 @@ function draw(dt) {
       const brake = c.v < 0.8 || (dt > 0 && (c.pv - c.v) / dt > 1.2); c.pv = c.v;
       if (brake !== c.braking) { c.braking = brake; b.image = c.imgs[brake ? 1 : 0]; }
       const f = (now - c.born) / 0.8;   // fade in where a car (re)appears
-      if (f < 1) { b.color = new C.Color(1, 1, 1, Math.max(0, f)); c.solid = false; } else if (!c.solid) { b.color = C.Color.WHITE; c.solid = true; }
+      if (f < 1) { FADE.alpha = Math.max(0, f); b.color = FADE; c.solid = false; }   // the billboard copies it else if (!c.solid) { b.color = C.Color.WHITE; c.solid = true; }
     } else if (c.bb.show) c.bb.show = false;
     if (d2 > F2) {
       const p = c.pt; if (!p.show) p.show = true;

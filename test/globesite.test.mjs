@@ -72,7 +72,7 @@ test('globe site: NDBC refused through getText is not carried either (the buoy l
 
 test('globe: the header shows — for aircraft until a feed answers; phones without aircraft show SAT and QK', () => {
   const ui = read('src/globe/ui.js'), air = read('src/globe/aircraft.js'), html = read('globe.html');
-  assert.match(ui, /\$\('#sAir'\)\.textContent = heard\.air \? fmt\(air\) : '—'; \$\('#sMil'\)\.textContent = heard\.mil \? fmt\(mil\) : '—';/);
+  assert.match(ui, /setText\(\$\('#sAir'\), heard\.air \? fmt\(air\) : '—'\); setText\(\$\('#sMil'\), heard\.mil \? fmt\(mil\) : '—'\);/);
   for (const k of ['air', 'air', 'mil']) assert.ok(air.includes(`this.answered.${k} = true;`));
   assert.equal(air.match(/this\.answered\.air = true;/g).length, 2, 'the snapshot and the area query both count');
   assert.match(air, /if \(e\.notCarried \|\| \/HTTP 429\/\.test\(e\.message\)\) break;/, 'one refused tile, not three');

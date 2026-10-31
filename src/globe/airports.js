@@ -7,7 +7,8 @@
 import { C, $, esc, fmt, PHONE, getJSON } from './env.js';
 import { scene, camHeight } from './viewer.js';
 import { L, setCount, syncDock } from './layers.js';
-import { state, hooks } from './state.js';
+import { state, hooks, settled } from './state.js';
+import { sliced } from '../core/slices.js';
 import { Air, AirModels, airShown, airClass } from './aircraft.js';
 import { AcInfo } from './acinfo.js';
 import { CockpitWx } from './cockpitwx.js';
@@ -28,6 +29,9 @@ import { FieldWatch } from './fieldwatch.js';
 const pts = scene.primitives.add(new C.PointPrimitiveCollection());
 const labels = scene.primitives.add(new C.LabelCollection());
 const COLOR = C.Color.fromCssColorString('#9fe3ff');
+// shared by every dot and label (each one copies them; ~4,500 fresh ones per load was garbage for nothing)
+const LOOK = { big: COLOR.withAlpha(0.95), small: COLOR.withAlpha(0.7), rim: C.Color.BLACK.withAlpha(0.6), off: new C.Cartesian2(8, -8),
+  dot: [new C.DistanceDisplayCondition(0, 9.0e5), new C.DistanceDisplayCondition(0, 2.5e6)], code: [new C.DistanceDisplayCondition(0, 1.5e5), new C.DistanceDisplayCondition(0, 6.0e5)] };
 const LOOKUPS_PER_BOARD = 8;   // adsbdb look-ups to name where the board's planes come from or go
 
 const fieldWx = airportWxCache({ json: url => getJSON(url, { timeout: 15000 }) });   // the model weather at a field, 15 minutes (core/aloft.js)
@@ -78,16 +82,18 @@ function historyHtml(a) {
 export const Airports = {
   list: [], index: new AirportIndex([]), loading: null, open: null, timer: 0, credit: '', missing: false,
   load() {
-    if (!this.loading) this.loading = fetchAsset('data/airports.json', 'json').then(d => {
+    // on by default on desktops: after the first picture, and the ~4,500 dots and code labels a slice at a time
+    if (!this.loading) this.loading = settled.wait().then(() => fetchAsset('data/airports.json', 'json')).then(async d => {
       this.credit = d.source || 'OurAirports'; this.list = parseAirports(d); this.index = new AirportIndex(this.list); CockpitWx.airports = this.index;
-      for (const a of this.list) {
+      await sliced(this.list, a => {
+        const big = a.size === 2 ? 1 : 0, at = C.Cartesian3.fromDegrees(a.lon, a.lat, a.elevM + 30);
         a.layer = 'airports'; a.cardHtml = () => this.cardHtml(a); a.afterCard = card => this.afterCard(a, card);
-        a.pt = pts.add({ position: C.Cartesian3.fromDegrees(a.lon, a.lat, a.elevM + 30), pixelSize: a.size === 2 ? 6 : 4, color: COLOR.withAlpha(a.size === 2 ? 0.95 : 0.7), id: a,
-          outlineColor: C.Color.BLACK.withAlpha(0.6), outlineWidth: 1, distanceDisplayCondition: new C.DistanceDisplayCondition(0, a.size === 2 ? 2.5e6 : 9.0e5) });
-        if (a.size === 2 || !PHONE) a.label = labels.add({ position: C.Cartesian3.fromDegrees(a.lon, a.lat, a.elevM + 30), text: a.iata || a.icao, id: a, font: '600 12px "IBM Plex Mono", monospace',
-          fillColor: COLOR, outlineColor: C.Color.BLACK, outlineWidth: 3, style: C.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new C.Cartesian2(8, -8),
-          distanceDisplayCondition: new C.DistanceDisplayCondition(0, a.size === 2 ? 6.0e5 : 1.5e5) });
-      }
+        a.pt = pts.add({ position: at, pixelSize: big ? 6 : 4, color: big ? LOOK.big : LOOK.small, id: a,
+          outlineColor: LOOK.rim, outlineWidth: 1, distanceDisplayCondition: LOOK.dot[big] });
+        if (big || !PHONE) a.label = labels.add({ position: at, text: a.iata || a.icao, id: a, font: '600 12px "IBM Plex Mono", monospace',
+          fillColor: COLOR, outlineColor: C.Color.BLACK, outlineWidth: 3, style: C.LabelStyle.FILL_AND_OUTLINE, pixelOffset: LOOK.off,
+          distanceDisplayCondition: LOOK.code[big] });
+      });
       FieldWx.airports = this.index; FieldWatch.restore(this.index);
       setCount('airports', this.list.length); this.apply();
       Runways.load();   // runway ends for finals and the runway in use (nothing about runways without the file)
@@ -117,7 +123,7 @@ export const Airports = {
   cardHtml(a) {
     return `<div class="k" style="--c:#9fe3ff">${a.size === 2 ? 'Large airport' : 'Airport'}</div><h2>${esc(a.name)}</h2>`
       + `<dl>${a.iata ? `<dt>IATA</dt><dd>${esc(a.iata)}</dd>` : ''}<dt>ICAO</dt><dd>${esc(a.icao)}</dd>${a.city ? `<dt>City</dt><dd>${esc(a.city)}${a.cc ? ' · ' + esc(a.cc) : ''}</dd>` : ''}<dt>Elevation</dt><dd>${fmt(a.elevM / 0.3048)} ft</dd></dl>`
-      + '<p id="apWx" class="ap-wx note">Weather…</p><div id="apMetar" class="ap-metar"></div><div id="apBoard" class="ap-board"><p class="note">Reading the sky…</p></div>';
+      + '<p id="apWx" class="ap-wx note skel">Weather…</p><div id="apMetar" class="ap-metar"></div><div id="apBoard" class="ap-board"><p class="note">Reading the sky…</p></div>';
   },
   afterCard(a, card) {
     this.open = a; FieldWatch.open = a; clearInterval(this.timer);
@@ -126,6 +132,7 @@ export const Airports = {
     const showModel = () => fieldWeather(a).then(w => {
       wx = w; if (this.open === a) draw();   // the weather now at the field, METAR-like (a model's values: Open-Meteo)
       const el = card.querySelector('#apWx'); if (!el || state.selected !== a) return;
+      el.classList.remove('skel');   // the placeholder's pulse (globe.html .skel)
       el.innerHTML = w ? `${w.category ? `<b class="ap-cat" style="--c:${CAT_COLOR[w.category]}" title="Flight category from the model's visibility and an estimated cloud base">${w.category}</b> ` : ''}${esc(airportWxLine(w))} <span class="ap-src">Open-Meteo model${w.time ? ', ' + esc(w.time.slice(11, 16)) + 'Z' : ''}</span>`
         + (FieldWx.available ? '' : ' <span class="ap-src">· the airport’s own METAR and TAF need the download version (aviationweather.gov refuses websites)</span>') : '';
     }).catch(() => { const el = card.querySelector('#apWx'); if (el) el.remove(); });

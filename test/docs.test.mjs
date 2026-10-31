@@ -116,7 +116,7 @@ test('docs: files and names DEVELOPING.md points at are real', () => {
   }
   for (const f of ['serve.js', 'serve.py', 'Publish Update.bat', '.github/build_site.py', 'mcp/manifest.json', 'sitemap.xml']) assert.ok(devDoc.includes(f) && existsSync(new URL(f, root)), f);
   assert.ok(devDoc.includes('.claude/launch.json'), '.claude/launch.json');   // named, but gitignored: a fresh checkout (CI) doesn't have it
-  assert.match(read('src/globe/main.js'), /function applyAll\(\)/, 'DEVELOPING.md section 5 tells people to wire layers in applyAll()');
+  assert.match(read('src/globe/main.js'), /function applyAll\(/, 'DEVELOPING.md section 5 tells people to wire layers in applyAll()');
   assert.match(read('src/map/util.js'), /export const NEEDS_RELAY/, 'DEVELOPING.md section 6 says NEEDS_RELAY lives in src/map/util.js');
 });
 

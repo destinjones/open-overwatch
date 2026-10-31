@@ -212,7 +212,9 @@ loadImage(FX_TEX).then(img => { fxShell.material.uniforms.fx = img; cloudShell.m
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 export const Earth = {
   h: Infinity,
-  update(h) { this.h = h; this.apply(); },
+  // every frame: with the camera still nothing here changes (whatever else apply() reads calls it itself), so a resting
+  // globe skips the dozen layer writes and the uniform objects; look-up and Photoreal keep re-hiding the imagery each frame
+  update(h) { if (h === this.h && !this.hidden && !this.covered) return; this.h = h; this.apply(); },
   q: null,         // the graphics level's settings (quality.js, through main.js): cloud octaves and relief, the limb halo
   setQuality(q) {
     this.q = q; Object.assign(cloudShell.material.uniforms, { octaves: q.octaves, bumps: q.relief ? 1.0 : 0.0 }); this.apply();

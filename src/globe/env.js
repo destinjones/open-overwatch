@@ -16,6 +16,10 @@ export const ON_SITE = location.hostname === 'destinjones.github.io';
  *  moves, and the specular term adds a shader variant per height band; on small models the reflections don't show. */
 export const NO_ENV_MAP = Object.freeze({ enabled: false });
 
+/** Text that only changes now and then but is written on a timer (the band, the clock, the counts): an unchanged
+ *  write still dirties style and layout, four times a second. */
+export function setText(el, text) { if (el && el.textContent !== text) el.textContent = text; }
+
 let toastTimer = 0;
 export function toast(msg, ms = 2600) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');

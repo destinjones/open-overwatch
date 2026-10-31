@@ -55,6 +55,7 @@ function leave(s) {
   setTimeout(() => { solar()?.embed.pause(); busy = false; }, FADE_MS);
 }
 
+const TO_EARTH = new C.Cartesian3();
 /** Every frame: preload when climbing, hand over when past the Moon and looking back at Earth. */
 function update() {
   if (active || busy || state.noHandoff) return;
@@ -62,7 +63,7 @@ function update() {
   if (h > PRELOAD_M) ensureFrame();
   if (Follow.obj || state.lookingAtMoon || camera._currentFlight) return;   // not mid-flight: go() hands over on arrival
   if (h > ENTER_M || wantEnter) {
-    const toEarth = C.Cartesian3.normalize(C.Cartesian3.negate(camera.positionWC, new C.Cartesian3()), new C.Cartesian3());
+    const toEarth = C.Cartesian3.normalize(C.Cartesian3.negate(camera.positionWC, TO_EARTH), TO_EARTH);   // every frame out here: scratch
     if (C.Cartesian3.dot(toEarth, camera.directionWC) > 0.7 || wantEnter) enter();
   }
 }
