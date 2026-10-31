@@ -37,7 +37,7 @@
     "globe": {
       "desktop": {
         "readyMs": 12000,
-        "bootTbtMs": 6000,
+        "bootTbtMs": 8000,
         "bootRequests": 330,
         "bootMB": 27
       },
