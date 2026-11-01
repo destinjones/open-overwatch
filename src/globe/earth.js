@@ -59,14 +59,19 @@ let baseLayer = null, labelLayer = null, baseId = 'imagery';
 // the NASA day (far) and night layers are created once and stay between the base map and the labels
 export const marbleLayer = viewer.imageryLayers.addImageryProvider(gibs('BlueMarble_NextGeneration', 'jpeg'));
 Object.assign(marbleLayer, { saturation: 1.2, contrast: 1.1, brightness: 1.12, gamma: 1.06 }); // without HDR (it washes the night purple) the day needs a little lift
+// The night side is shaded, never hidden: the lit-globe shader keeps a fixed 30% there (GlobeFS: Lambert * 5 + 0.3, not a
+// setting), which from space left the night half nearly black. A second Blue Marble drawn only on the night side
+// (dayAlpha 0), NIGHT_LIFT times brighter, makes up for it, so the night half reads at about NIGHT_LIFT x 30% of the day.
+export const NIGHT_LIFT = 2.4;
+export const marbleNight = viewer.imageryLayers.addImageryProvider(gibs('BlueMarble_NextGeneration', 'jpeg'));
+Object.assign(marbleNight, { saturation: 0.9, contrast: 1.1, brightness: 1.12 * NIGHT_LIFT, gamma: 1.06, dayAlpha: 0.0, nightAlpha: 1.0 });
 export const nightLayer = viewer.imageryLayers.addImageryProvider(gibs('VIIRS_Black_Marble', 'png'));
 nightLayer.dayAlpha = 0.0; nightLayer.nightAlpha = 1.0;
 // gamma is applied before brightness: x^2.5 pushes Black Marble's dim blue land to near-black, then x3.4 restores the
 // cities (the lit-globe shader keeps ~30% on the night side)
 Object.assign(nightLayer, { gamma: 0.4, brightness: 3.4, contrast: 1.0 });
-// The night side is shaded, never hidden: the day imagery stays under it at NIGHT_SHADE (on top of the lit-globe shader's
-// own 30%), and Black Marble's near-black pixels turn transparent so only the city lights are drawn over it. (Showing the
-// day imagery at full strength instead lets the ground atmosphere's exposure turn the night oceans bright blue.)
+// Black Marble's near-black pixels turn transparent, so only the city lights are drawn over the shaded day imagery; the
+// base map (when it shows through) keeps NIGHT_SHADE of itself on the night side.
 export const NIGHT_SHADE = 0.35;
 nightLayer.colorToAlpha = C.Color.BLACK; nightLayer.colorToAlphaThreshold = 0.3;
 
@@ -240,7 +245,7 @@ export const Earth = {
     if (baseLayer) { baseLayer.nightAlpha = shade; baseLayer.show = marbleLayer.alpha < 0.999; }
     const limb = limbFade(this.q, h);   // a full-disc pass for a thin rim: none on 'low'; on 'balanced' it fades out below ~1,000 km
     limbShell.primitive.show = limb > 0; limbShell.material.uniforms.fade = limb;   // (look-up mode hides it)
-    marbleLayer.nightAlpha = shade;
+    marbleNight.show = marbleLayer.show && real > 0.001; marbleNight.alpha = marbleLayer.alpha * real;
     nightLayer.show = L.night.on && real > 0.001; nightLayer.alpha = real;
     // the globe dims its night side to 0.3 only at full lighting (linear in height between the two lighting fade
     // distances); keep the city lights at the same apparent brightness while that dimming fades in
