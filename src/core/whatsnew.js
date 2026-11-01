@@ -16,6 +16,15 @@ export const MAX_LINES = 3;
  *  it is published). */
 export const RELEASES = Object.freeze([
   {
+    version: '0.9.2.17', date: '2026-11-01', title: 'Smoother everywhere, and a night side you can see',
+    go: 'globe.html',
+    lines: [
+      "The globe's night side is shaded, not hidden: land and sea stay visible under the city lights.",
+      'Smoother globe, Solar System, Tonight and 2D map: fewer freezes and stutters, on phones too.',
+      'A cleaner, steadier look on the landing, guide and India pages.',
+    ],
+  },
+  {
     version: '0.9.2.16', date: '2026-10-17', title: "What's in the sky tonight in your city, a page for teachers, and the second audit",
     go: 'sky/',
     lines: [

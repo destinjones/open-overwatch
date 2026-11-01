@@ -8,6 +8,29 @@ file was built from.
 
 ## [Unreleased]
 
+## [0.9.2.17] - 2026-11-01
+
+Smoother everywhere, and a night side you can see.
+
+### Changed
+- The globe's night side is shaded, never hidden: from space the land, coasts and oceans stay visible under the city
+  lights (a night-only copy of Blue Marble makes up for the lit-globe shader's fixed 30%), close in it is fully lit.
+- Smoothness, from a new performance run on GitHub Actions (`.github/workflows/perf.yml`, every page on desktop and a
+  4x-slowed phone; baseline and findings in `docs/PERFORMANCE.md` and `docs/perf-findings.md`):
+  - globe: dots and icons picked on the CPU instead of a full GPU redraw (a 27 s hover freeze under software WebGL),
+    render recovery after a bad frame, shaders warmed before they are needed, the aurora grid read in a worker, paced
+    model refreshes, no boot hitches from the default layers;
+  - Solar System and Tonight: smoother flights, asteroid uploads in stages, labels without per-frame writes, the
+    farthest-object search in a worker, skeletons while cards load;
+  - 2D map: bounded glyph frames, hover without layout thrash, refreshes that only touch what changed, feeds that rest
+    in a hidden tab;
+  - landing, guide and India pages: one design system (shared tokens, nav, buttons and type) with no layout shift, the
+    3D fleet viewer loaded only when asked, and contents links that land on their sections again.
+
+### Fixed
+- India's language button; the Solar header's clock no longer rewrites itself five times a second; Chandrayaan-2's
+  track runs to 2026-11-26 (JPL Horizons revised it).
+
 ## [0.9.2.16] - 2026-10-17
 
 What's in the sky tonight in your city, a page for teachers, and the second audit.
