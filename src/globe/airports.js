@@ -100,7 +100,7 @@ export const Airports = {
     }).catch(e => { this.missing = true; console.warn('airports', e.message || e); });
     return this.loading;
   },
-  apply() { pts.show = labels.show = L.airports.on; if (L.airports.on && !this.loading) this.load(); },
+  apply() { pts.show = labels.show = L.airports.on && !state.lookup; if (L.airports.on && !this.loading) this.load(); },
   /** The board for an airport from the live aircraft. */
   board(a) {
     // where each is drawn now (fixes can be 15 min old), within ~180 km

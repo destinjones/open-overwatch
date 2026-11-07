@@ -23,7 +23,7 @@ export const Lighthouses = {
         const o = { kind: 'lighthouse', lat: r[ix.lat], lon: r[ix.lon], name: r[ix.name], heightM: r[ix.heightM], colour: r[ix.colour], character: r[ix.character],
           rangeNm: r[ix.rangeNm], built: r[ix.built], operator: r[ix.operator], wiki: r[ix.wiki], status: r[ix.status] };
         o.pt = pts.add({ position: C.Cartesian3.fromDegrees(o.lon, o.lat, 0), pixelSize: 4, color: o.status ? DARK : LIT, id: o,
-          show: L.lighthouses.on, distanceDisplayCondition: NEAR, disableDepthTestDistance: 0 });
+          distanceDisplayCondition: NEAR, disableDepthTestDistance: 0 });
         this.list.push(o);
       });
       setCount('lighthouses', this.list.length);

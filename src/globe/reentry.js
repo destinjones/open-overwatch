@@ -40,7 +40,7 @@ export const Reentry = {
     const mat = C.Material.fromType('Color', { color: C.Color.fromCssColorString(RED).withAlpha(FAINT) });
     for (const p of this.list || []) for (const seg of p.corridor?.segments || []) {
       const near = seg.filter(q => Math.abs(q.t - p.reentryMs) <= OVERVIEW_MS);
-      if (near.length > 1) lines.add({ positions: near.map(q => C.Cartesian3.fromDegrees(q.lon, q.lat, 20000)), width: 1.4, material: mat, id: { kind: 'reentry', p } });
+      if (near.length > 1) lines.add({ positions: near.map(q => C.Cartesian3.fromDegrees(q.lon, q.lat, 20000)), width: 1.4, material: mat, id: { kind: 'reentry', p, tip: () => `${p.name} · re-entry ${when(p, Date.now())}` } });
     }
     this.drawn = true; this.highlight();
   },
@@ -114,3 +114,4 @@ export const Reentry = {
   close() { this.unselect(); $('#card').classList.remove('show'); },
 };
 hooks.reentry = id => Reentry.openList(id);
+hooks.showReentry = p => { hooks.clearSelection(); Reentry.show(p); };   // a click on its corridor (ui.js select)

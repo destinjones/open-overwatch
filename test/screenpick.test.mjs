@@ -2,7 +2,7 @@
 // core/screenpick.js: projecting dots to the screen, the Earth hiding the far side, and the nearest-dot picker.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { project, behindSphere, makePicker, EARTH_MIN_R } from '../src/core/screenpick.js';
+import { project, behindSphere, makePicker, nearFarScale, pickInOrder, makeBackOff, EARTH_MIN_R } from '../src/core/screenpick.js';
 
 // a 90° square perspective looking down -z (OpenGL), column major like Cesium's Matrix4, times a camera translation
 function perspective(near = 1, far = 1e9) {
@@ -63,4 +63,48 @@ test('makePicker: a big icon is picked across its width', () => {
   const pk = makePicker(VP, W, H, CAM, { x: 400, y: 300 }, 0), icon = { id: 'plane' };
   pk.offer(0.4e6, 0, 6.4e6, 32, icon);   // ~11.8 px from its centre, inside half of 32 px
   assert.equal(pk.item, icon);
+});
+
+test('makePicker: remembers the size of the winner, and a cap limits the reach of one dot without shadowing another', () => {
+  const pk = makePicker(VP, W, H, CAM, { x: 400, y: 300 }, 14), sat = { id: 'sat' }, plane = { id: 'plane' };
+  pk.offer(0.34e6, 0, 6.4e6, 3, sat, 0, Infinity, 8);   // ~10 px: inside r, beyond the cap, so it does not count
+  assert.equal(pk.item, null);
+  pk.offer(0.41e6, 0, 6.4e6, 5, plane);                 // ~12 px and farther than the satellite: still gets it
+  assert.equal(pk.item, plane); assert.equal(pk.size, 5);
+  pk.offer(0.2e6, 0, 6.4e6, 3, sat, 0, Infinity, 8);    // ~5.9 px: within the cap, and nearer
+  assert.equal(pk.item, sat); assert.equal(pk.size, 3);
+});
+
+test('nearFarScale: the curve in the shader, clamped at both ends', () => {
+  assert.equal(nearFarScale(5e5, 2, 1.5e8, 0.55, 1e10), 2);        // nearer than near
+  assert.equal(nearFarScale(5e5, 2, 1.5e8, 0.55, 1e18), 0.55);     // beyond far
+  const d = 2e7, t = Math.pow((d * d - 5e5 * 5e5) / (1.5e8 * 1.5e8 - 5e5 * 5e5), 0.2);
+  assert.ok(Math.abs(nearFarScale(5e5, 2, 1.5e8, 0.55, d * d) - (2 + (0.55 - 2) * t)) < 1e-12);
+});
+
+test('pickInOrder: a dot under the pointer first, then the scene, then a dot merely near', () => {
+  const dot = { id: 'dot' }, model = { id: 'model' };
+  let asked = 0; const ask = v => () => { asked++; return v; };
+  // touch (r 28), a 4 px dot: under the finger within 2 + 7 px
+  assert.equal(pickInOrder(dot, 8, 4, 28, ask(model)), dot); assert.equal(asked, 0);
+  assert.equal(pickInOrder(dot, 12, 4, 28, ask(model)), model); assert.equal(asked, 1);   // a cone under the finger beats a dot beside it
+  assert.equal(pickInOrder(dot, 12, 4, 28, ask(null)), dot);                               // nothing else there: the nearby dot
+  assert.equal(pickInOrder(null, Infinity, 0, 28, ask(model)), model);
+  assert.equal(pickInOrder(null, Infinity, 0, 28, ask(null)), null);
+  // mouse (r 3): barely any slop
+  assert.equal(pickInOrder(dot, 2.7, 4, 3, ask(model)), dot);
+  assert.equal(pickInOrder(dot, 3.2, 4, 3, ask(model)), model);
+});
+
+test('makeBackOff: slow answers stop the asking for longer each time, a quick one starts over', () => {
+  const b = makeBackOff({ slowMs: 250, baseMs: 60e3, maxMs: 240e3 });
+  assert.ok(b.allowed(0));
+  b.took(100, 0); assert.ok(b.allowed(1));
+  b.took(300, 1000); assert.ok(!b.allowed(60e3)); assert.ok(b.allowed(61e3));
+  b.took(300, 61e3); assert.ok(!b.allowed(180e3)); assert.ok(b.allowed(181e3));   // 120 s
+  b.took(300, 181e3); assert.ok(!b.allowed(420e3)); assert.ok(b.allowed(421e3));  // 240 s
+  b.took(300, 421e3); assert.ok(!b.allowed(660e3)); assert.ok(b.allowed(661e3));  // stays at the cap
+  b.took(100, 661e3);
+  b.took(300, 662e3); assert.ok(b.allowed(722e3));                                 // back to 60 s
+  b.failed(800e3); assert.ok(!b.allowed(801e3));                                   // a throw counts as slow
 });

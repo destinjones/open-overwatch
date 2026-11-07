@@ -36,7 +36,7 @@ export const Companies = {
         const p0 = C.Cartesian3.fromDegrees(o.lon, o.lat, 0), p1 = C.Cartesian3.fromDegrees(o.lon, o.lat, h);
         shafts.push(new C.GeometryInstance({ geometry: new C.PolylineGeometry({ positions: [p0, p1], width: 3, vertexFormat: C.PolylineColorAppearance.VERTEX_FORMAT, colors: [foot, top], colorsPerVertex: true }),
           attributes: { distanceDisplayCondition: new C.DistanceDisplayConditionGeometryInstanceAttribute(0, 4.0e7) } }));
-        o.pt = dots.add({ position: p1, pixelSize: 7, color: col, outlineColor: rim, outlineWidth: 5, distanceDisplayCondition: ddc, show: L.companies.on, id: o });
+        o.pt = dots.add({ position: p1, pixelSize: 7, color: col, outlineColor: rim, outlineWidth: 5, distanceDisplayCondition: ddc, id: o });
         this.list.push(o);
       });
       towers = scene.primitives.add(new C.Primitive({ geometryInstances: shafts, appearance: new C.PolylineColorAppearance({ translucent: true }), show: L.companies.on && !state.lookup }));

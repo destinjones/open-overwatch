@@ -149,7 +149,7 @@ export const Sats = {
         const kx = nx / nl, ky = ny / nl, kz = nz / nl, c = Math.cos(a), sn = Math.sin(a);
         P.x = (x * c + (ky * z - kz * y) * sn) * 1000; P.y = (y * c + (kz * x - kx * z) * sn) * 1000; P.z = (z * c + (kx * y - ky * x) * sn) * 1000;
       }
-      if (!(P.x === P.x && P.y === P.y && P.z === P.z)) { s.pt.show = false; continue; }   // one NaN dot makes the collection's bounds NaN: Cesium then fails every frame
+      if (!(P.x === P.x && P.y === P.y && P.z === P.z)) { s.pt.show = false; continue; }   // never draw or pick a dot at a position nobody can compute
       s.pt.position = P;
     }
   },
@@ -271,7 +271,10 @@ export const SatModels = {
   refresh() { // which satellites get a model: the nearest within range, plus the selected and followed ones
     if (state.lookup) { for (const s of [...this.pool.values()]) this.drop(s); return; }   // from the ground, a model is a giant streak
     const st = Sats.state; if (!st) return;
-    const cam = camera.positionWC, b = st.buf, dt = (Date.now() - st.t) / 1000, near = [];
+    // the buffer is stamped with the clock's time, not the wall's. A straight line along v only holds for a few seconds:
+    // past that (fast time-lapse, the moment after a jump) the buffer's own positions are nearer the truth
+    const age = (Time.nowMs() - st.t) / 1000, dt = Math.abs(age) > 3 ? 0 : age;
+    const cam = camera.positionWC, b = st.buf, near = [];
     for (const s of Sats.list) {
       if (!L[s.layer].on || s.model === null) continue;
       const i = s.idx * 6; if (Number.isNaN(b[i])) continue;
@@ -289,11 +292,11 @@ export const SatModels = {
       const docked = new Set();
       for (const st2 of this.stations) {
         const j = st2.idx * 6; if (Number.isNaN(b[j])) continue;
-        const px = b[j] + b[j + 3] * dt, py = b[j + 1] + b[j + 4] * dt, pz = b[j + 2] + b[j + 5] * dt;
+        const px = b[j], py = b[j + 1], pz = b[j + 2];   // station and vehicle at the same instant: no extrapolation to magnify a small difference in velocity
         for (const s of Sats.list) {
           if (s === st2) continue; const i = s.idx * 6, x = b[i]; if (Number.isNaN(x)) continue;
-          const dx = x + b[i + 3] * dt - px; if (dx > 5 || dx < -5) continue;
-          const dy = b[i + 1] + b[i + 4] * dt - py, dz = b[i + 2] + b[i + 5] * dt - pz; if (dx * dx + dy * dy + dz * dz < 25) docked.add(s);
+          const dx = x - px; if (dx > 5 || dx < -5) continue;
+          const dy = b[i + 1] - py, dz = b[i + 2] - pz; if (dx * dx + dy * dy + dz * dz < 25) docked.add(s);
         }
       }
       for (const s of Sats.list) {

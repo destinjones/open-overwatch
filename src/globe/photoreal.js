@@ -56,6 +56,7 @@ export const Photoreal = {
     if (this.tileset) this.tileset.show = show;
     globe.show = !show; Earth.covered = show; Earth.apply();
     hooks.applyVisibility();   // OSM buildings step aside while Google's are up
+    if (!show) hooks.showWeather?.();   // Earth.apply hid every imagery layer while covered, weather's too: only Weather.show puts its own back
   },
   /** The visitor's own token: a card that explains where to get one. Nothing is sent anywhere but Cesium ion. */
   ask() {

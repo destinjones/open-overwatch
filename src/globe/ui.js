@@ -55,7 +55,7 @@ camera.percentageChanged = 0.02; camera.changed.addEventListener(updateBand);
 setInterval(updateBand, 250);   // lookAt/follow moves don't always raise camera.changed
 
 // ---- presets
-function flyDeg(lon, lat, h, pitchDeg) { release(); camera.flyTo({ destination: C.Cartesian3.fromDegrees(lon, lat, h), orientation: { heading: 0, pitch: C.Math.toRadians(pitchDeg), roll: 0 }, duration: 3 }); }
+function flyDeg(lon, lat, h, pitchDeg) { if (!Number.isFinite(lon) || !Number.isFinite(lat)) return; release(); camera.flyTo({ destination: C.Cartesian3.fromDegrees(lon, lat, h), orientation: { heading: 0, pitch: C.Math.toRadians(pitchDeg), roll: 0 }, duration: 3 }); }
 export const PRESETS = {
   ground: () => flyDeg(-0.1278, 51.495, 3500, -45),
   air: () => flyDeg(2.5, 46, 1.4e6, -70),
@@ -94,7 +94,7 @@ hooks.clearPresets = () => $('#band').querySelectorAll('.go').forEach(x => x.cla
 // ---- picking: hover tip + details card
 const handler = new C.ScreenSpaceEventHandler(scene.canvas);
 // points carry the object as their id; model entities carry .sat / .air
-// fingers are wide and dots are a few pixels: touch picks within a 28 px square, the mouse within 3 px
+// fingers are wide and dots are a few pixels: a touch picks within a 28 px wide square, the mouse within 3 px (pick.js)
 let touchInput = matchMedia('(pointer: coarse)').matches;
 // a hover pick draws the whole scene again into the pick buffer and stalls on readPixels, so the mouse picks only once it
 // rests (80 ms after the last move), never while a button is held (a drag) or the camera moves; movement hides the tip
@@ -110,8 +110,9 @@ scene.canvas.addEventListener('pointerleave', () => { hoverAt = null; hideTip();
 camera.moveStart.addEventListener(() => { camMoving = true; hideTip(); });
 camera.moveEnd.addEventListener(() => { camMoving = false; clearTimeout(hoverTimer); if (hoverAt && !touchInput) hoverTimer = setTimeout(hoverPick, 80); });
 // dots and icons are picked on the CPU from their screen positions, models and entities by scene.pick with the dots hidden
-// (pick.js: a GPU pick with every satellite drawn was a 27 s freeze); hover picks back off while scene picks are slow
-function pickObj(pos, r = touchInput ? 28 : 3, hover = false) { return pickAt(pos, r, { hover }); }
+// (pick.js: a GPU pick with every satellite drawn was a 27 s freeze); hover scene picks back off while they are slow, and
+// are off altogether when WebGL is drawn in software, where one still takes tens of seconds
+function pickObj(pos, r = touchInput ? 28 : 3, hover = false) { return pickAt(pos, r, { hover, touch: touchInput }); }
 /** The hover tip for anything pickable (voice.js reads it aloud too). */
 export function tipFor(o) {
   if (o.kind === 'sat') return `${o.name} · ${L[o.layer].name.split(' (')[0]}`;
@@ -121,15 +122,16 @@ export function tipFor(o) {
   if (o.kind === 'volcano') return `${o.name}${o.elevationM ? ' · ' + fmt(o.elevationM) + ' m' : ''}`;
   if (o.kind === 'company') return `${o.name} · ${fmt(o.employees)} employees`;
   if (o.kind === 'lighthouse') return `${o.name || 'Lighthouse'}${o.heightM ? ' · ' + fmt(o.heightM) + ' m' : ''}`;
+  if (o.kind === 'airport') return `${o.iata || o.icao} · ${o.name}`;
   return typeof o.tip === 'function' ? o.tip() : '';   // layers in their own modules (transit, radio…) describe themselves
 }
 function hoverPick() {
   hoverTimer = 0;
   if (!hoverAt || touchInput || held || (camMoving && !Follow.obj && ctrl.enableInputs)) return;   // following and scripted cameras (tower, chase, fly-through) move every frame: still tip then
-  const o = pickObj(hoverAt, 3, true), t = $('#hover');
-  if (!o) { hideTip(); return; }
+  const o = pickObj(hoverAt, 3, true), t = $('#hover'), text = o ? tipFor(o) : '';
+  if (!text) { hideTip(); return; }   // nothing there, or something with nothing to say: no empty pill
   // moved by transform (a compositor move), not left/top (a layout each time)
-  t.textContent = tipFor(o); t.style.transform = `translate3d(${Math.round(hoverAt.x + 14)}px,${Math.round(hoverAt.y + 12)}px,0)`; t.style.display = 'block'; scene.canvas.style.cursor = 'pointer';
+  t.textContent = text; t.style.transform = `translate3d(${Math.round(hoverAt.x + 14)}px,${Math.round(hoverAt.y + 12)}px,0)`; t.style.display = 'block'; scene.canvas.style.cursor = 'pointer';
 }
 handler.setInputAction(m => {
   if (touchInput) return;   // no hover tips from a finger: they stayed on screen after the touch
@@ -139,10 +141,7 @@ handler.setInputAction(m => {
 let clickNo = 0;
 handler.setInputAction(c => {
   if (state.lookup || state.picking) return;   // look-up mode names what you tap itself; directions may be picking a point
-  let o = pickObj(c.position); const n = ++clickNo;
-  // a finger covers 28 px, and 18,000 satellite dots mean one is nearly always under it: unless the dot is really near the touch,
-  // the tap was meant for the ground (the country), not for a satellite
-  if (o && o.kind === 'sat' && touchInput && o.pt) { const w = C.SceneTransforms.worldToWindowCoordinates(scene, o.pt.position); if (!w || Math.hypot(w.x - c.position.x, w.y - c.position.y) > 8) o = null; }
+  const o = pickObj(c.position), n = ++clickNo;
   if (o) { select(o); return; }
   // nothing under the cursor: the country under it, if the click landed on the Earth
   const p = camera.pickEllipsoid(c.position, scene.globe.ellipsoid);
@@ -162,6 +161,7 @@ handler.setInputAction(c => {
 const row = (k, v) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`;
 export function select(o) {
   if (o.kind === 'launch' && hooks.showLaunch) { hooks.showLaunch(o); return; }   // its own card, with a live countdown
+  if (o.kind === 'reentry' && hooks.showReentry) { hooks.showReentry(o.p); return; }   // a corridor's line: the prediction's card
   state.selected = o; orbitLines.removeAll(); let html = '';
   if (o.kind !== 'country') Country.clear(); else Country.highlight(o);
   if (o.kind === 'sat') {

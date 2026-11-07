@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // 3D globe: wiring, the frame hooks, feeds on timers, and boot.
 import { C, $, toast, PHONE, EMBED, ON_SITE } from './env.js';
-import { viewer, scene, globe, camera, satPts, airPts, airIcons, qkPts, camHeight } from './viewer.js';
+import { viewer, scene, globe, camera, satPts, airPts, airIcons, qkPts, camHeight, restoreCamera } from './viewer.js';
 import { L, initDock } from './layers.js';
 import { hooks, state, settled } from './state.js';
 import { Earth, BASES, setBase, currentBase, sunlitView, marbleLayer, nightLayer, fxShell, cloudShell, limbShell, Fx, moonPosition } from './earth.js';
@@ -16,7 +16,7 @@ import { Quakes } from './quakes.js';
 import { Lighthouses } from './lighthouses.js';
 import { updateStats, updateBand, PRESETS, Lighting, select } from './ui.js';
 import { Space } from './space.js';
-import { dropBadPositions } from './pick.js';
+import { dropBadPositions, warmPick } from './pick.js';
 import { paced } from '../core/slices.js';
 import { Quality, LEVELS } from './quality.js';
 import { Conj } from './conjunctions.js';
@@ -99,15 +99,16 @@ Quality.follow(q => { AirModels.max = q.air; SatModels.max = q.sat; Earth.setQua
 // before each frame: follow camera, model lighting; before rendering: sun direction, satellite dots, Earth fades
 scene.preUpdate.addEventListener((sc, time) => { Follow.track(time); Ops.ride(time); Lighting.update(); });   // the cockpit sits on the followed position of this frame, so it rides after track
 scene.preRender.addEventListener((sc, time) => { SatModels.updateSun(time); Sats.update(Time.nowMs()); Earth.update(camHeight()); Space.update(); Transit.update(Date.now()); Ships.update(Date.now()); Traffic.update(); });   // transit and ships are live: the time bar doesn't move them
-// A render that throws stops Cesium's loop for good: its "Rendering has stopped" panel over a dead globe, and no hand-off to
-// the Solar System ever after (perf run 2026-10-31: a RangeError after a 27 s pick). Mend what usually causes it (a dot
-// at NaN, pick.js) and start the loop again a moment later, three times a minute at most, then say so once.
-viewer.cesiumWidget.showRenderLoopErrors = false;
+// A render that throws stops Cesium's loop for good, and with it the hand-off to the Solar System. The cause seen in the
+// perf runs is a NaN camera (viewer.js guards the known road to it): every frame then fails with "RangeError: Invalid array
+// length" in createPotentiallyVisibleSet. So put back the last camera that was whole and start the loop again a moment
+// later, three times a minute at most, then say so once. The dot count and camera in the log are for finding a new cause.
 {
   let fails = [], told = false;
   scene.renderError.addEventListener((sc, err) => {
     const now = Date.now(); fails = fails.filter(t => now - t < 60e3); fails.push(now);
-    console.warn('render failed', err, `(${dropBadPositions()} dots at a bad position hidden)`);
+    const mended = restoreCamera();
+    console.warn('render failed', err, `(${dropBadPositions()} dots at a bad position hidden, camera ${mended ? 'was not finite: restored' : 'fine'})`);
     if (fails.length > 3) { if (!told) { told = true; toast('The globe stopped drawing after an error: reload the page to bring it back', 12000); } return; }
     setTimeout(() => { if (!Space.active && !viewer.useDefaultRenderLoop) viewer.useDefaultRenderLoop = true; }, 250);   // the Solar System view stops this loop on purpose
   });
@@ -140,6 +141,7 @@ PRESETS.history = () => TimeTravel.toggle();
 hooks.openHistory = () => { if (!TimeTravel.open) TimeTravel.show(); document.querySelector('#band [data-go="history"]')?.classList.add('on'); };
 hooks.shareCopy = () => Share.copy();
 hooks.closeWeather = () => { if (Weather.on) Weather.close(); };
+hooks.showWeather = () => { if (Weather.on) Weather.show(); };
 hooks.snapshot = () => Snapshot.share();
 hooks.toggleNerd = toggleNerd;
 initMobile();   // phones only: the bottom dock
@@ -222,6 +224,7 @@ updateBand(); applyVisibility();
     high = warmAgain();
   }
   await until(10000, () => globe.tilesLoaded);
+  warmPick();   // link the pick programs while the boot screen still covers the stall; the models' come in the idle passes below
   $('#boot').classList.add('out'); setTimeout(() => $('#boot').remove(), 900);
   // the layers that are on by default (lighthouses, airports, volcanoes, employers) start loading at the first idle
   // moment after the globe shows, not inside the boot (state.js settled)
@@ -249,6 +252,20 @@ Sats.ready = Sats.load().catch(e => toast('Satellites failed: ' + e.message));  
     clearInterval(wait); (window.requestIdleCallback || setTimeout)(() => Space.preload());
     setTimeout(function warm() { if (PHONE && performance.now() - lastInput < 3000) return setTimeout(warm, 2000); Weather.prewarm(); }, 6000);   // weather's first open would otherwise freeze the globe ~0.6 s
   }, 1000);
+  // the default layers come after the boot screen, and they bring pick programs of their own (the airports' code labels, the
+  // employers' towers; some of it is built by workers a while after their data lands): link those while nobody is doing
+  // anything, twice to catch the stragglers, so it isn't the first hover that freezes (one task of about 0.3 s on a desktop
+  // GPU, nothing the second time). Put off while the camera moves or the pointer is busy.
+  let camMoves = false, warms = 2;
+  camera.moveStart.addEventListener(() => { camMoves = true; });
+  camera.moveEnd.addEventListener(() => { camMoves = false; });
+  settled.wait().then(() => Promise.allSettled([Airports.loading, Lighthouses.loading, Volcanoes.loading, Companies.loading])).then(() => {
+    const warm = () => {
+      if (camMoves || performance.now() - lastInput < 1500) return setTimeout(warm, 1000);
+      (window.requestIdleCallback || setTimeout)(() => { if (!Space.active) warmPick(); if (--warms) setTimeout(warm, 8000); });
+    };
+    setTimeout(warm, 3000);
+  });
 }
 every(AIR_TTL.point * 1000, () => Air.civil(), 'Civil aircraft', { keep: airKeep, onStop: noAir });   // OpenSky every 15 min with the helper, adsb.lol near the camera where the website's relay carries it
 every(60e3, () => Air.military(), 'Military aircraft', { keep: airKeep, onStop: noAir });
@@ -258,6 +275,13 @@ setInterval(() => Aurora.apply(), 60e3);   // refreshes itself every 10 minutes 
 setInterval(() => { if (L.events.on && !Events.past) Events.load(); }, 30 * 60e3);
 // time travel: the layers with history follow the clock into the past (their archives) and back (core/history.js)
 { const travel = () => { Quakes.sync(); Storms.sync(); Events.sync(); Sats.travel(); }; Time.onChange(travel); setInterval(travel, 1000); }
+// a clock running fast or paused drifts past the live window with nothing marking the moment: aircraft have no history, so
+// they hide when it does (setRate's own pass ran while the clock was still live)
+{
+  let off = Time.offLive();
+  Time.onChange(() => { off = Time.offLive(); });   // Time.changed runs its own pass
+  setInterval(() => { const now = Time.offLive(); if (now !== off) { off = now; hooks.applyVisibility('air'); } }, 1000);
+}
 
 window.OO3D = { LightMap, Now, Events, TimeTravel, Aviation, Ops, Voice, Photoreal, Storms, Directions, Ascent, Director, Surveil, Alpr, Military, Radio, Cams, Look, Transit, Traffic, Terrain, Fires, Imagery, Measure, Ships, Bikes, Saver, Model, Conj, Reentry, LookUp, Eclipses, Tonight, Flight, Snapshot, Search, Launches, Crew,
   viewer, space: Space, time: Time, Earth, marbleLayer, nightLayer, fxShell, cloudShell, limbShell, Fx, Sats, Air, Quakes, Lighthouses, Weather, Wind, Country, Aurora, Flybys, Companies, Volcanoes, Buoys, Darts, Tides, SeaImagery, AirQuality, SunLine, Buildings, Share, Tour, setIonToken: t => Buildings.setToken(t), L, PRESETS, moonPosition, SatModels, AirModels, Follow, select, applyVisibility,

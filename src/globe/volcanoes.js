@@ -21,7 +21,7 @@ export const Volcanoes = {
         const o = { kind: 'volcano', name: r[ix.name], lat: r[ix.lat], lon: r[ix.lon], elevationM: r[ix.elevationM], country: r[ix.country], type: r[ix.type], wiki: r[ix.wiki] };
         const dead = /extinct|dormant/i.test(o.type), size = 4 + Math.min(5, (o.elevationM || 1500) / 1000), [fill, rim] = dead ? PAINT.old : PAINT.hot;
         o.pt = pts.add({ position: C.Cartesian3.fromDegrees(o.lon, o.lat, 0), pixelSize: size, color: fill, outlineColor: rim, outlineWidth: 3,
-          distanceDisplayCondition: NEAR, show: L.volcanoes.on, id: o });
+          distanceDisplayCondition: NEAR, id: o });
         this.list.push(o);
       });
       setCount('volcanoes', this.list.length);
