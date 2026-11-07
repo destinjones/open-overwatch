@@ -6,13 +6,13 @@ import { esc, distance } from '../core/format.js';
 import { buildIndex, search, mergeResults } from '../core/search.js';
 import { cometNames } from '../core/comets.js';
 import { encodeSolarView, decodeSolarView } from '../core/solarlink.js';
-import { bodies, byKey } from './world.js';
+import { bodies, byKey, layerOn } from './world.js';
 import { FLIGHT } from '../core/motion.js';
 
 const $ = s => document.querySelector(s);
 const SKIP = new Set(['light delay', 'radio bubble']);
 
-export function createFind({ nav, story, small, comets, exo, clock, camera, controls, caption }) {
+export function createFind({ nav, story, small, comets, exo, clock, camera, controls, caption, linkLoads = {} }) {
   // ---- indexes, built lazily and rebuilt when their source grows
   let bodyIdx = null, bodyN = -1, cometIdx = null, cometN = -1, astIdx = null, astN = -1, exoIdx = null;
   const bodyItems = () => bodies.filter(b => !b.transient && !b.exoPlanet && !SKIP.has(b.kind) && b.key !== 'here')
@@ -45,6 +45,7 @@ export function createFind({ nav, story, small, comets, exo, clock, camera, cont
   function flyTo(b, dist) {
     if (!b) return;
     story.stopTour();
+    if (b.kind === 'comet') b.update(clock.jd);   // one just made from the search or the list sits at the Sun until the next frame: the distance below reads where it is
     const d = dist ?? (b.kind === 'asteroid' || b.kind?.includes('asteroid') ? Math.max(b.pos.length() * 0.15, 0.05) : b.kind === 'comet' ? Math.max(0.05, Math.min(1.2, b.pos.length() * 0.25)) : b.kind === 'spacecraft' ? 0.02 : undefined);
     nav.focusOn(b, d);
   }
@@ -84,7 +85,9 @@ export function createFind({ nav, story, small, comets, exo, clock, camera, cont
   function pick(i) {
     const h = hits[i]; if (!h) return;
     hits = []; sel = 0;   // the box empties: Enter in it again must not repeat this flight
-    flyTo(resolve(h), h.dist); $('#hits').style.display = 'none'; $('#q').value = ''; $('#q').blur();
+    const b = resolve(h);
+    if (b) flyTo(b, h.dist); else caption(h.name, 'Fetching its orbit. The view flies there as soon as it lands.', '', 6000, true);   // (small.onNamed flies; onNamedFailed, below, says if it can't)
+    $('#hits').style.display = 'none'; $('#q').value = ''; $('#q').blur();
   }
   $('#q').addEventListener('keydown', e => {
     if (e.key === 'Enter') { flush(); if ($('#hits').style.display === 'block') pick(sel); else runSearch(); }   // only a list that is showing; a hidden one is shown again first
@@ -103,7 +106,8 @@ export function createFind({ nav, story, small, comets, exo, clock, camera, cont
   let lastHash = '';
   /** Keep the address bar on the current view (replaceState: no history entry per click). */
   function syncHash() {
-    if (!api.ready || document.body.classList.contains('embedded')) return;   // not before a link we opened is applied   // inside the globe the URL is the globe's
+    if (!api.ready || linkWaits || document.body.classList.contains('embedded')) return;   // not before a link we opened is applied   // inside the globe the URL is the globe's
+    if (kept) { if (nav.focus === kept.focus && !nav.free && performance.now() < kept.until) return; kept = null; }   // a link that found nothing stays readable until the view moves on
     const url = viewLink(), h = url.replace(/^[^#]*/, '');
     if (h !== lastHash) { lastHash = h; try { history.replaceState(null, '', url); } catch (e) { /* sandboxed */ } }
   }
@@ -112,17 +116,85 @@ export function createFind({ nav, story, small, comets, exo, clock, camera, cont
     try { await navigator.clipboard.writeText(url); caption('Link copied', 'Anyone opening it sees this view, at this moment' + (clock.live ? ' (live).' : '.'), url, 6000, true); }
     catch (e) { caption('Share this view', url, 'Copy the address above.', 12000, true); }
   }
-  /** Apply a hash: time, then the focus (or a search), then the distance. Returns true if it named something. */
-  function applyHash(hash) {
+  // ---- opening a link. A key names one thing: it is looked up exactly, once whatever holds it has loaded (the stars,
+  // the planetary systems and the galaxies are not part of the boot loads), and never replaced by the nearest-sounding
+  // name, which sent a link to Vega to asteroid 82332 Las Vegas. Only a #q= link is a search.
+  let linkWaits = 0, linkSeq = 0, kept = null;
+  const settled = (...p) => Promise.allSettled(p);
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const sameName = (h, text) => { const l = text.toLowerCase(); return [h.key, h.name, h.name.replace(/^\d+ /, '')].some(x => x.toLowerCase() === l); };
+  /** The body a key names, or null. Comets, asteroids and most planetary systems have no body until they are asked for. */
+  async function bodyForKey(key) {
+    const colon = key.indexOf(':'), prefix = colon > 0 ? key.slice(0, colon) : '', name = key.slice(colon + 1);
+    if (prefix !== 'exo' && byKey[key]) return byKey[key];
+    await api.boot;
+    if (prefix === 'exo') await settled(exo?.load?.());   // always: a famous system's body exists, but its distance and viewing distance come from the catalogue
+    else if (!byKey[key] && linkLoads[prefix]) await settled(linkLoads[prefix]());
+    if (prefix === 'exo') { const s = exo?.X?.systems?.find(x => x.host === name); if (s) return exo.hostBody(s); }
+    if (byKey[key]) return byKey[key];
+    if (prefix === 'comet') { const row = comets.rows.find(r => r[0] === name); if (row) return comets.cometBody(row, { transient: true }); }
+    if (prefix === 'ast') {
+      const n = small.S.named.find(x => x[2] === name), world = n && byKey[name.replace(/^\d+ /, '').toLowerCase()];   // 433 Eros is the body "eros"
+      if (world?.layer === 'dwarfs') return world;
+      if (n) return small.namedBody(n);
+    }
+    // a hand-written key that is a name as such (comet:Halley, exo:Kepler-90, Mars): that name exactly
+    if (!prefix || prefix === 'comet' || prefix === 'ast' || prefix === 'exo') { const h = find(name, 8).find(x => sameName(x, name)); if (h) return h.key === key ? resolve(h) : bodyForKey(h.key); }
+    return null;
+  }
+  /** An exoplanet exists only while its system is built, which happens with the camera near its star (exoplanets.js):
+   *  fly to the star, wait for that, and then the planet is there. 'moved' if the visitor went elsewhere meanwhile; 'host' if the system was not built. */
+  async function planetForKey(key) {
+    await api.boot; await settled(exo?.load?.());
+    const name = key.slice(5);
+    if (byKey[key]) return byKey[key];
+    const s = exo?.X?.systems?.find(x => name.startsWith(x.host + ' ') && x.pl.some(p => x.host + ' ' + p[0] === name)); if (!s) return null;
+    const host = exo.hostBody(s), t0 = performance.now(); let landed = 0;
+    nav.focusOn(host, Math.min(exo.viewDistance(s), 250), FLIGHT.rung);   // (systems build within 300 AU; a wide one is viewed from further out than that)
+    while (performance.now() - t0 < 30e3 && layerOn('exo')) {
+      await wait(200);
+      if (nav.focus !== host || nav.free) return 'moved';
+      if (byKey[key]) return byKey[key];
+      if (nav.fly) landed = 0; else if (!landed) landed = performance.now(); else if (performance.now() - landed > 2000) break;
+    }
+    return 'host';
+  }
+  const notFound = (name, why = 'If you are offline, its data may not have loaded.') => {
+    caption('Could not find that', `This link names \u201c${name}\u201d, which is not in the data here.`, why, 9000, true);
+    kept = { focus: nav.focus, until: performance.now() + 30e3 };
+  };
+  /** Apply a hash: time, then the focus (or a search), then the distance. Resolves true if what it names is now in view
+   *  (false, with a caption, if nothing here matches). The address bar keeps the link until then. */
+  async function applyHash(hash) {
     const v = decodeSolarView(hash); if (!v) return false;
     if (v.jd != null) { clock.setJd(v.jd); clock.setRate(v.rate ?? 0); }
-    let b = v.focus ? byKey[v.focus] : null;
-    if (!b && v.focus) { const name = v.focus.replace(/^[a-z]+:/, ''); b = (find(name, 1)[0] && resolve(find(name, 1)[0])) || null; }   // a comet or asteroid not made yet
-    if (!b && v.query) { const h = find(v.query, 1)[0]; if (h) b = resolve(h); }
-    if (b) { nav.focusOn(b, v.dist ?? undefined, FLIGHT.rung); lastHash = ''; }
-    return !!b;
+    const seq = ++linkSeq, f0 = nav.focus, free0 = nav.free; kept = null;
+    linkWaits++;
+    try {
+      let b = null;
+      const planet = v.focus?.startsWith('exop:');
+      if (planet) {
+        b = await planetForKey(v.focus);
+        if (seq !== linkSeq || b === 'moved') return false;
+        if (b === 'host') { notFound(v.focus.slice(5), 'Its star is in view: the planets show with the "Planets of other stars" layer on, close to the star.'); return false; }
+      } else if (v.focus) {
+        b = await bodyForKey(v.focus);
+      } else if (v.query) {
+        let h = find(v.query, 1)[0];
+        if (!h || !sameName(h, v.query)) {   // not a name it knows yet: it may be a star or a planetary system
+          await api.boot; await settled(exo?.load?.(), ...Object.values(linkLoads).map(f => f()));
+          h = find(v.query, 1)[0];
+        }
+        if (h) b = await bodyForKey(h.key);
+      } else return false;   // a moment and nothing else: the clock is set
+      if (seq !== linkSeq || (!planet && (nav.focus !== f0 || nav.free !== free0))) return false;   // another link, or the visitor went elsewhere while this one loaded
+      if (!b) { notFound(v.focus ? v.focus.replace(/^[a-z]+:/, '') : v.query); return false; }
+      nav.focusOn(b, v.dist ?? undefined, FLIGHT.rung); lastHash = '';
+      return true;
+    } finally { linkWaits--; }
   }
-  addEventListener('hashchange', () => applyHash(location.hash));
+  addEventListener('hashchange', () => { applyHash(location.hash); });
+  small.onNamedFailed = n => caption('Could not load ' + n[2], 'Its orbit did not download (network). Try again in a moment.', '', 9000, true);
 
   /** Build the search indexes ahead of the first keystroke (main.js: in an idle slice once the data is in, and when the box gets focus). */
   const prepare = () => { indexes(); };

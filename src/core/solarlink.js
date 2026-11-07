@@ -4,12 +4,12 @@
 //   q  a search to run instead when there is no key (hand-written links: solar.html#q=halley)
 //   t  the moment, UTC to the minute ('YYYY-MM-DDTHH:MM'); left out = live (the clock follows the real time)
 //   d  camera distance from the focus, AU (3 significant figures)
-//   r  clock rate in days per second, when not live (0 = paused)
+//   r  clock rate in days per second, when not live (0 = paused), written so it reads back exactly
 // Pure functions; nothing in a hash is trusted: keys are length- and character-limited, numbers range-checked.
 
 import { jdFromMs, msFromJd } from './time.js';
 
-const KEY = /^[\p{L}\p{N} :./'()+,_-]{1,80}$/u;
+const KEY = /^[\p{L}\p{N} :./'()+,_`|!=-]{1,80}$/u;   // `|!= are in real names (469219 Kamo`oalewa, 229762 G!kun||'homdima)
 const sig = (v, n) => Number(Number(v).toPrecision(n));
 
 /** 'YYYY-MM-DDTHH:MM' (UTC) for a Julian Date. */
@@ -24,7 +24,10 @@ export function parseIsoMinute(s) {
   const [y, mo, d, h = 0, mi = 0, se = 0] = m.slice(1).map(x => (x === undefined ? undefined : +x));
   if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || se > 59) return null;
   const ms = Date.UTC(y, mo - 1, d, h, mi, se);
-  return Number.isFinite(ms) ? jdFromMs(ms) : null;
+  if (!Number.isFinite(ms)) return null;
+  // Date.UTC rolls 30 February into March and reads years 0-99 as 19xx: a date that does not come back as written is no date
+  const t = new Date(ms);
+  return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d ? jdFromMs(ms) : null;
 }
 
 /** view: { focus: key | null, query?: text, jd: number | null (null = live), dist?: AU, rate?: days/s } -> 'f=...&t=...' */
@@ -34,7 +37,7 @@ export function encodeSolarView(v) {
   else if (v.query) p.set('q', String(v.query).slice(0, 60));
   if (v.jd != null && Number.isFinite(v.jd)) {
     p.set('t', isoMinute(v.jd));
-    if (Number.isFinite(v.rate)) p.set('r', String(sig(v.rate, 4)));
+    if (Number.isFinite(v.rate)) p.set('r', String(v.rate));   // in full: a rounded 365.25 would light no rate button on the other side
   }
   if (Number.isFinite(v.dist) && v.dist > 0) p.set('d', String(sig(v.dist, 3)));
   return p.toString();

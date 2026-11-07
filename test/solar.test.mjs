@@ -329,6 +329,30 @@ test('share link: round trip, live and hand-written links', () => {
   assert.equal(parseIsoMinute('2000-01-01'), 2451544.5);
 });
 
+test('share link: the clock rate reads back exactly, so a rate button lights on the other side', () => {
+  for (const rate of [0, 1, -1, 30.44, 365.25, -365.25, 1 / 86400, 600 / 86400]) {
+    const v = decodeSolarView('#' + encodeSolarView({ focus: 'mars', jd: 2461350.5, rate }));
+    assert.equal(v.rate, rate);
+  }
+});
+
+test('share link: every named asteroid and comet in the data can be shared', () => {
+  const sb = JSON.parse(readFileSync(new URL('../data/solar/small_bodies.json', import.meta.url), 'utf8'));
+  const keys = [...sb.named.map(n => 'ast:' + n[2]), ...sb.comets.map(r => 'comet:' + r[0])];
+  const bad = keys.filter(k => decodeSolarView('#' + encodeSolarView({ focus: k }))?.focus !== k);
+  assert.deepEqual(bad, []);
+  assert.ok(keys.includes('ast:469219 Kamo`oalewa') && keys.includes('ast:14566 Hokule`a'), 'the names this was for are still in the data');
+});
+
+test('share link: a date that does not exist is no date (no rolling over, no 19xx for year 00xx)', () => {
+  for (const t of ['2027-02-30', '2026-02-31', '2026-04-31T12:00', '0026-10-12', '0099-01-01', '2026-02-29']) {
+    assert.equal(parseIsoMinute(t), null, t);
+    assert.equal(decodeSolarView('#f=mars&t=' + t).jd, null, t);
+  }
+  assert.equal(decodeSolarView('#t=2027-02-30'), null, 'a bare bad date names nothing');
+  assert.ok(parseIsoMinute('2024-02-29') > 0 && parseIsoMinute('2026-10-12T06:00') > 0, 'real ones still read');
+});
+
 test('share link: nothing in a hash is trusted', () => {
   assert.equal(decodeSolarView(''), null);
   assert.equal(decodeSolarView('#foo=bar'), null);
@@ -515,6 +539,12 @@ test('comets: the "near now" lists leave out comets whose orbits are too old to 
   }
   const all = cometsNearNow(SB.comets, jd, E, { maxR: 4, limit: 50, fresh: false }).map(n => n.row[0]);
   assert.ok(all.some(x => x.startsWith('16P/')) && all.some(x => x.startsWith('406P/')), 'fresh: false still lists them');
+});
+
+test('spacecraft: a working craft whose track runs out soon is flagged for a refresh (a warning, never a failure)', t => {
+  const now = jdFromMs(Date.now());
+  for (const c of CRAFT) if (!endedJd(c) && !escaping(c) && c.end_jd < now + 60 && c.end_jd > now - 365)
+    t.diagnostic(`WARNING ${c.name}: its copy of the JPL track ${c.end_jd < now ? 'ended' : 'ends'} ${isoMinute(c.end_jd).slice(0, 10)}; refreshing it is a download, ask first: python brand/tools/make_spacecraft.py --only "${c.name}"`);
 });
 
 test('spacecraft: a craft past its published track draws no trail (Hera, Chandrayaan-2, Hayabusa2, Aditya-L1, BepiColombo)', () => {

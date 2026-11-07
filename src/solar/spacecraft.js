@@ -61,6 +61,8 @@ export function createSpacecraft({ scene }) {
         posAt: (jd, out) => trackPosition(s, jd, out, centerAt) || out.copy(c.pos),   // the light-delay ghost
         update(jd) {
           const p = trackPosition(s, jd, c.pos, centerAt); c.launched = !!p && jd >= s.launch_jd; group.visible = c.launched && layerOn('craft');
+          // past the end of its track: no dot, but a link to it or its card still goes to where it was last known, not to the Sun (a new body's position)
+          if (!p && jd > s.end_jd) { const x = s.xyz, n = x.length; c.pos.set(x[n - 3], x[n - 2], x[n - 1]); }
           if (localLine) {
             const on = inLocal(s, jd) && layerOn('craft');
             localLine.visible = on;
@@ -81,7 +83,7 @@ export function createSpacecraft({ scene }) {
           c.jd = jd;
         },
         info() {
-          const jd = c.jd, phase = missionPhase(s, jd), rows = [['Mission', s.agency], ['Status', phase === 'flying' ? statusAt(s, jd) : phase === 'coasting' ? 'Coasting outward (past the published track)' : phase === 'before launch' ? 'Not launched yet' : 'No published position after ' + formatUtc(s.end_jd).slice(0, 10)]];
+          const jd = c.jd, phase = missionPhase(s, jd), rows = [['Mission', s.agency], ['Status', phase === 'flying' ? statusAt(s, jd) : phase === 'coasting' ? 'Coasting outward (past the end of this copy of its track)' : phase === 'before launch' ? 'Not launched yet' : `No position after ${formatUtc(s.end_jd).slice(0, 10)}: this copy of the JPL Horizons track ends there`]];
           rows.push(['Launched', formatUtc(s.launch_jd).slice(0, 10) + ' · ' + relativeTime(s.launch_jd - jd)]);
           if (c.launched) {
             const dE = c.pos.distanceTo(byKey.earth.pos);

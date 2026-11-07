@@ -122,7 +122,9 @@ const eclipses = createEclipses({ scene, nav, clock, story: { stopTour: () => st
 const story = createStory({ scene, clock, nav, caption: (...a) => ui.caption(...a), onTourChange: on => ui.tourLabel(on) });
 const quality = createQuality({ renderer, small, onAutoChange: q => { ui.renderLayers(); ui.caption(`Graphics set to ${q.name}`, 'Lowered automatically for smoother motion. You can change it in the layer panel.', '', 5000); } });
 const ui = createUI({ camera, controls, clock, nav, story, small, deep, quality, exo });
-find = createFind({ nav, story, small, comets, exo, clock, camera, controls, caption: (...a) => ui.caption(...a) });
+// what a shared link to a star or a galaxy cluster needs loaded first (the planetary systems: exo.load, in find.js)
+const linkLoads = { star: () => deep.needStars(), web: () => web.load().finally(() => applyLayers()) };
+find = createFind({ nav, story, small, comets, exo, clock, camera, controls, caption: (...a) => ui.caption(...a), linkLoads });
 ui.onShare = () => find.copyLink();
 let retryLoad = () => Promise.resolve();   // set once the loads have started (below)
 createLists({ craft, comets, small, clock, find, eclipses, retry: id => retryLoad(id) });
@@ -191,6 +193,7 @@ const settle = (p, id) => p.then(() => { layer(id).failed = false; }, e => { con
 const smallLoad = small.load().then(() => comets.init(small.S.comets, clock.jd, byKey.earth.pos));
 const loads = [moons.load(), smallLoad, craft.load(), eclipses.load()];   // eclipses: 200 KB of Sun and Moon, so links to an event resolve   // stars, galaxies and most textures load as you approach them
 const LOAD_LAYERS = ['moons', 'asteroids', 'craft', 'eclipses'];
+find.boot = Promise.allSettled(loads);   // a link waits for these (a link pasted into an open page too)
 /** Load again after a failure (the lists' "Try again"): the eclipses, or the spacecraft before any of them arrived (redone safely). */
 retryLoad = id => (id === 'eclipses' ? settle(eclipses.load(), 'eclipses') : id === 'craft' && !craft.craft.length ? settle(craft.load(), 'craft') : Promise.resolve());
 deep.onStars = () => { applyLayers(); ui.renderLayers(); };
@@ -221,7 +224,7 @@ function tickBar(t) {
 // a shared link (solar.html#f=craft:Juno&t=...): applied once the bodies it may name exist
 const linked = !EMBED && !!location.hash && location.hash.length > 3;
 if (!linked) find.ready = true;
-if (linked) Promise.allSettled(loads).then(() => setTimeout(() => { find.ready = true; if (find.applyHash(location.hash)) ui.caption('Shared view', 'Opened from a link' + (clock.live ? ', live.' : ', at ' + new Date((clock.jd - 2440587.5) * 864e5).toISOString().slice(0, 16).replace('T', ' ') + ' UTC.'), 'Press NOW to come back to the present.', 7000, true); }, 900));
+if (linked) find.boot.then(() => setTimeout(async () => { const named = await find.applyHash(location.hash); find.ready = true; if (named) ui.caption('Shared view', 'Opened from a link' + (clock.live ? ', live.' : ', at ' + new Date((clock.jd - 2440587.5) * 864e5).toISOString().slice(0, 16).replace('T', ' ') + ' UTC.'), 'Press NOW to come back to the present.', 7000, true); }, 900));
 setInterval(() => { if (!EMBED && !nav.fly) find.syncHash(); }, 2000);   // time and distance change as you go
 
 /* GPU warm-up while idle. three.js uploads a texture and compiles a shader the first time something is drawn, so the

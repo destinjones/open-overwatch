@@ -32,11 +32,12 @@ export function createDeepSpace({ scene, camera, renderer }) {
   let starPoints = null;
   // a failed load (a dropped connection on a phone) is tried again a minute later, as the exoplanets and galaxies are;
   // the layer panel says "not loaded" meanwhile. Not once the points exist: a failure after that would add the named stars twice.
-  let starsAsked = false, starsFailedAt = -Infinity, onStars = () => {};
+  // Returns the load (it settles, never rejects), so a shared link to a star can wait for it (find.js).
+  let starsAsked = false, starsFailedAt = -Infinity, onStars = () => {}, starsLoad = null;
   const needStars = () => {
-    if (starsAsked || performance.now() - starsFailedAt < 60e3) return;
+    if (starsAsked || performance.now() - starsFailedAt < 60e3) return starsLoad;
     starsAsked = true;
-    loadStars().then(() => { layer('stars').failed = false; onStars(); }, e => {
+    return starsLoad = loadStars().then(() => { layer('stars').failed = false; onStars(); }, e => {
       console.warn('stars', e);
       if (!starPoints) { starsAsked = false; starsFailedAt = performance.now(); layer('stars').failed = true; layer('stars').retry = 'The stars did not load (network). They are tried again in a minute.'; onStars(); }
     });

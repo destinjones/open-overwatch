@@ -412,3 +412,97 @@ test('another solar system: the caption counts both habitable zones, as the card
   assert.match(say("Teegarden's Star"), /^3 known planets \(1 in the habitable zone, 1 more in the optimistic zone\), 12 light-years/);
   assert.match(say('51 Peg'), /^1 known planet, \d+ light-years from us\. They move/);
 });
+
+// ---------------------------------------------------------------- opening a shared link
+const JSONROWS = { named: [['a', 0, '82332 Las Vegas', 15], ['a', 1, '433 Eros', 11], ['b', 2, '99942 Apophis', 19]], comets: [['1P/Halley']] };
+/** A createFind with stand-ins: linkLoads add the bodies a real load would. */
+function linkPage({ star = 'ok', exoOk = true, layersOn = true } = {}) {
+  const dom = fakeDom(), flights = [], captions = [], rewrites = [];
+  for (const k of Object.keys(world.byKey)) if (/^(star|web|exo|exop|comet|ast):|^eros$/.test(k)) world.removeBody(world.byKey[k]);
+  globalThis.history = { replaceState: (a, b, url) => rewrites.push(url) };
+  world.defineLayer({ id: 'exo', name: 'exo', c: '#fff', on: true }); world.layer('exo').on = layersOn;
+  const earth = world.byKey.earth, nav = { focus: earth, free: false, fly: null, focusOn(b, d) { this.focus = b; flights.push([b.key, d]); api.syncHash(); } };
+  const system = { host: 'WASP-12', pl: [['b', 0.02]] }, wide = { host: 'Kepler-22', pl: [['b', 0.8]] };
+  const exo = { X: { systems: [], data: null },
+    load: async () => { if (!exoOk) throw new Error('offline'); exo.X.systems = [system, wide]; exo.X.data = {}; },
+    hostBody: s => world.byKey['exo:' + s.host] || world.addBody({ key: 'exo:' + s.host, name: s.host, kind: 'exoplanet system', exo: true, host: s.host, pos: { length: () => 1 } }),
+    viewDistance: () => 0.1 };
+  const made = [];
+  const small = { S: { named: JSONROWS.named },
+    namedBody: async n => { made.push(n[2]); return world.addBody({ key: 'ast:' + n[2], name: n[2], kind: 'asteroid', pos: { length: () => 1 } }); },
+    asteroidBody: n => { made.push('sync ' + n[2]); return null; } };
+  const comets = { rows: JSONROWS.comets, cometBody: r => world.addBody({ key: 'comet:' + r[0], name: r[0], kind: 'comet', pos: { x: 0, length() { return this.x; } }, update(jd) { this.pos.x = 2; this.jd = jd; } }) };
+  const linkLoads = {
+    star: () => (star === 'ok' ? Promise.resolve().then(() => { world.addBody({ key: 'star:Vega', name: 'Vega', kind: 'star', pos: { length: () => 1 } }); }) : Promise.reject(new Error('offline'))),
+    web: async () => { world.addBody({ key: 'web:Virgo Cluster', name: 'Virgo Cluster', kind: 'galaxy cluster', pos: {} }); },
+  };
+  const camera = { position: { distanceTo: () => 3 } };
+  const api = createFind({ nav, story: { stopTour() {} }, small, comets, exo, clock: { live: true, jd: JD, rate: 1, setJd() {}, setRate() {} }, camera, controls: {}, caption: (...a) => captions.push(a), linkLoads });
+  api.ready = true;
+  return { dom, api, nav, flights, captions, rewrites, exo, made, system, small };
+}
+test('links: a star link waits for the stars and never lands on a similar name', async () => {
+  const p = linkPage();
+  assert.equal(await p.api.applyHash('#f=star:Vega&d=5e7'), true);
+  assert.deepEqual(p.flights, [['star:Vega', 5e7]], 'not asteroid 82332 Las Vegas');
+});
+test('links: a miss says so, flies nowhere, and the address bar keeps the link until the view moves', async () => {
+  const p = linkPage({ star: 'fail' });
+  assert.equal(await p.api.applyHash('#f=star:Vega'), false);
+  assert.deepEqual(p.flights, []);
+  assert.match(p.captions.at(-1)[0], /Could not find/); assert.match(p.captions.at(-1)[1], /Vega/);
+  p.api.syncHash(); assert.deepEqual(p.rewrites, [], 'the link stays readable');
+  p.nav.focusOn(world.byKey.mars);
+  assert.equal(p.rewrites.length, 1, 'until the visitor goes elsewhere');
+  const q = linkPage();
+  assert.equal(await q.api.applyHash('#f=ast:1 Nosuch'), false); assert.deepEqual(q.flights, []);
+});
+test('links: while a link loads, the address bar is left alone, and a visitor who moved on is not pulled back', async () => {
+  const p = linkPage();
+  const opened = p.api.applyHash('#f=web:Virgo Cluster');
+  p.api.syncHash(); assert.deepEqual(p.rewrites, [], 'still waiting');
+  p.nav.focus = world.byKey.mars;   // clicks a planet meanwhile
+  assert.equal(await opened, false); assert.deepEqual(p.flights, []);
+});
+test('links: a system outside the famous few, a cluster, a comet and an asteroid open as what they name', async () => {
+  const p = linkPage();
+  assert.equal(await p.api.applyHash('#f=exo:WASP-12'), true); assert.equal(p.nav.focus.key, 'exo:WASP-12');
+  assert.equal(await p.api.applyHash('#f=web:Virgo Cluster'), true); assert.equal(p.nav.focus.key, 'web:Virgo Cluster');
+  assert.equal(await p.api.applyHash('#f=comet:1P/Halley'), true); assert.equal(p.nav.focus.key, 'comet:1P/Halley');
+  assert.equal(await p.api.applyHash('#f=ast:99942 Apophis'), true); assert.equal(p.nav.focus.key, 'ast:99942 Apophis');
+  assert.deepEqual(p.made, ['99942 Apophis'], 'through the wait for its data, not the fire-and-forget path');
+  world.addBody({ key: 'eros', name: 'Eros', kind: 'asteroid', layer: 'dwarfs', pos: {} });
+  assert.equal(await p.api.applyHash('#f=ast:433 Eros'), true); assert.equal(p.nav.focus.key, 'eros', 'a named world is its own body');
+  world.removeBody(world.byKey.eros);
+  assert.equal(await p.api.applyHash('#f=Mars'), true); assert.equal(p.nav.focus.key, 'mars', 'a hand-written exact name still works');
+  assert.equal(await p.api.applyHash('#q=wasp-12'), true); assert.equal(p.nav.focus.key, 'exo:WASP-12', 'and #q= is a search');
+});
+test('links: an exoplanet: to its star first, then the planet once the system is built, with the link\'s distance', async () => {
+  const p = linkPage();
+  const opened = p.api.applyHash('#f=exop:WASP-12 b&d=0.0005');
+  await new Promise(r => setTimeout(r, 50));
+  assert.deepEqual(p.flights, [['exo:WASP-12', 0.1]], 'the star, at its viewing distance, not the planet\'s');
+  p.api.syncHash(); assert.deepEqual(p.rewrites, [], 'the planet\'s key is not overwritten meanwhile');
+  world.addBody({ key: 'exop:WASP-12 b', name: 'WASP-12 b', kind: 'exoplanet', exoPlanet: true, pos: {} });
+  assert.equal(await opened, true);
+  assert.deepEqual(p.flights[1], ['exop:WASP-12 b', 0.0005]);
+  world.removeBody(world.byKey['exop:WASP-12 b']);
+  const off = linkPage({ layersOn: false });
+  assert.equal(await off.api.applyHash('#f=exop:WASP-12 b'), false, 'with the layer off it stops at the star, and says why');
+  assert.equal(off.nav.focus.key, 'exo:WASP-12'); assert.match(off.captions.at(-1)[2], /layer/);
+  assert.equal(await linkPage().api.applyHash('#f=exop:WASP-12 z'), false, 'no such planet');
+  world.layer('exo').on = true;
+});
+test('links: a hit whose data is still coming says so instead of doing nothing', () => {
+  const p = linkPage();
+  p.dom.el('#q').value = 'Apophis'; p.dom.el('#q').listeners.input(); p.api.flush(); p.dom.el('#q').listeners.keydown({ key: 'Enter', preventDefault() {} });
+  assert.deepEqual(p.made, ['sync 99942 Apophis']);
+  assert.deepEqual(p.flights, []); assert.match(p.captions.at(-1)[1], /Fetching its orbit/);
+  p.small.onNamedFailed(JSONROWS.named[2]); assert.match(p.captions.at(-1)[0], /Could not load 99942 Apophis/);
+});
+test('search: a comet just made is placed before its viewing distance is worked out', () => {
+  const p = linkPage();
+  p.api.flyTo(p.small && world.addBody({ key: 'comet:X', name: 'X', kind: 'comet', pos: { x: 0, length() { return this.x; } }, update() { this.pos.x = 4; } }));
+  assert.deepEqual(p.flights, [['comet:X', 1]], '0.25 x 4 AU, not the 0.05 AU floor of a comet still at the origin');
+  world.removeBody(world.byKey['comet:X']);
+});

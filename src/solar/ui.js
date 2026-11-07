@@ -108,7 +108,7 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
 
   // ---- details card: the static part (title, fact, timeline, buttons) is drawn once per body; the numbers every second
   $('#cap').addEventListener('click', () => $('#cap').classList.add('hide'));
-  let figures = null, figuresAsked = false, onShare = () => {}, cardRows = '';
+  let figures = null, figuresAsked = false, onShare = () => {}, cardRows = '', cardTl = '';
   const needFigures = () => { if (figuresAsked) return; figuresAsked = true; fetchAsset('data/constellations.json', 'json').then(d => { figures = d.figures; }, () => {}); };
   /** "In Earth's sky" rows for a Solar System body: when to look and among which stars. */
   function skyRows(b) {
@@ -128,11 +128,21 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
     const items = document.querySelectorAll('#cardB .tl li'); let nextSet = false;
     items.forEach(li => { const past = +li.dataset.jd <= clock.jd; li.classList.toggle('past', past); li.classList.toggle('next', !past && !nextSet); if (!past) nextSet = true; });
   }
+  /** A timeline built around the clock (a craft's perijoves, a comet's perihelia) has moved on: redraw it, and only then,
+   *  keeping the reader's place (the scroll, the row the keyboard is on). */
+  function refreshTimeline(b) {
+    const html = timelineHtml(b); if (html === cardTl) return;
+    cardTl = html;
+    const box = $('#card'), top = box.scrollTop, had = document.activeElement?.closest?.('#cardTl li')?.dataset.jd;
+    $('#cardTl').innerHTML = html;
+    box.scrollTop = top;
+    if (had) $(`#cardTl li[data-jd="${had}"] button`)?.focus({ preventScroll: true });
+  }
   function showCard(b) {
     if (b && PHONE) $('#cap').classList.add('hide');
     if (!b) { $('#card').style.display = 'none'; delete $('#card').dataset.key; return; }
     // the live numbers each second: rewritten only when they changed (a rewrite relays the card out)
-    if ($('#card').dataset.key === b.key && $('#card').style.display !== 'none') { const html = rowsHtml(b); if (html !== cardRows) { cardRows = html; $('#cardDl').innerHTML = html; } markTimeline(); return; }
+    if ($('#card').dataset.key === b.key && $('#card').style.display !== 'none') { const html = rowsHtml(b); if (html !== cardRows) { cardRows = html; $('#cardDl').innerHTML = html; } refreshTimeline(b); markTimeline(); return; }
     if (innerWidth <= 900) {   // phones: the list, Under the hood and the credits sheet sit where the card opens, and over it: a new card closes them
       if ($('#list') && $('#list').style.display !== 'none') $('#listX').click();
       if ($('#nerd') && !$('#nerd').hidden) $('#nerd .x').click();
@@ -140,16 +150,17 @@ export function createUI({ camera, controls, clock, nav, story, small, deep, qua
     }
     cardRows = rowsHtml(b);
     $('#cardB').innerHTML = `<div class="k">${esc(b.kind)}</div><h2>${esc(b.fullName || b.name)}</h2><dl id="cardDl">${cardRows}</dl>${b.fact ? `<p>${esc(b.fact)}</p>` : ''}
-      ${timelineHtml(b)}
+      <div id="cardTl">${cardTl = timelineHtml(b)}</div>
       <div class="row">${b.key === 'earth' ? '<a class="btn" href="globe.html">Land on Earth: 3D globe</a>' : ''}<button class="btn" data-share>Share this view</button></div>`;
     const card = $('#card'), opening = card.style.display === 'none' || !card.style.display;
     card.style.display = 'block'; card.dataset.key = b.key; markTimeline();
     card.classList.remove('in'); if (opening) { void card.offsetWidth; card.classList.add('in'); }   // a fresh card fades in (solar.html; none with reduced motion)
-    document.querySelectorAll('#cardB .tl li').forEach(li => { li.querySelector('button').onclick = () => { story.stopTour(); clock.setJd(+li.dataset.jd); clock.setRate(0); syncRate(); markTimeline(); }; });
     $('#cardB [data-share]').onclick = () => onShare();
   }
   $('#cardX').onclick = () => showCard(null);
   $('#follow').onclick = () => nav.release();
+  // a timeline row sets the clock (one listener: the rows are redrawn as the clock moves)
+  $('#cardB').addEventListener('click', e => { const li = e.target.closest('.tl li'); if (!li) return; story.stopTour(); clock.setJd(+li.dataset.jd); clock.setRate(0); syncRate(); markTimeline(); });
   $('#cardB').addEventListener('click', e => { const a = e.target.closest('a[href="globe.html"]'); if (a && window.OOSS?.embed?.active !== undefined && document.body.classList.contains('embedded')) { e.preventDefault(); window.OOSS.embed.goToEarth(); } });
   setInterval(() => { // live numbers, unless the reader is selecting text
     const k = $('#card').dataset.key, sel = getSelection();

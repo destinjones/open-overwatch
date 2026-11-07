@@ -173,6 +173,12 @@ test('small bodies: pack/unpack round trip, comets', () => {
 test('format: readable distances and light times', () => {
   assert.equal(lightTime(1), '8 min 19 s');
   assert.equal(lightTime(4.2465 * LY_AU), '4.2 years');
+  // rounded once: never "1 min 60 s", "60.0 s" or "59 min 60 s" (499.004784 s to the AU)
+  const atSec = s => lightTime(s / 499.004784);
+  assert.equal(atSec(119.6), '2 min 0 s'); assert.equal(atSec(179.8), '3 min 0 s');
+  assert.equal(atSec(59.97), '1 min 0 s'); assert.equal(atSec(59.9), '59.9 s');
+  assert.equal(atSec(3599.7), '1.0 h'); assert.equal(atSec(3599.2), '59 min 59 s');
+  for (let s = 0.1; s < 4000; s += 0.07) assert.doesNotMatch(atSec(s), /\b60(\.0)? (s|min)/, String(s));
   assert.equal(distance(384400 / AU_KM), '384,400 km');
   assert.equal(distance(4.24 * LY_AU), '4.24 light-years');
   assert.equal(viewWidth(150000 * LY_AU), '150,000 light-years');

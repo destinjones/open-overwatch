@@ -6,6 +6,7 @@ import { KM_AU, DEG } from '../core/units.js';
 import { positionAt, orbitPath, periodDays } from '../core/kepler.js';
 import { CLASSES, viewSmallBodies, decodeElements, cometElements, packSmallBodies, DEFAULT_EPOCH } from '../core/smallbodies.js';
 import { fetchAsset } from '../core/assets.js';
+import { readAsteroidRecord } from './asteroidrecord.js';
 import { distance, period } from '../core/format.js';
 import { decodeSolarView } from '../core/solarlink.js';
 import { TRACKS, trackOrbit } from '../core/whereis.js';
@@ -63,7 +64,7 @@ const LEAVE_EARTH = 1.5;   // AU from the Sun: the camera is on its way out, so 
 export function createSmallBodies({ scene, renderer, focus: focusOf = () => null }) {
   // defer 'near': hold the big file back until the camera first leaves Earth's neighbourhood (frame) or the search box
   // is used (main.js); inside the globe main.js sets defer(true) until the view is entered
-  const S = { epoch: DEFAULT_EPOCH, made: '', named: [], comets: [], files: [], points: [], cometPoints: null, loadingAll: false, full: !PHONE, defer: 'near' };
+  const S = { epoch: DEFAULT_EPOCH, made: '', named: [], comets: [], files: [], fileList: [], records: new Map(), points: [], cometPoints: null, loadingAll: false, full: !PHONE, defer: 'near' };
   // a shared link to (or a search for) a named asteroid kept in the big file needs that file before the link is applied
   const linked = decodeSolarView(location.hash), q = linked?.query?.toLowerCase();
   // (a #q= search only when it names one outright, "433 Eros" or "Eros": its top hit may well be a planet otherwise)
@@ -97,31 +98,51 @@ export function createSmallBodies({ scene, renderer, focus: focusOf = () => null
     scene.add(group);
     return { points: group, view: v };
   }
-  const elementsOf = (file, idx) => { const f = S.files[file === 'b' ? 1 : 0]; return f ? decodeElements(f.view, idx, S.epoch) : null; };
-  const count = () => S.files.reduce((n, f) => n + (f ? f.view.N : 0), 0);
+  // (a big-file asteroid read on its own, on a level that doesn't load that file: S.records, whenElements below)
+  const elementsOf = (file, idx) => { const f = S.files[file === 'b' ? 1 : 0]; return f ? decodeElements(f.view, idx, S.epoch) : file === 'b' ? S.records.get(idx) || null : null; };
+  const count = () => (S.files[0] ? S.files[0].view.N : 0) + (S.full && S.files[1] ? S.files[1].view.N : 0);
 
   async function load() {
     const meta = await fetchAsset('data/solar/small_bodies.json', 'json');
-    S.epoch = meta.epoch_jd; S.named = meta.named; S.comets = meta.comets; S.made = meta.made;   // made: when the SBDB copy was taken (the comet list says it)
+    S.epoch = meta.epoch_jd; S.named = meta.named; S.comets = meta.comets; S.made = meta.made; S.fileList = meta.files || [];   // made: when the SBDB copy was taken (the comet list says it)
     const needAll = S.defer !== true && linkNeedsBig(); if (needAll) S.defer = false;   // (true: inside the globe)
-    S.files[0] = pointsFor(await fetchAsset('data/solar/asteroids_a.bin'));
+    try { S.files[0] = pointsFor(await fetchAsset('data/solar/asteroids_a.bin')); landA(true); } catch (e) { landA(false); throw e; }
     layer('asteroids').n = count();
     addNamedWorlds(); addComets();
     if (S.full) { const all = loadAll(); if (needAll) await all; }   // the link is applied once load() is done
   }
-  async function loadAll() { // the other 1.27M (19 MB): only on the higher quality levels (quality.js), and not while
+  let allLoad = null;
+  function loadAll() { // the other 1.27M (19 MB): only on the higher quality levels (quality.js), and not while
     // the camera sits at Earth or is preloaded inside the globe (S.defer), where most visitors never come out this far
-    if (S.defer) return;
-    if (S.loadingAll || S.files[1]) return; S.loadingAll = true;
-    try {
-      S.files[1] = pointsFor(await fetchAsset('data/solar/asteroids_b.bin')); S.files[1].points.visible = layerOn('asteroids') && S.full; layer('asteroids').n = count(); onChange();
-      // an asteroid searched for (or linked to) while the file was on its way: there now, unless the view moved on
-      const p = S.pendingNamed; S.pendingNamed = null;
-      if (p && focusOf() === p.focus) { const b = asteroidBody(p.n); if (b) onNamed(b); }
-    }
-    catch (e) { console.warn('asteroids_b', e); } finally { S.loadingAll = false; }
+    if (S.defer || S.files[1]) return Promise.resolve();
+    return allLoad || (allLoad = (async () => {
+      S.loadingAll = true;
+      try { S.files[1] = pointsFor(await fetchAsset('data/solar/asteroids_b.bin')); S.files[1].points.visible = layerOn('asteroids') && S.full; layer('asteroids').n = count(); onChange(); }
+      catch (e) { console.warn('asteroids_b', e); } finally { S.loadingAll = false; allLoad = null; }
+    })());
   }
-  let onChange = () => {}, onNamed = () => {};
+  let onChange = () => {}, onNamed = () => {}, onNamedFailed = () => {};
+  let landA; const aLanded = new Promise(r => { landA = r; });   // true once the bright file is in, false if it failed
+  const reading = new Map();
+  /** Promise of true once this named asteroid's elements are at hand (false if they could not be had): the bright file
+   *  on its way; the big file where this quality level loads it; otherwise just its own record (the points stay off, and
+   *  a phone is not sent 19 MB for one asteroid). */
+  function whenElements(n) {
+    const [file, idx] = n;
+    if (elementsOf(file, idx)) return Promise.resolve(true);
+    if (file !== 'b') return aLanded;
+    const whole = () => { S.defer = false; return loadAll().then(() => !!S.files[1]); };
+    if (S.full) return whole();
+    if (!reading.has(idx)) {
+      const N = S.fileList[1]?.count;
+      const p = !N ? whole() : readAsteroidRecord('asteroids_b.bin', N, idx, S.epoch).then(el => { S.records.set(idx, el); return true; },
+        e => { if (e.noRange) return whole(); console.warn('asteroid record', n[2], e); return false; });
+      reading.set(idx, p); p.finally(() => reading.delete(idx));
+    }
+    return reading.get(idx);
+  }
+  /** The body for a named asteroid, once its elements are here; null if they could not be had (a shared link waits on this). */
+  const namedBody = n => whenElements(n).then(ok => (ok && elementsOf(n[0], n[1]) ? asteroidBody(n) : null));
 
   function addNamedWorlds() {
     for (const [label, name, rkm, color, fact] of DWARFS) {
@@ -154,8 +175,14 @@ export function createSmallBodies({ scene, renderer, focus: focusOf = () => null
   function asteroidBody(n) {
     const [file, idx, label, H, diam, cls] = n, key = 'ast:' + label; if (byKey[key]) return byKey[key];
     const el = elementsOf(file, idx);
-    if (!el) {   // its file is still to come: fetched now, whatever the layer, and the asteroid flown to when it lands
-      if (file === 'b' && S.full) { S.pendingNamed = { n, focus: focusOf() }; S.defer = false; loadAll(); }
+    if (!el) {   // its data is still to come: fetched now, whatever the layer, and the asteroid flown to when it lands, unless the view moved on
+      const ask = S.pendingNamed = { n, focus: focusOf() };
+      whenElements(n).then(ok => {
+        if (S.pendingNamed !== ask) return;   // asked for another since
+        S.pendingNamed = null;
+        const b = ok && elementsOf(file, idx) ? asteroidBody(n) : null;
+        if (b) { if (focusOf() === ask.focus) onNamed(b); } else onNamedFailed(n);
+      });
       return null;
     }
     for (const old of bodies.filter(x => x.transient && x.key.startsWith('ast:'))) { removeBody(old); scene.remove(old.group); }   // the last picked asteroid (not a comet or the planets of the system you are in)
@@ -208,9 +235,11 @@ export function createSmallBodies({ scene, renderer, focus: focusOf = () => null
     /** Hold the big file back (inside the globe: until the view is actually entered; true, or 'near': until the camera
      *  leaves Earth), or false to let it load now. */
     defer,
-    S, load, asteroidBody, pickAsteroid, set onChange(fn) { onChange = fn; },
+    S, load, asteroidBody, namedBody, pickAsteroid, set onChange(fn) { onChange = fn; },
     /** fn(body): a named asteroid asked for before its file had loaded, now made (main.js flies to it). */
     set onNamed(fn) { onNamed = fn; },
+    /** fn(named row): that asteroid's data could not be fetched (a dropped connection). */
+    set onNamedFailed(fn) { onNamedFailed = fn; },
     update(jd) { uniforms.uDays.value = jd - S.epoch; },
     frame({ camera, camSun, fade }) {
       if (S.defer === 'near' && camSun > LEAVE_EARTH) defer(false);

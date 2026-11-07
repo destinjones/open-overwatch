@@ -34,8 +34,9 @@ export function viewWidth(au) {
 /** How long light takes to cross a distance in AU: "8 min 19 s", "23.5 h", "4.2 years". */
 export function lightTime(au) {
   const s = au * AU_KM / C_KM_S;
-  if (s < 60) return s.toFixed(1) + ' s';
-  if (s < 3600) return Math.floor(s / 60) + ' min ' + Math.round(s % 60) + ' s';
+  if (s < 59.95) return s.toFixed(1) + ' s';
+  const t = Math.round(s);   // whole seconds first: 119.6 s is 2 min 0 s, never 1 min 60 s
+  if (t < 3600) return Math.floor(t / 60) + ' min ' + (t % 60) + ' s';
   if (s < 86400 * 2) return (s / 3600).toFixed(1) + ' h';
   if (s < 86400 * 365.25 * 2) return (s / 86400).toFixed(1) + ' days';
   return (s / 86400 / 365.25).toLocaleString('en-US', { maximumFractionDigits: 1 }) + ' years';

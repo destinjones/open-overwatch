@@ -25,15 +25,18 @@ export function createLists({ craft, comets, small, clock, find, eclipses, retry
   const fly = (key, label) => `<button class="fly" data-fly="${esc(key)}" title="Fly there">${esc(label)}</button>`;
   const failed = (what, id) => `<p class="note">${esc(what)} did not load (network or a blocker).</p><p><button class="go" data-retry="${esc(id)}">Try again</button></p>`;
 
+  /** A working craft with no position at the clock's time: what its data covers (a newer track may exist at JPL). */
+  const trackEnded = name => { const end = craft.craft.find(c => c.s.name === name)?.s.end_jd;
+    return end != null && clock.jd > end ? `no position after ${formatUtc(end).slice(0, 10)} (this copy of the JPL Horizons track ends there)` : 'no position at this time (JPL Horizons)'; };
   function missionsHtml() {
     const head = `<div class="k">Deep-space missions · ${esc(clock.live ? 'now' : 'at the clock\'s time')}</div>`;
     if (!craft.craft.length) return head + (layer('craft')?.failed ? failed('The spacecraft data', 'craft') : '<p class="note">Loading the spacecraft (JPL Horizons)…</p>');
     const E = byKey.earth.pos, rows = missionsNow(craft.craft.map(c => c.s), clock.jd, E, craft.centerAt);   // Moon orbiters around the Moon on screen
     return `${head}<h3>Nearest first · signal time is one way</h3>
       <table><tr><th>Mission</th><th>From Earth</th><th>Signal</th></tr>${rows.map(m => `<tr data-key="${esc('craft:' + m.name)}" class="${m.au == null ? 'off' : ''}">
-        <td>${fly('key:craft:' + m.name, m.name)}<small>${esc(m.au == null ? (m.phase === 'before launch' ? 'not launched yet' : MISSION_OVER.test(m.status || '') ? 'no position (mission over)' : 'past the published track (JPL Horizons)') : statusAt(m.status))}${m.next ? ' · next: ' + esc(m.next[1]) + ' ' + esc(relativeTime(m.next[0] - clock.jd)) : ''}</small></td>
+        <td>${fly('key:craft:' + m.name, m.name)}<small>${esc(m.au == null ? (m.phase === 'before launch' ? 'not launched yet' : MISSION_OVER.test(m.status || '') ? 'no position (mission over)' : trackEnded(m.name)) : statusAt(m.status))}${m.next ? ' · next: ' + esc(m.next[1]) + ' ' + esc(relativeTime(m.next[0] - clock.jd)) : ''}</small></td>
         <td>${m.au == null ? '—' : esc(short(m.au))}</td><td>${m.light == null ? '—' : esc(lightTime(m.au))}</td></tr>`).join('')}</table>
-      <p class="note">Trajectories: JPL Horizons. Past the published track a craft leaving the Sun coasts on in a straight line; the others stop.</p>`;
+      <p class="note">Trajectories: JPL Horizons. Past the end of this copy of a track, a craft leaving the Sun coasts on in a straight line; the others stop.</p>`;
   }
   /** "JPL SBDB, copy of 2026-10-13": the comet list is a snapshot, and a comet found since is not in it. */
   const sbdbCopy = () => small?.S?.made ? `JPL SBDB, copy of ${esc(small.S.made)} (comets found since are not in it)` : 'JPL SBDB';

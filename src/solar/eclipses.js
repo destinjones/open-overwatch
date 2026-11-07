@@ -72,16 +72,33 @@ export function createEclipses({ scene, nav, clock, story }) {
   const spot = (color, n) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3)); const o = new THREE.LineLoop(g, lmat(color, 0.9)); o.frustumCulled = false; geo.add(o); return o; };
   const spotU = spot(MOONSHADOW, 64), spotP = spot(PENUMBRA, 96);
 
+  /** Every event in the ephemeris, plain data: worked out in a worker (eclipses.worker.js), since on the page it was a
+   *  0.8-1.7 s task on a phone, inside the globe's main thread when this view is preloaded there. On the page if no worker
+   *  can start, or one fails or never answers (the shared links and the list wait for this). */
+  function search(d) {
+    const onPage = () => [...findEclipses(eph), ...findOccultations(eph).map(o => ({ type: 'occultation', ...o }))];
+    if (typeof Worker !== 'function') return Promise.resolve(onPage());
+    return new Promise(res => {
+      let w, timer = 0;
+      const done = list => { clearTimeout(timer); w?.terminate(); res(list || onPage()); };
+      try { w = new Worker(new URL('./eclipses.worker.js', import.meta.url), { type: 'module' }); }
+      catch (e) { done(null); return; }
+      timer = setTimeout(() => done(null), 20e3);
+      w.onmessage = e => done(e.data.events);
+      w.onerror = e => { e.preventDefault?.(); console.warn('eclipse worker', e.message); done(null); };   // (not the page's "Something went wrong": the search still runs)
+      w.postMessage({ ephem: d });
+    });
+  }
   function load() {
-    if (!loading) loading = fetchAsset('data/solar/ephem.json', 'json').then(d => {
+    if (!loading) loading = fetchAsset('data/solar/ephem.json', 'json').then(async d => {
       eph = createEphemeris(d);
       // the Moon at Horizons' place while we have it (the shadows depend on it)
       const moon = byKey.moon, km = {};
       if (moon) moon.geoSource = (jd, out) => { if (!eph.has(jd)) return null; eph.moon(jd, km); return out.set(km.x * KM_AU, km.y * KM_AU, km.z * KM_AU); };
-      const t0 = performance.now();
-      events = [...findEclipses(eph), ...findOccultations(eph).map(o => ({ type: 'occultation', ...o }))].sort((a, b) => a.jd - b.jd);
+      const t0 = performance.now(), found = await search(d), t1 = performance.now();
+      events = found.sort((a, b) => a.jd - b.jd);
       for (const e of events) { e.words = describe(e); register(e); }
-      ready = true; api.computeMs = Math.round(performance.now() - t0);
+      ready = true; api.computeMs = Math.round(t1 - t0); api.registerMs = Math.round(performance.now() - t1);   // the search (off the page), then what the page itself pays
       return events;
     }).catch(e => { loading = null; api.failedAt = performance.now(); throw e; });   // failedAt: the list waits a minute (or a Try again) before asking again
     return loading;
@@ -155,7 +172,7 @@ export function createEclipses({ scene, nav, clock, story }) {
   }
 
   const api = {
-    load, jump, around, describe, get events() { return events; }, get ready() { return ready; }, get eph() { return eph; }, computeMs: 0, failedAt: -Infinity,
+    load, jump, around, describe, get events() { return events; }, get ready() { return ready; }, get eph() { return eph; }, computeMs: 0, registerMs: 0, failedAt: -Infinity,
     frame({ camera, jd }) {
       occluders(camera);
       const e = ready && layerOn('eclipses') ? nearest(jd) : null, near = e && camera.position.distanceTo(byKey.earth.pos) < 0.08;
