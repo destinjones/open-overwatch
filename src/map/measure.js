@@ -5,10 +5,11 @@
 // straight map lines. The drawing goes into share links (&d=, the globe's format) and out as GeoJSON. The R key, the
 // ruler button, or Escape to put the tool down. Nothing leaves the browser except a "by road" request's two ends (OSRM).
 import { $, esc, Store, toast, PHONE, late, unwrap } from './util.js';   // unwrap: continuous longitudes across the date line
-import { map } from './mapview.js';
+import { map, vecRenderer } from './mapview.js';   // the one canvas that gets the clicks: a second canvas under it would never hear of them
 import { inverse, midpoint, pathLength, polygonArea, multiPolygonArea, centre, selfCrossing, densify, lengthText, areaText, bearingText, toGeoJSON, MAX_POINTS } from '../core/measure.js';
 import { fetchRoute, durationText } from '../core/route.js';
 import { toMgrs } from '../core/mgrs.js';
+import { fetchAsset } from '../core/assets.js';
 
 const GOLD = '#ffd45c', ROAD = '#7dffa6';
 const TOOLS = { line: 'Line', area: 'Area', arrow: 'Distance', pin: 'Pin' }, KIND = { ...TOOLS, outline: 'Country outline' };
@@ -56,10 +57,14 @@ function readout(sh) {
 /** (Re)draw one shape: its line or area, corners, labels, arrowhead, road. */
 function draw(sh) {
   for (const l of sh.layers) group.removeLayer(l); sh.layers = [];
-  const add = l => { l.addTo(group); sh.layers.push(l); l.on('click', e => { L.DomEvent.stopPropagation(e); if (!Measure.tool) Measure.select(sh); }); return l; };
+  const add = l => { l.addTo(group); sh.layers.push(l); l.on('click', e => {
+    const dom = l instanceof L.Marker;   // labels and pins: a marker's click stops there; the canvas shapes' go on to the map
+    if (Measure.tool) { if (dom) { const p = map.mouseEventToContainerPoint(e.originalEvent); onClick({ containerPoint: p, latlng: map.containerPointToLatLng(p) }); } return; }   // a point goes down here all the same (and the quick second click on the last point's label finishes)
+    if (dom) { L.DomEvent.stopPropagation(e); Measure.select(sh); } else e.originalEvent.ooArea = () => Measure.select(sh);   // detail.js: only if no aircraft or quake is under the pointer
+  }); return l; };
   const c = sh.coords, ref = map.getCenter().lng, sel = Measure.sel === sh;
   if (sh.kind === 'outline') {
-    for (const rings of sh.poly) add(L.polygon(rings.map(r => unwrap(r, ref)), { color: GOLD, weight: sel ? 3 : 2, fillColor: GOLD, fillOpacity: .12 }));
+    for (const rings of sh.poly) add(L.polygon(rings.map(r => unwrap(r, ref)), { renderer: vecRenderer, color: GOLD, weight: sel ? 3 : 2, fillColor: GOLD, fillOpacity: .12 }));
     const [lon, lat] = centre(sh.poly[0][0]); add(tag([lat, near(lon, ref)], `${esc(sh.name)}<b>${esc(area(sh.area))}</b>`)); return;
   }
   if (sh.kind === 'pin') {
@@ -70,12 +75,12 @@ function draw(sh) {
     return;
   }
   if (c.length >= 2) {   // an area's closing side is a shortest path too
-    if (sh.kind === 'area' && c.length >= 3) add(L.polygon(geodesic(c, true), { color: GOLD, weight: sel ? 3 : 2, fillColor: GOLD, fillOpacity: .14 }));
-    else add(L.polyline(geodesic(c), { color: GOLD, weight: sel ? 4 : 3, opacity: .95 }));
+    if (sh.kind === 'area' && c.length >= 3) add(L.polygon(geodesic(c, true), { renderer: vecRenderer, color: GOLD, weight: sel ? 3 : 2, fillColor: GOLD, fillOpacity: .14 }));
+    else add(L.polyline(geodesic(c), { renderer: vecRenderer, color: GOLD, weight: sel ? 4 : 3, opacity: .95 }));
   }
-  if (sh.road && sh.road.coords) add(L.polyline(unwrap(sh.road.coords, ref), { color: ROAD, weight: 3, opacity: .9, dashArray: '2 6' }));
+  if (sh.road && sh.road.coords) add(L.polyline(unwrap(sh.road.coords, ref), { renderer: vecRenderer, color: ROAD, weight: 3, opacity: .9, dashArray: '2 6' }));
   // corners (the first one closes an area)
-  c.forEach(([lon, lat], i) => add(L.circleMarker([lat, near(lon, ref)], { radius: i === 0 && sh.kind === 'area' && !sh.done ? 6 : 4, color: '#080c12', weight: 2, fillColor: GOLD, fillOpacity: 1 })).on('click', e => {
+  c.forEach(([lon, lat], i) => add(L.circleMarker([lat, near(lon, ref)], { renderer: vecRenderer, radius: i === 0 && sh.kind === 'area' && !sh.done ? 6 : 4, color: '#080c12', weight: 2, fillColor: GOLD, fillOpacity: 1 })).on('click', e => {
     if (Measure.tool && Measure.cur === sh && i === 0 && sh.kind === 'area' && c.length >= 3) { L.DomEvent.stopPropagation(e); Measure.finish(); }
   }));
   // labels: each leg of a line, the total at the end; an area's size in its middle; a distance's length and bearing
@@ -94,7 +99,7 @@ function draw(sh) {
 function redrawAll() { for (const s of Measure.shapes) draw(s); }
 
 // ---- the rubber band to the pointer while placing points (mice)
-const band = L.polyline([], { color: GOLD, weight: 2, opacity: .7, dashArray: '4 6', interactive: false }).addTo(group);
+const band = L.polyline([], { renderer: vecRenderer, color: GOLD, weight: 2, opacity: .7, dashArray: '4 6', interactive: false }).addTo(group);
 map.on('mousemove', e => {
   const sh = Measure.cur; if (!Measure.tool || !sh || !sh.coords.length || sh.kind === 'pin') { if (band.getLatLngs().length) band.setLatLngs([]); return; }
   const last = sh.coords[sh.coords.length - 1], to = [((e.latlng.lng + 540) % 360) - 180, e.latlng.lat];
@@ -180,9 +185,11 @@ export const Measure = {
     }
     this.paint();
   },
+  /** The bundled borders; a failed load can be tried again. */
+  borders() { return this._borders ||= fetchAsset('data/borders.json', 'json').catch(e => { this._borders = null; throw e; }); },
   /** A country's outline and area, from the bundled borders (the globe's file). */
   async outline(iso) {
-    const borders = await (this._borders ||= fetch('data/borders.json').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).catch(e => { this._borders = null; throw e; }));
+    const borders = await this.borders();
     const b = borders.find(x => x.iso === iso); if (!b) return null;
     const sh = newShape('outline', b.name); sh.iso = b.iso; sh.poly = b.poly; sh.done = true; const m = multiPolygonArea(b.poly); sh.area = m.area; sh.parts = m.parts;
     this.shapes.push(sh); draw(sh); this.paint(); return sh;
@@ -208,7 +215,8 @@ export const Measure = {
     });
     el.addEventListener('submit', async e => {
       e.preventDefault(); const q = el.querySelector('#msCountry').value.trim().toLowerCase(); if (!q) return;
-      const borders = await (this._borders ||= fetch('data/borders.json').then(r => r.json())).catch(() => []);
+      let borders;
+      try { borders = await this.borders(); } catch (err) { toast('Could not load the country borders: try again'); return; }
       const b = borders.find(x => x.name.toLowerCase() === q || x.iso.toLowerCase() === q) || borders.find(x => x.name.toLowerCase().startsWith(q));
       if (!b) { toast(`No country called "${q.slice(0, 40)}" in the bundled borders`); return; }
       const sh = this.shapes.find(s => s.iso === b.iso) || await this.outline(b.iso); this.sel = sh; this.fly(sh); el.querySelector('#msCountry').value = '';

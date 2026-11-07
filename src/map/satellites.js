@@ -110,7 +110,7 @@ export const Sats = {
       const ids = this.ids || []; let n = 0;
       for (let i = 0; i < ids.length; i++) { const o = this.byId.get(ids[i]); if (!o) continue; const la = m.pos[i * 4]; if (isNaN(la)) { o.lat = null; continue; } o.lat = la; o.lon = m.pos[i * 4 + 1]; o.alt = m.pos[i * 4 + 2]; o.vel = m.pos[i * 4 + 3]; n++; }
       this.propBusy = false; this.lastPropMs = Date.now() - m.t; $('#chipSat b').textContent = fmt.n(n); requestDraw();
-      if (Sel.kind === 'sat' && Layers.opt('sat_tracks') && Date.now() - (this.trackAt || 0) > 30000) this.drawTrack(Sel.obj);
+      this.syncTrack();
     }
   },
   prop(force) {
@@ -118,8 +118,17 @@ export const Sats = {
     const big = Dyn.sats.length > 2500; if (!force && big && Date.now() - (this.lastPropAt || 0) < 3000) return;
     if (this.propBusy && !force) return; this.propBusy = true; this.lastPropAt = Date.now(); this.worker.postMessage({ type: 'prop', t: Date.now() });
   },
+  /** The ground track follows the selection: the selected satellite's, redrawn every 30 s while "auto ground track" is on and
+   *  not cleared for this one; none once something else is selected. On each position update and on each selection. */
+  syncTrack() {
+    if (Sel.kind !== 'sat') { this.clearedId = this.trackId = null; if (this.trackLayer) { Tracks.group.removeLayer(this.trackLayer); this.trackLayer = null; } return; }
+    if (this.clearedId === Sel.id) return; this.clearedId = null;
+    if (Layers.opt('sat_tracks') && (this.trackId !== Sel.id || !this.trackLayer || !Tracks.group.hasLayer(this.trackLayer) || Date.now() - (this.trackAt || 0) > 30000)) this.drawTrack(Sel.obj);
+  },
+  /** The card's Clear track: it stays cleared until another satellite is selected or Ground track is pressed. */
+  clearTrack() { Tracks.clear(); this.clearedId = Sel.id; },
   drawTrack(o) {
-    if (!o || !o.l1) return; this.trackAt = Date.now();
+    if (!o || !o.l1) return; this.trackAt = Date.now(); this.trackId = o.id; this.clearedId = null;
     if (this.trackLayer) Tracks.group.removeLayer(this.trackLayer); const tl = this.trackLayer = L.layerGroup().addTo(Tracks.group); // own sub-group: the 30 s refresh must not wipe the Locate marker or an aircraft trail
     let sr; try { sr = satellite.twoline2satrec(o.l1, o.l2); } catch (e) { return; }
     const period = Math.max(10, Math.min(1500, o.period || 95)), span = Math.min(period * 60 * 1000 * 1.05, 3 * 3600e3), step = Math.max(15000, span / 240);

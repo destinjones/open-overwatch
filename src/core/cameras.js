@@ -113,6 +113,11 @@ export function boxInView(box, v) {
 
 /** A still's address that changes each minute, so caches don't keep an old picture (fresh networks change it themselves). */
 export const bustUrl = (url, cam, now = Date.now()) => !url || cam.fresh || cam.net === 'nyc' ? url : url + (url.includes('?') ? '&' : '?') + 't=' + Math.floor(now / 60000);
+/** The same still's address for a press of "refresh": different every time, for stills loaded directly (the relay takes no per-click value). */
+export const bustNow = (url, now = Date.now()) => url + (url.includes('?') ? '&' : '?') + 't=' + now;
+/** How "refresh" gets a new picture: 'list' (its address changes each capture: read the list again), 'fetch' (through the
+ *  relay, which refuses a changing query: the same address past the browser's cache), 'bust' (directly: bustNow). */
+export const stillRefresh = (cam, relayed) => cam.fresh ? 'list' : relayed ? 'fetch' : 'bust';
 export const isStream = cam => /\.m3u8(\?|$)/i.test((cam && cam.video) || '');
 
 // ---- near a place (the MCP server's traffic_cameras tool) ------------------------------------------------------------

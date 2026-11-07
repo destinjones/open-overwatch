@@ -382,6 +382,11 @@ export function cameraFacts(c) {
 /** Is a point inside a TileJSON `bounds` [w, s, e, n]? */
 export const inBounds = (b, lat, lon) => !!b && lon >= b[0] && lat >= b[1] && lon <= b[2] && lat <= b[3];
 
+/** The vector-tile zooms the 2D map reads at a map zoom. Whole numbers only: the map rests on half levels (zoomSnap 0.5),
+ *  and the tile servers answer a fractional zoom with a 404 or an empty body, which looks like "nothing mapped here". */
+export const alprTileZoom = zoom => { const z = Math.floor(zoom); return z >= 10 ? Math.max(9, Math.min(12, z - 2)) : Math.max(3, Math.min(8, z - 3)); };
+export const milTileZoom = zoom => Math.max(9, Math.min(12, Math.floor(zoom) - 2));
+
 /** The tiles at zoom z that cover a box (west, south, east, north in degrees; east may pass 180 or be less than west
  *  across the antimeridian), the ones nearest the box's middle first, at most `max`: ['z/x/y', …]. For the 2D map,
  *  whose view is a box, not a circle. */

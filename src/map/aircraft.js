@@ -188,19 +188,21 @@ export const AirSweep = {
     const queue = tiles.slice(); // shared: each source pulls the next tile, so if one source fails the others cover everything
     const worker = async (src) => {
       while (queue.length) {
-        if (this.key !== key) return; // the map moved: stop this pass, the next one starts fresh
+        if (!lyAirLocal.on || this.key !== key) return; // switched off, or the map moved: stop this pass, the next one starts fresh
         const t = queue.shift();
-        try { const d = await Air.getFrom(src, 'point', t.lat, t.lon, 250); n += Air.ingest(d, 'local'); done++; }
+        try { const d = await Air.getFrom(src, 'point', t.lat, t.lon, 250); if (!lyAirLocal.on) return; n += Air.ingest(d, 'local'); done++; }   // switched off meanwhile: disable() purged these, they stay out
         catch (e) {
           errs.push(`${src}: ${e.message}`);
           if (e.notCarried) { nc = true; return; } // the website's relay doesn't carry it: no retry, the layer stops (runFeed)
           if (/blocked by browser|no helper|cooling down|pausing|HTTP 40[13]/.test(e.message)) { queue.unshift(t); return; } // this source is out for the pass: hand the tile back
           if (!t.retried) { t.retried = true; queue.push(t); } // a one-off failure (timeout, 5xx): one more try at the end, by whichever source gets there
         }
+        if (!lyAirLocal.on) return;
         requestDraw(); lyAirLocal.feed.count = Dyn.air.size; UI.refreshLayer(lyAirLocal);
       }
     };
     await Promise.all(srcs.map(worker));
+    if (!lyAirLocal.on) return n; // a stopped pass feeds no TTL, description or error
     if (!done && errs.length) throw Object.assign(new Error(errs[0]), { notCarried: nc });
     if (this.key !== key) { setTimeout(() => { lyAirLocal.feed.nextAt = 0; }, 0); return n; } // moved mid-pass: sweep again right away (after runFeed has set its own nextAt)
     this.passMs = Date.now() - t0; // only whole passes feed the civil-aircraft TTL in prune()
@@ -226,7 +228,7 @@ export const lyAirLocal = Layers.add({
   enable() { AirSweep.drawCover(); },
   disable() { AirSweep.cover.clearLayers(); for (const [k, a] of Dyn.air) if (!a.mil && !a.emerg && a.src !== 'opensky') Dyn.air.delete(k); },
 });
-feed(lyAirLocal, { interval: 8, viewDependent: true, minZoom: 3, startDelay: 3, fetch: async () => { lyAirLocal.feed.interval = website() ? AIR_TTL.point : 8; await AirSweep.pass(); lyAirLocal.feed.count = Dyn.air.size; } });
+feed(lyAirLocal, { interval: 8, viewDependent: true, minZoom: 3, startDelay: 3, fetch: async () => { lyAirLocal.feed.interval = website() ? AIR_TTL.point : 8; await AirSweep.pass(); if (lyAirLocal.on) lyAirLocal.feed.count = Dyn.air.size; } });
 map.on('moveend', debounce(() => { if (lyAirLocal.on && map.getZoom() >= 3) { AirSweep.plan(); } }, 300));
 
 export const lyAirMil = Layers.add({ id: 'air_mil', group: 'Air', name: 'Military aircraft, worldwide', desc: 'Everything the aggregator flags as military', color: C.mil, default: true, disable() { for (const [k, a] of Dyn.air) if (a.mil && !a.tags.has('local')) Dyn.air.delete(k); } });

@@ -9,7 +9,11 @@ import { provBlock } from '../core/liveprov.js';
 export const Detail = {
   el: null,
   show(kind, obj, id) { if (!kind || obj == null) return;   // a glyph that is part of something else (the plate-reader dot cloud) has no card
-    Sel.kind = kind; Sel.obj = obj; Sel.id = id ?? obj.id ?? obj.hex; this.render(); showTab('detail'); if (PHONE.matches) { openSheet('panel'); this.reveal(obj); } requestDraw(); },
+    Sel.kind = kind; Sel.obj = obj; Sel.id = id ?? obj.id ?? obj.hex; late.Sats?.syncTrack(); this.render(); showTab('detail'); if (PHONE.matches) { openSheet('panel'); this.reveal(obj); } requestDraw(); },
+  /** The click handler of an area on the map (a warning polygon, a military area). Glyphs have no Leaflet layer of their own, so
+   *  the handler only notes the card on the click, which goes on to the map's handler below: a glyph under the pointer wins,
+   *  the measure tool still gets its point, and the area's card opens only when nothing else takes the click. */
+  area(open) { return e => { e.originalEvent.ooArea = open; }; },
   /** Phones: the sheet just opened covers the lower half of the map, so pan the selection up into what is still visible
    *  (after any fly-to in progress, which a pan would cancel). */
   reveal(o) {
@@ -94,6 +98,7 @@ map.on('click', e => {
   const h = glyphs.hitTest(e.containerPoint);   // a tap on an aircraft, quake... opens its card, even while a place is wanted
   if (!h && late.Locate && late.Locate.pick(e.latlng.lat, e.latlng.lng)) return;   // no location fix: a tap on open ground says where the visitor is
   if (h) { if (h.kind === 'cluster') { map.flyTo([h.obj.lat, h.obj.lon], h.obj.z, { duration: .8 }); return; } Detail.show(h.kind, h.obj); return; }
+  if (e.originalEvent?.ooArea) { e.originalEvent.ooArea(); return; }   // an area under the pointer (Detail.area, a drawn shape): before the cables and the probe
   if (typeof late.cableHit === 'function') { const c = late.cableHit(e.latlng); if (c) { Detail.show('cable', c.properties, c.properties.id); return; } }
   late.Probe.open(e.latlng);
 });

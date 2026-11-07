@@ -18,7 +18,7 @@ import { OVATION_URL, KP_URL, parseOvation, ovationAt, paintMercator, MERCATOR_M
 import { KP_FORECAST_URL, kpSeries, kpSummary } from '../core/earthnow.js';
 import { onPublishedSite } from '../core/relay.js';
 import { CABLE_URLS, LANDING_URLS, parseLandings, nearestCable, cablePage, landingPage, okColor } from '../core/cables.js';
-import { CAMERA_NETS, CAMERA_GROUPS, boxInView, bustUrl, isStream, netOf } from '../core/cameras.js';
+import { CAMERA_NETS, CAMERA_GROUPS, boxInView, bustUrl, bustNow, imageType, isStream, netOf, stillRefresh } from '../core/cameras.js';
 import { sameShip, parseAisLocations, parseAisVessels, shipKind, shipTypeName, SHIP_KINDS, NAV_STATUS, flagOf, etaTime, DIGITRAFFIC_AIS, DIGITRAFFIC_HEADERS, cleanAisSentinels, aisstreamSocketUrl } from '../core/ais.js';
 
 /* ============================================================ POINT + VECTOR LAYERS
@@ -201,8 +201,8 @@ function drawNwsZones(p) {
   const col = nwsColor(p.event), grp = L.layerGroup();
   for (const u of nwsZoneUrls(p).slice(0, NWS_ZONES_MAX)) {
     const c = nwsZones.get(u); if (!c || !c.g) continue;
-    const g = L.geoJSON(c.g, { bubblingMouseEvents: false, style: { color: col, weight: 1.4, dashArray: '5 4', fillColor: col, fillOpacity: .12, renderer: vecRenderer } });
-    g.on('click', () => Detail.show('nws', p, p.id)); grp.addLayer(g);
+    const g = L.geoJSON(c.g, { style: { color: col, weight: 1.4, dashArray: '5 4', fillColor: col, fillOpacity: .12, renderer: vecRenderer } });
+    g.on('click', Detail.area(() => Detail.show('nws', p, p.id))); grp.addLayer(g);
   }
   gNws.addLayer(grp); nwsZoneLayers.set(p.id, grp); return grp;
 }
@@ -248,10 +248,10 @@ feed(lyNws, { interval: 300, fetch: async () => {
     let e = nwsPolys.get(p.id); seen.add(p.id);
     if (!e || e.sent !== p.sent || !gNws.hasLayer(e.g)) {   // new, updated, or wiped by a switch-off: (re)build just this one
       if (e) gNws.removeLayer(e.g);
-      e = { sent: p.sent, g: L.geoJSON(f.geometry, { bubblingMouseEvents: false, style: { color: col, weight: isTor ? 2 : 1.2, fillColor: col, fillOpacity: isTor ? .25 : .12, renderer: vecRenderer } }) };
+      e = { sent: p.sent, g: L.geoJSON(f.geometry, { style: { color: col, weight: isTor ? 2 : 1.2, fillColor: col, fillOpacity: isTor ? .25 : .12, renderer: vecRenderer } }) };
       gNws.addLayer(e.g); nwsPolys.set(p.id, e);
     }
-    const g = e.g; g.off('click'); g.on('click', () => Detail.show('nws', p, p.id)); drawn++;   // the card shows this refresh's record
+    const g = e.g; g.off('click'); g.on('click', Detail.area(() => Detail.show('nws', p, p.id))); drawn++;   // the card shows this refresh's record
     if (isTor && !lyNws.seen?.has(p.id)) { (lyNws.seen ||= new Set()).add(p.id); if (/tornado warning/i.test(p.event) && Date.now() - (Date.parse(p.sent) || 0) < 900e3) Log.alert(`${p.event}: ${p.areaDesc}`, { onclick: () => { const c = g.getBounds().getCenter(); flyTo(c.lat, c.lng, 8); Detail.show('nws', p, p.id); } }); }
   }
   for (const [id, e] of nwsPolys) if (!seen.has(id)) { gNws.removeLayer(e.g); nwsPolys.delete(id); }   // expired or cancelled
@@ -341,8 +341,10 @@ feed(lyLanding, { interval: 86400, fetch: async () => { const d = await firstOk(
    area is on screen, drawn from zoom 8; Windy (with a key) adds webcams near the view */
 export const CAM_SRCS = CAMERA_GROUPS;
 export const lyCams = Layers.add({ id: 'cams', group: 'Ground', name: 'Public cameras', desc: 'Official traffic cameras · appear from zoom 8 · London, New York, California, Delaware, Iowa, Missouri, British Columbia, Calgary, Finland, Norway, Hong Kong, Singapore · live video where the agency streams it · Windy key adds webcams worldwide', color: C.cam, default: true, points: 'cams',
-  sub(el) { const r = () => UI.pills(el, CAM_SRCS, id => (Layers.opt('cam_src') || []).includes(id), (id, on) => { const s = (Layers.opt('cam_src') || []).filter(x => x !== id); if (on) s.push(id); Layers.setOpt('cam_src', s); r(); if (lyCams.on) rerunFeed(lyCams.feed); }); r();
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'pill'; b.textContent = 'show regions'; b.title = 'Fly to the covered regions one by one'; let i = 0; b.addEventListener('click', () => { const s = CAM_SRCS[i++ % CAM_SRCS.length]; map.flyToBounds([[s.box[0], s.box[1]], [s.box[2], s.box[3]]], { duration: 1 }); toast('Cameras: ' + s.name); }); el.appendChild(b); } });
+  sub(el) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'pill'; b.textContent = 'show regions'; b.title = 'Fly to the covered regions one by one'; let i = 0; b.addEventListener('click', () => { const s = CAM_SRCS[i++ % CAM_SRCS.length]; map.flyToBounds([[s.box[0], s.box[1]], [s.box[2], s.box[3]]], { duration: 1 }); toast('Cameras: ' + s.name); });
+    const r = () => { UI.pills(el, CAM_SRCS, id => (Layers.opt('cam_src') || []).includes(id), (id, on) => { const s = (Layers.opt('cam_src') || []).filter(x => x !== id); if (on) s.push(id); Layers.setOpt('cam_src', s); r(); if (lyCams.on) rerunFeed(lyCams.feed); }); el.appendChild(b); };   // UI.pills empties el: the button goes back after them
+    r(); } });
 Points.define('cams', 'cams', { minZoom: 8 });
 export function viewBox() { const b = map.getBounds(); return { s: b.getSouth(), w: b.getWest(), n: b.getNorth(), e: b.getEast() }; }
 export const viewIntersects = box => boxInView(box, viewBox());
@@ -364,23 +366,52 @@ export async function playStream(box, url) {
 }
 setInterval(() => { if (hlsNow && !document.querySelector('.det .camlive video')) { hlsNow.destroy(); hlsNow = null; } }, 2000);   // the card closed: stop downloading
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-camlive]'); if (b && isHttp(b.dataset.camlive)) playStream(b.closest('.camlive'), b.dataset.camlive); });   // no inline handler: the address stays an attribute
+/** A camera's still as the card loads it. Through the relay the img must ask in CORS mode: a plain img sends no Origin, and the relay refuses a request without one. */
+const camStill = c => { const w = c.relayImage ? Relay.wrap(c.image) : null; return { img: w || c.image, relayed: !!w }; };
 Detail.renderers.cam = c => {
-  const net = netOf(c), src = c.src || (net ? net.name : c.net), img = c.relayImage ? (Relay.wrap(c.image) || c.image) : c.image;
-  const media = isStream(c) ? `<div class="camlive">${img ? `<img src="${esc(bustUrl(img, c))}" alt="" referrerpolicy="no-referrer">` : ''}<div class="cap"><button class="btn small" data-camlive="${esc(c.video)}">▶ Live video</button> · ${esc(src)}</div></div>`
+  const net = netOf(c), src = c.src || (net ? net.name : c.net), { img, relayed } = camStill(c), co = relayed ? ' crossorigin="anonymous"' : '';
+  const media = isStream(c) ? `<div class="camlive">${img ? `<img src="${esc(bustUrl(img, c))}" alt="" referrerpolicy="no-referrer"${co}>` : ''}<div class="cap"><button class="btn small" data-camlive="${esc(c.video)}">▶ Live video</button> · ${esc(src)}</div></div>`
     : c.video ? `<video src="${esc(bustUrl(c.video, c))}" controls autoplay muted loop playsinline></video><div class="cap">Video clip · ${esc(src)}</div>`
-    : img ? `<img src="${esc(bustUrl(img, c))}" alt="${esc(c.name)}" referrerpolicy="no-referrer"><div class="cap">Still image · ${esc(src)} · <a href="#" data-do="rerender">refresh</a></div>` : '';
+    : img ? `<img class="camstill" src="${esc(bustUrl(img, c))}" alt="${esc(c.name)}" referrerpolicy="no-referrer"${co}><div class="cap">Still image · ${esc(src)} · <a href="#" data-camrefresh="1">refresh</a><span class="camstate"></span></div>` : '';
   return `<div class="det">${Detail.head(C.cam, 'Camera · ' + src, c.name, esc(c.view || c.sub || ''), [c.online === false ? { t: 'Offline', cls: 'warn' } : null, isStream(c) ? { t: 'Live video', cls: 'good' } : null].filter(Boolean))}${media}
   ${Detail.kv([['Position', fmt.ll(c.lat, c.lon)], ['Direction', c.direction], ['Route', c.route], ['Views', c.presets && c.presets.length > 1 ? c.presets.length : null]])}
   <div class="actions"><button class="btn small" data-do="fly" data-lat="${num(c.lat)}" data-lon="${num(c.lon)}" data-z="13">Center</button></div><hr class="sep">${Detail.links([c.stream ? { text: 'Live stream (HLS)', url: c.stream } : null, c.link ? { text: 'Open at source', url: c.link } : null, c.image ? { text: 'Image URL', url: c.image } : null].filter(Boolean))}${net ? `<p class="cap" style="font-size:11px;color:var(--ink-faint)">${esc(net.credit)}</p>` : ''}</div>`;
 };
+/** The card's "refresh" link: the same address would not load again, so each kind of still asks in its own way (core/cameras.js
+ *  stillRefresh), and the line under the picture says what came of it. A failed try leaves the picture that is there. */
+let camBlob = null;
+async function camRefresh() {
+  const c = Sel.obj, id = Sel.id, still = Sel.kind === 'cam' && c && camStill(c); if (!still) return;
+  const say = t => { const s = Detail.el.querySelector('.camstate'); if (s && Sel.id === id) s.textContent = ' · ' + t; }, checked = () => say(`checked ${fmt.hms(Date.now())} UTC`);
+  say('checking…');
+  try {
+    const way = stillRefresh(c, still.relayed);
+    if (way === 'list') {   // a new address each capture: read the list again (at most once a minute)
+      const n = (await loadCamNet(c.net, 60e3)).find(x => x.id === c.id); if (Sel.id !== id) return;
+      if (n && n.image !== c.image) { Sel.obj = n; Detail.render(); checked(); } else say('no newer picture yet');
+      return;
+    }
+    if (way === 'fetch') {   // the relay answers no address but the plain one: past the browser's cache, then the bytes (the relay itself keeps a picture 30 s)
+      const b = await Net.bytes(c.image, { cache: 'reload', timeout: 20000 }), type = imageType(b); if (!type) throw new Error('not a picture'); if (Sel.id !== id) return;
+      const im = Detail.el.querySelector('img.camstill'); if (!im) return;
+      const url = URL.createObjectURL(new Blob([b], { type })); im.src = url; if (camBlob) URL.revokeObjectURL(camBlob); camBlob = url;
+    } else {
+      const url = bustNow(still.img), probe = new Image(); probe.referrerPolicy = 'no-referrer';
+      await new Promise((ok, no) => { probe.onload = ok; probe.onerror = () => no(new Error('no picture')); probe.src = url; }); if (Sel.id !== id) return;
+      const im = Detail.el.querySelector('img.camstill'); if (im) im.src = url;
+    }
+    checked();
+  } catch (e) { say('not reachable right now'); }
+}
+document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('[data-camrefresh]'); if (a) { e.preventDefault(); camRefresh(); } });
 export const CAM_LOADERS = {
   async windy(out) { const key = late.Keys.get('windy'); if (!key) return 0; const c = map.getCenter(); const d = await Net.json(`https://api.windy.com/webcams/api/v3/webcams?nearby=${c.lat.toFixed(3)},${(((c.lng + 540) % 360) - 180).toFixed(3)},250&include=images,location,player,urls&limit=50`, { headers: { 'x-windy-api-key': key } }); for (const w of d.webcams || []) { const loc = w.location || {}; if (loc.latitude == null) continue; out.push({ id: 'windy' + w.webcamId, src: 'Windy webcams', name: w.title, sub: [loc.city, loc.country].filter(Boolean).join(', '), lat: loc.latitude, lon: loc.longitude, image: w.images?.current?.preview, online: w.status === 'active', link: w.urls?.detail || `https://www.windy.com/webcams/${w.webcamId}` }); } return out.length; },
 };
 export const camCache = {}; // per network: { t, cams[] } so panning back does not refetch multi-MB lists
 export const camItem = c => ({ lat: c.lat, lon: c.lon, r: z => z >= 13 ? 4.5 : z >= 11 ? 3 : 2, color: isStream(c) ? '#ff9ad5' : C.cam, fillAlpha: c.online === false ? .2 : .7, alpha: .9, kind: 'cam', obj: c, tip: c.name + (isStream(c) ? ' · live video' : '') });
-async function loadCamNet(id) { // one agency's list (core/cameras.js parses it), kept 30 min (Singapore's stills change address: 5 min)
+async function loadCamNet(id, maxAge) { // one agency's list (core/cameras.js parses it), kept 30 min (Singapore's stills change address: 5 min)
   const n = CAMERA_NETS[id]; let c = camCache[id];
-  if (!c || Date.now() - c.t > (id === 'sg' ? 300e3 : 1800e3)) {
+  if (!c || Date.now() - c.t > (maxAge ?? (id === 'sg' ? 300e3 : 1800e3))) {
     if (n.relay && !Relay.available && !Relay.wrap(n.url)) throw new Error('needs the helper (no CORS)');
     const o = { timeout: 60000, cache: id === 'sg' ? 'no-store' : 'default' };   // the lists change slowly (Singapore's image addresses every few minutes)
     const d = n.xml ? await Net.text(n.url, o) : await Net.json(n.url, o);
@@ -498,7 +529,7 @@ feed(lyFires, { interval: 900, viewDependent: true, minZoom: 5, fetch: async () 
 
 /* ---------- OSM area scan results (from the probe) */
 export const lyScan = Layers.add({ id: 'osm_scan', group: 'Infrastructure', name: 'Area scan results', desc: 'Military areas, airfields, nuclear sites, harbours from OpenStreetMap · run from a map probe', color: C.infra, default: true, points: 'scan' });
-Points.define('scan', 'osm_scan'); lyScan.enable = () => { if (lyScan.last) Points.set('scan', lyScan.last); }; // turning the layer off clears the points; bring the last scan back
+Points.define('scan', 'osm_scan'); lyScan.enable = () => { if (!lyScan.last) return; Points.set('scan', lyScan.last); if (lyScan.feed) { lyScan.feed.status = 'ok'; lyScan.feed.count = lyScan.last.length; } }; // turning the layer off clears the points and the row: bring the last scan back (no feed yet on a first scan with the layer off)
 Detail.renderers.osm = o => `<div class="det">${Detail.head(C.infra, 'OpenStreetMap · ' + o.kind, o.name, esc(o.sub || ''))}${Detail.kv(Object.entries(o.tags).filter(([k]) => !/^(name|source|created_by)/.test(k)).slice(0, 24).map(([k, v]) => [k, v]))}
 <div class="actions"><button class="btn small" data-do="fly" data-lat="${num(o.lat)}" data-lon="${num(o.lon)}" data-z="13">Center</button></div><hr class="sep">${Detail.links([{ text: `OSM ${o.type} ${o.id}`, url: `https://www.openstreetmap.org/${o.type}/${o.id}` }])}</div>`;
 export async function scanArea(lat, lon, radius = 30000) {

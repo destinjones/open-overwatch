@@ -165,6 +165,7 @@ function skipLink(target, words) {
     const f = t && (t.matches('button, a[href], input, select, [tabindex]') ? t : focusables(t)[0]);
     if (f) { f.focus(); f.scrollIntoView?.({ block: 'nearest' }); }
   });
+  a.style.position = 'fixed';   // out of the flow before shell.css has loaded too (shell.css sets top: inline it would beat the :focus reveal)
   document.body.prepend(a);
 }
 

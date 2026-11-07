@@ -4,7 +4,7 @@ import { $, $$, C, esc, late, pick, Store, toast } from './util.js';
 import { keptPlace, makePlace } from '../core/myplace.js';
 import { map, vecRenderer } from './mapview.js';
 import { Dyn, Layers } from './engine.js';
-import { Detail, Tracks, sheetAware } from './detail.js';
+import { Detail, sheetAware } from './detail.js';
 import { Air } from './aircraft.js';
 import { Sats, lySats } from './satellites.js';
 
@@ -49,7 +49,7 @@ export const Locate = {
   set picking(v) { this._pickUntil = v ? Date.now() + 60e3 : 0; },
   get pos() { if (this._pos && !keptPlace(this._pos)) this.forget(true); return this._pos; },   // {lat, lon, how, t}, 24 h at most
   keep(lat, lon, how) { const p = makePlace(lat, lon, how); if (!p) return null; this._pos = p; Store.set('pos', p); return p; },
-  forget(quiet = false) { this._pos = null; this.picking = false; Store.del('pos'); if (!quiet) { toast('Your location is forgotten on this device'); late.Brief.render(); } },
+  forget(quiet = false) { this._pos = null; this.picking = false; Store.del('pos'); if (this.marker) { map.removeLayer(this.marker); this.marker = null; } if (!quiet) { toast('Your location is forgotten on this device'); late.Brief.render(); } },
   refresh() {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) { reject(new Error('this browser has no location service')); return; }
@@ -57,7 +57,7 @@ export const Locate = {
         e => reject(new Error(e && e.code === 1 ? 'location access was denied' : 'the device found no position')), { timeout: 8000, maximumAge: 60000 });
     });
   },
-  mark(p) { L.circleMarker([p.lat, p.lon], { radius: 6, color: C.accent, weight: 2, fillOpacity: .2, interactive: false, renderer: vecRenderer }).addTo(Tracks.group); },
+  mark(p) { if (this.marker) map.removeLayer(this.marker); this.marker = L.circleMarker([p.lat, p.lon], { radius: 6, color: C.accent, weight: 2, fillOpacity: .2, interactive: false, renderer: vecRenderer }).addTo(map); },   // its own layer: clearing a track or a selection leaves it
   async go() {
     try { const p = await this.refresh(); this.picking = false; map.flyTo([p.lat, p.lon], 8, { duration: 1 }); this.mark(p); toast('Centered on your device position'); late.Brief.render(); }
     catch (e) { this.picking = true; toast(`No location: ${e.message}. Tap the map where you are (or search "lat, lon") to set your place.`, 'alert'); }   // the visitor picks it instead

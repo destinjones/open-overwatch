@@ -46,8 +46,8 @@ $('#brief').addEventListener('click', e => { const b = e.target.closest('[data-a
 const ACTIONS = {
   fly: d => flyTo(num(d.lat), num(d.lon), num(d.z)),
   'air-trail': d => Air.trail(d.id), 'air-follow': d => Air.follow(d.id),
-  'sat-track': d => Sats.drawTrack(Sats.byId.get(num(d.id))), 'clear-track': () => Tracks.clear(),
-  tab: d => showTab(d.tabTo), rerender: () => Detail.render(),
+  'sat-track': d => Sats.drawTrack(Sats.byId.get(num(d.id))), 'clear-track': () => Sats.clearTrack(),
+  tab: d => showTab(d.tabTo),
 };
 document.addEventListener('click', e => { const b = e.target.closest?.('[data-do]'); if (!b || !Object.hasOwn(ACTIONS, b.dataset.do)) return; e.preventDefault(); ACTIONS[b.dataset.do](b.dataset); });
 Feeds.paused = true; // hold the scheduler until we know whether the relay is there

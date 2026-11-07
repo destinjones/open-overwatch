@@ -6,7 +6,7 @@
 // airfields inside. Both read tiles over plain GET with CORS, cached by the browser; the parsing is core/osmtiles.js.
 import { num } from '../core/format.js';
 import { decodeTile } from '../core/mvt.js';
-import { tileCameras, cameraFacts, tileMilitary, joinPieces, describeArea, areaWords, tilesInBox, tileOverlaps } from '../core/osmtiles.js';
+import { tileCameras, cameraFacts, tileMilitary, joinPieces, describeArea, areaWords, tilesInBox, tileOverlaps, alprTileZoom, milTileZoom } from '../core/osmtiles.js';
 import { esc, fmt, Net } from './util.js';
 import { map, vecRenderer } from './mapview.js';
 import { Layers, Points, feed } from './engine.js';
@@ -38,7 +38,6 @@ async function tile(src, key, want) {
   return p;
 }
 const view = () => { const b = map.getBounds(); return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]; };
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // ---- licence-plate readers ----
 const DESC = 'OpenStreetMap via DeFlock / FlockHopper, rebuilt hourly · a dot cloud below zoom 10, every reader with its tags from 10';
@@ -50,7 +49,7 @@ ${Detail.kv([...cameraFacts(c), ['Position', fmt.ll(c.lat, c.lon)]])}
 <p style="font-size:12px;line-height:1.45;color:var(--ink-dim)">An automatic licence-plate reader (ALPR) volunteers have mapped in OpenStreetMap, mostly through DeFlock. A location, not a feed: no images, no plates; readers nobody has mapped are not shown. © OpenStreetMap contributors (ODbL).</p>
 <hr class="sep">${Detail.links([{ text: `OSM ${c.osmType === 'way' ? 'way' : 'node'} ${c.osmId}`, url: `https://www.openstreetmap.org/${c.osmType === 'way' ? 'way' : 'node'}/${encodeURIComponent(c.osmId)}` }, { text: 'FlockHopper', url: 'https://dontgetflocked.com/' }])}</div>`;
 feed(lyAlpr, { interval: 3600, viewDependent: true, minZoom: 3, fetch: async () => {
-  const zm = map.getZoom(), detail = zm >= 10, tz = detail ? clamp(zm - 2, 9, 12) : clamp(zm - 3, 3, 8), [w, s, e, n] = view();
+  const zm = map.getZoom(), detail = zm >= 10, tz = alprTileZoom(zm), [w, s, e, n] = view();
   const bounds = await Promise.all(ALPR.map(u => spec(u).then(v => v.bounds || null)));
   const keys = tilesInBox(w, s, e, n, tz, MAX_TILES), jobs = [];
   for (const k of keys) ALPR.forEach((u, i) => { if (tileOverlaps(k, bounds[i])) jobs.push(tile(u, k, ['cameras']).then(d => { const [z, x, y] = k.split('/').map(Number); return tileCameras(d.cameras, z, x, y); })); });
@@ -81,16 +80,16 @@ ${Detail.kv([['Size', `${a.open ? 'at least ' : ''}${areaWords(a.area)}`], ['Air
 <p style="font-size:12px;line-height:1.45;color:var(--ink-dim)">Land volunteers have mapped as military (landuse=military): bases, ranges, depots, barracks. Outlines are as mapped; the tiles carry no names for military land, so the name is a military airfield inside it when there is one${a.open ? '; it runs on past the view, so its size is a lower bound' : ''}. © OpenMapTiles, © OpenStreetMap contributors (ODbL).</p>
 <hr class="sep">${Detail.links([{ text: "What's here on OpenStreetMap", url: `https://www.openstreetmap.org/query?lat=${a.lat.toFixed(5)}&lon=${a.lon.toFixed(5)}` }])}</div>`;
 feed(lyMil, { interval: 3600, viewDependent: true, minZoom: 8, fetch: async () => {
-  const tz = clamp(map.getZoom() - 2, 9, 12), [w, s, e, n] = view(), keys = tilesInBox(w, s, e, n, tz, MAX_TILES);
+  const tz = milTileZoom(map.getZoom()), [w, s, e, n] = view(), keys = tilesInBox(w, s, e, n, tz, MAX_TILES);
   const ds = await Promise.all(keys.map(k => tile(OFM, k, ['landuse', 'aerodrome_label', 'place']).then(d => { const [z, x, y] = k.split('/').map(Number); return tileMilitary(d, z, x, y); })));
   const fields = ds.flatMap(d => d.fields), places = ds.flatMap(d => d.places), pins = [];
   gMil.clearLayers();
-  const style = { renderer: vecRenderer, bubblingMouseEvents: false };
+  const style = { renderer: vecRenderer };
   for (const g of joinPieces(ds.flatMap(d => d.pieces))) {
     const d = describeArea(g, fields, places), a = { id: g.key, name: d.name, fields: d.fields, near: d.near, area: g.area, open: g.open, lat: d.at.lat, lon: d.at.lon };
     const ll = r => { const out = []; for (let i = 0; i < r.length; i += 2) out.push([r[i + 1], r[i]]); return out; };
     for (const p of g.pieces) {
-      for (const q of p.polys) { const poly = L.polygon([ll(q.outer), ...q.holes.map(ll)], { ...style, stroke: false, fillColor: MIL_COL, fillOpacity: .14 }); poly.on('click', () => Detail.show('milarea', a, a.id)); gMil.addLayer(poly); }
+      for (const q of p.polys) { const poly = L.polygon([ll(q.outer), ...q.holes.map(ll)], { ...style, stroke: false, fillColor: MIL_COL, fillOpacity: .14 }); poly.on('click', Detail.area(() => Detail.show('milarea', a, a.id))); gMil.addLayer(poly); }
       for (const r of p.runs) gMil.addLayer(L.polyline(ll(r), { ...style, interactive: false, color: MIL_COL, weight: 1.6, opacity: .9 }));
     }
     pins.push({ lat: a.lat, lon: a.lon, r: 4, color: MIL_COL, shape: 'tri', kind: 'milarea', obj: a.prov ? a : stamp(a, 'osm', [rep('osm', { name: 'OpenStreetMap via OpenFreeMap tiles' })]), tip: `${a.name || 'Military area'} · ${a.open ? 'at least ' : ''}${areaWords(a.area)}`, label: a.name || null, labelZoom: 10 });

@@ -38,9 +38,9 @@ html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%} /* no page pin
   --civ:#5fd3ff; --mil:#ffb44d; --emg:#ff4d5e; --sat:#d9ccff; --ship:#62e0c8; --bal:#fff2a8;
   --cam:#ff6fb5; --qk:#ff7b4f; --evt:#ffd45c; --news:#c2a4ff; --infra:#9fb3bf; --cable:#3f8fb5; --alert:#ff4d5e;
   --ok:#7dffa6; --warn:#ffb44d; --bad:#ff4d5e;
-  --font-display:"Big Shoulders Display","Barlow Condensed","Arial Narrow",sans-serif;
-  --font-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --font-display:"Big Shoulders Display","Big Shoulders Fallback","Arial Narrow",sans-serif;
+  --font-body:"Barlow","Barlow Fallback",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono","Plex Mono Fallback",ui-monospace,Menlo,Consolas,monospace;
   --top-h:56px; --rail-w:296px; --panel-w:372px;
   /* motion, corners and depth: the shared tokens (src/app/shell.css, docs/DESIGN.md) when they are defined, else these */
   --ease:var(--oo-ease-out,cubic-bezier(.22,.8,.24,1)); --ease-in-out:var(--oo-ease-in-out,cubic-bezier(.65,0,.35,1));

@@ -83,16 +83,16 @@ export const Wx = {
     const kinds = this.kinds(), t = this.t(), model = this.model, other = this.compare ? this.other : null, key = `${model.id}|${other ? other.id : '-'}|${t}|${kinds.join(',')}`;
     if (this.key === key && this.loading) return this.loading;
     this.key = key;
-    this.loading = (async () => {
+    const me = this.loading = (async () => {
       const still = () => this.key === key;
       const [c, d] = await Promise.all([momentOf(model, t, kinds, { still }), other ? momentOf(other, t, kinds, { still }) : null]);
-      if (this.key !== key) return this.cur;   // a later moment was asked for meanwhile
+      if (this.key !== key) return this.loading !== me ? this.loading : null;   // a later moment was asked for meanwhile: its answer; or the key was dropped (model, compare, a new run, last layer off): null, and whoever dropped it runs the feeds again
       if (!c) throw new Error(`${model.def.short} is not reachable right now`);
       this.cur = c; this.cmp = d; this.charts.clear(); this.repaint();
       return c;
     })();
-    this.loading.catch(() => { if (this.key === key) this.key = ''; });   // the next try fetches again
-    return this.loading;
+    me.catch(() => { if (this.key === key) this.key = ''; });   // the next try fetches again
+    return me;
   },
   /** Every switched-on layer reloads (its feed shows loading / ok / the error). */
   reload() { for (const id of Object.keys(KINDS)) { const d = Layers.byId[id]; if (d && d.on && d.feed) runFeed(d.feed, true); } },
@@ -446,7 +446,8 @@ function wxLayer(ly) {
   ly.disable = () => { showKind(kind, false); Bar.sync(); credit(); Divider.sync(); if (!Wx.any()) { Wx.cur = Wx.cmp = null; Wx.key = ''; tileCache.clear(); } };
   feed(ly, { interval: 900, errorInterval: 60, fetch: async () => {
     const c = await Wx.load();
-    if (!c || !c.a[kind]) throw new Error(`${Wx.model.def.short} has no ${kind === 'pres' ? 'pressure' : kind} for this hour`);
+    if (!c) return;   // the load was dropped, not refused (Wx.load): the feed runs again
+    if (!c.a[kind]) throw new Error(`${Wx.model.def.short} has no ${kind === 'pres' ? 'pressure' : kind} for this hour`);
     ly.desc = `${c.model.def.short} · ${relNow()} · ${base}`;
     Bar.label();   // every 15 min: '+2 h 40 min' counts down with the clock
     ly.feed.count = 0;
