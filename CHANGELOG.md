@@ -8,6 +8,30 @@ file was built from.
 
 ## [Unreleased]
 
+## [0.9.2.18] - 2026-11-06
+
+A full debugging run: 57 bugs fixed.
+
+### Fixed
+- Globe: picks go in order of closeness, so a nearby dot no longer beats the cone, perimeter or model under the pointer;
+  a NaN camera (Cesium's zoom on the exact centre pixel) is guarded and put back instead of killing the render loop; the
+  pick shaders are linked before the first hover, and software WebGL no longer freezes on hover; touch taps on satellite
+  models, re-entry corridor cards, models and aircraft away from the live moment, layers switched off during their load,
+  airport tips, military pins on terrain.
+- Solar System: shared links to stars, exoplanets and galaxy clusters land on the right body or say they could not; the
+  eclipse search runs in a worker; asteroid search works on phones; clock rates, dates and names in links; card timelines
+  after a jump in time; an ended spacecraft track says so.
+- 2D map: Plate readers and Military areas at half zoom levels; NYC camera pictures on the published site; glyphs under
+  polygons can be selected; Measure closes areas on the first corner; forecast and ground-track races; page-load layout
+  shift from the splash font and skip link.
+- Site: the phone menu and Hindi toggle on the landing and India pages; Launch buttons use the live pages; Ironbound and
+  credits links; the offline page from subfolders; archives carry the light pollution and borders files.
+- MCP: a cancelled call can no longer kill the server; old data says how old it is; official country names, far-future
+  comets, eclipse counts and several wording errors. `weather` data now says `high_c` and `low_c`.
+
+### Changed
+- The Performance run prints page errors and fails when a page's renderer dies.
+
 ## [0.9.2.17] - 2026-11-01
 
 Smoother everywhere, and a night side you can see.

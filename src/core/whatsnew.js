@@ -16,6 +16,15 @@ export const MAX_LINES = 3;
  *  it is published). */
 export const RELEASES = Object.freeze([
   {
+    version: '0.9.2.18', date: '2026-11-06', title: 'A full debugging run: 57 bugs fixed',
+    go: 'globe.html',
+    lines: [
+      'Clicks and taps on the globe open what is really under them, and the first hover no longer freezes.',
+      'Shared Solar System links open the right star or planet, and the phone menu is back on the landing and India pages.',
+      '57 bugs fixed across the globe, Solar System, 2D map, site and MCP server.',
+    ],
+  },
+  {
     version: '0.9.2.17', date: '2026-11-01', title: 'Smoother everywhere, and a night side you can see',
     go: 'globe.html',
     lines: [
