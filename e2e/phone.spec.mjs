@@ -27,6 +27,41 @@ test('landing page fits a phone, with the still hero and no video', async ({ pag
   await expectFitsWidth(page, ['#spec', '#mv']);
 });
 
+test('landing bar: its buttons fit, the menu opens, and Install app moves into the menu when the bar has no room', async ({ page }) => {
+  await page.goto('index.html');
+  await expectFitsWidth(page, ['#nav a', '#nav button']);   // #nav itself is fixed to the viewport: only its children can show an overflow
+  await expect(page.locator('#navLinks')).toBeHidden();
+  await page.locator('#menuBtn').tap();
+  await expect(page.locator('#menuBtn')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('#navLinks a').first()).toBeVisible();
+  await expectFitsWidth(page, ['#nav a', '#nav button']);
+  await page.locator('#menuBtn').tap();
+  await expect(page.locator('#navLinks')).toBeHidden();
+  // the browser offers the install, as Android Chrome does (the module may still be loading, so offer until it is heard)
+  const inMenu = page.locator('#navLinks a.oo-install-menu');
+  await expect(async () => { await page.evaluate(() => dispatchEvent(new Event('beforeinstallprompt'))); expect(await inMenu.count()).toBe(1); }).toPass();
+  await expectFitsWidth(page, ['#nav a', '#nav button']);
+  await expect(page.locator('#nav .btn.oo-install')).toBeHidden();
+  await page.locator('#menuBtn').tap();
+  await expect(inMenu).toBeVisible();
+});
+
+test('India bar: the language button and the menu are on screen and answer a tap, in both languages', async ({ page }) => {
+  for (const [file, lang, other] of [['india/', 'en', 'hi'], ['india/hi/', 'hi', 'en']]) {
+    await page.goto(file);
+    await expect(page.locator('html')).toHaveAttribute('lang', lang);
+    await expectFitsWidth(page, ['#nav a', '#nav button']);
+    await page.locator('#langBtn').tap();
+    await expect(page.locator('html')).toHaveAttribute('lang', other);
+    await expectFitsWidth(page, ['#nav a', '#nav button']);
+    await page.locator('#langBtn').tap();
+    await expect(page.locator('html')).toHaveAttribute('lang', lang);
+    await page.locator('#menuBtn').tap();
+    await expect(page.locator('#navLinks a').first()).toBeVisible();
+    await expectFitsWidth(page, ['#nav a', '#nav button']);
+  }
+});
+
 test('guide and about fit a phone; wide tables scroll inside their box', async ({ page }) => {
   for (const file of ['guide.html', 'about.html']) {
     await page.goto(file);

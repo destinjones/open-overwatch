@@ -1,6 +1,7 @@
 {
-  "_about": "Budgets for the performance run (e2e/perf.spec.mjs, checked by e2e/perf-report.mjs). A run whose number is above its budget is listed; with enforce true the job fails. Measured on GitHub's runners in software WebGL, so these are not phone or GPU figures: see docs/PERFORMANCE.md. Pages override the defaults per profile. Times in ms, sizes in MB.",
+  "_about": "Budgets for the performance run (e2e/perf.spec.mjs, checked by e2e/perf-report.mjs). A run whose number is above its budget is listed; with enforce true the job fails. Measured on GitHub's runners in software WebGL, so these are not phone or GPU figures: see docs/PERFORMANCE.md. Pages override the defaults per profile. Times in ms, sizes in MB. failOnDeadRenderer: a page whose renderer gave up fails the job whatever enforce says, as a dead renderer reads as smooth frames.",
   "enforce": false,
+  "failOnDeadRenderer": true,
   "default": {
     "desktop": {
       "readyMs": 4000,

@@ -75,3 +75,16 @@ print(json.dumps({x: b.published(x, b.SKIP_ROOT, b.KEEP_ROOT) for x in n} | {'ke
   assert.ok(loads.has('test/fixtures/horizons_2026-10-02.json'), 'the scan finds the Solar view\'s accuracy fixture');
   for (const p of loads) assert.ok(out.keep.includes(p), `${p} is loaded by a page but skipped by the site build`);
 });
+
+test('site build: archived copies carry the data files old tags read with no fallback, and their city sky link goes to the root', { skip }, () => {
+  const out = run(`import tempfile, os
+d = tempfile.mkdtemp()
+os.makedirs(os.path.join(d, 'src'))
+open(os.path.join(d, 'tonight.html'), 'wb').write(b'<a href="sky/">Cities</a><a href="index.html">Home</a><a href="about.html">About</a><a href="globe.html">Globe</a>')
+open(os.path.join(d, 'src', 'x.html'), 'wb').write(b'<a href="sky/">deep</a>')
+b.fix_archived_links(d)
+print(json.dumps({'paths': b.APP_PATHS, 'top': open(os.path.join(d, 'tonight.html')).read(), 'deep': open(os.path.join(d, 'src', 'x.html')).read()}))`);
+  for (const f of ['data/lightpollution.bin', 'data/borders.json']) assert.ok(out.paths.includes(f), f);
+  assert.equal(out.top, '<a href="../../sky/">Cities</a><a href="../../index.html">Home</a><a href="../../about.html">About</a><a href="globe.html">Globe</a>');
+  assert.equal(out.deep, '<a href="sky/">deep</a>', 'only the root pages');
+});

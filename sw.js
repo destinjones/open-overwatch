@@ -151,7 +151,11 @@ async function trim(name, max) {
 }
 
 async function saved(kind, key) {
-  try { const c = await caches.open(cacheFor(kind)); return (await c.match(key, { ignoreVary: true })) || null; } catch { return null; }
+  try {
+    const c = await caches.open(cacheFor(kind)), hit = await c.match(key, { ignoreVary: true });
+    if (hit || kind !== 'asset') return hit || null;
+    return (await (await caches.open(SHELL)).match(key, { ignoreVary: true })) || null;   // the emblems the install saved (CORE): the offline page needs them before any page has loaded them
+  } catch { return null; }
 }
 
 const timeout = ms => new Promise(r => setTimeout(() => r(null), ms));
@@ -215,9 +219,12 @@ async function versionFirst(event, kind, key, fallback) {
   return old || networkFirst(event, kind, key, NET_TIMEOUT, fallback);
 }
 
+/** The offline page, answering at whatever URL was asked (sky/tokyo/ is two folders down), so a <base> at the site root
+ *  keeps its emblem, links and cache lookups right. */
 async function offlinePage() {
-  const c = await caches.open(SHELL);
-  return (await c.match(new URL('offline.html', SCOPE).href)) || new Response('<!doctype html><meta charset="utf-8"><title>Offline</title><p>You are offline and this page was not saved yet.</p>', { status: 503, headers: { 'content-type': 'text/html; charset=utf-8' } });
+  const c = await caches.open(SHELL), page = await c.match(new URL('offline.html', SCOPE).href);
+  if (page) return new Response((await page.text()).replace(/<head[^>]*>/i, m => `${m}<base href="${SCOPE.href}">`), { headers: { 'content-type': 'text/html; charset=utf-8' } });
+  return new Response('<!doctype html><meta charset="utf-8"><title>Offline</title><p>You are offline and this page was not saved yet.</p>', { status: 503, headers: { 'content-type': 'text/html; charset=utf-8' } });
 }
 
 function handle(event) {

@@ -3,7 +3,7 @@
 // CC BY-NC 4.0, non-commercial; data/lightpollution.bin, 1/15°) drawn here tile by tile in Web Mercator, coloured by
 // Bortle class and clear where the sky is dark (core/darksky.js paintTile). Off by default; the 1.7 MB grid loads the first
 // time the layer is switched on.
-import { Net } from './util.js';
+import { fetchAsset } from '../core/assets.js';
 import { map } from './mapview.js';
 import { Layers, feed } from './engine.js';
 import { decodeAtlas } from '../core/lightpollution.js';
@@ -22,7 +22,7 @@ export const lyLight = Layers.add({ id: 'lightpollution', group: 'Sea & sky', na
 lyLight.enable = () => { if (tiles) tiles.addTo(map); };
 lyLight.disable = () => { if (tiles) map.removeLayer(tiles); };
 feed(lyLight, { interval: 86400, fetch: async () => {
-  if (!grid) { grid = await decodeAtlas(await Net.bytes('data/lightpollution.bin', { timeout: 90000 })); table = overlayTable(grid); }
+  if (!grid) { grid = await decodeAtlas(await fetchAsset('data/lightpollution.bin', 'buffer', { fetchImpl: url => fetch(url, { signal: AbortSignal.timeout(90000) }) })); table = overlayTable(grid); }
   if (!tiles) tiles = new LightTiles({ opacity: 0.75, maxNativeZoom: 9, maxZoom: 19, tileSize: 256, keepBuffer: 1, updateWhenZooming: false, className: 'lightpollution-ov',
     attribution: `Light pollution: <a href="${ATLAS_URL}" target="_blank" rel="noopener">Falchi et al. 2016</a> (CC BY-NC)` });
   if (lyLight.on && !map.hasLayer(tiles)) tiles.addTo(map);

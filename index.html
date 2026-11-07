@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: see docs/NOTES.md "Supply chain". Inline scripts are allowed by hash (node brand/tools/sri.mjs --csp after editing one). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-mHAM8H4sj2H0OsGZUBpJchHgISPhkapzmrrDoSlG+bw='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-TfI8iDPnmNS2Xrm+ScDpa+xN1c+okaf1UwYj3XM1+0I='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#04060a">
 <title>Open Overwatch · the whole planet, live</title>
@@ -32,7 +32,7 @@
  {"@type":"WebSite","@id":"https://destinjones.github.io/open-overwatch/#site","name":"Open Overwatch","url":"https://destinjones.github.io/open-overwatch/","description":"A free, open source live view of the planet: satellites, weather, quakes, tonight's sky, and a seamless zoom from a street to the Local Group.","inLanguage":"en","publisher":{"@id":"https://destinjones.github.io/open-overwatch/about.html#destin"}},
  {"@type":"SoftwareApplication","name":"Open Overwatch","applicationCategory":"EducationalApplication","operatingSystem":"Any (web browser)","url":"https://destinjones.github.io/open-overwatch/","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
   "description":"Live satellites, weather, earthquakes and storms on open data, a 3D Earth, your sky tonight, and a Solar System view that zooms out to the cosmic web. Free, no account, no tracking. Live aircraft come with the free download.","codeRepository":"https://github.com/destinjones/open-overwatch","license":"https://opensource.org/licenses/MIT","creator":{"@id":"https://destinjones.github.io/open-overwatch/about.html#destin"}},
- {"@type":"Person","@id":"https://destinjones.github.io/open-overwatch/about.html#destin","name":"Destin Jones","url":"https://destinjones.github.io/open-overwatch/about.html","sameAs":["https://github.com/destinjones","https://destinjones.github.io/godot-open-rts/about.html","https://destinjones.github.io/carfinder/about.html"]}
+ {"@type":"Person","@id":"https://destinjones.github.io/open-overwatch/about.html#destin","name":"Destin Jones","url":"https://destinjones.github.io/open-overwatch/about.html","sameAs":["https://github.com/destinjones","https://destinjones.github.io/ironbound/about.html","https://destinjones.github.io/carfinder/about.html"]}
 ]}
 </script>
 <link rel="preload" href="brand/fonts/big-shoulders-display-var-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -52,11 +52,17 @@ h3{font-size:30px}
 
 /* ---- nav (src/app/site.css .site-nav.over): the bar carries the CTA; under 860px the links fold behind #menuBtn */
 @media (max-width:860px){
-  nav .links{display:none} nav .btn{margin-left:auto} .menu-btn{display:inline-flex;margin-left:0} .site-nav .wrap{gap:12px}
+  .site-nav .links{display:none} nav .btn{margin-left:auto} .menu-btn{display:inline-flex;margin-left:0} .site-nav .wrap{gap:12px}   /* as specific as site.css's .site-nav .links, which it must beat; nav.open .links beats this */
   /* the menu: the same links, stacked under the bar */
   nav.open .links{display:flex;flex-direction:column;gap:0;position:absolute;top:100%;left:0;right:0;margin:0;padding:6px var(--gut) 14px;
     background:rgba(4,6,10,.97);border-bottom:1px solid var(--line);font-size:14px}
   nav.open .links a{padding:8px 0;border-bottom:1px solid var(--line)} nav.open .links a:last-child{border-bottom:0} nav.open .links a::after{display:none}
+}
+/* Install app (src/app/pwa.js): in the bar while it fits, in the menu when it would push the menu button off a phone */
+.site-nav .links a.oo-install-menu{display:none}
+@media (max-width:520px){
+  nav .btn.oo-install{display:none}
+  nav.open .links a.oo-install-menu{display:inline-flex}
 }
 
 /* ---- hero */
@@ -587,8 +593,8 @@ code{font:14px var(--mono);background:var(--panel-2);border:1px solid var(--line
         <div class="eyebrow">Who's building it</div>
         <h2 id="maker-h">One person and an AI, in public.</h2>
         <p>I'm Destin Jones. I vibe code Open Overwatch with Claude as my building partner: I describe what I want and test the results, and Claude writes most of the code. Everything ships in the open under the MIT licence, so please <a href="https://github.com/destinjones/open-overwatch/fork">fork it</a> and build anything you like with it.</p>
-        <p>Also by me: <a href="https://destinjones.github.io/godot-open-rts/">Ironbound</a>, a free open source real-time strategy game where your city builds itself, and <a href="https://destinjones.github.io/carfinder/">CarFinder</a>, every new car on sale in 11 countries with what it really costs.</p>
-        <div class="row"><a class="btn small primary" href="about.html">About the creator</a><a class="btn small" href="https://destinjones.github.io/godot-open-rts/">Ironbound, the RTS</a><a class="btn small" href="https://destinjones.github.io/carfinder/">CarFinder</a><a class="btn small" href="https://github.com/destinjones">GitHub</a></div>
+        <p>Also by me: <a href="https://destinjones.github.io/ironbound/">Ironbound</a>, a free open source real-time strategy game where your city builds itself, and <a href="https://destinjones.github.io/carfinder/">CarFinder</a>, every new car on sale in 11 countries with what it really costs.</p>
+        <div class="row"><a class="btn small primary" href="about.html">About the creator</a><a class="btn small" href="https://destinjones.github.io/ironbound/">Ironbound, the RTS</a><a class="btn small" href="https://destinjones.github.io/carfinder/">CarFinder</a><a class="btn small" href="https://github.com/destinjones">GitHub</a></div>
       </div>
     </div>
   </div>
@@ -646,7 +652,7 @@ code{font:14px var(--mono);background:var(--panel-2);border:1px solid var(--line
       <p><a href="guide.html">User guide</a>: every view and layer, keyboard shortcuts, voice commands, sharing and privacy.</p>
       <p><a href="sky/">What's in the sky tonight in your city</a>: sunset, the Moon, the planets, the next ISS pass and how dark the sky is, city by city. <a href="teach/">For teachers</a>: free classroom activities for ages 7 to 18.</p>
       <p><a href="india/" lang="en">In India?</a> <a href="india/hi/" lang="hi">भारत से?</a> ISRO launches, India's satellites, ISS passes over your city, cyclones and air quality, in English and <span lang="hi">हिन्दी</span>.</p>
-      <p>By <a href="about.html">Destin Jones</a>, vibe coded with Claude. Fork it, build on it, or take it over. Also: <a href="https://destinjones.github.io/godot-open-rts/">Ironbound</a>, a free open source RTS, and <a href="https://destinjones.github.io/carfinder/">CarFinder</a>.</p>
+      <p>By <a href="about.html">Destin Jones</a>, vibe coded with Claude. Fork it, build on it, or take it over. Also: <a href="https://destinjones.github.io/ironbound/">Ironbound</a>, a free open source RTS, and <a href="https://destinjones.github.io/carfinder/">CarFinder</a>.</p>
     </div>
   </div>
 
@@ -671,10 +677,10 @@ code{font:14px var(--mono);background:var(--panel-2);border:1px solid var(--line
           <tr><td><a href="https://cesium.com/platform/cesiumjs/">CesiumJS</a> (the 3D Earth)</td><td>Open source, <a href="https://github.com/CesiumGS/cesium/blob/main/LICENSE.md">Apache 2.0</a></td></tr>
           <tr><td><a href="https://threejs.org/">three.js</a> (the Solar System view)</td><td>Open source, <a href="https://github.com/mrdoob/three.js/blob/dev/LICENSE">MIT</a></td></tr>
           <tr><td><a href="https://leafletjs.com/">Leaflet</a> (the 2D map)</td><td>Open source, <a href="https://github.com/Leaflet/Leaflet/blob/main/LICENSE">BSD 2-Clause</a></td></tr>
-          <tr><td><a href="https://github.com/shashwatak/satellite-js">satellite.js</a> (satellite orbits)</td><td>Open source, <a href="https://github.com/shashwatak/satellite-js/blob/develop/LICENSE">MIT</a></td></tr>
+          <tr><td><a href="https://github.com/shashwatak/satellite-js">satellite.js</a> (satellite orbits)</td><td>Open source, <a href="https://github.com/shashwatak/satellite-js/blob/develop/LICENSE.md">MIT</a></td></tr>
           <tr><td><a href="https://modelviewer.dev/">&lt;model-viewer&gt;</a> (3D models on this page)</td><td>Open source, <a href="https://github.com/google/model-viewer/blob/master/LICENSE">Apache 2.0</a></td></tr>
           <tr><td><a href="https://github.com/video-dev/hls.js">hls.js</a> (live camera video)</td><td>Open source, <a href="https://github.com/video-dev/hls.js/blob/master/LICENSE">Apache 2.0</a></td></tr>
-          <tr><td>Fonts: <a href="https://fonts.google.com/specimen/Big+Shoulders+Display">Big Shoulders Display</a>, <a href="https://fonts.google.com/specimen/Barlow">Barlow</a>, <a href="https://fonts.google.com/specimen/IBM+Plex+Mono">IBM Plex Mono</a></td><td>Free and open, <a href="https://openfontlicense.org/">SIL Open Font Licence 1.1</a>; served from this site, no Google request</td></tr>
+          <tr><td>Fonts: <a href="https://fonts.google.com/specimen/Big+Shoulders">Big Shoulders Display</a>, <a href="https://fonts.google.com/specimen/Barlow">Barlow</a>, <a href="https://fonts.google.com/specimen/IBM+Plex+Mono">IBM Plex Mono</a></td><td>Free and open, <a href="https://openfontlicense.org/">SIL Open Font Licence 1.1</a>; served from this site, no Google request</td></tr>
           <tr><td>NASA, NOAA and USGS data and imagery (Blue Marble, Black Marble, GIBS, JPL Horizons and close approaches, EONET, earthquakes, aurora, storms, the GFS weather model)</td><td>US government works: free to use, credit the source (see each agency's media and data policy)</td></tr>
           <tr><td><a href="https://www.ecmwf.int/en/forecasts/datasets/open-data">ECMWF</a> IFS open data (the second weather model)</td><td>Open data, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>: credit ECMWF</td></tr>
           <tr><td><a href="https://www.emsc-csem.org/">EMSC</a> earthquakes (the second catalogue)</td><td>Free to use with credit to EMSC</td></tr>
@@ -899,11 +905,14 @@ fetch('versions.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : Promis
   // the release count and the newest release, from the same list, so the heading never goes stale
   $('#relHead').textContent = `${vs.length} release${vs.length === 1 ? '' : 's'} since ${fmtDate(vs[vs.length - 1].date)}.`;
   $('#relNow').textContent = `The newest, ${vs[0].tag}, came out on ${fmtDate(vs[0].date)}. `;
+  // the newest version is the site itself, so its links and shares never expire and it opens offline; only an older pick goes to its frozen /v/<tag>/ copy
+  const ROOT_PAGE = { map: 'open-overwatch.html', globe: 'globe.html', solar: 'solar.html' };
+  const pageOf = (v, k) => v === live[0] && v[k] ? ROOT_PAGE[k] : v[k];
   const apply = () => {
     const v = byTag[sel.value];
-    $('#goMap').href = v.map;
-    const g = $('#goGlobe'); if (v.globe) { g.href = v.globe; g.removeAttribute('aria-disabled'); g.title = ''; } else { g.removeAttribute('href'); g.setAttribute('aria-disabled', 'true'); g.title = 'The 3D globe arrived in a later version'; }
-    const so = $('#goSolar'); if (v.solar) { so.href = v.solar; so.removeAttribute('aria-disabled'); so.title = ''; } else { so.removeAttribute('href'); so.setAttribute('aria-disabled', 'true'); so.title = 'The Solar System view arrived in a later version'; }
+    $('#goMap').href = pageOf(v, 'map');
+    const g = $('#goGlobe'); if (v.globe) { g.href = pageOf(v, 'globe'); g.removeAttribute('aria-disabled'); g.title = ''; } else { g.removeAttribute('href'); g.setAttribute('aria-disabled', 'true'); g.title = 'The 3D globe arrived in a later version'; }
+    const so = $('#goSolar'); if (v.solar) { so.href = pageOf(v, 'solar'); so.removeAttribute('aria-disabled'); so.title = ''; } else { so.removeAttribute('href'); so.setAttribute('aria-disabled', 'true'); so.title = 'The Solar System view arrived in a later version'; }
     $('#verNotes').innerHTML = `<b>${esc(v.title)}</b>${v.notes ? '\n' + esc(v.notes) : ''}`;
   };
   sel.addEventListener('change', apply); apply();
@@ -911,7 +920,7 @@ fetch('versions.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : Promis
     <div class="vt">${esc(v.tag)}${i ? '' : '<small>latest</small>'}</div>
     <div class="vd">${esc(fmtDate(v.date))}</div>
     <div class="vs">${esc(v.title)}</div>
-    <div class="vl">${v.map ? `<a href="${esc(v.map)}">Map</a>${v.globe ? `<a href="${esc(v.globe)}">3D globe</a>` : '<span>no 3D globe</span>'}` : '<span>download only</span>'}<a href="${RELEASES}/tag/${encodeURIComponent(v.tag)}">Notes</a><a href="${RELEASES}/download/${encodeURIComponent(v.tag)}/open-overwatch.zip">.zip</a></div>
+    <div class="vl">${v.map ? `<a href="${esc(pageOf(v, 'map'))}">Map</a>${v.globe ? `<a href="${esc(pageOf(v, 'globe'))}">3D globe</a>` : '<span>no 3D globe</span>'}` : '<span>download only</span>'}<a href="${RELEASES}/tag/${encodeURIComponent(v.tag)}">Notes</a><a href="${RELEASES}/download/${encodeURIComponent(v.tag)}/open-overwatch.zip">.zip</a></div>
   </div>`).join('');
 }).catch(() => { // no versions.json (e.g. opened from a local copy): launch what is in this folder
   $('#verSel').innerHTML = '<option>This copy</option>'; $('#verSel').disabled = true;

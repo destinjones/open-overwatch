@@ -32,6 +32,10 @@ leak checks). One job per page and profile; a report job merges them.
   per page `perf-part-<page>-<profile>`. `node e2e/perf-report.mjs <dir>` rebuilds the report from downloaded parts.
 - **Budgets:** `e2e/perf-budgets.json`, per profile with page overrides. Warn only (`"enforce": false`) until the owner
   turns enforcement on; then a run over budget fails the job.
+- **Page errors:** collected, not judged, with the pass and window each fell in, and listed in the summary and as
+  annotations. The exception is a dead renderer (four render failures on one page, where `src/globe/main.js` gives up):
+  it marks that page's frame numbers with a dagger and fails the job whatever `enforce` says, unless
+  `"failOnDeadRenderer": false` is set, because a renderer that draws nothing reads as smooth frames.
 
 **How software WebGL skews it.** The runners have no GPU, so WebGL runs on SwiftShader, on the same 2–4 CPU cores as
 the page's scripts. Every GPU-bound frame (the globe's tiles, clouds and halo; the Solar System's point clouds; a

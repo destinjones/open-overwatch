@@ -381,14 +381,15 @@ solar.html#q=halley
 
 | Key | Value | Meaning |
 |---|---|---|
-| `f` | body key | the focus: a key in the view's registry, such as `mars`, `moon`, `moon:Titan`, `craft:Juno`, `comet:1P/Halley`, `ast:433 Eros`; 1 to 80 letters, digits, spaces and `: . / ' ( ) + , _ -` |
+| `f` | body key | the focus: a key in the view's registry, such as `mars`, `moon`, `moon:Titan`, `craft:Juno`, `comet:1P/Halley`, `ast:433 Eros`; 1 to 80 letters, digits, spaces and `: . / ' ( ) + , _ -`, backtick, `|`, `!` and `=` |
 | `q` | text | a search to run when there is no `f` (for hand-written links); 2 to 60 characters, the best match is flown to |
 | `t` | `YYYY-MM-DDTHH:MM` (UTC) | the moment, 1800 to 2200 (also `YYYY-MM-DD`, or with seconds or a `Z`); left out = live |
 | `r` | number | clock rate in days per second, only with `t`; at most 3,652.5 either way; with `t` but no `r` the clock is paused |
 | `d` | number | camera distance from the focus in AU (written to 3 significant figures) |
 
-A comet or asteroid that isn't drawn yet is found by its name (the part after `comet:` or `ast:`). A hash that names
-nothing usable is ignored.
+A key is matched exactly, after the load its prefix needs (stars, exoplanet systems, the cosmic web); a comet or asteroid
+that isn't drawn yet is found by its exact name (the part after `comet:` or `ast:`). A key that matches nothing says so in
+a caption and never lands on a near match; fuzzy matching is only for `#q=`.
 
 Two query parameters also exist: `solar.html?focus=mars` opens at a body when there is no hash (anything unknown opens
 at Earth), and `solar.html?embed=1` is the mode the globe uses when it hands the camera over (not meant for links).

@@ -34,8 +34,9 @@ RELEASES = 'https://github.com/destinjones/open-overwatch/releases'
 SITE_BUDGET = 900 * 1000 * 1000   # warn above this; .github/workflows/pages.yml fails at 950 MB (GitHub's limit: 1 GB)
 # everything an archived app loads at run time (missing ones are skipped per tag); keep in sync with what the pages fetch.
 # solar.html's big data/textures (data/solar, brand/textures/planets, sky_equirect) are NOT copied per version: the page
-# falls back to the site root for them, which keeps each archived version small.
-APP_PATHS = ['open-overwatch.html', 'globe.html', 'solar.html', 'tonight.html', 'manifest.webmanifest', 'README.txt', 'src', 'brand/emblem', 'brand/fonts', 'brand/hero', 'brand/sprites',
+# falls back to the site root for them, which keeps each archived version small. The two data files are here because
+# tags up to v0.9.2.17 read them with no such fallback (2D map: Light pollution, country outlines); about 2 MB per version.
+APP_PATHS = ['open-overwatch.html', 'globe.html', 'solar.html', 'tonight.html', 'manifest.webmanifest', 'README.txt', 'src', 'data/lightpollution.bin', 'data/borders.json', 'brand/emblem', 'brand/fonts', 'brand/hero', 'brand/sprites',
              'brand/models', 'brand/textures/night', 'brand/textures/earth_fx_8k.jpg', 'brand/textures/earth_fx_4k.jpg', 'brand/textures/earth_fx_2k.jpg',
              'brand/textures/sky', 'brand/textures/sky_1k', 'brand/social/og-1200x630.png',
              'brand/social/screen-narrow.jpg', 'brand/social/screen-wide.jpg']
@@ -130,7 +131,7 @@ def stamp_worker(root):
 def fix_archived_links(root):
     """Links in an archived version that would break: old tags still name the GitHub account's old name (cwbhood,
     renamed to destinjones on 2026-10-06; GitHub Pages doesn't redirect the old address), and their pages link to the
-    landing page and about page, which aren't archived, so those point back at the site root."""
+    landing page, the about page and the city sky pages, which aren't archived, so those point back at the site root."""
     for dirpath, _, files in os.walk(root):
         for name in files:
             if not name.endswith(('.html', '.js', '.json', '.webmanifest', '.txt', '.css', '.xml')):
@@ -140,7 +141,7 @@ def fix_archived_links(root):
                 data = f.read()
             fixed = data.replace(b'cwbhood', b'destinjones')
             if name.endswith('.html') and dirpath == root:
-                for page in (b'index.html', b'about.html'):
+                for page in (b'index.html', b'about.html', b'sky/'):
                     fixed = fixed.replace(b'href="' + page, b'href="../../' + page)
             if fixed != data:
                 with open(path, 'wb') as f:

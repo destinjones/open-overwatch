@@ -201,7 +201,8 @@ function showWhatsNew(card) {
   announce('New in version ' + card.version + ': ' + card.title);
 }
 
-/** The Install buttons: the landing page's (#ooInstall, or one added to its nav) appear only when the browser offers it. */
+/** The Install buttons: the landing page's (#ooInstall, or one added to its nav, with its twin in the menu for phones
+ *  too narrow to carry it in the bar: index.html) appear only when the browser offers it. */
 function installButtons(on, page) {
   let btns = [...document.querySelectorAll('[data-oo-install]')];
   if (on && !btns.length && page === 'index') {
@@ -210,7 +211,10 @@ function installButtons(on, page) {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'btn small oo-install'; b.dataset.ooInstall = '';
       b.textContent = 'Install app'; b.title = 'Add Open Overwatch to your home screen or desktop: it opens like an app, and works offline';
       b.addEventListener('click', () => Pwa.install());
-      launch.before(b); btns = [b];
+      const inMenu = document.createElement('a'); inMenu.href = '#'; inMenu.className = 'oo-install oo-install-menu'; inMenu.dataset.ooInstall = '';
+      inMenu.setAttribute('role', 'button'); inMenu.textContent = b.textContent;
+      inMenu.addEventListener('click', e => { e.preventDefault(); Pwa.install(); });
+      launch.before(b); document.querySelector('#navLinks')?.append(inMenu); btns = [b, inMenu];
     }
   }
   for (const b of btns) b.hidden = !on;

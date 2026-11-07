@@ -355,3 +355,23 @@ test('the page can ask for the build and for skipping the wait', async () => {
   w.listeners.message({ data: { type: 'skip-waiting' }, waitUntil() {} });
   assert.ok(w.self.skipped);
 });
+
+test('the offline page works at any depth: a <base> at the site root, its emblem saved by the install, every saved page listed', async () => {
+  const B = '0.9.2.15+ccc', html = readFileSync(new URL('../offline.html', import.meta.url), 'utf8');
+  const net = { [SCOPE]: '<p>home</p>', [SCOPE + 'offline.html']: html, [SCOPE + 'brand/emblem/emblem-256.png']: 'png', [SCOPE + 'brand/emblem/favicon.svg']: '<svg/>' };
+  const page = () => ({ mode: 'navigate', headers: { accept: 'text/html' } });
+  const w = worker({ build: B, net });
+  await w.lifecycle('install');
+  w.online = false;
+  const r = await w.request(SCOPE + 'sky/tokyo/', page());
+  const text = await r.res.text();
+  assert.ok(text.startsWith(html.slice(0, html.indexOf('<head>') + 6) + `<base href="${SCOPE}">`), 'right after <head>, before anything with a URL');
+  assert.match(r.res.headers.get('content-type'), /^text\/html/);
+  assert.equal(r.res.status, 200);
+  // a page outside the cache at any depth; the emblem and favicon it then asks for at the root, with only the install done
+  for (const f of ['brand/emblem/emblem-256.png', 'brand/emblem/favicon.svg']) assert.equal((await w.request(SCOPE + f)).res.status, 200, f);
+  assert.match(html, /new URL\(href, document\.baseURI\)/, 'its cache lookups follow the base');
+  assert.doesNotMatch(html, /<base\s+href/, 'none of its own: the download and the local helper serve it from other roots');
+  const pages = /const PAGES = (\[[^\]]*\])/.exec(SRC)[1], views = /const views = (\[[\s\S]*?\]\]);/.exec(html)[1];
+  for (const p of eval(pages)) assert.ok(views.includes(`['${p}'`), `offline.html lists ${p}`);
+});

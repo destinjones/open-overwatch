@@ -279,18 +279,25 @@ async function measure(page, name, fn, { settle = 1500, timeout = 90000 } = {}) 
 for (const [key, def] of Object.entries(PAGES)) {
   if (ONLY.length && !ONLY.includes(key)) continue;
   test(`perf: ${key}`, async ({ page, context, errors }, testInfo) => {
-    errors.allow(/./);   // measured, not judged: the browser tests (e2e/*.spec.mjs) own correctness
+    errors.allow(/./);   // measured, not judged: the browser tests (e2e/*.spec.mjs) own correctness; the report lists them all and fails on a dead renderer
+    // src/globe/main.js's own note of a render failure is a warning, which the errors fixture does not collect: the report counts these too
+    const watchRender = p => p.on('console', m => { if (m.type() === 'warning' && /^render failed/.test(m.text())) errors.list.push(`console.warn: ${m.text().split('\n')[0].slice(0, 200)}`); });
+    watchRender(page); context.on('page', watchRender);
     const profile = testInfo.project.name.replace(/^perf-/, ''), phone = profile === 'phone';
     mkdirSync(OUT, { recursive: true });
     const file = `${OUT}${key}-${profile}.json`;
-    const report = { page: key, profile, url: def.url, at: new Date().toISOString(), commit: process.env.GITHUB_SHA || '', cpuSlowdown: phone ? 4 : 1, env: {}, boot: null, phases: [], leak: {}, cpuProfile: null, pageErrors: [] };
+    const report = { page: key, profile, url: def.url, at: new Date().toISOString(), commit: process.env.GITHUB_SHA || '', cpuSlowdown: phone ? 4 : 1, env: {}, boot: null, phases: [], leak: {}, cpuProfile: null, pageErrors: [], pageErrorLog: [] };
     const save = () => { report.pageErrors = errors.list.slice(0, 20); writeFileSync(file, JSON.stringify(report, null, 1)); };
+    // errors.list is one flat list over both pages: file what is new under the pass and window it fell in, for the report
+    let filed = 0;
+    const fileErrors = (pass, phase) => { for (const message of errors.list.slice(filed)) if (report.pageErrorLog.length < 300) report.pageErrorLog.push({ pass, phase, message }); filed = errors.list.length; };
 
     const c = await prepare(page, phone);
     const x = actions(page, c, phone, def);
     try {
       // 1. boot
       report.boot = await boot(page, def, x);
+      fileErrors('measured', 'Boot');
       const origin = report.boot.origin;
       report.boot.window = stats(await window_(page, origin, origin + report.boot.readyMs));
       report.env = await page.evaluate(() => {
@@ -300,7 +307,8 @@ for (const [key, def] of Object.entries(PAGES)) {
       save();
       // 2. the settle window after boot, then 3. the interactions
       const windows = [await measure(page, 'Settle after boot (12 s, no input)', () => sleep(12000), { settle: 0 })];
-      for (const [name, fn, o] of def.steps) windows.push(await measure(page, name, () => fn(x), o));
+      fileErrors('measured', windows[0].name);
+      for (const [name, fn, o] of def.steps) { windows.push(await measure(page, name, () => fn(x), o)); fileErrors('measured', name); }
       for (const w of windows) report.phases.push({ name: w.name, wallMs: w.wallMs, error: w.error, ...stats(await window_(page, w.t0, w.t1)) });
       save();
 
@@ -316,7 +324,9 @@ for (const [key, def] of Object.entries(PAGES)) {
       const grow = (a, b) => ({ heapMB: Math.round((b.heapMB - a.heapMB) * 10) / 10, nodes: b.nodes - a.nodes, listeners: b.listeners - a.listeners, documents: b.documents - a.documents });
       report.leak = { idleS: IDLE_S, loopS: LOOP_S, start: m0, afterIdle: m1, afterLoop: m2, idle: grow(m0, m1), loop: { ...grow(m1, m2), rounds, error: loopErr }, loopFrames: loopWin.frames, loopLongTasks: { n: loopWin.longTasks.n, tbtMs: loopWin.longTasks.tbtMs, maxMs: loopWin.longTasks.maxMs } };
       save();
+      fileErrors('leak', 'Idle and loop');
     } finally {
+      fileErrors('measured', 'Stopped early');
       save();
     }
 
@@ -330,18 +340,22 @@ for (const [key, def] of Object.entries(PAGES)) {
       let stop = await c2.profile();
       await boot(p2, def, x2);
       prof.boot = await stop();
+      fileErrors('profiled', 'Boot');
       await sleep(1500);
       stop = await c2.profile(); await sleep(12000); prof.phases['Settle after boot (12 s, no input)'] = await stop();
+      fileErrors('profiled', 'Settle after boot (12 s, no input)');
       for (const [name, fn, o] of def.steps) {
         stop = await c2.profile();
         try { await within(Promise.resolve().then(() => fn(x2)), (o && o.timeout) || 90000, name); } catch (e) { /* the measured pass recorded it */ }
         await sleep((o && o.settle) ?? 1500);
         prof.phases[name] = await stop();
+        fileErrors('profiled', name);
       }
     } catch (e) {
       prof.error = String(e.message || e).split('\n')[0].slice(0, 240);
     } finally {
       report.cpuProfile = prof;
+      fileErrors('profiled', 'Stopped early');
       save();
     }
   });

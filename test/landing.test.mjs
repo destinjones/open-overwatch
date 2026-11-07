@@ -181,3 +181,30 @@ test('404.html: trailing punctuation and /india are fixed once, other paths stay
   for (const [, url] of page.matchAll(/(?:href|src)="([^"]+)"/g)) assert.match(url, /^\/open-overwatch\//, `${url}: GitHub serves this page at any depth`);
   assert.doesNotMatch(read('sw.js'), /404/, 'the worker never saves the 404 page');
 });
+
+test('the phone rules that fold the nav links beat site.css (a lower specificity left the menu and language buttons off screen)', () => {
+  for (const [p, width] of [['index.html', 860], ['india/index.html', 1020], ['india/hi/index.html', 1020]]) {
+    const html = read(p), block = html.slice(html.indexOf(`@media (max-width:${width}px){`));
+    assert.match(block, /^@media \(max-width:\d+px\)\{\s*\.site-nav \.links\{display:none\}/, p);
+    assert.doesNotMatch(html, /[{\s]nav \.links\{display:none\}/, p);
+  }
+  assert.match(read('src/app/site.css'), /\.site-nav \.links\{display:flex/, 'if this rule moves, so does the question above');
+  // Install app: out of the bar and into the menu where it would push the menu button off screen
+  const html = read('index.html');
+  assert.match(html, /@media \(max-width:520px\)\{\s*nav \.btn\.oo-install\{display:none\}\s*nav\.open \.links a\.oo-install-menu\{display:inline-flex\}/);
+  assert.match(read('src/app/pwa.js'), /inMenu\.className = 'oo-install oo-install-menu'/);
+});
+
+test('the newest version launches the root pages; only an older pick goes to its frozen copy', () => {
+  const script = inlineScripts(read('index.html')).map(s => s.text).join('\n');
+  assert.match(script, /const pageOf = \(v, k\) => v === live\[0\] && v\[k\] \? ROOT_PAGE\[k\] : v\[k\];/);
+  assert.doesNotMatch(script, /\.href = v\.(map|globe|solar)\b/);
+  assert.doesNotMatch(script, /esc\(v\.(map|globe)\)/, 'the version history too');
+});
+
+test('Ironbound and the credits link to addresses that exist', () => {
+  for (const p of ['index.html', 'about.html', 'README.md']) assert.doesNotMatch(read(p), /godot-open-rts/, p);
+  const html = read('index.html');
+  assert.match(html, /satellite-js\/blob\/develop\/LICENSE\.md"/);
+  assert.match(html, /fonts\.google\.com\/specimen\/Big\+Shoulders"/);
+});

@@ -178,7 +178,7 @@ the samples), how fast, what its mission does next, and how long its signal take
   ~300 km of Horizons in quiet orbit (~20 km for Chandrayaan-3), but off by up to ~5,000 km across an orbit burn.
   `moonCenterAt`: a centre for callers with no view of their own (the MCP): the Moon from `planets.js`, Earth's centre
   for 'earth' (Apophis's flyby), null for any other key. Chandrayaan-2's published track ends 2026-11-26 and Aditya-L1's 2027-01-19 (their `end_jd` fields); a
-  working craft past its track reads "past the published track (JPL Horizons)" in the Solar view's list.
+  working craft past its track reads "No position after <date>: this copy of the JPL Horizons track ends there" in the Solar view.
 - BepiColombo carries one around 'mercury' from its capture (12 November 2026), a set every 6 hours, within ~10 km of
   Horizons. `statusAt`: the status in force at a time (a track's phases, [[jd, status], ...]: BepiColombo "In
   orbit around Mercury" once captured). `trailRanges`: the samples the Solar view draws flown and ahead; none for a
@@ -1414,8 +1414,12 @@ major, Cesium's layout) and canvas size. Used by globe (src/globe/pick.js). Test
 
 - `project`: world → window pixels, false behind the camera.
 - `behindSphere`: the line from the camera to a point passes inside the Earth (`EARTH_MIN_R`, the polar radius).
-- `makePicker`: `offer(x, y, z, sizePx, item, near, far)` for every dot, keeps the one nearest the spot within `r` px of
-  its edge, skipping NaN positions, dots outside their display range and dots behind the Earth; `.item` and `.d`.
+- `makePicker`: `offer(x, y, z, sizePx, item, near, far, cap)` for every dot, keeps the one nearest the spot within `r` px of
+  its edge (and within `cap` px of its centre), skipping NaN positions, dots outside their display range and dots behind
+  the Earth; `.item`, `.d` and `.size`.
+- `nearFarScale`: a dot's `scaleByDistance` factor at a squared distance.
+- `pickInOrder`: a dot under the pointer, then the scene pick, then a dot merely near it.
+- `makeBackOff`: hover scene picks stop after a slow one, doubling from 1 to 10 minutes; a quick pick resets it.
 
 ### `quality.js`
 

@@ -4,7 +4,9 @@
 // first with the script and the hottest functions behind each, the leaks, the budgets). Long-animation-frame script
 // positions and CPU-profile lines are mapped to file:line in this checkout.
 //   node e2e/perf-report.mjs [results-dir] [--budgets e2e/perf-budgets.json]
-// Exits 1 when a budget is exceeded and the budget file says "enforce": true; otherwise it only warns.
+// Exits 1 when a budget is exceeded and the budget file says "enforce": true; otherwise it only warns. Exits 1 too when
+// a page's renderer died, whatever the budgets say ("failOnDeadRenderer": false in the budget file turns that off):
+// a dead renderer draws nothing, so its frames read as smooth. Every page error is listed in the summary either way.
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -81,6 +83,39 @@ function metrics(r) {
   };
 }
 
+// ---- page errors: which pass and window each fell in (perf.spec.mjs files them), and whether the renderer died ----
+/** Cesium logs this on every render failure, also on those src/globe/main.js recovers from; main.js logs "render failed" (a warning). */
+const RENDER_FAILED = [/Rendering has stopped/i, /render failed/i];
+const DEAD_AT = 4;   // src/globe/main.js gives up on the fourth failure in a minute: no restart, a "reload" toast
+const firstLine = m => String(m).replace(/^(uncaught|console\.\w+): /, '').split('\n')[0].replace(/\s+/g, ' ').trim().slice(0, 200);
+/** { pass, phase, message } per error; reports from before the filing have only the messages (pass null). */
+const pageErrorsOf = r => r.pageErrorLog?.length ? r.pageErrorLog : (r.pageErrors || []).map(message => ({ pass: null, phase: null, message }));
+function errorGroups(r) {
+  const g = new Map();
+  for (const e of pageErrorsOf(r)) {
+    const message = firstLine(e.message), k = [e.pass, e.phase, message].join('\n');
+    if (g.has(k)) g.get(k).count++; else g.set(k, { pass: e.pass, phase: e.phase, message, count: 1 });
+  }
+  return [...g.values()];
+}
+/** One entry per page whose renderer gave up. The leak windows run on the measured page; the profiled pass has its own. */
+function deadRenderers(r) {
+  const out = [];
+  for (const page of ['measured', 'profiled', null]) {
+    const errs = pageErrorsOf(r).filter(e => (e.pass === 'leak' ? 'measured' : e.pass) === page);
+    for (const re of RENDER_FAILED) {
+      const hits = errs.filter(e => re.test(e.message));
+      if (hits.length >= DEAD_AT) { out.push({ pass: page, phase: hits[DEAD_AT - 1].phase, failures: hits.length }); break; }
+    }
+  }
+  return out;
+}
+const deadWords = d => d.pass === 'measured' ? `in the measured pass, at "${d.phase}": the frame numbers from there on describe a dead renderer`
+  : d.pass === 'profiled' ? `in the profiled pass, at "${d.phase}": the hottest functions from there on describe a dead renderer`
+    : 'in a pass this report cannot name (an older run): the frame numbers may describe a dead renderer';
+const deadList = runs.flatMap(r => deadRenderers(r).map(d => ({ page: r.page, profile: r.profile, ...d })));
+const framesDead = r => deadRenderers(r).some(d => d.pass === 'measured');
+
 // ---- budgets ----
 const budgets = existsSync(BUDGETS) ? JSON.parse(readFileSync(BUDGETS, 'utf8')) : { enforce: false, default: {} };
 const budgetFor = (page, profile) => ({ ...(budgets.default?.[profile] || {}), ...(budgets.pages?.[page]?.[profile] || {}) });
@@ -104,7 +139,7 @@ const offenders = windows.filter(w => score(w) > 0).slice(0, 25).map(w => ({
   cls: w.ph.cls, scripts: loafCulprits(w.ph), hottest: hot(w.r, w.name),
 }));
 
-const report = { generated: new Date().toISOString(), commit: runs[0].commit, enforce: !!budgets.enforce, runs: runs.map(r => ({ page: r.page, profile: r.profile, env: r.env, metrics: metrics(r), pageErrors: r.pageErrors?.length || 0, errors: (r.phases || []).filter(p => p.error).map(p => `${p.name}: ${p.error}`) })), offenders, violations, raw: runs };
+const report = { generated: new Date().toISOString(), commit: runs[0].commit, enforce: !!budgets.enforce, runs: runs.map(r => ({ page: r.page, profile: r.profile, env: r.env, metrics: metrics(r), pageErrors: pageErrorsOf(r).length, pageErrorGroups: errorGroups(r), rendererDied: deadRenderers(r), framesValid: !framesDead(r), errors: [...(r.phases || []).filter(p => p.error).map(p => `${p.name}: ${p.error}`), ...(r.leak?.loop?.error ? [`Leak loop: ${r.leak.loop.error}`] : []), ...(r.cpuProfile?.error ? [`Profiled pass: ${r.cpuProfile.error}`] : [])] })), offenders, violations, deadRenderers: deadList, raw: runs };
 writeFileSync(path.join(DIR, 'perf-report.json'), JSON.stringify(report, null, 1));
 
 // ---- markdown ----
@@ -113,11 +148,19 @@ const s = x => x == null ? '–' : `${n(x / 1000, 1)} s`;
 const md = [];
 md.push(`# Performance run ${report.generated.slice(0, 10)}${report.commit ? ` · ${report.commit.slice(0, 7)}` : ''}`, '');
 md.push(`Headless Chromium, software WebGL (SwiftShader), feeds stubbed, a full-size synthetic satellite catalogue. Phone = Pixel 7 screen and touch with the CPU slowed 4×. Budgets: **${budgets.enforce ? 'enforced' : 'warn only'}**.`, '');
+for (const d of deadList) md.push(`**The renderer died: ${d.page} · ${d.profile}**, ${d.failures} render failures ${deadWords(d)}.`, '');
 md.push('| Page · profile | Ready | FCP | Boot TBT | Boot req · MB | Worst p95 / p99 frame | Frames > 100 ms | Longest task | Interaction TBT | CLS | Heap idle / loop (MB) | Nodes loop |');
 md.push('|---|---|---|---|---|---|---|---|---|---|---|---|');
 for (const r of runs) {
   const m = metrics(r);
-  md.push(`| ${r.page} · ${r.profile} | ${s(m.readyMs)} | ${s(m.fcpMs)} | ${n(m.bootTbtMs)} ms | ${n(m.bootRequests)} · ${n(m.bootMB, 1)} | ${n(m.worstP95Ms)} / ${n(m.worstP99Ms)} ms | ${n(m.framesOver100)} | ${n(m.longestTaskMs)} ms | ${n(m.interactionTbtMs)} ms | ${n(m.cls, 3)} | ${n(m.idleHeapGrowthMB, 1)} / ${n(m.loopHeapGrowthMB, 1)} | ${n(m.loopNodesGrowth)} |`);
+  md.push(`| ${r.page} · ${r.profile}${framesDead(r) ? ' †' : ''} | ${s(m.readyMs)} | ${s(m.fcpMs)} | ${n(m.bootTbtMs)} ms | ${n(m.bootRequests)} · ${n(m.bootMB, 1)} | ${n(m.worstP95Ms)} / ${n(m.worstP99Ms)} ms | ${n(m.framesOver100)} | ${n(m.longestTaskMs)} ms | ${n(m.interactionTbtMs)} ms | ${n(m.cls, 3)} | ${n(m.idleHeapGrowthMB, 1)} / ${n(m.loopHeapGrowthMB, 1)} | ${n(m.loopNodesGrowth)} |`);
+}
+if (runs.some(framesDead)) md.push('', '† The renderer died during this run, so its frame numbers flatter it: nothing was being drawn.');
+const withErrors = report.runs.filter(r => r.pageErrors);
+if (withErrors.length) {
+  md.push('', '## Page errors', '', '| Page · profile | Pass | Window | Count | Message |', '|---|---|---|---|---|');
+  const cell = t => String(t ?? '–').replace(/\|/g, '\\|');
+  for (const r of withErrors) for (const e of r.pageErrorGroups) md.push(`| ${r.page} · ${r.profile} | ${e.pass || '–'} | ${cell(e.phase)} | ${e.count} | ${cell(e.message)} |`);
 }
 md.push('', '## Worst offenders', '', 'Scored as blocking time + 100 × frames over 100 ms + 5 × frames over 33 ms + 1000 × layout shift.', '');
 offenders.slice(0, 20).forEach((o, i) => {
@@ -138,4 +181,7 @@ writeFileSync(path.join(DIR, 'perf-summary.md'), md.join('\n') + '\n');
 
 console.log(md.join('\n'));
 for (const v of violations.slice(0, 20)) console.log(`::${budgets.enforce ? 'error' : 'warning'} title=perf budget::${v.page} ${v.profile}: ${v.metric} ${v.value} > ${v.budget}`);
-if (budgets.enforce && violations.length) process.exit(1);
+for (const r of withErrors) for (const e of r.pageErrorGroups.slice(0, 10)) console.log(`::warning title=page error::${r.page} ${r.profile}${e.phase ? ` · ${e.phase}` : ''}: ${e.count} × ${e.message}`);
+const failDead = budgets.failOnDeadRenderer !== false && deadList.length > 0;
+for (const d of deadList) console.log(`::${failDead ? 'error' : 'warning'} title=renderer died::${d.page} ${d.profile}: ${d.failures} render failures ${deadWords(d)}`);
+if ((budgets.enforce && violations.length) || failDead) process.exit(1);

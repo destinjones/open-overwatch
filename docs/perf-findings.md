@@ -20,6 +20,8 @@ Ordered by how much a visitor would notice, not by raw score.
    a GPU, but the render error is real and permanent. Fix ideas: no hover picks while ~15,000 dots are drawn (pick
    satellites on the CPU from their screen positions, or only on click), skip a pick when the last one was slow, and
    listen to `scene.renderError` to recover instead of leaving a dead globe.
+   **Correction 2026-11-06:** the hover pick did not cause the render error. The camera went NaN: Cesium's zoom rotates about
+   a zero axis when the wheel is on the exact centre pixel, which is where the harness zooms. Guarded in src/globe/viewer.js.
 2. **Globe · desktop · the Solar System's background preload uploads textures in the middle of interactions.**
    `step` in src/solar/main.js:235 (an `IdleRequestCallback`, `renderer.initTexture` at :237) ran 2,477 ms during
    "Starlink toggled", 1,122 ms during "Layers dock: open" and 849 ms during "lighthouses and volcanoes"; the windows
