@@ -97,6 +97,9 @@ export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntr
     const range = headers.Range || headers.range;   // a byte range is a different answer
     const key = as + ' ' + method + ' ' + url + (range ? ' ' + range : '') + (body ? ' ' + body : ''), hit = cache.get(key);
     if (hit && now() - hit.t < hit.ttl) return hit.v;
+    // before any request: a cancelled call asks nothing more, and a request nobody is waiting for could fail with no handler
+    // (an unhandled rejection ends the whole stdio server)
+    if (signal && signal.aborted) throw signal.reason;
     let p = inflight.get(key);
     if (!p) {
       p = load(url, as, headers, timeout, method, body, maxBytes, key, ttl).then(v => { remember(key, v, ttl); return v; },
@@ -105,7 +108,6 @@ export function createFeeds({ fetchImpl = globalThis.fetch, site = SITE, maxEntr
       inflight.set(key, p);
     }
     if (!signal) return p;
-    if (signal.aborted) throw signal.reason;
     return new Promise((res, rej) => {   // a cancelled call stops waiting; the shared request finishes for anyone else
       const stop = () => rej(signal.reason);
       signal.addEventListener('abort', stop, { once: true });

@@ -5,7 +5,7 @@
 // how long its light (or its radio signal) takes, how fast it moves, which way to look (RA/Dec, constellation, evening
 // or morning sky, how bright), and, for a place, how high it is there now. The site's own data copies (JPL Horizons tracks, SBDB elements) and core
 // maths; an asteroid's elements come out of the packed files by byte range. Links open the Solar System view on it.
-import { catalogue, indexCatalogue, findBody, quickIndex, findQuick, recordRanges, elementsFromBytes, fileRecords, hgMagnitude, stateAt, lightWords, distanceWords, IAU_NAMES, seeingWords, CLASS_WORDS, TRACKS, trackedAt, trackOrbit } from '../src/core/whereis.js';
+import { catalogue, indexCatalogue, findBody, fold, quickIndex, findQuick, recordRanges, elementsFromBytes, fileRecords, hgMagnitude, stateAt, lightWords, distanceWords, IAU_NAMES, seeingWords, CLASS_WORDS, TRACKS, trackedAt, trackOrbit } from '../src/core/whereis.js';
 import { planetPosition, earthPosition, moonGeocentric, PHYSICAL } from '../src/core/planets.js';
 import { SKY_PLANETS, planetFromEarth } from '../src/core/solarsys.js';
 import { moonOffset, moonPeriod } from '../src/core/moons.js';
@@ -13,7 +13,7 @@ import { trackPosition, missionPhase, eventsAround, relativeTime, missionDays, m
 import { cometFromRow, cometPosition, cometPeriodYears, cometClass, cometNames, cometsNearNow, cometMagnitude, orbitFresh, COMET_FACTS } from '../src/core/comets.js';
 import { positionAt } from '../src/core/kepler.js';
 import { nearestConstellation, formatRaDec, skyPhrase } from '../src/core/skyplace.js';
-import { altAz, moonPhase } from '../src/core/sky.js';
+import { altAz, moonPhase, bodyRaDec } from '../src/core/sky.js';
 import { compass } from '../src/core/passes.js';
 import { encodeSolarView } from '../src/core/solarlink.js';
 import { jdFromMs, msFromJd } from '../src/core/time.js';
@@ -21,7 +21,11 @@ import { ToolError } from './feeds.mjs';
 import { areaProps, resolveArea } from './place.mjs';
 import { iso, r1, r2, areaData, parseTime, timeHasZone, timeReadAs, zoneAt } from './words.mjs';
 
-const DAY = 864e5, TTL = 24 * 3600e3;
+const DAY = 864e5, TTL = 24 * 3600e3, AU_KM = 149597870.7, C_KM_S = 299792.458;
+/** The two the catalogue leaves out: every other body is placed from them, so each has an answer of its own. */
+const HOME = { earth: 'earth', 'the earth': 'earth', terra: 'earth', sun: 'sun', 'the sun': 'sun', sol: 'sun' };
+/** A next return is only worked out while its year still has four digits: past that a period is a guess at best. */
+const LAST_PROJECTED = Date.UTC(9999, 11, 31);
 const PLANETS = SKY_PLANETS.map(key => ({ key, name: PHYSICAL[key].name }));
 const memo = new WeakMap();   // data object -> its built index (28,000 names: built once per isolate, not per call)
 const indexOf = (src, items, make = indexCatalogue) => { let ix = memo.get(src); if (!ix) { ix = make(items()); memo.set(src, ix); } return ix; };
@@ -51,6 +55,25 @@ export function spaceTool(ctx) {
       if (parts[k].length !== n) throw new ToolError('The asteroid file came back short', 'unavailable');
     }));
     return elementsFromBytes(parts, meta.epoch_jd);
+  }
+
+  /** Earth and the Sun, by name. Not through stateAt: Earth is 0 from Earth and the Sun 0 from the Sun, which its phase divides by. */
+  async function home(which, t, jd, area, timed, signal) {
+    const E = earthPosition(jd), r = Math.hypot(E.x, E.y, E.z), lightS = r * AU_KM / C_KM_S, url = `${site}solar.html#${encodeSolarView({ focus: which, jd: timed ? jd : null, rate: 0 })}`;
+    const when = timed ? ` on ${iso(t).replace('T', ' ').replace('Z', ' UTC')}` : ' now', base = { at: iso(t), place: areaData(area), url, source: 'the Open Overwatch planet maths' };
+    if (which === 'earth') {
+      const a = earthPosition(jd - 1 / 24), b = earthPosition(jd + 1 / 24), speed = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) * AU_KM / 86400 / (2 / 24);
+      return { text: [`Earth (planet)${when}: ${r2(r)} AU from the Sun (sunlight takes ${lightWords(lightS)}).`, `Moving ${r1(speed)} km/s around the Sun.`,
+        'It is where everything else here is measured from, so it has no distance from Earth and no place in its own sky.', `In the 3D Solar System: ${url}`].join('\n'),
+        data: { ...base, name: 'Earth', kind: 'planet', key: 'earth', sun_au: r2(r), earth_au: 0, earth_km: 0, sunlight_time_s: r1(lightS), speed_km_s: r2(speed) } };
+    }
+    const s = bodyRaDec('sun', jd), figs = await json('data/constellations.json', signal).then(d => d.figures, () => null), near = figs ? nearestConstellation(s.ra, s.dec, figs) : null;
+    const con = near && { ...near, name: IAU_NAMES[near.id] || near.name }, sky = area ? altAz(s, area.lat, area.lon, jd) : null;
+    const local = sky ? `From ${area.label}: ${sky.alt > 0 ? `${Math.round(sky.alt)}° up in the ${compass(sky.az)}` : `below the horizon (${Math.round(sky.alt)}°, towards the ${compass(sky.az)})`}.` : '';
+    return { text: [`The Sun (star)${when}: ${distanceWords(r)} from Earth (${lightWords(lightS)}).`, `In the sky: ${formatRaDec(s)}${con ? `, ${con.sep < 3 ? 'in' : 'near'} ${con.name}` : ''}.`, local,
+      'Its rise and set at a place are under sun_and_moon, its activity under space_weather.', `In the 3D Solar System: ${url}`].filter(Boolean).join('\n'),
+      data: { ...base, name: 'Sun', kind: 'star', key: 'sun', sun_au: 0, earth_au: Number(r.toPrecision(5)), earth_km: Math.round(r * AU_KM), light_time_s: r1(lightS), ra_deg: r2(s.ra), dec_deg: r2(s.dec), constellation: con ? con.name : null,
+        ...(sky ? { altitude_deg: r1(sky.alt), azimuth_deg: Math.round(sky.az), up: sky.alt > 0 } : {}) } };
   }
 
   /** Without a name: the missions now, nearest first, or the comets best placed now. */
@@ -105,6 +128,7 @@ export function spaceTool(ctx) {
       const jd = jdFromMs(t);
       if (!named) return listing(a.list || 'missions', t, jd, signal);
       const q = a.name.trim();
+      if (HOME[fold(q)]) return home(HOME[fold(q)], t, jd, area, a.time != null, signal);
       // Look in the small lists first and only load the big ones when they are needed (they cost a Worker's CPU)
       const moons = (await json('data/solar/moons.json', signal).catch(() => null))?.moons || [];
       let hits = findBody(indexOf(moons, () => catalogue({ planets: PLANETS, moons })), q);
@@ -152,10 +176,11 @@ export function spaceTool(ctx) {
       } else if (ref.comet) {
         const c = cometFromRow(ref.comet), n = cometNames(ref.comet[0]), P = cometPeriodYears(c);
         at = j => cometPosition(c, j, {});
-        let peri = c.tp;
-        if (Number.isFinite(P) && jd > c.tp) peri = c.tp + Math.ceil((jd - c.tp) / (P * 365.25)) * P * 365.25;
+        // past perihelion: its next return, unless that is too far off to mean anything (then the last one, and no date for the next)
+        const next = Number.isFinite(P) && jd > c.tp ? c.tp + Math.ceil((jd - c.tp) / (P * 365.25)) * P * 365.25 : c.tp;
+        const projected = next !== c.tp && msFromJd(next) <= LAST_PROJECTED, peri = projected ? next : c.tp;
         extra = { designation: n.designation, class: cometClass(c), period_years: Number.isFinite(P) ? r1(P) : null, perihelion_au: r2(c.q), eccentricity: Number(c.e.toFixed(4)),
-          perihelion: iso(msFromJd(peri)), perihelion_note: Number.isFinite(P) && jd > c.tp && P > 1 ? 'the next return, from its last perihelion and period (planets shift it by days to months)' : null };
+          perihelion: iso(msFromJd(peri)), perihelion_note: projected && P > 1 ? 'the next return, from its last perihelion and period (planets shift it by days to months)' : null };
         const fact = COMET_FACTS[n.designation] || COMET_FACTS[n.designation.split('/')[0]];
         words.push(`A ${cometClass(c)}${Number.isFinite(P) ? `, around the Sun every ${r1(P)} years` : ''}; perihelion ${r2(c.q)} AU from the Sun, ${jd < peri ? 'next' : 'last'} ${extra.perihelion_note ? `around ${iso(msFromJd(peri)).slice(0, 7)} (the planets' pull moves it by weeks)` : `on ${iso(msFromJd(peri)).slice(0, 10)}`}.${fact ? ' ' + fact : ''}`);
         if (!orbitFresh(c, jd)) {   // the same caveat as the Solar System view's comet card
@@ -195,8 +220,11 @@ export function spaceTool(ctx) {
       const motion = s.speed_km_s != null ? `Moving ${r1(s.speed_km_s)} km/s around the Sun${s.range_rate_km_s != null && !ref.moon ? `, ${s.range_rate_km_s >= 0 ? 'receding from' : 'approaching'} Earth at ${r1(Math.abs(s.range_rate_km_s))} km/s` : ''}.` : '';
       const look = `In the sky: ${formatRaDec(s)}${con ? `, ${con.sep < 3 ? 'in' : 'near'} ${con.name}` : ''}, ${Math.round(s.elongation)}° from the Sun (${skyPhrase({ elong: s.elongation, east: s.east })})${extra.magnitude != null ? `, magnitude ${extra.magnitude > 0 ? '+' : ''}${extra.magnitude}${seeingWords(extra.magnitude) ? ` (needs ${seeingWords(extra.magnitude)})` : ''}` : ''}.`;
       const local = sky ? `From ${area.label}: ${sky.alt > 0 ? `${Math.round(sky.alt)}° up in the ${compass(sky.az)}` : `below the horizon (${Math.round(sky.alt)}°, towards the ${compass(sky.az)})`}.` : '';
-      const text = [lead, motion, look, local, ...words, `In the 3D Solar System: ${solar}`].filter(Boolean).join('\n');
-      return { text, data: { name: hit.name, kind: hit.kind, key: hit.key, at: iso(t), sun_au: ref.moon ? null : r2(s.sun_au), earth_au: Number(s.earth_au.toPrecision(5)), earth_km: Math.round(s.earth_km),
+      // a name that only resembles the one asked for says so: a model relaying it should not take 23047 Isseroff for the ISS
+      const fq = fold(q), exact = [hit.name, ...(hit.aliases || [])].some(n => fold(n) === fq), others = hits.slice(1, 4).map(h => h.name);
+      const guess = exact ? '' : `The closest name to "${q}" here, not an exact match${others.length ? ` (also: ${others.join(', ')})` : ''}. Satellites around Earth are under where_is_satellite.`;
+      const text = [guess, lead, motion, look, local, ...words, `In the 3D Solar System: ${solar}`].filter(Boolean).join('\n');
+      return { text, data: { name: hit.name, kind: hit.kind, key: hit.key, name_match: exact ? 'exact' : 'closest', at: iso(t), sun_au: ref.moon ? null : r2(s.sun_au), earth_au: Number(s.earth_au.toPrecision(5)), earth_km: Math.round(s.earth_km),
         light_time_s: r1(s.light_s), speed_km_s: s.speed_km_s == null ? null : r2(s.speed_km_s), range_rate_km_s: s.range_rate_km_s == null ? null : r2(s.range_rate_km_s),
         ra_deg: r2(s.ra), dec_deg: r2(s.dec), constellation: con ? con.name : null, elongation_deg: r1(s.elongation), sky_side: s.east ? 'evening' : 'morning', ...extra,
         place: areaData(area), ...(sky ? { altitude_deg: r1(sky.alt), azimuth_deg: Math.round(sky.az), up: sky.alt > 0 } : {}),

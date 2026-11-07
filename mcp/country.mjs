@@ -16,22 +16,40 @@ const flag = iso => String.fromCodePoint(...[...iso].map(c => 0x1F1E6 + c.charCo
 const fold = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const ALIAS = { usa: 'US', 'united states of america': 'US', america: 'US', uk: 'GB', britain: 'GB', 'great britain': 'GB', england: 'GB', scotland: 'GB', wales: 'GB', russia: 'RU', 'south korea': 'KR', 'north korea': 'KP',
   korea: 'KR', 'czech republic': 'CZ', czechia: 'CZ', holland: 'NL', 'the netherlands': 'NL', 'ivory coast': 'CI', burma: 'MM', 'east timor': 'TL', 'vatican': 'VA', 'uae': 'AE', 'drc': 'CD', 'dr congo': 'CD',
-  'congo kinshasa': 'CD', 'congo brazzaville': 'CG', swaziland: 'SZ', 'cape verde': 'CV', macedonia: 'MK', turkey: 'TR', turkiye: 'TR', iran: 'IR', syria: 'SY', laos: 'LA', vietnam: 'VN', bolivia: 'BO', venezuela: 'VE', tanzania: 'TZ', moldova: 'MD' };
+  'congo kinshasa': 'CD', 'congo brazzaville': 'CG', swaziland: 'SZ', 'cape verde': 'CV', macedonia: 'MK', turkey: 'TR', turkiye: 'TR', iran: 'IR', syria: 'SY', laos: 'LA', vietnam: 'VN', bolivia: 'BO', venezuela: 'VE', tanzania: 'TZ', moldova: 'MD',
+  // today's official names, where the data keeps an older or shorter one
+  eswatini: 'SZ', 'north macedonia': 'MK', 'cabo verde': 'CV', palestine: 'PS', 'state of palestine': 'PS', 'west bank': 'PS', gaza: 'PS', 'gaza strip': 'PS', 'holy see': 'VA',
+  'republic of the congo': 'CG', 'republic of congo': 'CG', 'congo republic': 'CG', 'democratic republic of the congo': 'CD', 'democratic republic of congo': 'CD',
+  'republic of ireland': 'IE', 'republic of korea': 'KR', 'people s republic of china': 'CN', 'peoples republic of china': 'CN', 'brunei darussalam': 'BN', 'federated states of micronesia': 'FM' };
+/** Words no one country owns: continents and the parts of many names ("Africa" is not South Africa, "North" not North Korea). */
+const NOT_A_COUNTRY = new Set(['africa', 'african', 'asia', 'europe', 'oceania', 'antarctica', 'north america', 'south america', 'north', 'south', 'east', 'west', 'central', 'united', 'republic', 'democratic', 'kingdom', 'state', 'states', 'island', 'islands', 'saint', 'new', 'arab', 'city', 'coast', 'and', 'of', 'the']);
+/** A name's whole words, or the start of one with enough of it: "Bosnia" and "Herzegovina" yes, "Mars" for Marshall no, "land" for Poland no. */
+const wordMatch = (name, f) => {
+  const i = (' ' + name).indexOf(' ' + f); if (i < 0) return false;
+  const stop = name.indexOf(' ', i + f.length), end = stop < 0 ? name.length : stop;
+  return end === i + f.length || f.length >= 5 || f.length / (end - i) >= 0.6;
+};
 
 /**
- * Which country a name means: ISO alpha-2 or alpha-3 codes, the name (accents and case ignored), a few common short names,
- * else the one whose name starts with or contains it. facts: countries.json's countries. Returns the ISO code or null.
+ * Which countries a name may mean: ISO alpha-2 or alpha-3 codes, the name (accents, case and a leading "the" ignored, "St" as
+ * "Saint"), the common other names, else any with it as a whole word or enough of one. Several are never settled by picking
+ * one. facts: countries.json's countries. Returns ISO codes: none, one, or the candidates.
+ * @returns {string[]}
  */
+export function matchCountries(facts, q) {
+  const s = String(q || '').trim(); if (!s) return [];
+  if (/^[A-Za-z]{2}$/.test(s) && facts[s.toUpperCase()]) return [s.toUpperCase()];
+  const f = fold(s).replace(/^the (?=.)/, '').replace(/^st (?=.)/, 'saint '), all = Object.entries(facts);
+  if (/^[a-z]{3}$/.test(f)) { const m = all.find(([, c]) => (c.iso3 || '').toLowerCase() === f); if (m) return [m[0]]; }
+  if (ALIAS[f] && facts[ALIAS[f]]) return [ALIAS[f]];
+  const exact = all.filter(([, c]) => fold(c.name) === f); if (exact.length) return exact.map(e => e[0]);   // two for "Congo"
+  if (!f || NOT_A_COUNTRY.has(f)) return [];
+  return all.filter(([, c]) => wordMatch(fold(c.name), f)).map(e => e[0]);
+}
+/** The one country a name means (the ISO code), or null when it means none or several. */
 export function findCountry(facts, q) {
-  const s = String(q || '').trim(); if (!s) return null;
-  if (/^[A-Za-z]{2}$/.test(s) && facts[s.toUpperCase()]) return s.toUpperCase();
-  const f = fold(s), all = Object.entries(facts);
-  if (/^[a-z]{3}$/.test(f)) { const m = all.find(([, c]) => (c.iso3 || '').toLowerCase() === f); if (m) return m[0]; }
-  if (ALIAS[f] && facts[ALIAS[f]]) return ALIAS[f];
-  const exact = all.find(([, c]) => fold(c.name) === f); if (exact) return exact[0];
-  const starts = all.filter(([, c]) => fold(c.name).startsWith(f)); if (starts.length === 1 || (starts.length && f.length >= 4)) return starts.sort((a, b) => a[1].name.length - b[1].name.length)[0][0];
-  const has = all.filter(([, c]) => fold(c.name).includes(f)); if (has.length && f.length >= 4) return has.sort((a, b) => a[1].name.length - b[1].name.length)[0][0];
-  return null;
+  const m = matchCountries(facts, q);
+  return m.length === 1 ? m[0] : null;
 }
 
 export { preparedBorders };   // data/borders.json prepared once per isolate (mcp/place.mjs)
@@ -58,7 +76,12 @@ export function countryTool(ctx) {
     async run(a, { signal }) {
       const d = await load(signal), t = ctx.now();
       let iso = null;
-      if (a.country) { iso = findCountry(d.facts, a.country); if (!iso) throw new ToolError(`No country called "${a.country}" in the briefing data (it has ${Object.keys(d.facts).length} countries)`, 'not_found'); }
+      if (a.country) {
+        const m = matchCountries(d.facts, a.country);
+        if (m.length > 1) throw new ToolError(`"${a.country}" could be several countries, so say which: ${m.slice(0, 8).map(x => `${d.facts[x].name} (${x})`).join(', ')}${m.length > 8 ? ', and more' : ''}`, 'not_found');
+        if (!m.length) throw new ToolError(`No country called "${a.country}" in the briefing data (it has ${Object.keys(d.facts).length} countries)`, 'not_found');
+        iso = m[0];
+      }
       else if (a.lat != null || a.lon != null) {
         if (!(Number.isFinite(a.lat) && Number.isFinite(a.lon))) throw new ToolError('Give both lat and lon', 'invalid_arguments');
         const b = countryAt(d.borders, a.lon, a.lat); if (!b) throw new ToolError(`${coord(a.lat, a.lon)} is not inside any country's outline (at sea, or on a coast the simplified borders miss)`, 'not_found');

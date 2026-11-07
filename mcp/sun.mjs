@@ -57,7 +57,8 @@ export function sunTool(ctx) {
       // solar noon: the Sun's highest that day (to the minute)
       let noon = t0, top = -90;
       for (let t = t0; t < t0 + day.ms; t += 5 * 60e3) { const h = sunAlt(lat, lon, t); if (h > top) { top = h; noon = t; } }
-      for (let t = noon - 5 * 60e3; t <= noon + 5 * 60e3; t += 30e3) { const h = sunAlt(lat, lon, t); if (h > top) { top = h; noon = t; } }
+      // inside the day: at a pole the highest can be its very start
+      for (let t = Math.max(t0, noon - 5 * 60e3); t <= Math.min(t0 + day.ms - 1, noon + 5 * 60e3); t += 30e3) { const h = sunAlt(lat, lon, t); if (h > top) { top = h; noon = t; } }
       const len = (r, up) => (r.rise != null && r.set != null ? (r.set > r.rise ? r.set - r.rise : day.ms - (r.rise - r.set)) : up === true ? day.ms : up === false ? 0 : null);
       const dayLen = len(sun, sun.up), next = riseSet('sun', lat, lon, t0 + day.ms, { h0: -0.833, hours: 24, step: 5 * 60e3 }), lenNext = len(next, next.up);
       const az = ms => compass(altAz(bodyRaDec('sun', jdFromMs(ms)), lat, lon, jdFromMs(ms)).az);
@@ -65,7 +66,8 @@ export function sunTool(ctx) {
       const out = [`${c.date(mid)} at ${area.label} (${tz || 'UTC'}):`];
       if (sun.up === true) out.push('The Sun does not set today (midnight sun).'); else if (sun.up === false) out.push('The Sun does not rise today (polar night).');
       else out.push(`Sunrise ${f(sun.rise) || '-'}${sun.rise ? ` in the ${az(sun.rise)}` : ''}, sunset ${f(sun.set) || '-'}${sun.set ? ` in the ${az(sun.set)}` : ''}; the day is ${hm(dayLen)} long${lenNext != null && dayLen != null ? `, ${Math.abs(Math.round((lenNext - dayLen) / 60e3)) < 1 ? 'the same tomorrow' : `${Math.abs(Math.round((lenNext - dayLen) / 60e3))} min ${lenNext > dayLen ? 'longer' : 'shorter'} tomorrow`}` : ''}.`);
-      out.push(`Solar noon ${f(noon)}, the Sun ${Math.round(top)}° up.`);
+      // sun.up, not the sign alone: the Sun counts as risen down to -0.833° (the air bends it into view)
+      out.push(`Solar noon ${f(noon)}, the Sun ${sun.up === false ? `stays ${-Math.round(top)}° below the horizon` : Math.round(top) <= 0 ? 'about on the horizon' : `${Math.round(top)}° up`}.`);
       const tw = (name, r) => (r.rise || r.set ? `${name} ${f(r.rise) || '-'} to ${f(r.set) || '-'}` : r.up === true ? `${name}: all day` : `${name}: not today`);
       out.push(`Light (dawn to dusk): ${tw('civil twilight', civ)}; ${tw('nautical', nau)}; ${tw('astronomical', ast)}.`);
       if (sun.up === true && (gold.rise || gold.set)) out.push(`Golden light all night: the Sun stays under 6° from ${f(gold.set) || '-'} to ${f(gold.rise) || '-'}.`);

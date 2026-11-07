@@ -15,11 +15,11 @@ import { decodeView, tonightHash, decodeTonight } from '../src/core/viewlink.js'
 import { decodeSolarView } from '../src/core/solarlink.js';
 import { AU_KM } from '../src/core/units.js';
 import { ToolError } from './feeds.mjs';
-import { rep, lineFor } from '../src/core/liveprov.js';
+import { rep, lineFor, LAYERS as LIVE_LAYERS } from '../src/core/liveprov.js';
 import { areaProps, resolveArea, inArea, distKm, frame, frameArea, globeUrl, panelUrl, LAYERS, WEATHER, STORM_SEA_DEG } from './place.mjs';
 import { findSats, satState, ecefAt, GROUP_LAYER } from './sats.mjs';
 import { PANEL_URI } from './panel.mjs';
-import { iso, utc, r1, r2, coord, plural, ago, clocks, areaData, where, limitProp, take, zoneAt, parseTime, timeHasZone, timeReadAs } from './words.mjs';
+import { iso, utc, r1, r2, coord, plural, ago, clocks, areaData, where, limitProp, take, zoneAt, parseTime, timeHasZone, timeReadAs, darkWords } from './words.mjs';
 import { loadQuakes, loadStorms, loadEvents, EONET_CATS } from './hazards.mjs';
 import { camerasTool } from './cams.mjs';
 import { transitTool } from './transit.mjs';
@@ -90,7 +90,7 @@ export function createTools(ctx) {
         weather: { type: 'array', maxItems: 9, items: { type: 'string', enum: WEATHER }, description: 'Open weather mode with these: ir (clouds seen by satellites), radar (rain), rain (rain from space), lightning, wind, temp (temperature), pres (sea-level pressure: isobars, highs and lows), gust (wind gusts), wave (ocean wave height and direction).' },
         time: { type: 'string', maxLength: 40, description: "A moment to set the globe's clock to, ISO 8601 (e.g. a satellite pass). Omit for live. Give Z or an offset to be exact; a time without one is read as the place's local time, or as UTC without a place." },
         time_speed: { type: 'number', minimum: -100000, maximum: 100000, description: 'With time: simulated seconds per real second (1 real time, 60 a minute a second, 0 paused). Default 1.' },
-        satellite: { type: 'string', maxLength: 80, description: 'A satellite to follow, by name or NORAD number ("ISS", "Hubble", "NOAA 19", "25544").' },
+        satellite: { type: 'string', maxLength: 80, description: 'A satellite to follow, by name or NORAD number ("ISS", "Hubble", "NOAA 20", "25544").' },
         flight: { type: 'string', pattern: '^[A-Za-z0-9]{2,8}$', description: `A flight callsign to look for, e.g. "BAW123"${feeds.hasAircraft ? '' : ' (live aircraft show only in the download version of Open Overwatch, so on the website this is left out of the link)'}.` },
         country: { type: 'string', pattern: '^[A-Za-z]{2}$', description: "Two-letter ISO country code: opens the country's card and outline." },
         sensor: { type: 'string', enum: SENSORS, description: 'A camera look: nvg (night vision), flir (thermal, white hot), flirbh (black hot), iron (thermal colours), crt (old screen), noir (black and white), normal.' },
@@ -155,15 +155,19 @@ export function createTools(ctx) {
       const min = a.min_magnitude ?? 2.5, period = a.period || 'day', sort = a.sort || 'magnitude';
       if (period === 'month' && min < 2.5) throw new ToolError('For a whole month ask for magnitude 2.5 or more (the full list is too large)', 'invalid_arguments');
       const [quakes, area] = await Promise.all([loadQuakes(feeds, { min, period, signal, emsc: true, now: now() }), resolveArea(a, feeds, { pointKm: 500, signal })]);
-      const all = quakes.filter(q => inArea(area, q.lat, q.lon));
+      const t = now(), inPlace = quakes.filter(q => inArea(area, q.lat, q.lon)), from = t - { hour: 3600e3, day: 864e5, week: 7 * 864e5, month: 30 * 864e5 }[period], all = inPlace.filter(q => q.t >= from);
+      // USGS remakes this list every minute: one older than the layer's limit is the last good answer standing in for a feed that is down
+      const madeAt = /** @type {any} */ (quakes).generatedAt, stale = madeAt != null && t - madeAt > LIVE_LAYERS.quakes.maxAgeMs, older = inPlace.length - all.length;
       all.sort(sort === 'time' ? (x, y) => y.t - x.t : (x, y) => y.magnitude - x.magnitude || y.t - x.t);
-      const list = take(all, a.limit || 20), t = now(), top = all.length ? all.reduce((m, q) => (q.magnitude > m.magnitude ? q : m)) : null;
+      const list = take(all, a.limit || 20), top = all.length ? all.reduce((m, q) => (q.magnitude > m.magnitude ? q : m)) : null;
       const camera = area ? frameArea(area) : top ? frame(top.lat, top.lon, 900) : EARTH_VIEW, url = link({ camera, on: ['quakes'] });
-      const head = all.length ? `${plural(all.length, 'earthquake')} of magnitude ${min}+ in the last ${period}${where(area)}${all.length > list.length ? ` (the ${list.length} ${sort === 'time' ? 'latest' : 'strongest'} below)` : ''}.`
+      const cut = all.length > list.length ? ` (the ${list.length} ${sort === 'time' ? 'latest' : 'strongest'} below)` : '';
+      const head = stale ? `USGS's latest list here is from ${ago(madeAt, t)} (the feed is not answering), so anything since then is missing and this does not cover the whole last ${period}. ${all.length ? `Up to then: ${plural(all.length, 'earthquake')} of magnitude ${min}+ within the last ${period}${where(area)}${cut}.` : `It has no earthquakes of magnitude ${min}+ within the last ${period}${where(area)}${older ? ` (${plural(older, 'older one')} left out)` : ''}, which is not an all-clear.`}`
+        : all.length ? `${plural(all.length, 'earthquake')} of magnitude ${min}+ in the last ${period}${where(area)}${cut}.`
         : `No earthquakes of magnitude ${min}+ in the last ${period}${where(area)}.`;
       const lines = list.map(q => `M${q.magnitude} · ${q.place} · ${utc(q.t)} (${ago(q.t, t)}) · ${q.depth_km} km deep${q.tsunami ? ' · tsunami flag' : ''}${q.alert ? ` · PAGER ${q.alert}` : ''}${/ · confirmed$/.test(q.provenance || '') ? ' · confirmed by EMSC' : ''}`);
       const note = period !== 'day' || min < 2.5 ? " (the globe's layer shows the last 24 hours, M2.5+)" : '';
-      return { text: [head, ...lines, `On the globe${note}: ${url}`].join('\n'), data: { total: all.length, returned: list.length, truncated: all.length > list.length, min_magnitude: min, period,
+      return { text: [head, ...lines, `On the globe${note}: ${url}`].join('\n'), data: { total: all.length, returned: list.length, truncated: all.length > list.length, min_magnitude: min, period, data_at: iso(madeAt), stale,
         area: areaData(area), earthquakes: list.map(({ t: _, ...q }) => q), url, source: 'USGS Earthquake Hazards Program (public domain); checked against EMSC, the European-Mediterranean Seismological Centre (credit EMSC)' } };
     },
   };
@@ -172,7 +176,7 @@ export function createTools(ctx) {
     name: 'where_is_satellite',
     title: 'Where is a satellite now',
     description: 'Where a satellite or space station is right now: the point below it, its height and speed, its orbit, and whether it is in sunlight, from the website copy of CelesTrak element sets (SGP4). Default: the ISS. Its link follows it on the globe.',
-    inputSchema: { type: 'object', additionalProperties: false, properties: { satellite: { type: 'string', maxLength: 80, description: 'Name or NORAD catalogue number ("ISS", "Tiangong", "Hubble", "NOAA 19", "25544"). Default ISS.' } } },
+    inputSchema: { type: 'object', additionalProperties: false, properties: { satellite: { type: 'string', maxLength: 80, description: 'Name or NORAD catalogue number ("ISS", "Tiangong", "Hubble", "NOAA 20", "25544"). Default ISS.' } } },
     async run(a, { signal }) {
       const found = await findSats(feeds, a.satellite || 'ISS', { signal, max: 5 }), s = found[0], sl = await ctx.sgp4(), t = now(), st = satState(sl, s, t);
       if (!st) throw new ToolError(`${s.name} (NORAD ${s.id}) can't be placed from its element set: it may have come down`, 'not_found');
@@ -427,9 +431,9 @@ export function createTools(ctx) {
       const T = v => (Number.isFinite(v) ? (imp ? `${Math.round(v * 9 / 5 + 32)} °F` : `${Math.round(v)} °C`) : '?'), W = v => (Number.isFinite(v) ? (imp ? `${Math.round(v * 2.23694)} mph` : `${Math.round(v * 3.6)} km/h`) : '?');
       const P = v => (imp ? `${r2(v / 25.4)} in` : `${r1(v)} mm`);
       const now0 = weatherSentence({ temp: c.temperature_2m, speed: c.wind_speed_10m, from: c.wind_direction_10m, cloud: c.cloud_cover, code: c.weather_code }, imp);
-      const daysOut = (dy.time || []).map((date, i) => ({ date, conditions: skyWords({ code: dy.weather_code[i] }) || null, high: dy.temperature_2m_max[i], low: dy.temperature_2m_min[i], rain_mm: dy.precipitation_sum[i],
+      const daysOut = (dy.time || []).map((date, i) => ({ date, conditions: skyWords({ code: dy.weather_code[i] }) || null, high_c: dy.temperature_2m_max[i], low_c: dy.temperature_2m_min[i], rain_mm: dy.precipitation_sum[i],
         rain_chance_percent: dy.precipitation_probability_max[i], wind_max_ms: dy.wind_speed_10m_max[i], gusts_max_ms: dy.wind_gusts_10m_max[i], sunrise: dy.sunrise[i], sunset: dy.sunset[i] }));
-      const lines = daysOut.map(x => `${new Date(x.date + 'T12:00:00Z').toUTCString().slice(0, 11)}: ${x.conditions || 'mixed'}, ${T(x.low)} to ${T(x.high)}${x.rain_mm > 0 ? `, ${P(x.rain_mm)} rain` : ''}${x.rain_chance_percent != null ? ` (${x.rain_chance_percent}% chance)` : ''}, wind up to ${W(x.wind_max_ms)} (gusts ${W(x.gusts_max_ms)}), sunrise ${String(x.sunrise).slice(11)}, sunset ${String(x.sunset).slice(11)}`);
+      const lines = daysOut.map(x => `${new Date(x.date + 'T12:00:00Z').toUTCString().slice(0, 11)}: ${x.conditions || 'mixed'}, ${T(x.low_c)} to ${T(x.high_c)}${x.rain_mm > 0 ? `, ${P(x.rain_mm)} rain` : ''}${x.rain_chance_percent != null ? ` (${x.rain_chance_percent}% chance)` : ''}, wind up to ${W(x.wind_max_ms)} (gusts ${W(x.gusts_max_ms)}), sunrise ${String(x.sunrise).slice(11)}, sunset ${String(x.sunset).slice(11)}`);
       const camera = frame(area.lat, area.lon, 1400), url = link({ camera, weather: ['ir', 'radar', 'wind'] });   // weather mode shows the whole Earth below 3,000 km
       const head = `Now at ${area.label} (${String(c.time).replace('T', ' ')} ${d.timezone_abbreviation || d.timezone || ''}): ${now0}; feels like ${T(c.apparent_temperature)}, humidity ${c.relative_humidity_2m}%, gusts ${W(c.wind_gusts_10m)}${c.precipitation > 0 ? `, ${P(c.precipitation)} of rain in the last 15 min` : ''}.`;
       const wxAt = Date.parse(String(c.time || '') + 'Z') - (+d.utc_offset_seconds || 0) * 1000;
@@ -492,7 +496,7 @@ export function createTools(ctx) {
       const met = await feeds.json(`${METEO}?latitude=${lat.toFixed(2)}&longitude=${lon.toFixed(2)}&timezone=auto&forecast_days=3&hourly=cloud_cover`, { ttl: 30 * 60e3, signal }).catch(() => null);
       const tz = met && met.timezone, c = clocks(tz), minLeft = 45 * 60e3, dark = darkWindow(lat, lon, t, { minLeft });
       const out = [], data = { place: areaData(area), timezone: tz || null };
-      if (dark) { out.push(`Dark enough from ${c.full(dark.start)} until ${c.hm(dark.end)}.`); data.dark = { from: iso(dark.start), until: iso(dark.end) }; } else out.push('No dark sky here in the next day (polar day or summer twilight).');
+      if (dark) { out.push(darkWords(dark, c, lat, lon, 'Dark enough from', 'until')); data.dark = { from: iso(dark.start), until: iso(dark.end) }; } else out.push('No dark sky here in the next day (polar day or summer twilight).');
       if (dark && met && met.hourly) {   // the cloud forecast for the dark hours
         const hrs = met.hourly.time.map((s, i) => [Date.parse(s + ':00Z') - met.utc_offset_seconds * 1000, met.hourly.cloud_cover[i]]).filter(([h, v]) => h >= dark.start && h <= dark.end && Number.isFinite(v));
         if (hrs.length) { const avg = hrs.reduce((s, [, v]) => s + v, 0) / hrs.length; out.push(`Clouds: ${avg < 20 ? 'mostly clear' : avg < 50 ? 'partly cloudy' : avg < 80 ? 'mostly cloudy' : 'overcast'} (${Math.round(avg)}% on average through the night).`); data.cloud_percent = Math.round(avg); }

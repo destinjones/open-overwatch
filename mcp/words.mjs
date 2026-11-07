@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Destin Jones. Open Overwatch, MIT License (see LICENSE and NOTICE).
 // Small helpers every tool uses: times, numbers, coordinates and places in words, and the place's time zone.
 import { zonedToUtc } from '../src/core/traffic.js';
+import { sunAlt } from '../src/core/sky.js';
 
 const METEO = 'https://api.open-meteo.com/v1/forecast';
 
@@ -34,7 +35,8 @@ export const timeHasZone = s => { const m = ISO_TIME.exec(String(s ?? '').trim()
 /** What a zone-less time argument was read as, for the answer to say: '' when it named its zone. */
 export const timeReadAs = (s, tz = null) => (s == null || timeHasZone(s) ? '' : ` (the time given, read as ${tz ? `local time in ${tz}` : 'UTC'})`);
 
-export const iso = ms => (Number.isFinite(ms) ? new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z') : null);
+/** ISO 8601 to the second, or null for what is no date (not a number, or outside what a Date can hold). */
+export const iso = ms => (Number.isFinite(ms) && Math.abs(ms) <= 8.64e15 ? new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z') : null);
 export const utc = ms => new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
 export const r1 = v => Math.round(v * 10) / 10, r2 = v => Math.round(v * 100) / 100;
 export const coord = (lat, lon) => `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
@@ -61,6 +63,12 @@ export const take = (list, n) => list.slice(0, Math.max(1, Math.min(n, list.leng
 export async function zoneAt(ctx, lat, lon, signal) {
   const d = await ctx.feeds.json(`${METEO}?latitude=${lat.toFixed(2)}&longitude=${lon.toFixed(2)}&timezone=auto&forecast_days=1&current=is_day`, { ttl: 864e5, signal }).catch(() => null);
   return d && typeof d.timezone === 'string' ? d.timezone : null;
+}
+/** darkWindow's stretch as a sentence: `from` and `to` are its own words ("Dark from", "to"). core/sky.js stops looking 24 h on,
+ *  so a window still dark at its end has no dawn to give (polar night). @param {{ start: number, end: number }} win */
+export function darkWords(win, c, lat, lon, from, to) {
+  if (sunAlt(lat, lon, win.end) < -6) return win.end - win.start >= 24 * 3600e3 ? 'Dark for the whole next 24 hours (the Sun stays below -6°).' : `${from} ${c.full(win.start)}, and still dark 24 hours from now.`;
+  return `${from} ${c.full(win.start)} ${to} ${win.end - win.start >= 18 * 3600e3 ? c.full(win.end) : c.hm(win.end)}.`;   // so long a night's end can read earlier in the day than its start
 }
 /** Bytes as base64 (MCP image content), in chunks so a large picture doesn't overflow the call stack; no Node Buffer. */
 export function base64(bytes) {

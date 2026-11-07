@@ -33,7 +33,7 @@ export function distanceTool(ctx) {
     let best = choosePair(as, bs), d = inverse(best[0].lat, best[0].lon, best[1].lat, best[1].lon).s;
     if (d > 50e3) {
       // a nearer namesake may replace a mountain or a landmark, but never a city with a village or a diner of the same name
-      const ok = (was, now) => !(was.kind in RANK) || (RANK[now.kind] || 0) >= RANK[was.kind];
+      const ok = (was, now) => !(was.kind === 'country' && was.country === now.country) && (!(was.kind in RANK) || (RANK[now.kind] || 0) >= RANK[was.kind]);   // the same country again is no nearer namesake
       const tries = await Promise.all([candidates(qa, 1, signal, best[1]).then(l => ok(best[0], l[0]) && [l[0], best[1]], () => null),
         candidates(qb, 1, signal, best[0]).then(l => ok(best[1], l[0]) && [best[0], l[0]], () => null)]);
       for (const p of tries.filter(Boolean)) { const x = inverse(p[0].lat, p[0].lon, p[1].lat, p[1].lon).s; if (x < d) { d = x; best = p; } }
@@ -79,7 +79,8 @@ export function distanceTool(ctx) {
         : `Through ${pts.length} places: ${L(total)} as the crow flies.`];
       if (pts.length > 2) out.push(...legs.map(l => `${l.from} → ${l.to}: ${L(l.m)}, ${bearingText(l.az)}`));
       if (mid) out.push(`Halfway: ${coord(mid[1], mid[0])}.`);
-      if (road) out.push(`${MODE_WORD[by][0].toUpperCase() + MODE_WORD[by].slice(1)}: ${L(road.m)}, about ${hm(road.s)} (OSRM; ${r1(road.m / total)} times the straight line).`);
+      const detour = road && total > 0 ? road.m / total : null;   // the same point twice has no straight line to compare with
+      if (road) out.push(`${MODE_WORD[by][0].toUpperCase() + MODE_WORD[by].slice(1)}: ${L(road.m)}, about ${hm(road.s)} (OSRM${detour != null ? `; ${r1(detour)} times the straight line` : ''}).`);
       // the drawing: a distance arrow (re-routed by road on arrival) for two places, a line through more
       const shape = pts.length === 2 ? { kind: 'arrow', coords: pts.map(p => [p.lon, p.lat]), ...(by === 'drive' ? { road: true } : {}) } : { kind: 'line', coords: pts.map(p => [p.lon, p.lat]) };
       const [cLon, cLat] = pts.length === 2 ? mid : centre(pts.map(p => [p.lon, p.lat])), c = { lat: cLat, lon: cLon };   // the mean direction: a Pacific path is framed over the Pacific
@@ -88,7 +89,7 @@ export function distanceTool(ctx) {
       out.push(`The line on the globe: ${url}`);
       return { text: out.join('\n'), data: { places: pts.map(p => ({ name: p.label, lat: +p.lat.toFixed(5), lon: +p.lon.toFixed(5) })), distance_km: Math.round(total) / 1000, distance_text: L(total),
         bearing_deg: r1(first.az), legs: legs.map(l => ({ from: l.from, to: l.to, km: Math.round(l.m) / 1000, bearing_deg: r1(l.az) })), halfway: mid ? { lat: r2(mid[1]), lon: r2(mid[0]) } : null,
-        route: road ? { by, km: Math.round(road.m) / 1000, minutes: Math.round(road.s / 60), detour_factor: r2(road.m / total) } : null, url,
+        route: road ? { by, km: Math.round(road.m) / 1000, minutes: Math.round(road.s / 60), detour_factor: detour != null ? r2(detour) : null } : null, url,
         source: `WGS84 geodesics (Vincenty)${road ? '; FOSSGIS OSRM routing over OpenStreetMap (© OpenStreetMap contributors)' : ''}` } };
     },
   };

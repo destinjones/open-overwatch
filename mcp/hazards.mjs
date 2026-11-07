@@ -36,8 +36,12 @@ export async function loadQuakes(feeds, { min = 2.5, period = 'day', signal, ems
     emsc ? feeds.text(emscUrl({ ...emscAsk(feed), now }), { ttl: 10 * 60e3, timeout: 10e3, signal }).then(emscList)
       .catch(() => (kept.get(feed) || {}).list || []) : []]);
   const dataAt = usgsDataAt(d);
-  return parseUsgs(d, { min, quakesOnly: true }).map(q => ({ provenance: provLine(stampQuake(q, { dataAt, emsc: em }), now), magnitude: r1(q.mag), place: q.place || coord(q.lat, q.lon), time: iso(q.time), t: q.time, depth_km: q.depth != null ? r1(q.depth) : null,
+  const list = parseUsgs(d, { min, quakesOnly: true }).map(q => ({ provenance: provLine(stampQuake(q, { dataAt, emsc: em }), now), magnitude: r1(q.mag), place: q.place || coord(q.lat, q.lon), time: iso(q.time), t: q.time, depth_km: q.depth != null ? r1(q.depth) : null,
     lat: r2(q.lat), lon: r2(q.lon), tsunami: q.tsunami, alert: q.alert, felt_reports: q.felt || 0, url: q.url || null }));
+  // when USGS made this list, if it says: a failed fetch hands back the last good one for a day, and only this tells them apart
+  // (the newest quake's age does not: a quiet hour has none). Kept out of answers.
+  const generated = d && d.metadata && d.metadata.generated;
+  return Object.defineProperty(list, 'generatedAt', { value: Number.isFinite(generated) ? generated : null });
 }
 
 /** @type {[number, string][]} */

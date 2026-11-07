@@ -46,9 +46,33 @@ export async function geocodeMany(feeds, q, n, signal, near) {
   if (text.length < 2) throw new ToolError('Name a place (two letters or more)', 'invalid_arguments');
   const bias = near ? `&lat=${near.lat.toFixed(3)}&lon=${near.lon.toFixed(3)}&location_bias_scale=0.1&zoom=10` : '';
   const d = await feeds.json(`${PHOTON}?q=${encodeURIComponent(text)}&limit=${n}&lang=en${bias}`, { ttl: 7 * 864e5, signal });
-  const out = ((d && Array.isArray(d.features) ? d.features : []).map(f => placeOf(f, text))).filter(Boolean);
+  const out = await countryFirst(feeds, text, ((d && Array.isArray(d.features) ? d.features : []).map(f => placeOf(f, text))).filter(Boolean), signal);
   if (!out.length) throw new ToolError(`No place called "${text}" was found`, 'not_found');
   return out;
+}
+const foldName = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+/** Kinds a same-named country must not displace: a big place people do mean (Georgia, the US state; Lebanon, Pennsylvania). */
+const BIG_PLACE = new Set(['country', 'state', 'region', 'province', 'county', 'city', 'sea', 'ocean', 'continent']), WIDE_PLACE = new Set(['country', 'state', 'region', 'province']);
+/**
+ * A name that is exactly a country's, where the geocoder's best hit is only a small namesake elsewhere ("Samoa": a hamlet in
+ * California, with the country not among its first five): the country goes first, from the geocoder's own hit if it has one
+ * (under another spelling, "Sāmoa"), else data/countries.json's point. That file is only read for such small hits, and failing
+ * to read it leaves the answer as it was. A name two countries share (Congo) stays as it is.
+ */
+async function countryFirst(feeds, text, out, signal) {
+  const top = out[0];
+  if ((top && BIG_PLACE.has(top.kind)) || text.length > 60 || /[\d,]/.test(text)) return out;
+  const names = await feeds.json(feeds.site('data/countries.json'), { ttl: 864e5, signal }).then(d => derive(d, 'country-names', doc => {
+    const m = new Map();
+    for (const [code, c] of Object.entries((doc && doc.countries) || {})) { const k = foldName(c.name); m.set(k, m.has(k) ? null : { code, c }); }
+    return m;
+  }), () => null);
+  const m = names && names.get(foldName(text).replace(/^the /, ''));
+  if (!m || !Number.isFinite(m.c.lat) || !Number.isFinite(m.c.lon)) return out;
+  if (top && top.country === m.code) return out;   // its own town of that name (or the country's island)
+  if (out.some(p => WIDE_PLACE.has(p.kind) && p.country !== m.code)) return out;   // a state elsewhere by that name: leave the choice to the geocoder
+  const own = out.find(p => p.kind === 'country' && p.country === m.code);
+  return [own || { name: m.c.name, label: m.c.name, lat: m.c.lat, lon: m.c.lon, kind: 'country', country: m.code, bbox: null }, ...out.filter(p => p !== own)];
 }
 function placeOf(f, text) {
   const p = (f && f.properties) || {}, c = (f && f.geometry && f.geometry.coordinates) || [];

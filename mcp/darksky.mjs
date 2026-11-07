@@ -7,7 +7,7 @@
 import { ToolError, derive } from './feeds.mjs';
 import { preparedBorders } from './country.mjs';
 import { areaProps, resolveArea, frame, globeUrl } from './place.mjs';
-import { iso, areaData, clocks, r2 } from './words.mjs';
+import { iso, areaData, clocks, r2, darkWords } from './words.mjs';
 import { provenance, provenanceText } from '../src/core/provenance.js';
 import { decodeAtlas, skyAt } from '../src/core/lightpollution.js';
 import { parseDeepsky } from '../src/core/deepsky.js';
@@ -54,7 +54,7 @@ export function darkSkyTool(ctx) {
       if (win) {
         const moon = moonOver(lat, lon, win), hours = met ? hoursOf(met) : [], clouds = hours.length ? night(hours, Math.max(win.start, t), win.end, { time: c.hm }) : null;
         q = tonightQuality({ sky, moon, clouds, time: c.hm });
-        out.push(`${q.text} Dark from ${c.full(win.start)} to ${c.hm(win.end)}.`);
+        out.push(`${q.text} ${darkWords(win, c, lat, lon, 'Dark from', 'to')}`);
         data.tonight = { quality: q.word, score: r2(q.score), effective_sqm: r2(q.sqm), dark_from: iso(win.start), dark_until: iso(win.end), moon_lit_percent: Math.round(moon.lit * 100), moon_up_hours: +moon.upHours.toFixed(1), moonless_hours: +moon.moonless.toFixed(1),
           cloud_percent: clouds ? clouds.mean : null, clouds: clouds ? clouds.text : null, words: q.text };
       } else out.push('No dark sky here in the next day (polar day or summer twilight), so no deep-sky list.');
